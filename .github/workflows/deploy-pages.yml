@@ -24,10 +24,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download V6 website payload
+      - name: Download creator-video website payload
         run: |
           mkdir -p public
-          curl -fL "https://ming-eagle-sports.floot.app/_cdn/static/5466be47-3d9e-49cc-b300-c3339999b2e5-mingeagle-v6-payload.zip" -o site.zip
+          curl -fL "https://ming-eagle-sports.floot.app/_cdn/static/944124c1-4742-4887-8860-bf811c566326-mingeagle-v7-creator-videos.zip" -o site.zip
           unzip -q site.zip -d public
           echo "www.mingeagle.com" > public/CNAME
 
