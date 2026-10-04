@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { statusLabel } from './adminI18n';
 
 type Row = Record<string, unknown>;
 
@@ -39,7 +40,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       const body = await response.json() as { ok?: boolean; quotes?: Row[] };
       if (response.ok && body.ok) setQuotes(body.quotes || []);
     } catch {
-      // Parent workspace already reports connectivity errors; this secondary refresh can fail silently.
+      // 主工作台会显示连接错误，这里的二次刷新失败可静默处理。
     }
   }
 
@@ -75,12 +76,12 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       });
 
       const body = await response.json() as QuoteResult & { ok?: boolean; error?: string };
-      if (!response.ok || !body.ok) throw new Error(body.error || 'Unable to create quote draft.');
+      if (!response.ok || !body.ok) throw new Error(body.error || '无法创建报价草稿。');
       setResult(body);
       onCreated();
       await loadQuotes();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to create quote draft.');
+      setError(err instanceof Error ? err.message : '无法创建报价草稿。');
     } finally {
       setBusy(false);
     }
@@ -99,12 +100,12 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
         body: JSON.stringify({ quoteId }),
       });
       const body = await response.json() as { ok?: boolean; reference?: string; publicPath?: string; error?: string };
-      if (!response.ok || !body.ok || !body.reference || !body.publicPath) throw new Error(body.error || 'Unable to create secure customer link.');
+      if (!response.ok || !body.ok || !body.reference || !body.publicPath) throw new Error(body.error || '无法生成客户安全链接。');
       setCustomerLink({ reference: body.reference, url: `${window.location.origin}${body.publicPath}` });
       onCreated();
       await loadQuotes();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to create secure customer link.');
+      setError(err instanceof Error ? err.message : '无法生成客户安全链接。');
     } finally {
       setBusyQuoteId('');
     }
@@ -117,72 +118,72 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   return <>
     <section className="panel quote-builder">
       <div className="panel-head">
-        <h2>Create quote draft</h2>
-        <span>Inquiry → commercial draft</span>
+        <h2>创建报价草稿</h2>
+        <span>询盘 → 商务报价</span>
       </div>
-      {available.length === 0 ? <div className="empty-row">No inquiry is available for quoting yet.</div> : <form onSubmit={submit} className="quote-form">
+      {available.length === 0 ? <div className="empty-row">当前没有可报价的询盘。</div> : <form onSubmit={submit} className="quote-form">
         <div className="quote-form-grid">
-          <label>Inquiry
+          <label>关联询盘
             <select name="inquiryReference" value={selectedReference} onChange={e => setSelectedReference(e.target.value)} required>
               {available.map(item => <option key={text(item.reference)} value={text(item.reference)}>
-                {text(item.reference)} · {text(item.customer)} · {text(item.estimated_quantity, '—')} pcs
+                {text(item.reference)} · {text(item.customer)} · {text(item.estimated_quantity, '—')} 件
               </option>)}
             </select>
           </label>
-          <label>Quantity
+          <label>数量
             <input name="quantity" type="number" min="1" defaultValue={text(selected?.estimated_quantity, '1')} key={`qty-${selectedReference}`} required />
           </label>
-          <label className="span-2">Description
+          <label className="span-2">产品描述（客户可见，建议英文）
             <input name="description" defaultValue="MING EAGLE Silent Ball products" required />
           </label>
-          <label>Unit price (USD)
+          <label>单价（USD）
             <input name="unitPrice" type="number" min="0" step="0.01" placeholder="0.00" required />
           </label>
-          <label>Shipping (USD)
+          <label>运费（USD）
             <input name="shipping" type="number" min="0" step="0.01" defaultValue="0" />
           </label>
-          <label>Discount (USD)
+          <label>优惠 / 折扣（USD）
             <input name="discount" type="number" min="0" step="0.01" defaultValue="0" />
           </label>
-          <label>Valid days
+          <label>报价有效期（天）
             <input name="validDays" type="number" min="1" max="90" defaultValue="14" />
           </label>
-          <label className="span-2">Payment terms
+          <label className="span-2">付款条款（客户可见）
             <input name="paymentTerms" defaultValue="Payment terms to be confirmed before sending." />
           </label>
-          <label className="span-2">Shipping terms
+          <label className="span-2">运输条款（客户可见）
             <input name="shippingTerms" defaultValue="Shipping terms to be confirmed before sending." />
           </label>
-          <label className="span-2">Internal / customer notes
-            <textarea name="notes" rows={3} placeholder="Optional quotation notes…" />
+          <label className="span-2">报价备注（客户可见）
+            <textarea name="notes" rows={3} placeholder="可填写报价补充说明…" />
           </label>
         </div>
         <div className="quote-form-actions">
-          <button className="button" disabled={busy}>{busy ? 'Creating…' : 'Create draft quote'}</button>
-          <small>This creates a DRAFT only. Nothing is sent to the customer yet.</small>
+          <button className="button" disabled={busy}>{busy ? '正在创建…' : '创建报价草稿'}</button>
+          <small>此操作只创建草稿，不会自动发送给客户。</small>
         </div>
-        {result && <div className="form-status success"><strong>Draft created: {result.reference}</strong><p>{result.currency} {Number(result.total).toFixed(2)} · {result.status}</p></div>}
-        {error && <div className="form-status error"><strong>Quote action failed.</strong><p>{error}</p></div>}
+        {result && <div className="form-status success"><strong>报价草稿已创建：{result.reference}</strong><p>{result.currency} {Number(result.total).toFixed(2)} · {statusLabel(result.status)}</p></div>}
+        {error && <div className="form-status error"><strong>报价操作失败</strong><p>{error}</p></div>}
       </form>}
     </section>
 
     {customerLink && <section className="panel secure-link-panel">
-      <div><strong>Secure customer link ready · {customerLink.reference}</strong><p>{customerLink.url}</p></div>
-      <div className="secure-link-actions"><button className="button secondary small" onClick={() => void copyLink()}>Copy link</button><a className="button small" href={customerLink.url} target="_blank" rel="noreferrer">Open quote</a></div>
-      <small>Generating another link for this quote invalidates the previous customer link.</small>
+      <div><strong>客户安全报价链接已生成 · {customerLink.reference}</strong><p>{customerLink.url}</p></div>
+      <div className="secure-link-actions"><button className="button secondary small" onClick={() => void copyLink()}>复制链接</button><a className="button small" href={customerLink.url} target="_blank" rel="noreferrer">打开客户报价页</a></div>
+      <small>如果重新生成安全链接，该报价之前生成的客户链接将失效。</small>
     </section>}
 
     <section className="panel table-panel">
-      <div className="table-tools"><strong>{quotes.length} quote records</strong><span>Draft → secure link → viewed → accepted → order</span></div>
-      <div className="table-wrap"><table><thead><tr><th>Quote</th><th>Customer</th><th>Total</th><th>Status</th><th>Valid until</th><th>Customer link</th></tr></thead><tbody>
-        {quotes.length === 0 && <tr><td colSpan={6}>No quotes yet.</td></tr>}
+      <div className="table-tools"><strong>共 {quotes.length} 张报价单</strong><span>草稿 → 安全链接 → 客户查看 → 接受 → 自动生成订单</span></div>
+      <div className="table-wrap"><table><thead><tr><th>报价单</th><th>客户</th><th>总金额</th><th>状态</th><th>有效期至</th><th>客户链接</th></tr></thead><tbody>
+        {quotes.length === 0 && <tr><td colSpan={6}>暂无报价单。</td></tr>}
         {quotes.map((quote, i) => {
           const id = text(quote.id, String(i));
           const status = text(quote.status);
           const canSend = ['DRAFT','SENT','VIEWED'].includes(status);
           return <tr key={id}>
-            <td>{text(quote.reference)}</td><td>{text(quote.customer)}</td><td>{money(quote.total, quote.currency)}</td><td>{status}</td><td>{text(quote.valid_until)}</td>
-            <td>{canSend ? <button type="button" className="table-action" disabled={busyQuoteId === id} onClick={() => void createSecureLink(quote)}>{busyQuoteId === id ? 'Working…' : status === 'DRAFT' ? 'Create secure link' : 'New secure link'}</button> : <span>{status === 'CONVERTED' ? 'Order created' : 'Unavailable'}</span>}</td>
+            <td>{text(quote.reference)}</td><td>{text(quote.customer)}</td><td>{money(quote.total, quote.currency)}</td><td>{statusLabel(status)}</td><td>{text(quote.valid_until)}</td>
+            <td>{canSend ? <button type="button" className="table-action" disabled={busyQuoteId === id} onClick={() => void createSecureLink(quote)}>{busyQuoteId === id ? '处理中…' : status === 'DRAFT' ? '生成安全链接' : '重新生成链接'}</button> : <span>{status === 'CONVERTED' ? '已生成订单' : '不可操作'}</span>}</td>
           </tr>;
         })}
       </tbody></table></div>
