@@ -6,6 +6,8 @@ type InquiryInput = {
   firstName?: string;
   lastName?: string;
   email?: string;
+  phone?: string;
+  whatsapp?: string;
   company?: string;
   customerType?: string;
   estimatedQuantity?: number | string;
@@ -29,6 +31,7 @@ function scoreLead(input: InquiryInput) {
   if (quantity >= 100) score += 8;
   if (quantity >= 500) score += 5;
   if (clean(input.company)) score += 5;
+  if (clean(input.phone) || clean(input.whatsapp)) score += 3;
   if (['Academy','Coach / trainer','Retailer','Camp / program','Distributor'].includes(clean(input.customerType))) score += 6;
   return Math.min(100, score);
 }
@@ -49,6 +52,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const firstName = clean(input.firstName, 80);
     const lastName = clean(input.lastName, 80);
     const email = clean(input.email, 200).toLowerCase();
+    const phone = clean(input.phone, 80);
+    const whatsapp = clean(input.whatsapp, 80);
     const companyName = clean(input.company, 160);
     const customerType = clean(input.customerType, 100);
     const country = clean(input.country, 100);
@@ -91,13 +96,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (existingContact?.id) {
       contactId = existingContact.id;
       await db.prepare(`UPDATE contacts
-        SET company_id = COALESCE(company_id, ?), first_name = ?, last_name = ?, full_name = ?, updated_at = CURRENT_TIMESTAMP
+        SET company_id = COALESCE(company_id, ?), first_name = ?, last_name = ?, full_name = ?,
+            phone = COALESCE(NULLIF(?, ''), phone), whatsapp = COALESCE(NULLIF(?, ''), whatsapp), updated_at = CURRENT_TIMESTAMP
         WHERE id = ?`)
-        .bind(companyId, firstName, lastName, `${firstName} ${lastName}`, contactId).run();
+        .bind(companyId, firstName, lastName, `${firstName} ${lastName}`, phone, whatsapp, contactId).run();
     } else {
       contactId = crypto.randomUUID();
-      await db.prepare('INSERT INTO contacts (id, company_id, first_name, last_name, full_name, email, email_type, email_verified, is_primary) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 1)')
-        .bind(contactId, companyId, firstName, lastName, `${firstName} ${lastName}`, email, 'UNKNOWN').run();
+      await db.prepare(`INSERT INTO contacts
+        (id, company_id, first_name, last_name, full_name, email, email_type, email_verified, phone, whatsapp, is_primary)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 1)`)
+        .bind(contactId, companyId, firstName, lastName, `${firstName} ${lastName}`, email, 'UNKNOWN', phone || null, whatsapp || null).run();
     }
 
     const leadScore = scoreLead(input);
@@ -178,7 +186,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         'INQUIRY_CREATED',
         requestType === 'SAMPLE' ? 'Sample request received' : 'Wholesale inquiry received',
         `${firstName} ${lastName} submitted ${reference}`,
-        JSON.stringify({ inquiryId, sampleId, taskId, reference, email, companyName, leadScore }),
+        JSON.stringify({ inquiryId, sampleId, taskId, reference, email, phone, whatsapp, companyName, leadScore }),
       ).run();
 
     return Response.json({
