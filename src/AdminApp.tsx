@@ -19,10 +19,10 @@ import OrderManager from './OrderManager';
 import TaskManager from './TaskManager';
 import AdminDetail from './AdminDetail';
 import CommunicationCenter from './CommunicationCenter';
+import ContactManager from './ContactManager';
 import {
   activityTypeLabel,
   customerTypeLabel,
-  emailTypeLabel,
   priorityLabel,
   requestTypeLabel,
   statusLabel,
@@ -211,9 +211,10 @@ export default function AdminApp() {
   else if (page === 'companies') content = <><Top title="客户公司" description="管理客户组织、客户类型、国家地区和生命周期阶段。"/><DataTable filterKey="status" rows={data.companies} columns={[
     {key:'name',label:'公司 / 机构'},{key:'customer_type',label:'客户类型',format:r=>customerTypeLabel(r.customer_type)},{key:'country',label:'国家'},{key:'city',label:'城市'},{key:'status',label:'阶段',format:r=>statusLabel(r.status)},{key:'created_at',label:'创建时间',format:r=>zhDate(r.created_at)},{key:'detail',label:'操作',format:r=><Link to={`/app/companies/${text(r.id)}`}>查看详情</Link>}
   ]}/></>;
-  else if (page === 'contacts') content = <><Top title="联系人" description="统一保存负责人、采购联系人和其他决策人的联系信息。"/><DataTable rows={data.contacts} columns={[
-    {key:'full_name',label:'姓名'},{key:'company',label:'所属公司'},{key:'title',label:'职位'},{key:'email',label:'邮箱'},{key:'email_type',label:'邮箱类型',format:r=>emailTypeLabel(r.email_type)},{key:'created_at',label:'创建时间',format:r=>zhDate(r.created_at)}
-  ]}/></>;
+  else if (page === 'contacts') content = <>
+    <Top title="联系人" description="补录负责人、采购联系人、电话和 WhatsApp，并管理禁止联系状态。"/>
+    <ContactManager contacts={data.contacts} accessKey={key} onChanged={() => void load()} />
+  </>;
   else if (page === 'communications') content = <>
     <Top title="沟通中心" description="使用免费渠道开展邮件 / WhatsApp 跟进，登记客户回复，并自动推进潜客阶段和下一步任务。"/>
     <CommunicationCenter accessKey={key} onChanged={() => void load()} />
