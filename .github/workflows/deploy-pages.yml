@@ -31,6 +31,27 @@ jobs:
           unzip -q site.zip -d public
           echo "www.mingeagle.com" > public/CNAME
 
+      - name: Apply contact-email and HubSpot readiness updates
+        run: |
+          find public -type f -name '*.html' -print0 | xargs -0 sed -i 's/ning@mingeagle\.com/mingeaglecommerce@gmail.com/g'
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('public/inquiry.html')
+          s = p.read_text()
+          s = s.replace('<div class="field"><label>Name *</label><input name="name" autocomplete="name" required></div><div class="field"><label>Email *</label><input type="email" name="email" autocomplete="email" required></div><div class="field"><label>Company / organization</label><input name="company" autocomplete="organization"></div><div class="field"><label>Customer type *</label>', '<div class="field"><label>First name *</label><input name="firstname" autocomplete="given-name" required></div><div class="field"><label>Last name *</label><input name="lastname" autocomplete="family-name" required></div><div class="field"><label>Email *</label><input type="email" name="email" autocomplete="email" required></div><div class="field"><label>Company / organization</label><input name="company" autocomplete="organization"></div><div class="field"><label>Role / title</label><input name="jobtitle" autocomplete="organization-title"></div><div class="field"><label>Customer type *</label>')
+          s = s.replace('<div class="field"><label>Your WhatsApp</label><input name="customer_whatsapp" autocomplete="tel"></div><div class="field"><label>Website / social profile</label><input name="website_social" placeholder="https://..."></div>', '<div class="field"><label>Phone / WhatsApp</label><input name="phone" autocomplete="tel"></div><div class="field"><label>Website / social profile</label><input name="website" placeholder="https://..."></div>')
+          s = s.replace('<div class="field"><label>Country / region *</label><input name="country_region" autocomplete="country-name" required></div>', '<div class="field"><label>Country / region *</label><input name="country" autocomplete="country-name" required></div>')
+          s = s.replace('<div class="field"><label>Postal / ZIP code *</label><input name="postal_code" autocomplete="postal-code" required></div>', '<div class="field"><label>Postal / ZIP code *</label><input name="zip" autocomplete="postal-code" required></div>')
+          p.write_text(s)
+
+          tracking = '<script type="text/javascript" id="hs-script-loader" async defer src="https://js.hs-scripts.com/247596371.js"></script>'
+          for html in Path('public').glob('*.html'):
+              text = html.read_text()
+              if 'id="hs-script-loader"' not in text:
+                  text = text.replace('</body>', tracking + '</body>')
+                  html.write_text(text)
+          PY
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
         with:
