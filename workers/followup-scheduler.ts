@@ -69,8 +69,11 @@ export default {
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(runSweep(env));
   },
-  async fetch(_request: Request, env: Env) {
-    const result = await runSweep(env);
-    return Response.json({ ok: true, ...result });
+  async fetch() {
+    return Response.json({
+      ok: true,
+      service: 'MING EAGLE follow-up scheduler',
+      mode: 'cron-only',
+    });
   },
 };
