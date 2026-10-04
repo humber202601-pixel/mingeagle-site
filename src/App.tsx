@@ -12,6 +12,8 @@ type ProductCard = {
 
 type InquiryResult = { reference: string };
 
+const SALES_EMAIL = 'mingeaglecommerce@gmail.com';
+
 const products: ProductCard[] = [
   {
     name: 'Silent Basketball Set',
@@ -53,7 +55,7 @@ function PublicHeader() {
 function PublicFooter() {
   return <footer className="site-footer">
     <div><strong>MING EAGLE</strong><p>Silent Ball products for families, coaches, academies, camps and retailers.</p></div>
-    <div><span>SALES</span><a href="mailto:ning@mingeagle.com">ning@mingeagle.com</a><Link to="/wholesale">Wholesale inquiry</Link><Link to="/sample">Sample request</Link></div>
+    <div><span>SALES</span><a href={`mailto:${SALES_EMAIL}`}>{SALES_EMAIL}</a><Link to="/wholesale">Wholesale inquiry</Link><Link to="/sample">Sample request</Link></div>
     <div><span>OPERATIONS</span><Link to="/app">Growth Engine</Link><p>© 2026 MING EAGLE COMMERCE LLC</p></div>
   </footer>;
 }
