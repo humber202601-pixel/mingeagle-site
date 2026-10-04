@@ -23,6 +23,18 @@ async function getQuote(db: D1Database, token: string) {
     WHERE q.public_token_hash=? LIMIT 1`).bind(hash).first<Record<string, unknown>>();
 }
 
+async function getOrder(db: D1Database, quoteId: string) {
+  return db.prepare(`SELECT o.id, o.reference, o.status, o.payment_status,
+      (SELECT carrier FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS carrier,
+      (SELECT service FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS service,
+      (SELECT tracking_number FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS tracking_number,
+      (SELECT tracking_url FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS tracking_url,
+      (SELECT status FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS shipment_status,
+      (SELECT shipped_at FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS shipped_at,
+      (SELECT delivered_at FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS delivered_at
+    FROM orders o WHERE o.quote_id=? ORDER BY o.created_at DESC LIMIT 1`).bind(quoteId).first<Record<string, unknown>>();
+}
+
 export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
   if (!env.MINGEAGLE_DB) return Response.json({ ok: false, error: 'Database is not configured.' }, { status: 503 });
   const token = String(params.token || '');
@@ -50,8 +62,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
 
     const items = await db.prepare(`SELECT description, quantity, unit_price, line_total, sort_order
       FROM quote_items WHERE quote_id=? ORDER BY sort_order, id`).bind(String(quote.id)).all();
-    const existingOrder = await db.prepare(`SELECT reference, status, payment_status FROM orders WHERE quote_id=? ORDER BY created_at DESC LIMIT 1`)
-      .bind(String(quote.id)).first();
+    const existingOrder = await getOrder(db, String(quote.id));
 
     return Response.json({ ok: true, quote, items: items.results, order: existingOrder || null });
   } catch (error) {
@@ -86,7 +97,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
     if (['DECLINED'].includes(status)) return Response.json({ ok: false, error: 'This quote is no longer available.' }, { status: 409 });
 
     await db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_quote_unique ON orders(quote_id) WHERE quote_id IS NOT NULL`).run();
-    const existing = await db.prepare(`SELECT id, reference, status, payment_status FROM orders WHERE quote_id=? LIMIT 1`).bind(quoteId).first<Record<string, unknown>>();
+    const existing = await getOrder(db, quoteId);
     if (existing) {
       await db.prepare(`UPDATE quotes SET status='CONVERTED', accepted_at=COALESCE(accepted_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(quoteId).run();
       return Response.json({ ok: true, accepted: true, order: existing });
@@ -117,7 +128,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
           `Accepted from quote ${String(quote.reference)}`,
         ).run();
     } catch (insertError) {
-      const raced = await db.prepare(`SELECT id, reference, status, payment_status FROM orders WHERE quote_id=? LIMIT 1`).bind(quoteId).first<Record<string, unknown>>();
+      const raced = await getOrder(db, quoteId);
       if (raced) return Response.json({ ok: true, accepted: true, order: raced });
       throw insertError;
     }
