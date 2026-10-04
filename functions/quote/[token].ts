@@ -1,0 +1,51 @@
+export const onRequestGet: PagesFunction = async ({ params }) => {
+  const token = String(params.token || '');
+  if (!/^[a-f0-9]{60,80}$/i.test(token)) return new Response('Quote link is invalid.', { status: 404 });
+
+  const tokenJson = JSON.stringify(token);
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="robots" content="noindex,nofollow"/>
+<title>MING EAGLE Quote</title>
+<style>
+:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#101828;background:#f4f1e9;--ink:#101828;--navy:#17243a;--orange:#ef5b2a;--paper:#f4f1e9;--surface:#fffdfa;--muted:#667085;--line:#d9d5cc;--success:#067647;--danger:#b42318}*{box-sizing:border-box}body{margin:0;background:var(--paper)}.top{background:var(--navy);color:#fff;text-align:center;padding:9px 20px;font-size:10px;font-weight:800;letter-spacing:.14em}.header{height:78px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 max(22px,calc((100vw - 1120px)/2));background:rgba(244,241,233,.97)}.brand{display:flex;align-items:center;gap:12px}.mark{width:42px;height:42px;border-radius:12px;background:var(--orange);color:white;display:grid;place-items:center;font-weight:900;box-shadow:0 5px 0 rgba(16,24,40,.14);transform:rotate(-3deg)}.brand div{display:flex;flex-direction:column}.brand strong{letter-spacing:.04em}.brand small{font-size:8px;letter-spacing:.18em;color:var(--muted);margin-top:4px}.shell{max-width:1120px;margin:0 auto;padding:70px 24px 100px}.eyebrow{font-size:10px;font-weight:900;letter-spacing:.14em;color:var(--orange)}h1{font-size:clamp(48px,7vw,86px);letter-spacing:-.06em;line-height:.9;margin:14px 0 18px}.sub{color:var(--muted);font-size:18px;line-height:1.55;max-width:760px}.card{margin-top:36px;background:var(--surface);border:1px solid var(--ink);border-radius:24px;box-shadow:8px 8px 0 var(--ink);overflow:hidden}.head{padding:28px;display:flex;justify-content:space-between;gap:20px;border-bottom:1px solid var(--line)}.head h2{margin:0 0 7px;font-size:28px}.head p{margin:0;color:var(--muted)}.badge{align-self:flex-start;padding:7px 10px;border-radius:999px;background:#eef4ff;color:#3538cd;font-size:10px;font-weight:900}.body{padding:28px}.meta{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px}.meta div{border:1px solid var(--line);border-radius:14px;padding:14px}.meta small{display:block;font-size:8px;letter-spacing:.11em;color:var(--muted);margin-bottom:6px}.meta strong{font-size:14px}.items{width:100%;border-collapse:collapse}.items th{text-align:left;font-size:9px;letter-spacing:.09em;color:var(--muted);padding:11px 10px;border-bottom:1px solid var(--line)}.items td{padding:16px 10px;border-bottom:1px solid #ece9e1;font-size:13px}.items th:last-child,.items td:last-child{text-align:right}.summary{margin:24px 0 0 auto;max-width:420px}.summary div{display:flex;justify-content:space-between;padding:7px 0}.summary .total{border-top:1px solid var(--ink);margin-top:7px;padding-top:14px;font-size:22px;font-weight:900}.terms{margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:14px}.terms div{background:#f7f5ef;border-radius:14px;padding:17px}.terms small{font-size:8px;letter-spacing:.1em;color:var(--muted)}.terms p{margin:7px 0 0;line-height:1.5}.accept{margin-top:28px;border-top:1px solid var(--line);padding-top:24px}.accept label{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5}.accept input{margin-top:3px}.button{margin-top:16px;border:0;border-radius:999px;padding:14px 20px;background:var(--orange);color:white;font-weight:850;cursor:pointer;box-shadow:0 5px 0 rgba(16,24,40,.14)}.button:disabled{opacity:.5;cursor:not-allowed}.notice{margin-top:18px;padding:14px 16px;border-radius:13px}.success{background:#ecfdf3;border:1px solid #abefc6;color:var(--success)}.error{background:#fef3f2;border:1px solid #fecdca;color:var(--danger)}.loading{padding:50px;text-align:center;color:var(--muted)}.hidden{display:none}.footer{padding:44px 24px;background:var(--navy);color:#b6c0ce;text-align:center;font-size:12px}@media(max-width:760px){.shell{padding:48px 16px}.head{flex-direction:column}.meta,.terms{grid-template-columns:1fr 1fr}.body,.head{padding:20px}}@media(max-width:480px){.meta,.terms{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="top">MING EAGLE · CUSTOMER QUOTATION</div>
+<header class="header"><div class="brand"><div class="mark">ME</div><div><strong>MING EAGLE</strong><small>SILENT BALL</small></div></div><strong>Secure Quote</strong></header>
+<main class="shell">
+<div class="eyebrow">COMMERCIAL QUOTATION</div><h1>YOUR MING EAGLE QUOTE.</h1><p class="sub">Review the products, pricing, shipping and payment terms below. Accepting the quote creates your order and moves it to payment confirmation.</p>
+<section class="card"><div id="loading" class="loading">Loading secure quote…</div><div id="quote" class="hidden">
+<div class="head"><div><h2 id="reference"></h2><p id="customer"></p></div><span id="status" class="badge"></span></div>
+<div class="body">
+<div class="meta"><div><small>VALID UNTIL</small><strong id="valid"></strong></div><div><small>CURRENCY</small><strong id="currency"></strong></div><div><small>QUOTE STATUS</small><strong id="status2"></strong></div><div><small>CONTACT</small><strong id="contact"></strong></div></div>
+<table class="items"><thead><tr><th>Description</th><th>Qty</th><th>Unit price</th><th>Total</th></tr></thead><tbody id="items"></tbody></table>
+<div class="summary"><div><span>Subtotal</span><strong id="subtotal"></strong></div><div><span>Discount</span><strong id="discount"></strong></div><div><span>Shipping</span><strong id="shipping"></strong></div><div class="total"><span>Total</span><strong id="total"></strong></div></div>
+<div class="terms"><div><small>PAYMENT TERMS</small><p id="payment"></p></div><div><small>SHIPPING TERMS</small><p id="shippingTerms"></p></div></div>
+<div id="notesWrap" class="terms hidden"><div style="grid-column:1/-1"><small>NOTES</small><p id="notes"></p></div></div>
+<div id="acceptArea" class="accept"><label><input id="agree" type="checkbox"/> <span>I have reviewed the quotation and authorize MING EAGLE to create the order based on these terms.</span></label><button id="acceptBtn" class="button" disabled>Accept quote & create order</button></div>
+<div id="message"></div>
+</div></div></section>
+</main><footer class="footer">MING EAGLE COMMERCE LLC · ning@mingeagle.com</footer>
+<script>
+const token=${tokenJson};
+const api='/api/quote/'+token;
+const $=id=>document.getElementById(id);
+const money=(n,c)=>(c||'USD')+' '+Number(n||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+async function load(){try{const r=await fetch(api,{headers:{'accept':'application/json'}});const b=await r.json();if(!r.ok||!b.ok)throw new Error(b.error||'Unable to load quote.');render(b)}catch(e){$('loading').innerHTML='<div class="notice error">'+esc(e.message)+'</div>'}}
+function render(b){const q=b.quote;const c=q.currency||'USD';$('loading').classList.add('hidden');$('quote').classList.remove('hidden');$('reference').textContent=q.reference;$('customer').textContent=q.customer||'Customer';$('status').textContent=q.status;$('status2').textContent=q.status;$('valid').textContent=q.valid_until||'—';$('currency').textContent=c;$('contact').textContent=q.contact_name||q.contact_email||'—';$('subtotal').textContent=money(q.subtotal,c);$('discount').textContent='− '+money(q.discount,c);$('shipping').textContent=money(q.shipping,c);$('total').textContent=money(q.total,c);$('payment').textContent=q.payment_terms||'To be confirmed';$('shippingTerms').textContent=q.shipping_terms||'To be confirmed';if(q.notes){$('notesWrap').classList.remove('hidden');$('notes').textContent=q.notes}$('items').innerHTML=b.items.map(i=>'<tr><td>'+esc(i.description)+'</td><td>'+esc(i.quantity)+'</td><td>'+money(i.unit_price,c)+'</td><td>'+money(i.line_total,c)+'</td></tr>').join('');if(b.order){accepted(b.order)}else if(['EXPIRED','DECLINED','CONVERTED','ACCEPTED'].includes(q.status)){disableAccept(q.status==='EXPIRED'?'This quote has expired. Please request an updated quotation.':'This quote is no longer awaiting acceptance.')}}
+function disableAccept(msg){$('acceptArea').classList.add('hidden');$('message').innerHTML='<div class="notice error">'+esc(msg)+'</div>'}
+function accepted(order){$('acceptArea').classList.add('hidden');$('message').innerHTML='<div class="notice success"><strong>Quote accepted.</strong><br/>Order '+esc(order.reference)+' has been created. Status: '+esc(order.status)+'. MING EAGLE will confirm payment and fulfillment next.</div>'}
+$('agree').addEventListener('change',e=>$('acceptBtn').disabled=!e.target.checked);
+$('acceptBtn').addEventListener('click',async()=>{if(!$('agree').checked)return;$('acceptBtn').disabled=true;$('acceptBtn').textContent='Creating order…';try{const r=await fetch(api,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'accept'})});const b=await r.json();if(!r.ok||!b.ok)throw new Error(b.error||'Unable to accept quote.');accepted(b.order)}catch(e){$('message').innerHTML='<div class="notice error">'+esc(e.message)+'</div>';$('acceptBtn').disabled=false;$('acceptBtn').textContent='Accept quote & create order'}});
+load();
+</script>
+</body></html>`;
+
+  return new Response(html, { headers: { 'content-type': 'text/html; charset=UTF-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow' } });
+};
