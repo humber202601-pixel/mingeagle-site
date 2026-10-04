@@ -5,6 +5,7 @@ import App from './App';
 import './styles.css';
 import './forms.css';
 import './admin.css';
+import './communication.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
