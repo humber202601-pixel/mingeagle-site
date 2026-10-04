@@ -98,7 +98,7 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
           <button className="button small" disabled={busy !== ''}>{busy === `${reference}:SHIP` ? 'Saving…' : 'Mark shipped'}</button>
         </form>}
 
-        {status === 'SHIPPED' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'DELIVER')}>Mark delivered</button>{order.tracking_url && <a className="button secondary small" href={text(order.tracking_url)} target="_blank" rel="noreferrer">Open tracking</a>}</div>}
+        {status === 'SHIPPED' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'DELIVER')}>Mark delivered</button>{Boolean(order.tracking_url) && <a className="button secondary small" href={text(order.tracking_url)} target="_blank" rel="noreferrer">Open tracking</a>}</div>}
         {status === 'DELIVERED' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'COMPLETE')}>Complete order</button><span className="order-hint">A reorder follow-up task is already scheduled.</span></div>}
         {status === 'COMPLETED' && <div className="order-complete">Order completed · reorder workflow remains active.</div>}
 
