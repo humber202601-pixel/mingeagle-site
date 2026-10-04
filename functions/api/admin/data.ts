@@ -38,7 +38,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
         LEFT JOIN contacts ct ON ct.id = l.primary_contact_id
         ORDER BY l.created_at DESC LIMIT 100`).all(),
       db.prepare(`SELECT
-        i.reference, COALESCE(c.name, ct.full_name, ct.email, 'Unknown') AS customer,
+        i.id, i.reference, COALESCE(c.name, ct.full_name, ct.email, 'Unknown') AS customer,
         i.request_type, i.estimated_quantity, i.status, i.created_at
         FROM inquiries i
         LEFT JOIN companies c ON c.id = i.company_id
@@ -50,13 +50,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
         ct.title, ct.email, ct.email_type, ct.email_verified, ct.created_at
         FROM contacts ct LEFT JOIN companies c ON c.id = ct.company_id
         ORDER BY ct.created_at DESC LIMIT 100`).all(),
-      db.prepare(`SELECT q.reference, COALESCE(c.name, ct.full_name, ct.email, 'Unknown') AS customer,
-        q.total, q.currency, q.status, q.valid_until, q.created_at
+      db.prepare(`SELECT q.id, q.reference, COALESCE(c.name, ct.full_name, ct.email, 'Unknown') AS customer,
+        q.total, q.currency, q.status, q.valid_until, q.sent_at, q.first_viewed_at, q.accepted_at, q.created_at
         FROM quotes q
         LEFT JOIN companies c ON c.id = q.company_id
         LEFT JOIN contacts ct ON ct.id = q.contact_id
         ORDER BY q.created_at DESC LIMIT 100`).all(),
-      db.prepare(`SELECT o.reference, COALESCE(c.name, ct.full_name, ct.email, 'Unknown') AS customer,
+      db.prepare(`SELECT o.id, o.reference, COALESCE(c.name, ct.full_name, ct.email, 'Unknown') AS customer,
         o.total, o.currency, o.status, o.payment_status,
         (SELECT tracking_number FROM shipments s WHERE s.order_id = o.id ORDER BY s.created_at DESC LIMIT 1) AS tracking_number,
         o.created_at
