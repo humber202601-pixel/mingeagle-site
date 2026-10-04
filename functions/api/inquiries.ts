@@ -33,6 +33,12 @@ function scoreLead(input: InquiryInput) {
   return Math.min(100, score);
 }
 
+function safeQuantity(value: unknown, fallback = 1) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+  return Math.min(100000, Math.floor(parsed));
+}
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     if (!env.MINGEAGLE_DB) {
@@ -84,10 +90,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (existingContact?.id) {
       contactId = existingContact.id;
-      if (!existingContact.company_id && companyId) {
-        await db.prepare('UPDATE contacts SET company_id = ?, first_name = ?, last_name = ?, full_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-          .bind(companyId, firstName, lastName, `${firstName} ${lastName}`, contactId).run();
-      }
+      await db.prepare(`UPDATE contacts
+        SET company_id = COALESCE(company_id, ?), first_name = ?, last_name = ?, full_name = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?`)
+        .bind(companyId, firstName, lastName, `${firstName} ${lastName}`, contactId).run();
     } else {
       contactId = crypto.randomUUID();
       await db.prepare('INSERT INTO contacts (id, company_id, first_name, last_name, full_name, email, email_type, email_verified, is_primary) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 1)')
@@ -97,7 +103,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const leadScore = scoreLead(input);
     const leadId = crypto.randomUUID();
     const leadStatus = leadScore >= 70 ? 'QUALIFIED' : 'ANALYZED';
-    const nextAction = requestType === 'SAMPLE' ? 'Review sample request and confirm sample path' : 'Review inquiry and prepare response / quote path';
+    const nextAction = requestType === 'SAMPLE'
+      ? 'Review sample request and confirm sample path'
+      : 'Review inquiry and prepare response / quote path';
 
     await db.prepare(`INSERT INTO leads (
       id, company_id, primary_contact_id, source, source_detail, status, product_interest,
@@ -138,6 +146,30 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         message || null,
       ).run();
 
+    let sampleId: string | null = null;
+    if (requestType === 'SAMPLE') {
+      sampleId = crypto.randomUUID();
+      await db.prepare(`INSERT INTO samples (
+        id, reference, lead_id, inquiry_id, company_id, contact_id, quantity, status, follow_up_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'REQUESTED', datetime('now', '+2 day'))`)
+        .bind(sampleId, reference, leadId, inquiryId, companyId, contactId, safeQuantity(input.estimatedQuantity)).run();
+    }
+
+    const taskId = crypto.randomUUID();
+    const taskPriority = requestType === 'SAMPLE' || leadScore >= 80 ? 'HIGH' : 'MEDIUM';
+    await db.prepare(`INSERT INTO tasks (
+      id, lead_id, company_id, contact_id, type, title, description, status, priority, due_at
+    ) VALUES (?, ?, ?, ?, 'FOLLOW_UP', ?, ?, 'OPEN', ?, datetime('now', '+1 day'))`)
+      .bind(
+        taskId,
+        leadId,
+        companyId,
+        contactId,
+        requestType === 'SAMPLE' ? `Review sample request ${reference}` : `Review wholesale inquiry ${reference}`,
+        nextAction,
+        taskPriority,
+      ).run();
+
     await db.prepare('INSERT INTO activities (id, entity_type, entity_id, activity_type, title, description, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .bind(
         crypto.randomUUID(),
@@ -146,15 +178,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         'INQUIRY_CREATED',
         requestType === 'SAMPLE' ? 'Sample request received' : 'Wholesale inquiry received',
         `${firstName} ${lastName} submitted ${reference}`,
-        JSON.stringify({ inquiryId, reference, email, companyName, leadScore }),
+        JSON.stringify({ inquiryId, sampleId, taskId, reference, email, companyName, leadScore }),
       ).run();
 
     return Response.json({
       ok: true,
       reference,
       inquiryId,
+      sampleId,
       leadId,
-      leadScore,
       leadStatus,
       nextBestAction: nextAction,
     }, { status: 201 });
