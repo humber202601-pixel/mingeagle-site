@@ -47,7 +47,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
       db.prepare(`SELECT id, name, customer_type, country, state_region, city, status, created_at
         FROM companies ORDER BY created_at DESC LIMIT 100`).all(),
       db.prepare(`SELECT ct.id, ct.full_name, COALESCE(c.name,'—') AS company,
-        ct.title, ct.email, ct.email_type, ct.email_verified, ct.created_at
+        ct.title, ct.email, ct.email_type, ct.email_verified, ct.phone, ct.whatsapp, ct.do_not_contact, ct.created_at
         FROM contacts ct LEFT JOIN companies c ON c.id = ct.company_id
         ORDER BY ct.created_at DESC LIMIT 100`).all(),
       db.prepare(`SELECT q.id, q.reference, COALESCE(c.name, ct.full_name, ct.email, 'Unknown') AS customer,
