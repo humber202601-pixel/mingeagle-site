@@ -16,6 +16,7 @@ import {
 import QuoteBuilder from './QuoteBuilder';
 import OrderManager from './OrderManager';
 import TaskManager from './TaskManager';
+import AdminDetail from './AdminDetail';
 import {
   activityTypeLabel,
   customerTypeLabel,
@@ -59,7 +60,6 @@ const nav = [
 ] as const;
 
 const text = (value: unknown, fallback = '—') => value === null || value === undefined || value === '' ? fallback : String(value);
-const money = (value: unknown, currency: unknown) => `${text(currency, 'USD')} ${Number(value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 function Login({ onLogin, busy, error }: { onLogin: (key: string) => void; busy: boolean; error: string }) {
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -104,12 +104,29 @@ function Top({ title, description }: { title: string; description: string }) {
   return <header className="admin-top"><div><span className="eyebrow">MING EAGLE 运营中心</span><h1>{title}</h1><p>{description}</p></div></header>;
 }
 
-function DataTable({ columns, rows }: { columns: { key: string; label: string; format?: (row: Row) => string }[]; rows: Row[] }) {
+function DataTable({ columns, rows, filterKey }: {
+  columns: { key: string; label: string; format?: (row: Row) => React.ReactNode }[];
+  rows: Row[];
+  filterKey?: string;
+}) {
+  const [query,setQuery] = useState('');
+  const [filter,setFilter] = useState('ALL');
+  const options = useMemo(()=>filterKey ? Array.from(new Set(rows.map(row=>text(row[filterKey], '')).filter(Boolean))) : [],[rows,filterKey]);
+  const visible = useMemo(()=>{
+    const q = query.trim().toLowerCase();
+    return rows.filter(row=>{
+      const matchesFilter = !filterKey || filter === 'ALL' || text(row[filterKey],'') === filter;
+      if (!matchesFilter) return false;
+      if (!q) return true;
+      return Object.values(row).some(value=>String(value ?? '').toLowerCase().includes(q));
+    });
+  },[rows,query,filter,filterKey]);
+
   return <section className="panel table-panel">
-    <div className="table-tools"><strong>共 {rows.length} 条记录</strong><span>实时读取自 MING EAGLE D1</span></div>
+    <div className="table-tools searchable-tools"><div><strong>共 {visible.length} 条</strong><span> / 原始 {rows.length} 条</span></div><div className="table-filters"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜索客户、编号、邮箱、状态…"/>{filterKey && <select value={filter} onChange={e=>setFilter(e.target.value)}><option value="ALL">全部状态</option>{options.map(value=><option key={value} value={value}>{statusLabel(value)}</option>)}</select>}</div></div>
     <div className="table-wrap"><table><thead><tr>{columns.map(c => <th key={c.key}>{c.label}</th>)}</tr></thead><tbody>
-      {rows.length === 0 && <tr><td colSpan={columns.length}>暂无记录。</td></tr>}
-      {rows.map((row, i) => <tr key={`${text(row.id || row.reference, 'row')}-${i}`}>{columns.map(c => <td key={c.key}>{c.format ? c.format(row) : text(row[c.key])}</td>)}</tr>)}
+      {visible.length === 0 && <tr><td colSpan={columns.length}>没有符合条件的记录。</td></tr>}
+      {visible.map((row, i) => <tr key={`${text(row.id || row.reference, 'row')}-${i}`}>{columns.map(c => <td key={c.key}>{c.format ? c.format(row) : text(row[c.key])}</td>)}</tr>)}
     </tbody></table></div>
   </section>;
 }
@@ -170,23 +187,29 @@ export default function AdminApp() {
 
   useEffect(() => { if (key) void load(key); }, []);
 
-  const page = useMemo(() => {
-    const slug = location.pathname.replace(/^\/app\/?/, '') || 'dashboard';
-    return slug.split('/')[0];
-  }, [location.pathname]);
+  const segments = useMemo(() => location.pathname.replace(/^\/app\/?/, '').split('/').filter(Boolean), [location.pathname]);
+  const page = segments[0] || 'dashboard';
+  const detailId = segments[1] || '';
 
   if (!authorized) return <Login onLogin={k => void load(k)} busy={loading} error={error}/>;
 
   let content: React.ReactNode;
   if (page === 'dashboard') content = <Dashboard data={data}/>;
-  else if (page === 'leads') content = <><Top title="潜在客户" description="统一管理来自网站和主动开发的潜在客户，并根据优先级持续推进。"/><DataTable rows={data.leads} columns={[
-    {key:'company',label:'公司 / 机构'},{key:'contact',label:'联系人'},{key:'lead_score',label:'潜客评分'},{key:'status',label:'阶段',format:r=>statusLabel(r.status)},{key:'next_best_action',label:'下一步行动',format:r=>systemText(r.next_best_action)},{key:'created_at',label:'创建时间',format:r=>zhDate(r.created_at)}]}/></>;
-  else if (page === 'inquiries') content = <><Top title="询盘" description="网站提交的每条询盘都会自动进入销售流程并形成结构化记录。"/><DataTable rows={data.inquiries} columns={[
-    {key:'reference',label:'询盘编号'},{key:'customer',label:'客户'},{key:'request_type',label:'询盘类型',format:r=>requestTypeLabel(r.request_type)},{key:'estimated_quantity',label:'预计数量'},{key:'status',label:'状态',format:r=>statusLabel(r.status)},{key:'created_at',label:'创建时间',format:r=>zhDate(r.created_at)}]}/></>;
-  else if (page === 'companies') content = <><Top title="客户公司" description="管理客户组织、客户类型、国家地区和生命周期阶段。"/><DataTable rows={data.companies} columns={[
-    {key:'name',label:'公司 / 机构'},{key:'customer_type',label:'客户类型',format:r=>customerTypeLabel(r.customer_type)},{key:'country',label:'国家'},{key:'city',label:'城市'},{key:'status',label:'阶段',format:r=>statusLabel(r.status)},{key:'created_at',label:'创建时间',format:r=>zhDate(r.created_at)}]}/></>;
+  else if (page === 'leads' && detailId) content = <AdminDetail type="lead" id={detailId} accessKey={key}/>;
+  else if (page === 'inquiries' && detailId) content = <AdminDetail type="inquiry" id={detailId} accessKey={key}/>;
+  else if (page === 'companies' && detailId) content = <AdminDetail type="company" id={detailId} accessKey={key}/>;
+  else if (page === 'leads') content = <><Top title="潜在客户" description="统一管理来自网站和主动开发的潜在客户，并根据优先级持续推进。"/><DataTable filterKey="status" rows={data.leads} columns={[
+    {key:'company',label:'公司 / 机构'},{key:'contact',label:'联系人'},{key:'lead_score',label:'潜客评分'},{key:'status',label:'阶段',format:r=>statusLabel(r.status)},{key:'next_best_action',label:'下一步行动',format:r=>systemText(r.next_best_action)},{key:'created_at',label:'创建时间',format:r=>zhDate(r.created_at)},{key:'detail',label:'操作',format:r=><Link to={`/app/leads/${text(r.id)}`}>查看详情</Link>}
+  ]}/></>;
+  else if (page === 'inquiries') content = <><Top title="询盘" description="网站提交的每条询盘都会自动进入销售流程并形成结构化记录。"/><DataTable filterKey="status" rows={data.inquiries} columns={[
+    {key:'reference',label:'询盘编号'},{key:'customer',label:'客户'},{key:'request_type',label:'询盘类型',format:r=>requestTypeLabel(r.request_type)},{key:'estimated_quantity',label:'预计数量'},{key:'status',label:'状态',format:r=>statusLabel(r.status)},{key:'created_at',label:'创建时间',format:r=>zhDate(r.created_at)},{key:'detail',label:'操作',format:r=><Link to={`/app/inquiries/${text(r.id)}`}>查看详情</Link>}
+  ]}/></>;
+  else if (page === 'companies') content = <><Top title="客户公司" description="管理客户组织、客户类型、国家地区和生命周期阶段。"/><DataTable filterKey="status" rows={data.companies} columns={[
+    {key:'name',label:'公司 / 机构'},{key:'customer_type',label:'客户类型',format:r=>customerTypeLabel(r.customer_type)},{key:'country',label:'国家'},{key:'city',label:'城市'},{key:'status',label:'阶段',format:r=>statusLabel(r.status)},{key:'created_at',label:'创建时间',format:r=>zhDate(r.created_at)},{key:'detail',label:'操作',format:r=><Link to={`/app/companies/${text(r.id)}`}>查看详情</Link>}
+  ]}/></>;
   else if (page === 'contacts') content = <><Top title="联系人" description="统一保存负责人、采购联系人和其他决策人的联系信息。"/><DataTable rows={data.contacts} columns={[
-    {key:'full_name',label:'姓名'},{key:'company',label:'所属公司'},{key:'title',label:'职位'},{key:'email',label:'邮箱'},{key:'email_type',label:'邮箱类型',format:r=>emailTypeLabel(r.email_type)},{key:'created_at',label:'创建时间',format:r=>zhDate(r.created_at)}]}/></>;
+    {key:'full_name',label:'姓名'},{key:'company',label:'所属公司'},{key:'title',label:'职位'},{key:'email',label:'邮箱'},{key:'email_type',label:'邮箱类型',format:r=>emailTypeLabel(r.email_type)},{key:'created_at',label:'创建时间',format:r=>zhDate(r.created_at)}
+  ]}/></>;
   else if (page === 'quotes') content = <>
     <Top title="报价单" description="创建报价草稿、生成客户安全链接、跟踪查看状态并自动转订单。"/>
     <QuoteBuilder inquiries={data.inquiries} accessKey={key} onCreated={() => void load()} />
