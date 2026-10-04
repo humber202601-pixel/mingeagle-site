@@ -57,7 +57,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
         LEFT JOIN contacts ct ON ct.id = q.contact_id
         ORDER BY q.created_at DESC LIMIT 100`).all(),
       db.prepare(`SELECT o.id, o.reference, o.quote_id, COALESCE(c.name, ct.full_name, ct.email, 'Unknown') AS customer,
-        o.total, o.currency, o.status, o.payment_status, o.paid_at, o.confirmed_at, o.completed_at,
+        o.total, o.currency, o.status, o.payment_status,
+        (SELECT COALESCE(SUM(p.amount),0) FROM payments p WHERE p.order_id=o.id AND p.status='RECEIVED') AS amount_received,
+        o.paid_at, o.confirmed_at, o.completed_at,
         (SELECT carrier FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS carrier,
         (SELECT service FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS service,
         (SELECT tracking_number FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS tracking_number,
