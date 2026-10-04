@@ -4,6 +4,7 @@ interface Env {
 }
 
 const REDIRECT_URI = 'https://mingeagle-site.pages.dev/api/gmail/oauth-callback';
+const GMAIL_ACCOUNT = 'mingeaglecommerce@gmail.com';
 
 function base64Url(bytes: Uint8Array) {
   let binary = '';
@@ -31,7 +32,7 @@ async function signState(secret: string, payload: string) {
 }
 
 function html(message = '') {
-  return new Response(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connect Gmail · MING EAGLE</title><style>body{font-family:Arial,sans-serif;background:#17243a;color:#172033;margin:0;padding:32px}.card{max-width:520px;margin:60px auto;background:#fff;border-radius:20px;padding:30px;box-shadow:0 18px 60px rgba(0,0,0,.28)}h1{margin:0 0 8px}.sub{color:#667085;line-height:1.6}.warn{color:#b42318;background:#fef3f2;border:1px solid #fecdca;padding:10px 12px;border-radius:9px;margin:12px 0}label{display:block;font-size:13px;font-weight:700;margin:18px 0 8px}input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #d0d5dd;border-radius:10px;font:inherit}button{margin-top:16px;width:100%;border:0;border-radius:10px;padding:13px;background:#ef5b2a;color:#fff;font-weight:800;cursor:pointer}code{background:#f2f4f7;padding:2px 5px;border-radius:5px}.small{font-size:12px;color:#667085;line-height:1.6}</style></head><body><div class="card"><h1>连接 Gmail</h1><p class="sub">MING EAGLE Growth Engine · 一次性 OAuth 授权入口</p>${message ? `<div class="warn">${message}</div>` : ''}<form method="post"><label>后台管理员访问密码</label><input type="password" name="key" required autocomplete="current-password" placeholder="ADMIN_ACCESS_KEY"><button type="submit">继续前往 Google 授权</button></form><p class="small">授权范围仅请求 <code>gmail.send</code>，用于发送邮件；不会请求读取收件箱权限。管理员密码不会写入 URL。</p></div></body></html>`, { headers: { 'content-type': 'text/html; charset=UTF-8', 'cache-control': 'no-store' } });
+  return new Response(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connect Gmail · MING EAGLE</title><style>body{font-family:Arial,sans-serif;background:#17243a;color:#172033;margin:0;padding:32px}.card{max-width:520px;margin:60px auto;background:#fff;border-radius:20px;padding:30px;box-shadow:0 18px 60px rgba(0,0,0,.28)}h1{margin:0 0 8px}.sub{color:#667085;line-height:1.6}.account{background:#f2f4f7;padding:12px;border-radius:10px;font-weight:800;margin:14px 0}.warn{color:#b42318;background:#fef3f2;border:1px solid #fecdca;padding:10px 12px;border-radius:9px;margin:12px 0}label{display:block;font-size:13px;font-weight:700;margin:18px 0 8px}input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #d0d5dd;border-radius:10px;font:inherit}button{margin-top:16px;width:100%;border:0;border-radius:10px;padding:13px;background:#ef5b2a;color:#fff;font-weight:800;cursor:pointer}code{background:#f2f4f7;padding:2px 5px;border-radius:5px}.small{font-size:12px;color:#667085;line-height:1.6}</style></head><body><div class="card"><h1>连接 Gmail</h1><p class="sub">MING EAGLE Growth Engine · 一次性 OAuth 授权入口</p><div class="account">请授权：${GMAIL_ACCOUNT}</div>${message ? `<div class="warn">${message}</div>` : ''}<form method="post"><label>后台管理员访问密码</label><input type="password" name="key" required autocomplete="current-password" placeholder="ADMIN_ACCESS_KEY"><button type="submit">继续前往 Google 授权</button></form><p class="small">授权范围仅请求 <code>gmail.send</code>，用于发送邮件；不会请求读取收件箱权限。Google 页面出现账号选择时，请选择 <strong>${GMAIL_ACCOUNT}</strong>。</p></div></body></html>`, { headers: { 'content-type': 'text/html; charset=UTF-8', 'cache-control': 'no-store' } });
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
@@ -56,8 +57,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     response_type: 'code',
     scope: 'https://www.googleapis.com/auth/gmail.send',
     access_type: 'offline',
-    prompt: 'consent',
+    prompt: 'consent select_account',
     include_granted_scopes: 'true',
+    login_hint: GMAIL_ACCOUNT,
     state: `${payload}.${signature}`,
   });
 
