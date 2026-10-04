@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { statusLabel } from './adminI18n';
 
 type Row = Record<string, unknown>;
 
@@ -9,7 +10,7 @@ type Props = {
 };
 
 const text = (value: unknown, fallback = '—') => value === null || value === undefined || value === '' ? fallback : String(value);
-const money = (value: unknown, currency: unknown) => `${text(currency, 'USD')} ${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const money = (value: unknown, currency: unknown) => `${text(currency, 'USD')} ${Number(value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function OrderManager({ orders, accessKey, onChanged }: Props) {
   const [busy, setBusy] = useState('');
@@ -25,11 +26,11 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
         body: JSON.stringify({ orderReference, action, ...extra }),
       });
       const body = await response.json() as { ok?: boolean; error?: string };
-      if (!response.ok || !body.ok) throw new Error(body.error || 'Unable to update order.');
-      setMessage(prev => ({ ...prev, [orderReference]: { type: 'success', text: 'Order updated successfully.' } }));
+      if (!response.ok || !body.ok) throw new Error(body.error || '无法更新订单。');
+      setMessage(prev => ({ ...prev, [orderReference]: { type: 'success', text: '订单状态已更新。' } }));
       onChanged();
     } catch (error) {
-      setMessage(prev => ({ ...prev, [orderReference]: { type: 'error', text: error instanceof Error ? error.message : 'Unable to update order.' } }));
+      setMessage(prev => ({ ...prev, [orderReference]: { type: 'error', text: error instanceof Error ? error.message : '无法更新订单。' } }));
     } finally {
       setBusy('');
     }
@@ -56,7 +57,7 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
     });
   }
 
-  if (!orders.length) return <section className="panel"><div className="empty-row">No orders yet.</div></section>;
+  if (!orders.length) return <section className="panel"><div className="empty-row">暂无订单。</div></section>;
 
   return <div className="order-stack">
     {orders.map((order, index) => {
@@ -69,44 +70,44 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
       const note = message[reference];
       return <section className="panel order-card" key={reference}>
         <div className="order-head">
-          <div><span className="eyebrow">ORDER</span><h2>{reference}</h2><p>{text(order.customer)} · {money(order.total, order.currency)}</p></div>
-          <div className="order-badges"><span>{paymentStatus}</span><strong>{status}</strong></div>
+          <div><span className="eyebrow">订单</span><h2>{reference}</h2><p>{text(order.customer)} · {money(order.total, order.currency)}</p></div>
+          <div className="order-badges"><span>{statusLabel(paymentStatus)}</span><strong>{statusLabel(status)}</strong></div>
         </div>
         <div className="order-meta">
-          <div><small>PAYMENT</small><strong>{paymentStatus === 'PARTIAL' ? `${money(received, order.currency)} / ${money(total, order.currency)}` : paymentStatus}</strong></div>
-          <div><small>FULFILLMENT</small><strong>{status}</strong></div>
-          <div><small>CARRIER</small><strong>{text(order.carrier)}</strong></div>
-          <div><small>TRACKING</small><strong>{text(order.tracking_number)}</strong></div>
+          <div><small>付款状态</small><strong>{paymentStatus === 'PARTIAL' ? `${money(received, order.currency)} / ${money(total, order.currency)}` : statusLabel(paymentStatus)}</strong></div>
+          <div><small>履约状态</small><strong>{statusLabel(status)}</strong></div>
+          <div><small>承运商</small><strong>{text(order.carrier)}</strong></div>
+          <div><small>物流单号</small><strong>{text(order.tracking_number)}</strong></div>
         </div>
 
         {paymentStatus !== 'PAID' && !['CANCELLED','COMPLETED'].includes(status) && <form className="order-action-form" onSubmit={e => paymentSubmit(e, reference)}>
           <div className="order-form-grid">
-            <label>Payment method<select name="paymentMethod" defaultValue="BANK_TRANSFER"><option value="BANK_TRANSFER">Bank transfer</option><option value="WISE">Wise</option><option value="PAYONEER">Payoneer</option><option value="ACH">ACH</option><option value="WIRE">Wire</option><option value="OTHER">Other</option></select></label>
-            <label>Amount<input name="amount" type="number" min="0.01" step="0.01" defaultValue={(outstanding || total).toFixed(2)} required /></label>
-            <label className="span-2">Payment reference<input name="paymentReference" placeholder="Transfer reference / note (optional)" /></label>
+            <label>付款方式<select name="paymentMethod" defaultValue="BANK_TRANSFER"><option value="BANK_TRANSFER">银行转账</option><option value="WISE">Wise</option><option value="PAYONEER">Payoneer</option><option value="ACH">ACH</option><option value="WIRE">国际电汇</option><option value="OTHER">其他</option></select></label>
+            <label>本次到账金额<input name="amount" type="number" min="0.01" step="0.01" defaultValue={(outstanding || total).toFixed(2)} required /></label>
+            <label className="span-2">付款凭证 / 流水号<input name="paymentReference" placeholder="转账流水号或备注（可选）" /></label>
           </div>
-          {paymentStatus === 'PARTIAL' && <div className="payment-progress">Received {money(received, order.currency)} · Outstanding {money(outstanding, order.currency)}</div>}
-          <button className="button small" disabled={busy !== ''}>{busy === `${reference}:MARK_PAID` ? 'Saving…' : paymentStatus === 'PARTIAL' ? 'Record next payment' : 'Record payment'}</button>
+          {paymentStatus === 'PARTIAL' && <div className="payment-progress">已到账 {money(received, order.currency)} · 待收 {money(outstanding, order.currency)}</div>}
+          <button className="button small" disabled={busy !== ''}>{busy === `${reference}:MARK_PAID` ? '正在保存…' : paymentStatus === 'PARTIAL' ? '记录下一笔付款' : '记录付款'}</button>
         </form>}
 
-        {paymentStatus === 'PAID' && status === 'PAID' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'START_PROCESSING')}>Start processing</button></div>}
-        {paymentStatus === 'PAID' && status === 'PROCESSING' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'READY_TO_SHIP')}>Ready to ship</button></div>}
+        {paymentStatus === 'PAID' && status === 'PAID' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'START_PROCESSING')}>开始处理订单</button></div>}
+        {paymentStatus === 'PAID' && status === 'PROCESSING' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'READY_TO_SHIP')}>标记为待发货</button></div>}
 
         {paymentStatus === 'PAID' && status === 'READY_TO_SHIP' && <form className="order-action-form" onSubmit={e => shipmentSubmit(e, reference)}>
           <div className="order-form-grid">
-            <label>Carrier<input name="carrier" placeholder="UPS / FedEx / USPS / DHL" required /></label>
-            <label>Service<input name="service" placeholder="Ground / Express (optional)" /></label>
-            <label>Tracking number<input name="trackingNumber" placeholder="Tracking number" required /></label>
-            <label>Tracking URL<input name="trackingUrl" type="url" placeholder="https://... (optional)" /></label>
+            <label>承运商<input name="carrier" placeholder="UPS / FedEx / USPS / DHL" required /></label>
+            <label>物流服务<input name="service" placeholder="Ground / Express（可选）" /></label>
+            <label>物流单号<input name="trackingNumber" placeholder="请输入物流单号" required /></label>
+            <label>物流查询链接<input name="trackingUrl" type="url" placeholder="https://...（可选）" /></label>
           </div>
-          <button className="button small" disabled={busy !== ''}>{busy === `${reference}:SHIP` ? 'Saving…' : 'Mark shipped'}</button>
+          <button className="button small" disabled={busy !== ''}>{busy === `${reference}:SHIP` ? '正在保存…' : '确认已发货'}</button>
         </form>}
 
-        {status === 'SHIPPED' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'DELIVER')}>Mark delivered</button>{Boolean(order.tracking_url) && <a className="button secondary small" href={text(order.tracking_url)} target="_blank" rel="noreferrer">Open tracking</a>}</div>}
-        {status === 'DELIVERED' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'COMPLETE')}>Complete order</button><span className="order-hint">A reorder follow-up task is already scheduled.</span></div>}
-        {status === 'COMPLETED' && <div className="order-complete">Order completed · reorder workflow remains active.</div>}
+        {status === 'SHIPPED' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'DELIVER')}>确认已送达</button>{Boolean(order.tracking_url) && <a className="button secondary small" href={text(order.tracking_url)} target="_blank" rel="noreferrer">打开物流查询</a>}</div>}
+        {status === 'DELIVERED' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'COMPLETE')}>完成订单</button><span className="order-hint">系统已自动安排后续复购跟进任务。</span></div>}
+        {status === 'COMPLETED' && <div className="order-complete">订单已完成 · 复购跟进流程仍会继续执行。</div>}
 
-        {note && <div className={`form-status ${note.type}`}><strong>{note.type === 'success' ? 'Saved' : 'Action failed'}</strong><p>{note.text}</p></div>}
+        {note && <div className={`form-status ${note.type}`}><strong>{note.type === 'success' ? '保存成功' : '操作失败'}</strong><p>{note.text}</p></div>}
       </section>;
     })}
   </div>;
