@@ -53,7 +53,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (action === 'MARK_PAID') {
       if (paymentStatus === 'PAID') return Response.json({ ok: true, unchanged: true, order: { reference: orderReference, status, payment_status: paymentStatus } });
-      const amount = Math.max(0, num(input.amount, Number(order.total || 0)));
+      const total = Number(order.total || 0);
+      const previous = await db.prepare(`SELECT COALESCE(SUM(amount),0) AS value FROM payments WHERE order_id=? AND status='RECEIVED'`)
+        .bind(orderId).first<{ value: number }>();
+      const receivedBefore = Number(previous?.value || 0);
+      const outstanding = Math.max(0, total - receivedBefore);
+      const amount = Math.max(0, num(input.amount, outstanding || total));
       const method = clean(input.paymentMethod, 120) || 'BANK_TRANSFER';
       const providerReference = clean(input.paymentReference, 240) || null;
       if (amount <= 0) return Response.json({ ok: false, error: 'Payment amount must be greater than zero.' }, { status: 400 });
@@ -61,15 +66,27 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       await db.prepare(`INSERT INTO payments (id, order_id, method, provider_reference, amount, currency, status, received_at, notes)
         VALUES (?, ?, ?, ?, ?, ?, 'RECEIVED', CURRENT_TIMESTAMP, ?)`)
         .bind(crypto.randomUUID(), orderId, method, providerReference, amount, String(order.currency || 'USD'), `Payment confirmed for ${orderReference}`).run();
+
+      const receivedTotal = receivedBefore + amount;
+      const fullyPaid = receivedTotal + 0.005 >= total;
+
+      if (!fullyPaid) {
+        await db.prepare(`UPDATE orders SET payment_status='PARTIAL', status='PAYMENT_PENDING', updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(orderId).run();
+        await db.prepare(`UPDATE tasks SET description=?, updated_at=CURRENT_TIMESTAMP WHERE order_id=? AND type='PAYMENT' AND status IN ('OPEN','IN_PROGRESS')`)
+          .bind(`Partial payment received. ${String(order.currency || 'USD')} ${receivedTotal.toFixed(2)} of ${total.toFixed(2)} received.`, orderId).run();
+        await addActivity(db, orderId, 'PAYMENT_PARTIAL', 'Partial payment received', `${orderReference} received a partial payment`, { amount, receivedTotal, total, method, providerReference });
+        return Response.json({ ok: true, order: { reference: orderReference, status: 'PAYMENT_PENDING', payment_status: 'PARTIAL' }, payment: { amount, receivedTotal, outstanding: Math.max(0, total - receivedTotal) } });
+      }
+
       await db.prepare(`UPDATE orders SET payment_status='PAID', status='PAID', paid_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(orderId).run();
       await db.prepare(`UPDATE tasks SET status='DONE', completed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE order_id=? AND type='PAYMENT' AND status IN ('OPEN','IN_PROGRESS')`).bind(orderId).run();
       await db.prepare(`INSERT INTO tasks (id, lead_id, company_id, contact_id, order_id, type, title, description, status, priority, due_at)
         VALUES (?, ?, ?, ?, ?, 'FULFILLMENT', ?, ?, 'OPEN', 'HIGH', datetime('now','+1 day'))`)
-        .bind(crypto.randomUUID(), leadId, companyId, contactId, orderId, `Start processing ${orderReference}`, 'Payment received. Prepare the order for fulfillment.').run();
+        .bind(crypto.randomUUID(), leadId, companyId, contactId, orderId, `Start processing ${orderReference}`, 'Payment completed. Prepare the order for fulfillment.').run();
       if (leadId) await db.prepare(`UPDATE leads SET status='WON', next_best_action='Start fulfillment', next_action_at=datetime('now','+1 day'), updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(leadId).run();
       if (companyId) await db.prepare(`UPDATE companies SET status='CUSTOMER', updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(companyId).run();
-      await addActivity(db, orderId, 'PAYMENT_RECEIVED', 'Payment received', `${orderReference} marked paid`, { amount, method, providerReference });
-      return Response.json({ ok: true, order: { reference: orderReference, status: 'PAID', payment_status: 'PAID' } });
+      await addActivity(db, orderId, 'PAYMENT_RECEIVED', 'Payment completed', `${orderReference} is fully paid`, { amount, receivedTotal, total, method, providerReference });
+      return Response.json({ ok: true, order: { reference: orderReference, status: 'PAID', payment_status: 'PAID' }, payment: { amount, receivedTotal, outstanding: 0 } });
     }
 
     if (action === 'START_PROCESSING') {
