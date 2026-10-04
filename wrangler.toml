@@ -1,0 +1,7 @@
+name = "mingeagle-v2"
+compatibility_date = "2026-10-04"
+pages_build_output_dir = "./dist"
+
+# D1 binding is added after the free database is created in Cloudflare:
+# binding name: MINGEAGLE_DB
+# database name: mingeagle-v2
