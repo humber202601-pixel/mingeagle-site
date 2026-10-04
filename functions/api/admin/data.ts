@@ -56,9 +56,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
         LEFT JOIN companies c ON c.id = q.company_id
         LEFT JOIN contacts ct ON ct.id = q.contact_id
         ORDER BY q.created_at DESC LIMIT 100`).all(),
-      db.prepare(`SELECT o.id, o.reference, COALESCE(c.name, ct.full_name, ct.email, 'Unknown') AS customer,
-        o.total, o.currency, o.status, o.payment_status,
-        (SELECT tracking_number FROM shipments s WHERE s.order_id = o.id ORDER BY s.created_at DESC LIMIT 1) AS tracking_number,
+      db.prepare(`SELECT o.id, o.reference, o.quote_id, COALESCE(c.name, ct.full_name, ct.email, 'Unknown') AS customer,
+        o.total, o.currency, o.status, o.payment_status, o.paid_at, o.confirmed_at, o.completed_at,
+        (SELECT carrier FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS carrier,
+        (SELECT service FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS service,
+        (SELECT tracking_number FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS tracking_number,
+        (SELECT tracking_url FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS tracking_url,
+        (SELECT status FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS shipment_status,
+        (SELECT shipped_at FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS shipped_at,
+        (SELECT delivered_at FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS delivered_at,
         o.created_at
         FROM orders o
         LEFT JOIN companies c ON c.id = o.company_id
