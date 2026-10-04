@@ -1,3 +1,4 @@
+import { useState, type FormEvent } from 'react';
 import { Link, NavLink, Route, Routes } from 'react-router-dom';
 import {
   ArrowRight,
@@ -9,14 +10,11 @@ import {
   ContactRound,
   Gauge,
   Inbox,
-  PackageCheck,
   RefreshCcw,
   Search,
   ShoppingBag,
   Sparkles,
   Target,
-  Truck,
-  Users,
 } from 'lucide-react';
 
 type ProductCard = {
@@ -24,6 +22,10 @@ type ProductCard = {
   tag: string;
   description: string;
   audience: string;
+};
+
+type InquiryResult = {
+  reference: string;
 };
 
 const products: ProductCard[] = [
@@ -189,6 +191,51 @@ function HomePage() {
 }
 
 function WholesalePage({ sample = false }: { sample?: boolean }) {
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [result, setResult] = useState<InquiryResult | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  async function submitInquiry(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+
+    setStatus('submitting');
+    setErrorMessage('');
+
+    try {
+      const response = await fetch('/api/inquiries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: formData.get('firstName'),
+          lastName: formData.get('lastName'),
+          email: formData.get('email'),
+          company: formData.get('company'),
+          customerType: formData.get('customerType'),
+          estimatedQuantity: formData.get('estimatedQuantity'),
+          country: formData.get('country'),
+          postalCode: formData.get('postalCode'),
+          message: formData.get('message'),
+          requestType: sample ? 'SAMPLE' : 'WHOLESALE',
+          productInterest: 'SILENT_BALL',
+        }),
+      });
+
+      const data = await response.json() as { ok?: boolean; reference?: string; error?: string };
+      if (!response.ok || !data.ok || !data.reference) {
+        throw new Error(data.error || 'Unable to submit your request.');
+      }
+
+      setResult({ reference: data.reference });
+      setStatus('success');
+      form.reset();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to submit your request.');
+      setStatus('error');
+    }
+  }
+
   return (
     <div className="public-shell">
       <PublicHeader />
@@ -196,22 +243,38 @@ function WholesalePage({ sample = false }: { sample?: boolean }) {
         <div className="form-intro">
           <span className="eyebrow">{sample ? 'SAMPLE REQUEST' : 'WHOLESALE / BULK ORDER'}</span>
           <h1>{sample ? 'TRY THE PRODUCT BEFORE A BIGGER ORDER.' : 'TELL US WHAT YOU NEED. WE’LL BUILD THE RIGHT QUOTE.'}</h1>
-          <p>{sample ? 'Samples create a tracked sales opportunity, not a dead-end form.' : 'This form will feed the same internal lead, quote and order system used by the MING EAGLE Growth Engine.'}</p>
+          <p>{sample ? 'Your request becomes a tracked sales record so sample follow-up does not get lost.' : 'Your request enters the MING EAGLE sales workflow so quote, follow-up and reorder history stay connected.'}</p>
         </div>
-        <form className="lead-form" onSubmit={(e) => e.preventDefault()}>
+        <form className="lead-form" onSubmit={submitInquiry}>
           <div className="form-grid">
-            <label>First name *<input required placeholder="First name"/></label>
-            <label>Last name *<input required placeholder="Last name"/></label>
-            <label>Email *<input required type="email" placeholder="you@company.com"/></label>
-            <label>Company / organization<input placeholder="Academy, retailer, club…"/></label>
-            <label>Customer type<select defaultValue="Academy"><option>Academy</option><option>Coach / trainer</option><option>Retailer</option><option>Camp / program</option><option>Distributor</option><option>Family / consumer</option></select></label>
-            <label>Estimated quantity<input type="number" min="1" placeholder={sample ? '1' : '100'}/></label>
-            <label>Country *<input required defaultValue="United States"/></label>
-            <label>ZIP / postal code<input placeholder="75201"/></label>
+            <label>First name *<input name="firstName" required placeholder="First name"/></label>
+            <label>Last name *<input name="lastName" required placeholder="Last name"/></label>
+            <label>Email *<input name="email" required type="email" placeholder="you@company.com"/></label>
+            <label>Company / organization<input name="company" placeholder="Academy, retailer, club…"/></label>
+            <label>Customer type<select name="customerType" defaultValue="Academy"><option>Academy</option><option>Coach / trainer</option><option>Retailer</option><option>Camp / program</option><option>Distributor</option><option>Family / consumer</option></select></label>
+            <label>Estimated quantity<input name="estimatedQuantity" type="number" min="1" placeholder={sample ? '1' : '100'}/></label>
+            <label>Country *<input name="country" required defaultValue="United States"/></label>
+            <label>ZIP / postal code<input name="postalCode" placeholder="75201"/></label>
           </div>
-          <label>What are you looking for?<textarea rows={5} placeholder="Product, sizes, colors, timing, delivery needs…"/></label>
-          <button className="button" type="submit">{sample ? 'Request sample' : 'Request wholesale quote'} <ArrowRight size={18}/></button>
-          <p className="form-note">Phase 1 shell: the API connection is being built on this development branch. The current production site remains unchanged.</p>
+          <label>What are you looking for?<textarea name="message" rows={5} placeholder="Product, sizes, colors, timing, delivery needs…"/></label>
+          <button className="button" type="submit" disabled={status === 'submitting'}>
+            {status === 'submitting' ? 'Submitting…' : sample ? 'Request sample' : 'Request wholesale quote'}
+            {status !== 'submitting' && <ArrowRight size={18}/>} 
+          </button>
+          {status === 'success' && result && (
+            <div className="form-status success">
+              <strong>Request received.</strong>
+              <span>Reference: {result.reference}</span>
+              <p>We’ll review the request and continue from this reference.</p>
+            </div>
+          )}
+          {status === 'error' && (
+            <div className="form-status error">
+              <strong>Submission failed.</strong>
+              <p>{errorMessage}</p>
+            </div>
+          )}
+          <p className="form-note">Your contact and request details are stored only for sales follow-up, quotation and order support.</p>
         </form>
       </main>
       <PublicFooter />
