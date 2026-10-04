@@ -20,7 +20,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const clientId = env.GMAIL_CLIENT_ID || '';
   const clientSecret = env.GMAIL_CLIENT_SECRET || '';
   const refreshToken = env.GMAIL_REFRESH_TOKEN || '';
-  const from = cleanHeader(env.GMAIL_FROM || '');
+  const from = cleanHeader(env.GMAIL_FROM || 'mingeaglecommerce@gmail.com');
   if (!clientId || !clientSecret || !refreshToken) {
     return Response.json({ ok: false, error: 'Gmail OAuth secrets are not fully configured.' }, { status: 503 });
   }
@@ -48,14 +48,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const headers = [
-      from ? `From: MING EAGLE <${from}>` : '',
+      `From: MING EAGLE <${from}>`,
       `To: ${to}`,
       `Subject: ${subject}`,
       'MIME-Version: 1.0',
       'Content-Type: text/plain; charset=UTF-8',
       '',
       body,
-    ].filter((line, index) => line || index > 0);
+    ];
     const raw = base64Url(headers.join('\r\n'));
 
     const sendResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
@@ -71,7 +71,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ ok: false, error: sent.error?.message || 'Gmail API send failed.' }, { status: 502 });
     }
 
-    return Response.json({ ok: true, messageId: sent.id, threadId: sent.threadId || null, from: from || 'Gmail primary address', to });
+    return Response.json({ ok: true, messageId: sent.id, threadId: sent.threadId || null, from, to });
   } catch (error) {
     console.error('gmail_test_send_failed', error);
     return Response.json({ ok: false, error: 'Unable to send Gmail test message.' }, { status: 500 });
