@@ -1,10 +1,10 @@
 import { useState } from 'react';
+import { priorityLabel, systemText, zhDate } from './adminI18n';
 
 type Row = Record<string, unknown>;
 type Props = { tasks: Row[]; accessKey: string; onChanged: () => void };
 
 const text = (value: unknown, fallback = '—') => value === null || value === undefined || value === '' ? fallback : String(value);
-const date = (value: unknown) => value ? new Date(String(value).replace(' ', 'T') + (String(value).includes('Z') ? '' : 'Z')).toLocaleString() : '—';
 
 export default function TaskManager({ tasks, accessKey, onChanged }: Props) {
   const [busy, setBusy] = useState('');
@@ -20,31 +20,31 @@ export default function TaskManager({ tasks, accessKey, onChanged }: Props) {
         body: JSON.stringify({ taskId, action }),
       });
       const body = await response.json() as { ok?: boolean; error?: string };
-      if (!response.ok || !body.ok) throw new Error(body.error || 'Unable to update task.');
+      if (!response.ok || !body.ok) throw new Error(body.error || '无法更新跟进任务。');
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to update task.');
+      setError(err instanceof Error ? err.message : '无法更新跟进任务。');
     } finally {
       setBusy('');
     }
   }
 
   return <section className="panel task-manager">
-    <div className="panel-head"><h2>Open follow-ups</h2><span>{tasks.length} active tasks</span></div>
-    {tasks.length === 0 && <div className="empty-row">No open follow-ups.</div>}
+    <div className="panel-head"><h2>待处理跟进任务</h2><span>当前 {tasks.length} 项</span></div>
+    {tasks.length === 0 && <div className="empty-row">当前没有待处理跟进任务。</div>}
     {tasks.map((task, index) => {
       const id = text(task.id, `task-${index}`);
       return <div className="task-row" key={id}>
-        <div className="task-main"><strong>{text(task.title)}</strong><p>{text(task.description, '')}</p><small>{text(task.related_to)} · Due {date(task.due_at)}</small></div>
-        <span className={`priority ${text(task.priority).toLowerCase()}`}>{text(task.priority)}</span>
+        <div className="task-main"><strong>{systemText(task.title)}</strong><p>{systemText(task.description)}</p><small>{text(task.related_to)} · 截止 {zhDate(task.due_at)}</small></div>
+        <span className={`priority ${text(task.priority).toLowerCase()}`}>{priorityLabel(task.priority)}</span>
         <div className="task-actions">
-          {text(task.status) === 'OPEN' && <button className="table-action" disabled={busy !== ''} onClick={() => void act(id, 'START')}>Start</button>}
-          <button className="table-action" disabled={busy !== ''} onClick={() => void act(id, 'SNOOZE_3')}>+3 days</button>
-          <button className="table-action" disabled={busy !== ''} onClick={() => void act(id, 'SNOOZE_7')}>+7 days</button>
-          <button className="table-action primary" disabled={busy !== ''} onClick={() => void act(id, 'COMPLETE')}>Done</button>
+          {text(task.status) === 'OPEN' && <button className="table-action" disabled={busy !== ''} onClick={() => void act(id, 'START')}>开始处理</button>}
+          <button className="table-action" disabled={busy !== ''} onClick={() => void act(id, 'SNOOZE_3')}>延后 3 天</button>
+          <button className="table-action" disabled={busy !== ''} onClick={() => void act(id, 'SNOOZE_7')}>延后 7 天</button>
+          <button className="table-action primary" disabled={busy !== ''} onClick={() => void act(id, 'COMPLETE')}>标记完成</button>
         </div>
       </div>;
     })}
-    {error && <div className="form-status error"><strong>Could not update follow-up.</strong><p>{error}</p></div>}
+    {error && <div className="form-status error"><strong>更新跟进任务失败</strong><p>{error}</p></div>}
   </section>;
 }
