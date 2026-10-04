@@ -9,6 +9,7 @@ import {
   Gauge,
   Inbox,
   LogOut,
+  MessageSquareText,
   RefreshCcw,
   ShoppingBag,
   Target,
@@ -17,6 +18,7 @@ import QuoteBuilder from './QuoteBuilder';
 import OrderManager from './OrderManager';
 import TaskManager from './TaskManager';
 import AdminDetail from './AdminDetail';
+import CommunicationCenter from './CommunicationCenter';
 import {
   activityTypeLabel,
   customerTypeLabel,
@@ -54,6 +56,7 @@ const nav = [
   ['/app/inquiries', Inbox, '询盘'],
   ['/app/companies', Building2, '客户公司'],
   ['/app/contacts', ContactRound, '联系人'],
+  ['/app/communications', MessageSquareText, '沟通中心'],
   ['/app/quotes', CircleDollarSign, '报价单'],
   ['/app/orders', ShoppingBag, '订单'],
   ['/app/tasks', ClipboardList, '跟进任务'],
@@ -171,6 +174,7 @@ export default function AdminApp() {
     if (!accessKey) return;
     setLoading(true); setError('');
     try {
+      await fetch('/api/admin/automation-sweep', { method: 'POST', headers: { 'x-admin-key': accessKey } }).catch(() => undefined);
       const response = await fetch('/api/admin/data', { headers: { 'x-admin-key': accessKey } });
       const body = await response.json() as AdminData & { error?: string };
       if (!response.ok || !body.ok) throw new Error(body.error || '无法加载后台数据。');
@@ -210,6 +214,10 @@ export default function AdminApp() {
   else if (page === 'contacts') content = <><Top title="联系人" description="统一保存负责人、采购联系人和其他决策人的联系信息。"/><DataTable rows={data.contacts} columns={[
     {key:'full_name',label:'姓名'},{key:'company',label:'所属公司'},{key:'title',label:'职位'},{key:'email',label:'邮箱'},{key:'email_type',label:'邮箱类型',format:r=>emailTypeLabel(r.email_type)},{key:'created_at',label:'创建时间',format:r=>zhDate(r.created_at)}
   ]}/></>;
+  else if (page === 'communications') content = <>
+    <Top title="沟通中心" description="使用免费渠道开展邮件 / WhatsApp 跟进，登记客户回复，并自动推进潜客阶段和下一步任务。"/>
+    <CommunicationCenter accessKey={key} onChanged={() => void load()} />
+  </>;
   else if (page === 'quotes') content = <>
     <Top title="报价单" description="创建报价草稿、生成客户安全链接、跟踪查看状态并自动转订单。"/>
     <QuoteBuilder inquiries={data.inquiries} accessKey={key} onCreated={() => void load()} />
