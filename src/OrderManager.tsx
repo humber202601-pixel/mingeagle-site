@@ -63,6 +63,9 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
       const reference = text(order.reference, `ORDER-${index + 1}`);
       const status = text(order.status);
       const paymentStatus = text(order.payment_status);
+      const total = Number(order.total || 0);
+      const received = Number(order.amount_received || 0);
+      const outstanding = Math.max(0, total - received);
       const note = message[reference];
       return <section className="panel order-card" key={reference}>
         <div className="order-head">
@@ -70,7 +73,7 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
           <div className="order-badges"><span>{paymentStatus}</span><strong>{status}</strong></div>
         </div>
         <div className="order-meta">
-          <div><small>PAYMENT</small><strong>{paymentStatus}</strong></div>
+          <div><small>PAYMENT</small><strong>{paymentStatus === 'PARTIAL' ? `${money(received, order.currency)} / ${money(total, order.currency)}` : paymentStatus}</strong></div>
           <div><small>FULFILLMENT</small><strong>{status}</strong></div>
           <div><small>CARRIER</small><strong>{text(order.carrier)}</strong></div>
           <div><small>TRACKING</small><strong>{text(order.tracking_number)}</strong></div>
@@ -79,10 +82,11 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
         {paymentStatus !== 'PAID' && !['CANCELLED','COMPLETED'].includes(status) && <form className="order-action-form" onSubmit={e => paymentSubmit(e, reference)}>
           <div className="order-form-grid">
             <label>Payment method<select name="paymentMethod" defaultValue="BANK_TRANSFER"><option value="BANK_TRANSFER">Bank transfer</option><option value="WISE">Wise</option><option value="PAYONEER">Payoneer</option><option value="ACH">ACH</option><option value="WIRE">Wire</option><option value="OTHER">Other</option></select></label>
-            <label>Amount<input name="amount" type="number" min="0.01" step="0.01" defaultValue={Number(order.total || 0).toFixed(2)} required /></label>
+            <label>Amount<input name="amount" type="number" min="0.01" step="0.01" defaultValue={(outstanding || total).toFixed(2)} required /></label>
             <label className="span-2">Payment reference<input name="paymentReference" placeholder="Transfer reference / note (optional)" /></label>
           </div>
-          <button className="button small" disabled={busy !== ''}>{busy === `${reference}:MARK_PAID` ? 'Saving…' : 'Mark payment received'}</button>
+          {paymentStatus === 'PARTIAL' && <div className="payment-progress">Received {money(received, order.currency)} · Outstanding {money(outstanding, order.currency)}</div>}
+          <button className="button small" disabled={busy !== ''}>{busy === `${reference}:MARK_PAID` ? 'Saving…' : paymentStatus === 'PARTIAL' ? 'Record next payment' : 'Record payment'}</button>
         </form>}
 
         {paymentStatus === 'PAID' && status === 'PAID' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'START_PROCESSING')}>Start processing</button></div>}
