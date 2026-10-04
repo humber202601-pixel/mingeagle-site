@@ -36,6 +36,26 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
     }
   }
 
+  async function createReorderQuote(orderReference: string) {
+    setBusy(`${orderReference}:REORDER`);
+    setMessage(prev => ({ ...prev, [orderReference]: undefined as never }));
+    try {
+      const response = await fetch('/api/admin/reorder-quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
+        body: JSON.stringify({ orderReference }),
+      });
+      const body = await response.json() as { ok?: boolean; quote?: { reference?: string }; error?: string };
+      if (!response.ok || !body.ok || !body.quote?.reference) throw new Error(body.error || '无法创建复购报价。');
+      setMessage(prev => ({ ...prev, [orderReference]: { type: 'success', text: `已生成复购报价草稿 ${body.quote?.reference}，请到“报价单”中审核价格和运费后再发送。` } }));
+      onChanged();
+    } catch (error) {
+      setMessage(prev => ({ ...prev, [orderReference]: { type: 'error', text: error instanceof Error ? error.message : '无法创建复购报价。' } }));
+    } finally {
+      setBusy('');
+    }
+  }
+
   function paymentSubmit(event: FormEvent<HTMLFormElement>, reference: string) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
@@ -104,8 +124,8 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
         </form>}
 
         {status === 'SHIPPED' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'DELIVER')}>确认已送达</button>{Boolean(order.tracking_url) && <a className="button secondary small" href={text(order.tracking_url)} target="_blank" rel="noreferrer">打开物流查询</a>}</div>}
-        {status === 'DELIVERED' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'COMPLETE')}>完成订单</button><span className="order-hint">系统已自动安排后续复购跟进任务。</span></div>}
-        {status === 'COMPLETED' && <div className="order-complete">订单已完成 · 复购跟进流程仍会继续执行。</div>}
+        {status === 'DELIVERED' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'COMPLETE')}>完成订单</button><button className="button secondary small" disabled={busy !== ''} onClick={() => void createReorderQuote(reference)}>{busy === `${reference}:REORDER` ? '正在生成…' : '生成复购报价'}</button><span className="order-hint">系统已自动安排后续复购跟进任务。</span></div>}
+        {status === 'COMPLETED' && <div className="order-actions"><div className="order-complete">订单已完成 · 复购跟进流程仍会继续执行。</div><button className="button secondary small" disabled={busy !== ''} onClick={() => void createReorderQuote(reference)}>{busy === `${reference}:REORDER` ? '正在生成…' : '一键生成复购报价'}</button></div>}
 
         {note && <div className={`form-status ${note.type}`}><strong>{note.type === 'success' ? '保存成功' : '操作失败'}</strong><p>{note.text}</p></div>}
       </section>;
