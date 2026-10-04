@@ -1,0 +1,11 @@
+name = "mingeagle-followup-scheduler"
+main = "workers/followup-scheduler.ts"
+compatibility_date = "2026-10-04"
+
+[[d1_databases]]
+binding = "MINGEAGLE_DB"
+database_name = "mingeagle-v2"
+database_id = "8dfddbe8-f4ff-4f5e-bb5d-063ec3933814"
+
+[triggers]
+crons = ["0 13 * * *"]
