@@ -31,6 +31,13 @@ type EditDetail = {
   items: Row[];
 };
 
+type CreatePreview = {
+  subtotal: number;
+  shipping: number;
+  discount: number;
+  total: number;
+};
+
 const text = (value: unknown, fallback = '') => value === null || value === undefined || value === '' ? fallback : String(value);
 const money = (value: unknown, currency: unknown) => `${text(currency, 'USD')} ${Number(value || 0).toFixed(2)}`;
 const dateOnly = (value: unknown) => text(value).slice(0, 10);
@@ -65,6 +72,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   const [editDetail, setEditDetail] = useState<EditDetail | null>(null);
   const [editMessage, setEditMessage] = useState('');
   const [editPreviewTotal, setEditPreviewTotal] = useState<number | null>(null);
+  const [createPreview, setCreatePreview] = useState<CreatePreview>({ subtotal: 0, shipping: 0, discount: 0, total: 0 });
 
   const selected = available.find(item => text(item.reference) === selectedReference);
 
@@ -77,6 +85,10 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     setSelectedReference(text(available[0]?.reference));
   }, [available, requestedReference, selectedReference]);
 
+  useEffect(() => {
+    setCreatePreview({ subtotal: 0, shipping: 0, discount: 0, total: 0 });
+  }, [selectedReference]);
+
   async function loadQuotes() {
     try {
       const response = await fetch('/api/admin/data', { headers: { 'x-admin-key': accessKey } });
@@ -88,6 +100,16 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   }
 
   useEffect(() => { void loadQuotes(); }, [accessKey]);
+
+  function updateCreatePreview(event: FormEvent<HTMLFormElement>) {
+    const data = new FormData(event.currentTarget);
+    const quantity = Math.max(0, safeNumber(data.get('quantity')));
+    const unitPrice = Math.max(0, safeNumber(data.get('unitPrice')));
+    const shipping = Math.max(0, safeNumber(data.get('shipping')));
+    const discount = Math.max(0, safeNumber(data.get('discount')));
+    const subtotal = quantity * unitPrice;
+    setCreatePreview({ subtotal, shipping, discount, total: Math.max(0, subtotal - discount + shipping) });
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -281,7 +303,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
         <h2>创建报价草稿</h2>
         <span>客户回复 → MEQ 询盘 → 人工确认价格 → 商务报价</span>
       </div>
-      {available.length === 0 ? <div className="empty-row">当前没有待创建报价的询盘。已报价询盘请在下方编辑原报价或创建修订版。</div> : <form onSubmit={submit} className="quote-form">
+      {available.length === 0 ? <div className="empty-row">当前没有待创建报价的询盘。已报价询盘请在下方编辑原报价或创建修订版。</div> : <form onSubmit={submit} onInput={updateCreatePreview} className="quote-form">
         {selected && <div className="form-status success">
           <strong>客户需求已自动带入 · {text(selected.reference)}</strong>
           <p>{[
@@ -318,14 +340,20 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           <label>优惠 / 折扣（USD）
             <input name="discount" type="number" min="0" step="0.01" defaultValue="0" />
           </label>
+          <label>商品金额（实时预览）
+            <input value={money(createPreview.subtotal, 'USD')} readOnly />
+          </label>
+          <label>报价总额（实时预览）
+            <input value={money(createPreview.total, 'USD')} readOnly />
+          </label>
           <label>报价有效期（天）
             <input name="validDays" type="number" min="1" max="90" defaultValue="14" />
           </label>
           <label className="span-2">付款条款（客户可见）
-            <input name="paymentTerms" defaultValue="Payment terms to be confirmed before sending." />
+            <input name="paymentTerms" defaultValue="Payment is due before fulfillment unless otherwise agreed. Secure card, digital wallet and bank transfer options are available." />
           </label>
           <label className="span-2">运输条款（客户可见）
-            <input name="shippingTerms" defaultValue={text(selected?.shipping_postal_code) ? `Shipping quote based on ZIP ${text(selected?.shipping_postal_code)}; final shipping terms to be confirmed before sending.` : 'Shipping terms to be confirmed before sending.'} key={`shippingTerms-${selectedReference}`} />
+            <input name="shippingTerms" defaultValue={text(selected?.shipping_postal_code) ? `Shipping cost is based on ZIP ${text(selected?.shipping_postal_code)}. Final carrier and delivery schedule will be confirmed before shipment.` : 'Final carrier, shipping cost and delivery schedule will be confirmed before shipment.'} key={`shippingTerms-${selectedReference}`} />
           </label>
           <label className="span-2">报价备注（客户可见）
             <textarea name="notes" rows={3} placeholder="可填写报价补充说明…" />
@@ -333,7 +361,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
         </div>
         <div className="quote-form-actions">
           <button className="button" disabled={busy}>{busy ? '正在创建…' : '创建报价草稿'}</button>
-          <small>此操作只创建草稿，不会自动发送；单价必须大于 0，运费和条款请审核确认。</small>
+          <small>总价实时预览 = 数量 × 单价 − 折扣 + 运费。此操作只创建草稿，不会自动发送。</small>
         </div>
         {result && <div className="form-status success"><strong>报价草稿已创建：{result.reference}</strong><p>{result.currency} {Number(result.total).toFixed(2)} · {statusLabel(result.status)}</p></div>}
         {error && <div className="form-status error"><strong>报价操作失败</strong><p>{error}</p></div>}
