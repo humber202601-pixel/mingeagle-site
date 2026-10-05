@@ -40,40 +40,77 @@ async function ensureTable(db: D1Database) {
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_email_queue_lead ON email_queue(lead_id)`).run();
 }
 
-function firstName(row: DueLead) {
-  return clean(row.first_name, 80) || clean(row.contact, 120).split(' ')[0] || 'there';
+function safeFirstName(row: DueLead) {
+  const company = clean(row.company, 160).toLowerCase();
+  const full = clean(row.contact, 160);
+  const explicit = clean(row.first_name, 80);
+  const candidate = explicit || full.split(' ')[0] || '';
+  if (!candidate) return '';
+  if (full.toLowerCase() === company) return '';
+  if (/^(public|unknown|customer|contact|info|sales|admin|individual)$/i.test(candidate)) return '';
+  return candidate.replace(/[^A-Za-z'’-]/g, '').slice(0, 40);
+}
+
+function greeting(row: DueLead) {
+  const first = safeFirstName(row);
+  const company = clean(row.company, 160) || 'your organization';
+  return first ? `Hi ${first},` : `Hello ${company} team,`;
+}
+
+function fitCopy(customerType:string) {
+  const type=customerType.toUpperCase();
+  if(type==='TRAINING_ACADEMY') return { label:'basketball training academy', short:'quieter ball-handling work, indoor skill sessions, camps and take-home practice', subject:'silent basketballs for indoor skill training' };
+  if(type==='YOUTH_SPORTS_CLUB') return { label:'youth basketball program', short:'quieter youth drills, camps, warm-ups and at-home practice', subject:'silent basketballs for youth training' };
+  if(type==='SPORTS_FACILITY') return { label:'basketball facility', short:'a quieter option for skill work in indoor spaces', subject:'a quieter basketball option for indoor training' };
+  if(type==='SPORTS_RETAILER') return { label:'sports retailer', short:'a differentiated indoor-play product for parents and youth players', subject:'silent basketball retail opportunity' };
+  return { label:'basketball organization', short:'quieter indoor skill work and at-home basketball training', subject:'silent basketball opportunity' };
 }
 
 function templateFor(row: DueLead) {
   const status = String(row.status || '');
-  const name = firstName(row);
+  const hello = greeting(row);
   const company = clean(row.company, 160) || 'your organization';
+  const city = clean(row.city, 120);
+  const state = clean(row.state_region, 40);
+  const location = [city,state].filter(Boolean).join(', ');
+  const customerType = clean(row.customer_type, 100);
+  const fit = fitCopy(customerType);
   const days = Math.max(0, Math.floor(Number(row.days_since_contact || 0)));
 
+  if (status === 'READY_TO_CONTACT') {
+    const foundLine = location
+      ? `I came across ${company} while looking at ${fit.label}s in ${location}.`
+      : `I came across ${company} while looking at organizations that work with basketball players and programs.`;
+    return {
+      type: 'OUTREACH_INITIAL',
+      subject: customerType === 'SPORTS_RETAILER' ? `MING EAGLE ${fit.subject} for ${company}` : `${company} — ${fit.subject}`,
+      body: `${hello}\n\n${foundLine}\n\nWe make MING EAGLE silent basketballs for quieter indoor practice. Our silent basketball line has sold more than 30,000 sets in the U.S. market. For ${company}, a relevant use case may be ${fit.short}.\n\nWe can support sample evaluation, small wholesale quantities and repeat orders. If it looks relevant, I can send simple pricing for 20, 50 and 100 units together with shipping based on your ZIP code.\n\nWould it be useful if I sent a short wholesale quote?\n\nBest regards,\nMING EAGLE\nwww.mingeagle.com`,
+    };
+  }
   if (status === 'WON') return {
     type: 'REORDER_FOLLOW_UP',
     subject: 'Ready for a restock? — MING EAGLE',
-    body: `Hi ${name},\n\nI hope everything has been going well with your MING EAGLE order. I wanted to check whether ${company} may need a restock or another batch of silent ball products.\n\nIf you are planning a repeat order, just reply with the approximate quantity and delivery location. I can prepare an updated quotation for you.\n\nBest regards,\nMING EAGLE`,
+    body: `${hello}\n\nI hope everything has been going well with your MING EAGLE order. I wanted to check whether ${company} may need a restock or another batch of silent ball products.\n\nIf you are planning a repeat order, just reply with the approximate quantity and delivery location. I can prepare an updated quotation for you.\n\nBest regards,\nMING EAGLE`,
   };
   if (status === 'QUOTE') return {
     type: 'QUOTE_FOLLOW_UP',
     subject: 'Following up on your MING EAGLE quote',
-    body: `Hi ${name},\n\nI wanted to follow up on the MING EAGLE quotation we shared. Please let me know if you have any questions about pricing, shipping, lead time or payment terms. We can review the order configuration before confirmation.\n\nBest regards,\nMING EAGLE`,
+    body: `${hello}\n\nI wanted to follow up on the MING EAGLE quotation we shared. Please let me know if you have any questions about pricing, shipping, lead time or payment terms. We can review the order configuration before confirmation.\n\nBest regards,\nMING EAGLE`,
   };
   if (status === 'SAMPLE') return {
     type: 'SAMPLE_FOLLOW_UP',
     subject: 'MING EAGLE sample follow-up',
-    body: `Hi ${name},\n\nI’m following up on the sample discussion. Please let me know if you need help with the sample arrangement, shipping details or product feedback. We can also prepare wholesale pricing when you are ready.\n\nBest regards,\nMING EAGLE`,
+    body: `${hello}\n\nI’m following up on the sample discussion. Please let me know if you need help with the sample arrangement, shipping details or product feedback. We can also prepare wholesale pricing when you are ready.\n\nBest regards,\nMING EAGLE`,
   };
   if (status === 'NEGOTIATION') return {
     type: 'NEGOTIATION_FOLLOW_UP',
     subject: 'Following up on commercial terms — MING EAGLE',
-    body: `Hi ${name},\n\nI’m following up on our discussion. If you still need anything clarified around price, shipping, lead time or payment terms, please let me know and I’ll review the best available option.\n\nBest regards,\nMING EAGLE`,
+    body: `${hello}\n\nI’m following up on our discussion. If you still need anything clarified around price, shipping, lead time or payment terms, please let me know and I’ll review the best available option.\n\nBest regards,\nMING EAGLE`,
   };
   if (status === 'INTERESTED') return {
     type: 'INTEREST_FOLLOW_UP',
     subject: 'Next step for MING EAGLE silent basketball',
-    body: `Hi ${name},\n\nThanks again for your interest in our silent basketball products. To move forward, please send the approximate quantity and delivery ZIP code and I can confirm the best pricing and next step.\n\nBest regards,\nMING EAGLE`,
+    body: `${hello}\n\nThanks again for your interest in our silent basketball products. To move forward, please send the approximate quantity and delivery ZIP code and I can confirm the best pricing and next step.\n\nBest regards,\nMING EAGLE`,
   };
 
   const stage = days >= 14 ? 'final' : days >= 7 ? 'second' : 'first';
@@ -81,8 +118,8 @@ function templateFor(row: DueLead) {
     type: `OUTREACH_${stage.toUpperCase()}_FOLLOW_UP`,
     subject: stage === 'final' ? 'Final check-in — MING EAGLE silent basketball' : 'Following up — MING EAGLE silent basketball',
     body: stage === 'final'
-      ? `Hi ${name},\n\nOne final check-in regarding our silent basketball products for ${company}. If this is not relevant right now, no problem. If you would like wholesale pricing or a sample option later, feel free to reply anytime.\n\nBest regards,\nMING EAGLE`
-      : `Hi ${name},\n\nJust following up on my previous message about our silent basketball products. If this could fit ${company}, I can send simple wholesale pricing based on your expected quantity and delivery location.\n\nWould it be useful if I sent pricing for 20, 50 and 100 units?\n\nBest regards,\nMING EAGLE`,
+      ? `${hello}\n\nOne final check-in regarding our silent basketball products for ${company}. If this is not relevant right now, no problem. If you would like wholesale pricing or a sample option later, feel free to reply anytime.\n\nBest regards,\nMING EAGLE`
+      : `${hello}\n\nJust following up on my previous message about our silent basketball products. For ${company}, the most relevant use case may be ${fit.short}.\n\nWould it be useful if I sent pricing for 20, 50 and 100 units?\n\nBest regards,\nMING EAGLE`,
   };
 }
 
@@ -90,7 +127,7 @@ async function generateQueue(db: D1Database) {
   await ensureTable(db);
   const due = await db.prepare(`SELECT
       l.id, l.status, l.source, l.company_id, l.primary_contact_id, l.last_contact_at, l.next_action_at,
-      COALESCE(c.name, 'Individual buyer') AS company,
+      COALESCE(c.name, 'Individual buyer') AS company, c.customer_type, c.city, c.state_region,
       COALESCE(ct.full_name, ct.email, 'Customer') AS contact,
       ct.first_name, ct.email, COALESCE(ct.do_not_contact,0) AS do_not_contact,
       COALESCE((julianday('now') - julianday(l.last_contact_at)), 0) AS days_since_contact,
@@ -105,25 +142,32 @@ async function generateQueue(db: D1Database) {
     FROM leads l
     LEFT JOIN companies c ON c.id=l.company_id
     LEFT JOIN contacts ct ON ct.id=l.primary_contact_id
-    WHERE l.next_action_at IS NOT NULL
-      AND datetime(l.next_action_at) <= datetime('now')
-      AND l.status IN ('CONTACTED','INTERESTED','SAMPLE','QUOTE','NEGOTIATION','WON')
+    WHERE (
+        (l.status='READY_TO_CONTACT' AND l.last_contact_at IS NULL
+          AND NOT EXISTS(SELECT 1 FROM messages m WHERE m.lead_id=l.id AND m.direction='OUTBOUND'))
+        OR
+        (l.next_action_at IS NOT NULL AND datetime(l.next_action_at) <= datetime('now')
+          AND l.status IN ('CONTACTED','INTERESTED','SAMPLE','QUOTE','NEGOTIATION','WON'))
+      )
       AND COALESCE(ct.do_not_contact,0)=0
       AND ct.email IS NOT NULL AND ct.email<>''
-    ORDER BY l.next_action_at ASC
+    ORDER BY CASE WHEN l.status='READY_TO_CONTACT' THEN 0 ELSE 1 END, datetime(COALESCE(l.next_action_at,l.created_at)) ASC
     LIMIT 250`).all<DueLead>();
 
   let created = 0;
+  let initialCreated = 0;
+  let followupCreated = 0;
   for (const row of due.results) {
     const leadId = String(row.id);
     const email = clean(row.email, 320);
     if (!email.includes('@')) continue;
     const tmpl = templateFor(row);
-    const nextAt = clean(row.next_action_at, 100) || 'now';
-    const dedupe = `${leadId}|${String(row.status)}|${nextAt}|${tmpl.type}`;
+    const isInitial = String(row.status) === 'READY_TO_CONTACT';
+    const nextAt = clean(row.next_action_at, 100) || new Date().toISOString();
+    const dedupe = isInitial ? `${leadId}|INITIAL_OUTREACH` : `${leadId}|${String(row.status)}|${nextAt}|${tmpl.type}`;
     const isReorder = String(row.status) === 'WON';
-    const autoEligible = isReorder ? 0 : (Number(row.auto_eligible || 0) === 1 ? 1 : 0);
-    const status = isReorder ? 'REVIEW_REQUIRED' : (autoEligible ? 'READY' : 'REVIEW_REQUIRED');
+    const autoEligible = isInitial || isReorder ? 0 : (Number(row.auto_eligible || 0) === 1 ? 1 : 0);
+    const status = isInitial || isReorder ? 'REVIEW_REQUIRED' : (autoEligible ? 'READY' : 'REVIEW_REQUIRED');
     const result = await db.prepare(`INSERT OR IGNORE INTO email_queue
       (id, lead_id, company_id, contact_id, email, subject, body, queue_type, status, auto_eligible, source_status, scheduled_for, dedupe_key)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
@@ -133,9 +177,12 @@ async function generateQueue(db: D1Database) {
         row.primary_contact_id ? String(row.primary_contact_id) : null,
         email, tmpl.subject, tmpl.body, tmpl.type, status, autoEligible, String(row.status), nextAt, dedupe,
       ).run();
-    if ((result.meta?.changes || 0) > 0) created += 1;
+    if ((result.meta?.changes || 0) > 0) {
+      created += 1;
+      if (isInitial) initialCreated += 1; else followupCreated += 1;
+    }
   }
-  return { reviewed: due.results.length, created };
+  return { reviewed: due.results.length, created, initialCreated, followupCreated };
 }
 
 function base64Url(bytes: Uint8Array) {
@@ -209,9 +256,10 @@ async function sendQueueItem(db: D1Database, env: Env, queueId: string) {
   const sent = await sendResponse.json() as { id?: string; threadId?: string; error?: { message?: string } };
   if (!sendResponse.ok || !sent.id) throw new Error(sent.error?.message || 'Gmail API send failed.');
 
+  const intent = String(row.queue_type) === 'OUTREACH_INITIAL' ? 'OUTREACH' : 'FOLLOW_UP';
   await db.prepare(`INSERT INTO messages (id, lead_id, company_id, contact_id, channel, direction, subject, body, intent, sent_at)
-    VALUES (?, ?, ?, ?, 'EMAIL', 'OUTBOUND', ?, ?, 'FOLLOW_UP', CURRENT_TIMESTAMP)`)
-    .bind(crypto.randomUUID(), String(row.lead_id), row.company_id ? String(row.company_id) : null, row.contact_id ? String(row.contact_id) : null, subject, body).run();
+    VALUES (?, ?, ?, ?, 'EMAIL', 'OUTBOUND', ?, ?, ?, CURRENT_TIMESTAMP)`)
+    .bind(crypto.randomUUID(), String(row.lead_id), row.company_id ? String(row.company_id) : null, row.contact_id ? String(row.contact_id) : null, subject, body, intent).run();
 
   const currentStatus = String(row.lead_status || '');
   const nextStatus = ['DISCOVERED','ANALYZED','QUALIFIED','ENRICHING','READY_TO_CONTACT'].includes(currentStatus) ? 'CONTACTED' : currentStatus;
@@ -222,7 +270,7 @@ async function sendQueueItem(db: D1Database, env: Env, queueId: string) {
   await db.prepare(`UPDATE email_queue SET status='SENT', sent_at=CURRENT_TIMESTAMP, last_error=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(queueId).run();
   await db.prepare(`INSERT INTO activities (id, entity_type, entity_id, activity_type, title, description, metadata_json)
     VALUES (?, 'LEAD', ?, 'MESSAGE_OUTBOUND', 'Queued email sent through Gmail API', ?, ?)`)
-    .bind(crypto.randomUUID(), String(row.lead_id), `EMAIL: ${body.slice(0,300)}`, JSON.stringify({ queueId, gmailMessageId: sent.id, gmailThreadId: sent.threadId || null })).run();
+    .bind(crypto.randomUUID(), String(row.lead_id), `EMAIL: ${body.slice(0,300)}`, JSON.stringify({ queueId, gmailMessageId: sent.id, gmailThreadId: sent.threadId || null, queueType: row.queue_type })).run();
 
   return { gmailMessageId: sent.id, gmailThreadId: sent.threadId || null, to: email };
 }
