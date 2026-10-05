@@ -59,6 +59,22 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
       db.prepare(`SELECT o.id, o.reference, o.quote_id, COALESCE(c.name, ct.full_name, ct.email, 'Unknown') AS customer,
         o.total, o.currency, o.status, o.payment_status,
         (SELECT COALESCE(SUM(p.amount),0) FROM payments p WHERE p.order_id=o.id AND p.status='RECEIVED') AS amount_received,
+        (SELECT COALESCE(json_group_array(json_object(
+          'id', p.id,
+          'method', p.method,
+          'provider', p.provider,
+          'provider_reference', p.provider_reference,
+          'amount', p.amount,
+          'currency', p.currency,
+          'status', p.status,
+          'received_at', p.received_at,
+          'created_at', p.created_at
+        )), '[]') FROM (
+          SELECT id, method, provider, provider_reference, amount, currency, status, received_at, created_at
+          FROM payments
+          WHERE order_id=o.id
+          ORDER BY COALESCE(received_at, created_at) DESC, created_at DESC
+        ) p) AS payments_json,
         o.paid_at, o.confirmed_at, o.completed_at,
         (SELECT carrier FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS carrier,
         (SELECT service FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS service,
