@@ -7,6 +7,7 @@ type Settings = { enabled: boolean; maxPerRun: number; maxPerLead: number; updat
 type Metrics = { sentToday: number; ready: number; reviewRequired: number; failed: number; sentTotal: number };
 type ResponseData = { ok?: boolean; settings?: Settings; metrics?: Metrics; recent?: Row[]; error?: string };
 type QueueData = { ok?: boolean; rows?: Row[]; counts?: Row[]; error?: string; reviewed?: number; created?: number; initialCreated?: number; followupCreated?: number };
+type QueueAction = 'APPROVE'|'SEND'|'DELAY'|'SKIP'|'RETRY';
 
 const emptySettings: Settings = { enabled: true, maxPerRun: 5, maxPerLead: 3 };
 const emptyMetrics: Metrics = { sentToday: 0, ready: 0, reviewRequired: 0, failed: 0, sentTotal: 0 };
@@ -34,6 +35,7 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
   const [metrics, setMetrics] = useState<Metrics>(emptyMetrics);
   const [recent, setRecent] = useState<Row[]>([]);
   const [queue, setQueue] = useState<Row[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [rowBusy, setRowBusy] = useState('');
   const [message, setMessage] = useState('');
@@ -91,22 +93,28 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
     } finally { setBusy(false); }
   }
 
-  async function queueAction(queueId: string, action: 'APPROVE'|'SEND'|'DELAY'|'SKIP'|'RETRY') {
+  async function requestQueueAction(queueId: string, action: QueueAction) {
+    const payload: Record<string, unknown> = { action, queueId };
+    if (action === 'DELAY') payload.days = 3;
+    const response = await fetch('/api/admin/email-queue', { method:'POST', headers, body:JSON.stringify(payload) });
+    const body = await response.json() as { ok?: boolean; error?: string; to?: string };
+    if (!response.ok || !body.ok) throw new Error(body.error || '邮件队列操作失败。');
+    return body;
+  }
+
+  async function queueAction(queueId: string, action: QueueAction) {
     setRowBusy(queueId); setError(''); setMessage('');
     try {
-      const payload: Record<string, unknown> = { action, queueId };
-      if (action === 'DELAY') payload.days = 3;
-      const response = await fetch('/api/admin/email-queue', { method:'POST', headers, body:JSON.stringify(payload) });
-      const body = await response.json() as { ok?: boolean; error?: string; to?: string };
-      if (!response.ok || !body.ok) throw new Error(body.error || '邮件队列操作失败。');
-      const labels: Record<string,string> = {
-        APPROVE:'草稿已批准。冷开发仍不会自动发送，可继续点击“立即发送”。',
+      const body = await requestQueueAction(queueId, action);
+      const labels: Record<QueueAction,string> = {
+        APPROVE:'草稿已批准。现在才允许点击“立即发送”。',
         SEND:`邮件已通过 Gmail 真实发送${body.to ? `至 ${body.to}` : ''}。`,
         DELAY:'已延期 3 天。',
         SKIP:'已跳过该邮件。',
         RETRY:'已重新进入待发送状态。',
       };
       setMessage(labels[action]);
+      setSelectedIds(ids => ids.filter(id => id !== queueId));
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : '邮件队列操作失败。');
@@ -114,6 +122,55 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
   }
 
   const reviewQueue = useMemo(() => queue.filter(row => ['REVIEW_REQUIRED','READY','FAILED'].includes(text(row.status,''))).slice(0,30), [queue]);
+  const selectedRows = useMemo(() => reviewQueue.filter(row => selectedIds.includes(text(row.id,''))), [reviewQueue, selectedIds]);
+  const selectedReviewCount = selectedRows.filter(row => text(row.status,'') === 'REVIEW_REQUIRED').length;
+  const selectedReadyCount = selectedRows.filter(row => text(row.status,'') === 'READY').length;
+
+  function toggleSelected(id: string) {
+    setSelectedIds(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]);
+  }
+
+  function toggleSelectAll() {
+    const ids = reviewQueue.map(row => text(row.id,'')).filter(Boolean);
+    const allSelected = ids.length > 0 && ids.every(id => selectedIds.includes(id));
+    setSelectedIds(allSelected ? [] : ids);
+  }
+
+  async function batchAction(action: 'APPROVE'|'SEND'|'SKIP') {
+    const targets = selectedRows.filter(row => {
+      const status = text(row.status,'');
+      if (action === 'APPROVE') return status === 'REVIEW_REQUIRED';
+      if (action === 'SEND') return status === 'READY';
+      return ['REVIEW_REQUIRED','READY','FAILED'].includes(status);
+    });
+    if (!targets.length) {
+      setMessage(action === 'SEND' ? '请先勾选至少一封“已批准 / 待发送”的邮件。' : '当前勾选项里没有可执行该批量操作的邮件。');
+      return;
+    }
+    if (action === 'SEND') {
+      const confirmed = window.confirm(`将通过 Gmail 真实发送 ${targets.length} 封已批准邮件。确认继续吗？`);
+      if (!confirmed) return;
+    }
+
+    setBusy(true); setError(''); setMessage('');
+    let success = 0;
+    const failures: string[] = [];
+    for (const row of targets) {
+      const id = text(row.id,'');
+      try {
+        await requestQueueAction(id, action);
+        success += 1;
+      } catch (err) {
+        failures.push(`${text(row.company,'客户')}: ${err instanceof Error ? err.message : '失败'}`);
+      }
+    }
+    setSelectedIds([]);
+    const label = action === 'APPROVE' ? '批量批准' : action === 'SEND' ? '批量发送' : '批量跳过';
+    setMessage(`${label}完成：成功 ${success} 封${failures.length ? `，失败 ${failures.length} 封` : ''}。`);
+    if (failures.length) setError(failures.slice(0,3).join('；'));
+    await load();
+    setBusy(false);
+  }
 
   return <div>
     <section className="metric-grid">
@@ -144,7 +201,7 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
       <div className="panel">
         <div className="panel-head"><h2>安全规则</h2><ShieldCheck size={20}/></div>
         <div style={{display:'grid',gap:12}}>
-          <div className="list-row"><div><strong>冷开发不自动发送</strong><small>首封始终进入人工审核，auto_eligible=0</small></div><span className="priority medium">强制</span></div>
+          <div className="list-row"><div><strong>冷开发必须先批准</strong><small>后端强制要求 READY 状态后 Gmail 才允许发送</small></div><span className="priority medium">强制</span></div>
           <div className="list-row"><div><strong>禁止联系立即拦截</strong><small>DO NOT CONTACT 客户不会被发送</small></div><span className="priority medium">强制</span></div>
           <div className="list-row"><div><strong>单客户发送上限</strong><small>超过上限自动转人工审核</small></div><span className="priority medium">{settings.maxPerLead} 封</span></div>
           <div className="list-row"><div><strong>每日执行时间</strong><small>Cloudflare Scheduler 每天北京时间 21:00</small></div><span className="priority medium">定时</span></div>
@@ -153,25 +210,41 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
       </div>
     </section>
 
-    {(message || error) && <div className={`form-status ${error ? 'error' : 'success'}`}><strong>{error ? '操作失败' : '操作完成'}</strong><p>{error || message}</p></div>}
+    {(message || error) && <div className={`form-status ${error ? 'error' : 'success'}`}><strong>{error ? '操作提示' : '操作完成'}</strong><p>{error || message}</p>{error && message && <p>{message}</p>}</div>}
 
     <section className="panel">
-      <div className="panel-head"><div><h2>邮件审核队列</h2><span>首封冷开发必须人工审核后发送</span></div><button className="side-button" onClick={() => void load()} disabled={busy}><RefreshCcw size={16}/>{busy ? '刷新中…' : '刷新'}</button></div>
+      <div className="panel-head"><div><h2>邮件审核队列</h2><span>先勾选，再批量批准或发送；发送前还会再次确认</span></div><button className="side-button" onClick={() => void load()} disabled={busy}><RefreshCcw size={16}/>{busy ? '刷新中…' : '刷新'}</button></div>
+
+      {reviewQueue.length > 0 && <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',padding:'10px 0 14px',borderBottom:'1px solid #e4e7ec'}}>
+        <label style={{display:'flex',alignItems:'center',gap:7,fontWeight:700,cursor:'pointer'}}><input type="checkbox" checked={reviewQueue.length > 0 && reviewQueue.every(row => selectedIds.includes(text(row.id,'')))} onChange={toggleSelectAll}/>全选当前 {reviewQueue.length} 封</label>
+        <span style={{color:'#667085'}}>已选 {selectedRows.length} · 待批准 {selectedReviewCount} · 可发送 {selectedReadyCount}</span>
+        <button className="button secondary small" disabled={busy || selectedReviewCount===0} onClick={() => void batchAction('APPROVE')}><CheckCircle2 size={14}/>批量批准</button>
+        <button className="button small" disabled={busy || selectedReadyCount===0} onClick={() => void batchAction('SEND')}><Send size={14}/>批量发送已批准</button>
+        <button className="button secondary small" disabled={busy || selectedRows.length===0} onClick={() => void batchAction('SKIP')}><X size={14}/>批量跳过</button>
+      </div>}
+
       {reviewQueue.length === 0 && <div className="empty-row">当前没有待审核或待发送邮件。点击“生成 / 更新邮件审核队列”创建草稿。</div>}
-      {reviewQueue.map((row,i)=><div key={text(row.id,String(i))} style={{padding:'16px 0',borderBottom:'1px solid #e4e7ec',display:'grid',gap:10}}>
-        <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start'}}>
-          <div><strong>{text(row.company)} · {queueTypeLabel(row.queue_type)}</strong><p style={{margin:'5px 0 0',color:'#667085'}}>{text(row.email)} · {statusLabel(row.status)} · 评分 {text(row.lead_score,'0')}</p></div>
-          <span className="priority medium">{statusLabel(row.status)}</span>
-        </div>
-        <div><strong style={{display:'block',marginBottom:5}}>主题：{text(row.subject)}</strong><details><summary style={{cursor:'pointer',color:'#475467'}}>预览邮件正文</summary><pre style={{whiteSpace:'pre-wrap',fontFamily:'inherit',lineHeight:1.65,background:'#f8fafc',padding:12,borderRadius:8,marginTop:8}}>{text(row.body,'')}</pre></details></div>
-        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-          {text(row.status,'') === 'REVIEW_REQUIRED' && <button className="button secondary small" disabled={rowBusy===text(row.id,'')} onClick={() => void queueAction(text(row.id,''),'APPROVE')}><CheckCircle2 size={14}/>批准</button>}
-          {text(row.status,'') === 'FAILED' && <button className="button secondary small" disabled={rowBusy===text(row.id,'')} onClick={() => void queueAction(text(row.id,''),'RETRY')}><RefreshCcw size={14}/>重试</button>}
-          <button className="button small" disabled={rowBusy===text(row.id,'')} onClick={() => void queueAction(text(row.id,''),'SEND')}><Send size={14}/>{rowBusy===text(row.id,'') ? '处理中…' : '立即发送'}</button>
-          <button className="button secondary small" disabled={rowBusy===text(row.id,'')} onClick={() => void queueAction(text(row.id,''),'DELAY')}><Clock3 size={14}/>延期3天</button>
-          <button className="button secondary small" disabled={rowBusy===text(row.id,'')} onClick={() => void queueAction(text(row.id,''),'SKIP')}><X size={14}/>跳过</button>
-        </div>
-      </div>)}
+      {reviewQueue.map((row,i)=>{
+        const id = text(row.id,String(i));
+        const status = text(row.status,'');
+        return <div key={id} style={{padding:'16px 0',borderBottom:'1px solid #e4e7ec',display:'grid',gap:10}}>
+          <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start'}}>
+            <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+              <input type="checkbox" checked={selectedIds.includes(id)} onChange={() => toggleSelected(id)} style={{marginTop:3}}/>
+              <div><strong>{text(row.company)} · {queueTypeLabel(row.queue_type)}</strong><p style={{margin:'5px 0 0',color:'#667085'}}>{text(row.email)} · {statusLabel(row.status)} · 评分 {text(row.lead_score,'0')}</p></div>
+            </div>
+            <span className="priority medium">{statusLabel(row.status)}</span>
+          </div>
+          <div><strong style={{display:'block',marginBottom:5}}>主题：{text(row.subject)}</strong><details><summary style={{cursor:'pointer',color:'#475467'}}>预览邮件正文</summary><pre style={{whiteSpace:'pre-wrap',fontFamily:'inherit',lineHeight:1.65,background:'#f8fafc',padding:12,borderRadius:8,marginTop:8}}>{text(row.body,'')}</pre></details></div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {status === 'REVIEW_REQUIRED' && <button className="button secondary small" disabled={rowBusy===id} onClick={() => void queueAction(id,'APPROVE')}><CheckCircle2 size={14}/>批准</button>}
+            {status === 'FAILED' && <button className="button secondary small" disabled={rowBusy===id} onClick={() => void queueAction(id,'RETRY')}><RefreshCcw size={14}/>重试并回到待发送</button>}
+            {status === 'READY' && <button className="button small" disabled={rowBusy===id} onClick={() => void queueAction(id,'SEND')}><Send size={14}/>{rowBusy===id ? '处理中…' : '立即发送'}</button>}
+            <button className="button secondary small" disabled={rowBusy===id} onClick={() => void queueAction(id,'DELAY')}><Clock3 size={14}/>延期3天</button>
+            <button className="button secondary small" disabled={rowBusy===id} onClick={() => void queueAction(id,'SKIP')}><X size={14}/>跳过</button>
+          </div>
+        </div>;
+      })}
     </section>
 
     <section className="panel">
@@ -182,7 +255,7 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
 
     <section className="panel">
       <div className="panel-head"><h2>当前策略</h2><Activity size={20}/></div>
-      <p style={{margin:0,lineHeight:1.7,color:'#475467'}}>系统先生成首封和到期跟进草稿。新发现的冷客户始终进入人工审核，不会被定时任务自动发送；暖客户只有在总开关开启且未超过发送上限时，才允许 Scheduler 自动跟进。客户一旦回复，Gmail 同步会自动停止未发送的后续队列。</p>
+      <p style={{margin:0,lineHeight:1.7,color:'#475467'}}>系统先生成首封和到期跟进草稿。新发现的冷客户必须先人工批准，后端才允许发送；暖客户只有在总开关开启且未超过发送上限时，才允许 Scheduler 自动跟进。客户一旦回复，Gmail 同步会自动停止未发送的后续队列，并把报价或样品意向转换成结构化销售动作。</p>
       <div style={{marginTop:12,display:'flex',gap:8,alignItems:'center',color:'#027a48',fontWeight:700}}><MailCheck size={18}/>累计已发送 {metrics.sentTotal} 封队列邮件</div>
     </section>
   </div>;
