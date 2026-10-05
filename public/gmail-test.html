@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MING EAGLE Gmail API 测试</title>
+  <style>
+    body{font-family:Arial,"Microsoft YaHei",sans-serif;background:#17243a;margin:0;padding:32px;color:#172033}
+    .card{max-width:620px;margin:56px auto;background:#fff;border-radius:20px;padding:30px;box-shadow:0 18px 60px rgba(0,0,0,.28)}
+    h1{margin:0 0 8px}.sub{color:#667085;line-height:1.6}.msg{padding:12px 14px;border-radius:10px;margin:16px 0;display:none}.ok{display:block;background:#ecfdf3;color:#027a48;border:1px solid #abefc6}.bad{display:block;background:#fef3f2;color:#b42318;border:1px solid #fecdca}
+    label{display:block;font-weight:700;font-size:13px;margin:16px 0 7px}input,textarea{width:100%;box-sizing:border-box;border:1px solid #d0d5dd;border-radius:10px;padding:12px;font:inherit}button{margin-top:18px;width:100%;border:0;border-radius:10px;padding:13px;background:#ef5b2a;color:#fff;font-weight:800;cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}.small{font-size:12px;color:#667085;line-height:1.6}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Gmail API 测试发送</h1>
+    <p class="sub">发件账号：MING EAGLE &lt;mingeaglecommerce@gmail.com&gt;</p>
+    <div id="msg" class="msg"></div>
+    <label>测试收件邮箱</label>
+    <input id="to" type="email" placeholder="your@email.com" />
+    <label>邮件主题</label>
+    <input id="subject" value="MING EAGLE Gmail API test" />
+    <label>测试内容</label>
+    <textarea id="body" rows="6">This is a test email sent by the MING EAGLE Growth Engine through the Gmail API.</textarea>
+    <button id="send">发送测试邮件</button>
+    <p class="small">请先在同一浏览器登录 Growth Engine。此页面只读取当前会话中的后台访问凭证并调用受保护的 Gmail 测试接口，不会显示 Gmail Refresh Token。</p>
+  </div>
+  <script>
+    const msg = document.getElementById('msg');
+    const button = document.getElementById('send');
+    const key = sessionStorage.getItem('mingeagle_admin_key') || '';
+    function show(text, ok){ msg.textContent = text; msg.className = 'msg ' + (ok ? 'ok' : 'bad'); }
+    if (!key) show('未检测到后台登录会话。请先打开 /app 登录 Growth Engine，再回到此页面。', false);
+    button.addEventListener('click', async () => {
+      const to = document.getElementById('to').value.trim();
+      const subject = document.getElementById('subject').value.trim();
+      const body = document.getElementById('body').value;
+      if (!key) return show('请先登录 Growth Engine。', false);
+      if (!to || !to.includes('@')) return show('请输入有效的测试收件邮箱。', false);
+      button.disabled = true; button.textContent = '发送中…';
+      try {
+        const response = await fetch('/api/admin/gmail-test-send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
+          body: JSON.stringify({ to, subject, body })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.error || '发送失败');
+        show(`发送成功。Message ID: ${data.messageId}`, true);
+      } catch (error) {
+        show(error instanceof Error ? error.message : '发送失败', false);
+      } finally {
+        button.disabled = false; button.textContent = '发送测试邮件';
+      }
+    });
+  </script>
+</body>
+</html>
