@@ -75,9 +75,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const normalized = incoming.map((item, index) => {
       const id = clean(item.id, 120);
       if (!id || !existingIds.has(id)) throw new Error('Quote item mismatch. Refresh the quote and try again.');
-      const description = clean(item.description, 500) || 'MING EAGLE Silent Ball products';
+      const description = clean(item.description, 500) || 'MING EAGLE Silent Basketball products';
       const quantity = Math.max(1, Math.round(num(item.quantity, 1)));
-      const unitPrice = Math.max(0, num(item.unitPrice, 0));
+      const unitPrice = num(item.unitPrice, 0);
+      if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+        throw new Error('Each quote item unit price must be greater than 0.');
+      }
       const lineTotal = quantity * unitPrice;
       subtotal += lineTotal;
       return { id, description, quantity, unitPrice, lineTotal, sortOrder: index };
@@ -89,7 +92,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     const shipping = Math.max(0, num(input.shipping, 0));
     const discount = Math.max(0, num(input.discount, 0));
-    const total = Math.max(0, subtotal - discount + shipping);
+    const total = subtotal - discount + shipping;
+    if (!Number.isFinite(total) || total <= 0) {
+      return Response.json({ ok: false, error: 'Quote total must be greater than 0. Review unit prices, discount and shipping.' }, { status: 400 });
+    }
     const paymentTerms = clean(input.paymentTerms, 500) || 'Payment terms to be confirmed before sending.';
     const shippingTerms = clean(input.shippingTerms, 500) || 'Shipping terms to be confirmed before sending.';
     const notes = clean(input.notes, 3000) || null;
@@ -113,6 +119,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ ok: true, quote: { id: quoteId, reference: quote.reference, status: 'DRAFT', currency: quote.currency || 'USD', subtotal, discount, shipping, total, validUntil } });
   } catch (error) {
     console.error('quote_edit_save_failed', error);
-    return Response.json({ ok: false, error: error instanceof Error ? error.message : 'Unable to update quote.' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Unable to update quote.';
+    const status = /must be greater than 0|mismatch|included/i.test(message) ? 400 : 500;
+    return Response.json({ ok: false, error: message }, { status });
   }
 };
