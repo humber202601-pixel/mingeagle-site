@@ -31,9 +31,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     const input = await request.json() as QuoteInput;
     const inquiryReference = clean(input.inquiryReference, 120);
-    const description = clean(input.description, 500) || 'MING EAGLE Silent Ball products';
+    const description = clean(input.description, 500) || 'MING EAGLE Silent Basketball products';
     const quantity = Math.max(1, Math.round(num(input.quantity, 1)));
-    const unitPrice = Math.max(0, num(input.unitPrice, 0));
+    const unitPrice = num(input.unitPrice, 0);
     const shipping = Math.max(0, num(input.shipping, 0));
     const discount = Math.max(0, num(input.discount, 0));
     const validDays = Math.min(90, Math.max(1, Math.round(num(input.validDays, 14))));
@@ -44,15 +44,31 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!inquiryReference) {
       return Response.json({ ok: false, error: 'Inquiry reference is required.' }, { status: 400 });
     }
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+      return Response.json({ ok: false, error: 'Unit price must be greater than 0 before creating a quote draft.' }, { status: 400 });
+    }
 
     const db = env.MINGEAGLE_DB;
-    const inquiry = await db.prepare(`SELECT id, lead_id, company_id, contact_id
+    const inquiry = await db.prepare(`SELECT id, lead_id, company_id, contact_id, status
       FROM inquiries WHERE reference = ? LIMIT 1`).bind(inquiryReference).first<{
-        id: string; lead_id: string | null; company_id: string | null; contact_id: string | null;
+        id: string; lead_id: string | null; company_id: string | null; contact_id: string | null; status: string;
       }>();
 
     if (!inquiry) {
       return Response.json({ ok: false, error: 'Inquiry not found.' }, { status: 404 });
+    }
+    if (inquiry.status === 'CLOSED') {
+      return Response.json({ ok: false, error: 'This inquiry is closed.' }, { status: 409 });
+    }
+    if (inquiry.status === 'QUOTED') {
+      const existing = await db.prepare(`SELECT reference, status FROM quotes WHERE inquiry_id=? ORDER BY datetime(created_at) DESC LIMIT 1`)
+        .bind(inquiry.id).first<{ reference: string; status: string }>();
+      return Response.json({
+        ok: false,
+        error: existing?.reference
+          ? `Inquiry already has quote ${existing.reference}. Edit it or create a revision instead of creating a duplicate.`
+          : 'Inquiry has already been quoted. Use the existing quote or create a revision.',
+      }, { status: 409 });
     }
 
     const quoteId = crypto.randomUUID();
@@ -95,6 +111,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (inquiry.lead_id) {
       await db.prepare(`UPDATE leads SET status = 'QUOTE', next_best_action = ?, next_action_at = datetime('now', '+1 day'), updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
         .bind(`Review and send quote ${reference}`, inquiry.lead_id).run();
+    }
+
+    const openTask = inquiry.lead_id
+      ? await db.prepare(`SELECT id FROM tasks WHERE lead_id=? AND status IN ('OPEN','IN_PROGRESS') AND title LIKE 'Prepare customer quotation%' ORDER BY created_at DESC LIMIT 1`)
+          .bind(inquiry.lead_id).first<{ id: string }>()
+      : null;
+    if (openTask?.id) {
+      await db.prepare(`UPDATE tasks SET status='DONE', completed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(openTask.id).run();
     }
 
     await db.prepare(`INSERT INTO tasks (
