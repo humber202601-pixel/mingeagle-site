@@ -218,6 +218,7 @@ async function sendQueueItem(db: D1Database, env: Env, queueId: string) {
     WHERE q.id=? LIMIT 1`).bind(queueId).first<Record<string, unknown>>();
   if (!row) throw new Error('Queue item not found.');
   if (['SENT','SKIPPED'].includes(String(row.status))) throw new Error('This queue item is already closed.');
+  if (String(row.status) !== 'READY') throw new Error('Approve this draft before sending.');
   if (Number(row.do_not_contact || 0) === 1 || String(row.lead_status) === 'DO_NOT_CONTACT') throw new Error('This contact is marked DO NOT CONTACT.');
 
   const clientId = env.GMAIL_CLIENT_ID || '';
