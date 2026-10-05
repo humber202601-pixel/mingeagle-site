@@ -17,7 +17,7 @@ async function callSource(request: Request,path: string,body: Record<string, unk
       headers: {
         'content-type': 'application/json',
         'x-admin-key': request.headers.get('x-admin-key') || '',
-        'user-agent': 'MING-EAGLE-Discovery-Orchestrator/1.5',
+        'user-agent': 'MING-EAGLE-Discovery-Orchestrator/1.6',
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -50,7 +50,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const common = { stateCode, customerType, targetCount };
     const [mapResult, webResult] = await Promise.allSettled([
       callSource(request, '/api/admin/discovery', { action: 'SEARCH', ...common }, 8000),
-      callSource(request, '/api/admin/discovery-web-v5', common, 32000),
+      callSource(request, '/api/admin/discovery-web-v6', common, 34000),
     ]);
 
     const map = mapResult.status === 'fulfilled' ? mapResult.value : null;
@@ -76,9 +76,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       webChecked: Number(web?.checked || 0),
       webVerified: Number(web?.verified || webFound),
       webProvider: web?.provider || web?.mode || '',
-      mode: 'VERIFIED_MULTI_SOURCE_V5',
+      mode: 'VERIFIED_MULTI_SOURCE_V6',
       sources: { map: Boolean(map), web: Boolean(web) },
-      note: web?.note || (!map ? '地图源未返回，本次由 V5 Web 实体与业务双重验证完成。' : !web ? 'Web 实体验证源未返回，本次由地图源完成。' : '地图源与 V5 Web 实体验证均已返回。'),
+      note: web?.note || (!map ? '地图源未返回，本次由 V6 Web 真实机构与业务双重验证完成。' : !web ? 'Web 实体验证源未返回，本次由地图源完成。' : '地图源与 V6 Web 真实机构验证均已返回。'),
     });
   } catch (error) {
     console.error('discovery_orchestrator_failed', error);
