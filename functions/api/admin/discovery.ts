@@ -217,6 +217,14 @@ function customerTypeForCompany(type: string) {
   return 'TRAINING_ACADEMY';
 }
 
+function discoverySource(row: CandidateRow) {
+  const provider = clean(row.source_provider, 120).toUpperCase();
+  if (provider.startsWith('GEOAPIFY')) return 'Geoapify';
+  if (provider.startsWith('WEB_SEARCH') || provider.startsWith('WEB_EXPANSION')) return 'Verified web';
+  if (provider.startsWith('OPENSTREETMAP')) return 'OpenStreetMap';
+  return clean(row.source_provider, 120) || 'Discovery';
+}
+
 function contactQuality(row: CandidateRow) {
   let score = 0;
   if (clean(row.email, 320)) score += 45;
@@ -306,6 +314,7 @@ async function addToCrm(db: D1Database, candidateId: string) {
   const domain = domainFromWebsite(website);
   const normName = normalizedName(name);
   const city = clean(candidate.city, 160);
+  const sourceName = discoverySource(candidate);
 
   let company = domain
     ? await db.prepare(`SELECT id FROM companies WHERE domain=? LIMIT 1`).bind(domain).first<{ id: string }>()
@@ -324,13 +333,15 @@ async function addToCrm(db: D1Database, candidateId: string) {
         companyId, name, normName, domain || null, website || null, customerTypeForCompany(clean(candidate.customer_type, 80)),
         clean(candidate.state_region, 20) || null, city || null, clean(candidate.address, 500) || null,
         clean(candidate.phone, 160) || null,
-        `Discovered from OpenStreetMap. Source: ${clean(candidate.source_url, 1000)}`,
+        `Discovered from ${sourceName}. Source: ${clean(candidate.source_url, 1000)}`,
       ).run();
   }
 
   const email = clean(candidate.email, 320).toLowerCase();
   const phone = clean(candidate.phone, 160);
   const whatsapp = clean(candidate.whatsapp, 320);
+  const personName = clean(candidate.contact_person_name, 160);
+  const personTitle = clean(candidate.contact_person_title, 160);
   let contactId: string | null = null;
   if (email || phone || whatsapp) {
     const existingContact = email
@@ -339,11 +350,12 @@ async function addToCrm(db: D1Database, candidateId: string) {
     contactId = existingContact?.id || crypto.randomUUID();
     if (!existingContact) {
       await db.prepare(`INSERT INTO contacts (
-        id, company_id, full_name, title, email, email_type, phone, whatsapp, instagram_url, is_primary, source_url, source_evidence
-      ) VALUES (?, ?, ?, 'Public business contact', ?, 'GENERIC', ?, ?, ?, 1, ?, ?)`)
+        id, company_id, full_name, title, email, email_type, phone, whatsapp, linkedin_url, instagram_url, is_primary, source_url, source_evidence
+      ) VALUES (?, ?, ?, ?, ?, 'GENERIC', ?, ?, ?, ?, 1, ?, ?)`)
         .bind(
-          contactId, companyId, name, email || null, phone || null, whatsapp || null,
-          clean(candidate.instagram_url, 1000) || null, clean(candidate.source_url, 1000), clean(candidate.source_evidence, 1000),
+          contactId, companyId, personName || name, personTitle || 'Public business contact', email || null, phone || null, whatsapp || null,
+          clean(candidate.linkedin_url, 1000) || null, clean(candidate.instagram_url, 1000) || null,
+          clean(candidate.website_contact_url, 1000) || clean(candidate.source_url, 1000), clean(candidate.source_evidence, 1000),
         ).run();
     }
   }
@@ -360,7 +372,7 @@ async function addToCrm(db: D1Database, candidateId: string) {
       lead_score, contact_quality_score, potential_value, opportunity_score, next_best_action
     ) VALUES (?, ?, ?, 'DISCOVERY', ?, ?, 'SILENT_BALL', ?, ?, ?, ?, ?)`)
       .bind(
-        leadId, companyId, contactId, `OpenStreetMap · ${clean(candidate.source_url, 1000)}`, status,
+        leadId, companyId, contactId, `${sourceName} · ${clean(candidate.source_url, 1000)}`, status,
         score, cq, Math.min(100, Math.max(35, score)), Number((score * 0.65 + cq * 0.35).toFixed(1)),
         status === 'READY_TO_CONTACT' ? 'Review public contact details and prepare first outreach' : 'Enrich public contact details from official website',
       ).run();
@@ -375,7 +387,7 @@ async function addToCrm(db: D1Database, candidateId: string) {
     }
     await db.prepare(`INSERT INTO activities (id, entity_type, entity_id, activity_type, title, description, metadata_json)
       VALUES (?, 'LEAD', ?, 'DISCOVERY_IMPORTED', 'Discovery candidate added to CRM', ?, ?)`)
-      .bind(crypto.randomUUID(), leadId, `${name} added from OpenStreetMap discovery`, JSON.stringify({ candidateId, sourceUrl: candidate.source_url, score })).run();
+      .bind(crypto.randomUUID(), leadId, `${name} added from ${sourceName} discovery`, JSON.stringify({ candidateId, sourceProvider: candidate.source_provider, sourceUrl: candidate.source_url, score })).run();
   }
 
   await db.prepare(`UPDATE discovery_candidates SET status='CRM', crm_lead_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
