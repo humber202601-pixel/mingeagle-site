@@ -29,12 +29,22 @@ const safeNumber = (value: FormDataEntryValue | null) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+function defaultDescription(item?: Row) {
+  const interest = text(item?.product_interest).toUpperCase();
+  if (interest.includes('SILENT') || interest.includes('BASKETBALL')) return 'MING EAGLE Silent Basketball products';
+  return 'MING EAGLE sports products';
+}
+
 export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props) {
   const available = useMemo(
-    () => inquiries.filter(item => !['CLOSED'].includes(text(item.status))),
+    () => inquiries.filter(item => ['NEW','REVIEWING','RESPONDED','QUALIFIED'].includes(text(item.status))),
     [inquiries],
   );
-  const [selectedReference, setSelectedReference] = useState(() => text(available[0]?.reference));
+  const requestedReference = useMemo(() => new URLSearchParams(window.location.search).get('inquiry') || '', []);
+  const [selectedReference, setSelectedReference] = useState(() => {
+    if (requestedReference && available.some(item => text(item.reference) === requestedReference)) return requestedReference;
+    return text(available[0]?.reference);
+  });
   const [busy, setBusy] = useState(false);
   const [busyQuoteId, setBusyQuoteId] = useState('');
   const [error, setError] = useState('');
@@ -46,6 +56,15 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   const [editPreviewTotal, setEditPreviewTotal] = useState<number | null>(null);
 
   const selected = available.find(item => text(item.reference) === selectedReference);
+
+  useEffect(() => {
+    if (selectedReference && available.some(item => text(item.reference) === selectedReference)) return;
+    if (requestedReference && available.some(item => text(item.reference) === requestedReference)) {
+      setSelectedReference(requestedReference);
+      return;
+    }
+    setSelectedReference(text(available[0]?.reference));
+  }, [available, requestedReference, selectedReference]);
 
   async function loadQuotes() {
     try {
@@ -237,14 +256,24 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     <section className="panel quote-builder">
       <div className="panel-head">
         <h2>创建报价草稿</h2>
-        <span>询盘 → 商务报价</span>
+        <span>客户回复 → MEQ 询盘 → 人工确认价格 → 商务报价</span>
       </div>
-      {available.length === 0 ? <div className="empty-row">当前没有可报价的询盘。</div> : <form onSubmit={submit} className="quote-form">
+      {available.length === 0 ? <div className="empty-row">当前没有待创建报价的询盘。已报价询盘请在下方编辑原报价或创建修订版。</div> : <form onSubmit={submit} className="quote-form">
+        {selected && <div className="form-status success">
+          <strong>客户需求已自动带入 · {text(selected.reference)}</strong>
+          <p>{[
+            `客户：${text(selected.customer,'—')}`,
+            `数量：${text(selected.estimated_quantity,'待确认')}`,
+            text(selected.shipping_postal_code) ? `ZIP：${text(selected.shipping_postal_code)}` : 'ZIP：待确认',
+            text(selected.product_interest) ? `产品：${text(selected.product_interest)}` : '',
+          ].filter(Boolean).join('；')}</p>
+          {text(selected.message) && <details><summary style={{cursor:'pointer'}}>查看客户原始需求</summary><p style={{whiteSpace:'pre-wrap'}}>{text(selected.message)}</p></details>}
+        </div>}
         <div className="quote-form-grid">
           <label>关联询盘
             <select name="inquiryReference" value={selectedReference} onChange={e => setSelectedReference(e.target.value)} required>
               {available.map(item => <option key={text(item.reference)} value={text(item.reference)}>
-                {text(item.reference)} · {text(item.customer)} · {text(item.estimated_quantity, '—')} 件
+                {text(item.reference)} · {text(item.customer)} · {text(item.estimated_quantity, '—')} 件{text(item.shipping_postal_code) ? ` · ZIP ${text(item.shipping_postal_code)}` : ''}
               </option>)}
             </select>
           </label>
@@ -252,13 +281,16 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
             <input name="quantity" type="number" min="1" defaultValue={text(selected?.estimated_quantity, '1')} key={`qty-${selectedReference}`} required />
           </label>
           <label className="span-2">产品描述（客户可见，建议英文）
-            <input name="description" defaultValue="MING EAGLE Silent Ball products" required />
+            <input name="description" defaultValue={defaultDescription(selected)} key={`desc-${selectedReference}`} required />
           </label>
           <label>单价（USD）
-            <input name="unitPrice" type="number" min="0" step="0.01" placeholder="0.00" required />
+            <input name="unitPrice" type="number" min="0.01" step="0.01" placeholder="请确认后填写" required />
           </label>
           <label>运费（USD）
             <input name="shipping" type="number" min="0" step="0.01" defaultValue="0" />
+          </label>
+          <label>客户 ZIP（内部参考）
+            <input value={text(selected?.shipping_postal_code, '待确认')} readOnly />
           </label>
           <label>优惠 / 折扣（USD）
             <input name="discount" type="number" min="0" step="0.01" defaultValue="0" />
@@ -270,7 +302,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
             <input name="paymentTerms" defaultValue="Payment terms to be confirmed before sending." />
           </label>
           <label className="span-2">运输条款（客户可见）
-            <input name="shippingTerms" defaultValue="Shipping terms to be confirmed before sending." />
+            <input name="shippingTerms" defaultValue={text(selected?.shipping_postal_code) ? `Shipping quote based on ZIP ${text(selected?.shipping_postal_code)}; final shipping terms to be confirmed before sending.` : 'Shipping terms to be confirmed before sending.'} key={`shippingTerms-${selectedReference}`} />
           </label>
           <label className="span-2">报价备注（客户可见）
             <textarea name="notes" rows={3} placeholder="可填写报价补充说明…" />
@@ -278,7 +310,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
         </div>
         <div className="quote-form-actions">
           <button className="button" disabled={busy}>{busy ? '正在创建…' : '创建报价草稿'}</button>
-          <small>此操作只创建草稿，不会自动发送给客户。</small>
+          <small>此操作只创建草稿，不会自动发送；单价必须大于 0，运费和条款请审核确认。</small>
         </div>
         {result && <div className="form-status success"><strong>报价草稿已创建：{result.reference}</strong><p>{result.currency} {Number(result.total).toFixed(2)} · {statusLabel(result.status)}</p></div>}
         {error && <div className="form-status error"><strong>报价操作失败</strong><p>{error}</p></div>}
