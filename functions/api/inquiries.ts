@@ -3,6 +3,7 @@ interface Env {
 }
 
 type InquiryInput = {
+  originalReference?: string;
   firstName?: string;
   lastName?: string;
   email?: string;
@@ -12,7 +13,15 @@ type InquiryInput = {
   customerType?: string;
   estimatedQuantity?: number | string;
   country?: string;
+  city?: string;
   postalCode?: string;
+  website?: string;
+  jobTitle?: string;
+  customization?: string;
+  orderTiming?: string;
+  products?: string[];
+  leadSource?: string;
+  marketingConsent?: boolean;
   message?: string;
   requestType?: 'WHOLESALE' | 'SAMPLE';
   productInterest?: string;
@@ -24,6 +33,16 @@ const clean = (value: unknown, max = 500) =>
 const normalizedCompany = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
+function safeReference(value: unknown) {
+  const candidate = clean(value, 80).toUpperCase();
+  return /^[A-Z0-9][A-Z0-9-]{3,79}$/.test(candidate) ? candidate : '';
+}
+
+function isCommercialCustomerType(value: unknown) {
+  const type = clean(value, 120).toLowerCase();
+  return /(academy|coach|trainer|retailer|sporting.?goods|camp|program|distributor|wholesale|club|school|organization)/.test(type);
+}
+
 function scoreLead(input: InquiryInput) {
   let score = input.requestType === 'SAMPLE' ? 72 : 62;
   const quantity = Number(input.estimatedQuantity || 0);
@@ -32,7 +51,7 @@ function scoreLead(input: InquiryInput) {
   if (quantity >= 500) score += 5;
   if (clean(input.company)) score += 5;
   if (clean(input.phone) || clean(input.whatsapp)) score += 3;
-  if (['Academy','Coach / trainer','Retailer','Camp / program','Distributor'].includes(clean(input.customerType))) score += 6;
+  if (isCommercialCustomerType(input.customerType)) score += 6;
   return Math.min(100, score);
 }
 
@@ -40,6 +59,15 @@ function safeQuantity(value: unknown, fallback = 1) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 1) return fallback;
   return Math.min(100000, Math.floor(parsed));
+}
+
+function normalizeProducts(value: unknown) {
+  if (!Array.isArray(value)) return [] as string[];
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map(item => clean(item, 180))
+    .filter(Boolean)
+    .slice(0, 12);
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -57,16 +85,52 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const companyName = clean(input.company, 160);
     const customerType = clean(input.customerType, 100);
     const country = clean(input.country, 100);
+    const city = clean(input.city, 120);
     const postalCode = clean(input.postalCode, 40);
+    const website = clean(input.website, 300);
+    const jobTitle = clean(input.jobTitle, 120);
+    const customization = clean(input.customization, 120);
+    const orderTiming = clean(input.orderTiming, 120);
+    const leadSource = clean(input.leadSource, 120) || 'MING EAGLE website';
+    const products = normalizeProducts(input.products);
     const message = clean(input.message, 4000);
     const requestType = input.requestType === 'SAMPLE' ? 'SAMPLE' : 'WHOLESALE';
-    const productInterest = clean(input.productInterest, 120) || 'SILENT_BALL';
+    const productInterest = clean(input.productInterest, 120) || clean(products[0], 120) || 'SILENT_BALL';
+    const requestedReference = safeReference(input.originalReference);
 
     if (!firstName || !lastName || !email || !country || !email.includes('@')) {
       return Response.json({ error: 'First name, last name, valid email and country are required.' }, { status: 400 });
     }
 
     const db = env.MINGEAGLE_DB;
+
+    // A public website submission can be retried by the browser/Floot endpoint. Reuse the
+    // original MEQ/MES reference so one customer action never becomes duplicate CRM leads.
+    if (requestedReference) {
+      const existing = await db.prepare(`SELECT i.id AS inquiry_id, i.reference, i.lead_id, i.status AS inquiry_status,
+          l.status AS lead_status
+        FROM inquiries i
+        LEFT JOIN leads l ON l.id=i.lead_id
+        WHERE i.reference=? LIMIT 1`)
+        .bind(requestedReference)
+        .first<{ inquiry_id: string; reference: string; lead_id: string | null; inquiry_status: string; lead_status: string | null }>();
+      if (existing?.inquiry_id) {
+        const existingSample = await db.prepare('SELECT id FROM samples WHERE inquiry_id=? LIMIT 1')
+          .bind(existing.inquiry_id).first<{ id: string }>();
+        return Response.json({
+          ok: true,
+          idempotent: true,
+          reference: existing.reference,
+          inquiryId: existing.inquiry_id,
+          sampleId: existingSample?.id || null,
+          leadId: existing.lead_id,
+          leadStatus: existing.lead_status || null,
+          inquiryStatus: existing.inquiry_status,
+          nextBestAction: 'Existing inquiry reused',
+        });
+      }
+    }
+
     let companyId: string | null = null;
     let contactId: string;
 
@@ -79,12 +143,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
       if (existingCompany?.id) {
         companyId = existingCompany.id;
-        await db.prepare('UPDATE companies SET customer_type = COALESCE(NULLIF(?, \'\'), customer_type), country = COALESCE(NULLIF(?, \'\'), country), updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-          .bind(customerType, country, companyId).run();
+        await db.prepare(`UPDATE companies SET
+            customer_type=COALESCE(NULLIF(?, ''), customer_type),
+            country=COALESCE(NULLIF(?, ''), country),
+            city=COALESCE(NULLIF(?, ''), city),
+            website=COALESCE(NULLIF(?, ''), website),
+            updated_at=CURRENT_TIMESTAMP
+          WHERE id=?`)
+          .bind(customerType, country, city, website, companyId).run();
       } else {
         companyId = crypto.randomUUID();
-        await db.prepare('INSERT INTO companies (id, name, normalized_name, customer_type, country, status) VALUES (?, ?, ?, ?, ?, ?)')
-          .bind(companyId, companyName, normalizedName, customerType || null, country, 'PROSPECT').run();
+        await db.prepare(`INSERT INTO companies
+          (id, name, normalized_name, website, customer_type, country, city, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 'PROSPECT')`)
+          .bind(companyId, companyName, normalizedName, website || null, customerType || null, country, city || null).run();
       }
     }
 
@@ -96,19 +168,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (existingContact?.id) {
       contactId = existingContact.id;
       await db.prepare(`UPDATE contacts
-        SET company_id = COALESCE(company_id, ?), first_name = ?, last_name = ?, full_name = ?,
-            phone = COALESCE(NULLIF(?, ''), phone), whatsapp = COALESCE(NULLIF(?, ''), whatsapp), updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?`)
-        .bind(companyId, firstName, lastName, `${firstName} ${lastName}`, phone, whatsapp, contactId).run();
+        SET company_id=COALESCE(company_id, ?), first_name=?, last_name=?, full_name=?,
+            title=COALESCE(NULLIF(?, ''), title),
+            phone=COALESCE(NULLIF(?, ''), phone), whatsapp=COALESCE(NULLIF(?, ''), whatsapp), updated_at=CURRENT_TIMESTAMP
+        WHERE id=?`)
+        .bind(companyId, firstName, lastName, `${firstName} ${lastName}`, jobTitle, phone, whatsapp, contactId).run();
     } else {
       contactId = crypto.randomUUID();
       await db.prepare(`INSERT INTO contacts
-        (id, company_id, first_name, last_name, full_name, email, email_type, email_verified, phone, whatsapp, is_primary)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 1)`)
-        .bind(contactId, companyId, firstName, lastName, `${firstName} ${lastName}`, email, 'UNKNOWN', phone || null, whatsapp || null).run();
+        (id, company_id, first_name, last_name, full_name, title, email, email_type, email_verified, phone, whatsapp, is_primary)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 1)`)
+        .bind(contactId, companyId, firstName, lastName, `${firstName} ${lastName}`, jobTitle || null, email, 'UNKNOWN', phone || null, whatsapp || null).run();
     }
 
-    const leadScore = scoreLead(input);
+    const leadScore = scoreLead({ ...input, requestType, customerType, company: companyName, phone, whatsapp });
     const leadId = crypto.randomUUID();
     const leadStatus = leadScore >= 70 ? 'QUALIFIED' : 'ANALYZED';
     const nextAction = requestType === 'SAMPLE'
@@ -124,7 +197,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         leadId,
         companyId,
         contactId,
-        requestType,
+        `${leadSource} · ${requestType}`.slice(0, 240),
         leadStatus,
         productInterest,
         leadScore,
@@ -133,12 +206,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       ).run();
 
     const inquiryId = crypto.randomUUID();
-    const reference = `${requestType === 'SAMPLE' ? 'MES' : 'MEQ'}-${Date.now().toString(36).toUpperCase()}`;
+    const reference = requestedReference || `${requestType === 'SAMPLE' ? 'MES' : 'MEQ'}-${Date.now().toString(36).toUpperCase()}`;
 
     await db.prepare(`INSERT INTO inquiries (
       id, reference, lead_id, company_id, contact_id, request_type, customer_type,
-      product_interest, estimated_quantity, shipping_country, shipping_postal_code, message, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'NEW')`)
+      product_interest, estimated_quantity, customization, order_timing,
+      shipping_country, shipping_city, shipping_postal_code, message, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'NEW')`)
       .bind(
         inquiryId,
         reference,
@@ -149,7 +223,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         customerType || null,
         productInterest,
         String(input.estimatedQuantity ?? ''),
+        customization || null,
+        orderTiming || null,
         country,
+        city || null,
         postalCode || null,
         message || null,
       ).run();
@@ -186,7 +263,27 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         'INQUIRY_CREATED',
         requestType === 'SAMPLE' ? 'Sample request received' : 'Wholesale inquiry received',
         `${firstName} ${lastName} submitted ${reference}`,
-        JSON.stringify({ inquiryId, sampleId, taskId, reference, email, phone, whatsapp, companyName, leadScore }),
+        JSON.stringify({
+          inquiryId,
+          sampleId,
+          taskId,
+          reference,
+          originalReference: requestedReference || null,
+          email,
+          phone,
+          whatsapp,
+          companyName,
+          customerType,
+          city,
+          website,
+          jobTitle,
+          customization,
+          orderTiming,
+          products,
+          leadSource,
+          marketingConsent: Boolean(input.marketingConsent),
+          leadScore,
+        }),
       ).run();
 
     return Response.json({
