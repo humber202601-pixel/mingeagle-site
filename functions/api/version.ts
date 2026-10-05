@@ -1,4 +1,4 @@
-const RELEASE = 'DISCOVERY_V10_CITY_OSM_2026-10-05_2118';
+const RELEASE = 'DISCOVERY_V10_1_PARALLEL_CITY_OSM_2026-10-05_2128';
 
 export const onRequestGet: PagesFunction = async () => {
   return new Response(JSON.stringify({
