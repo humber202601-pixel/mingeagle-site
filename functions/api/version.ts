@@ -1,7 +1,7 @@
 interface Env { GEOAPIFY_API_KEY?: string }
 
-const RELEASE = 'MINGEAGLE_GROWTH_ENGINE_V14_2026-10-05_2235';
-const DEPLOY_TRIGGER = '2026-10-05T22:35:00+08:00';
+const RELEASE = 'MINGEAGLE_GROWTH_ENGINE_V14_QUOTE_DELIVERY_2026-10-05';
+const DEPLOY_TRIGGER = 'V14_QUOTE_DELIVERY';
 
 export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
   return new Response(JSON.stringify({
@@ -24,6 +24,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
       quotePrefillFromInquiry: true,
       duplicateQuoteProtection: true,
       zeroPriceQuoteProtection: true,
+      quoteSecureLink: true,
+      quoteGmailDelivery: true,
+      quoteFollowupAutomation: true,
       replyToSampleRequest: true,
       sampleWorkflow: true,
       followupAutomation: true,
