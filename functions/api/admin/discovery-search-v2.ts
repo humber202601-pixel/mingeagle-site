@@ -1,7 +1,7 @@
 interface Env { MINGEAGLE_DB: D1Database }
 
 type Input = { stateCode?: string; customerType?: string; targetCount?: number | string };
-type SourceResult = { ok?: boolean; found?: number; error?: string; mode?: string; provider?: string; checked?: number; verified?: number };
+type SourceResult = { ok?: boolean; found?: number; error?: string; mode?: string; provider?: string; checked?: number; verified?: number; note?: string };
 
 const clean = (value: unknown, max = 1000) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 const allowedState = /^[A-Z]{2}$/;
@@ -17,7 +17,7 @@ async function callSource(request: Request,path: string,body: Record<string, unk
       headers: {
         'content-type': 'application/json',
         'x-admin-key': request.headers.get('x-admin-key') || '',
-        'user-agent': 'MING-EAGLE-Discovery-Orchestrator/1.3',
+        'user-agent': 'MING-EAGLE-Discovery-Orchestrator/1.4',
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -50,7 +50,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const common = { stateCode, customerType, targetCount };
     const [mapResult, webResult] = await Promise.allSettled([
       callSource(request, '/api/admin/discovery', { action: 'SEARCH', ...common }, 8000),
-      callSource(request, '/api/admin/discovery-web-v3', common, 28000),
+      callSource(request, '/api/admin/discovery-web-v4', common, 30000),
     ]);
 
     const map = mapResult.status === 'fulfilled' ? mapResult.value : null;
@@ -76,9 +76,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       webChecked: Number(web?.checked || 0),
       webVerified: Number(web?.verified || webFound),
       webProvider: web?.provider || web?.mode || '',
-      mode: 'VERIFIED_MULTI_SOURCE_V3',
+      mode: 'VERIFIED_MULTI_SOURCE_V4',
       sources: { map: Boolean(map), web: Boolean(web) },
-      note: !map ? '地图源未返回，本次由 V3 高精度 Web 官网验证完成。' : !web ? 'Web 高精度验证源未返回，本次由地图源完成。' : '地图源与 V3 高精度 Web 官网验证均已返回。',
+      note: web?.note || (!map ? '地图源未返回，本次由 V4 高精度 Web 官网验证完成。' : !web ? 'Web 高精度验证源未返回，本次由地图源完成。' : '地图源与 V4 高精度 Web 官网验证均已返回。'),
     });
   } catch (error) {
     console.error('discovery_orchestrator_failed', error);
