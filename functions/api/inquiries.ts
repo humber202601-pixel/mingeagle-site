@@ -19,13 +19,31 @@ type InquiryInput = {
   jobTitle?: string;
   customization?: string;
   orderTiming?: string;
+  preferredConfiguration?: string;
+  shippingPreference?: string;
   products?: string[];
   leadSource?: string;
+  landingPage?: string;
+  referrer?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  utmContent?: string;
   marketingConsent?: boolean;
+  privacyAck?: boolean;
+  requestLabel?: string;
   message?: string;
   requestType?: 'WHOLESALE' | 'SAMPLE';
   productInterest?: string;
 };
+
+type ParsedRequest = {
+  input: InquiryInput;
+  nativeForm: boolean;
+};
+
+const FORM_EMAIL_ENDPOINT = 'https://formsubmit.co/ajax/mingeaglecommerce@gmail.com';
+const THANK_YOU_URL = 'https://www.mingeagle.com/thank-you.html';
 
 const clean = (value: unknown, max = 500) =>
   typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -43,9 +61,18 @@ function isCommercialCustomerType(value: unknown) {
   return /(academy|coach|trainer|retailer|sporting.?goods|camp|program|distributor|wholesale|club|school|organization)/.test(type);
 }
 
+function quantityFloor(value: unknown, fallback = 0) {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Math.floor(value));
+  const text = clean(value, 80).replace(/,/g, '');
+  const match = text.match(/\d+/);
+  if (!match) return fallback;
+  const parsed = Number(match[0]);
+  return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : fallback;
+}
+
 function scoreLead(input: InquiryInput) {
   let score = input.requestType === 'SAMPLE' ? 72 : 62;
-  const quantity = Number(input.estimatedQuantity || 0);
+  const quantity = quantityFloor(input.estimatedQuantity, 0);
   if (quantity >= 20) score += 5;
   if (quantity >= 100) score += 8;
   if (quantity >= 500) score += 5;
@@ -56,7 +83,7 @@ function scoreLead(input: InquiryInput) {
 }
 
 function safeQuantity(value: unknown, fallback = 1) {
-  const parsed = Number(value);
+  const parsed = quantityFloor(value, fallback);
   if (!Number.isFinite(parsed) || parsed < 1) return fallback;
   return Math.min(100000, Math.floor(parsed));
 }
@@ -70,13 +97,144 @@ function normalizeProducts(value: unknown) {
     .slice(0, 12);
 }
 
+function formText(form: FormData, key: string, max = 500) {
+  const value = form.get(key);
+  return clean(typeof value === 'string' ? value : '', max);
+}
+
+function formBool(form: FormData, key: string) {
+  const value = formText(form, key, 40).toLowerCase();
+  return ['1', 'true', 'yes', 'on', 'agreed', 'opted in', 'accepted'].includes(value);
+}
+
+function productInterestFromProducts(products: string[]) {
+  const joined = products.join(' ').toLowerCase();
+  if (joined.includes('soccer')) return 'SILENT_SOCCER';
+  if (joined.includes('weighted')) return 'WEIGHTED_SILENT_BASKETBALL';
+  if (joined.includes('fabric')) return 'FABRIC_SILENT_BASKETBALL';
+  if (joined.includes('basketball')) return 'SILENT_BALL';
+  return clean(products[0], 120) || 'SILENT_BALL';
+}
+
+async function parseRequest(request: Request): Promise<ParsedRequest> {
+  const contentType = request.headers.get('content-type') || '';
+  if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
+    const form = await request.formData();
+    if (formText(form, '_honey', 200)) throw new Error('Spam check failed');
+    const requestLabel = formText(form, 'request_type', 80) || 'Wholesale quote';
+    const products = form.getAll('products[]')
+      .filter((value): value is string => typeof value === 'string')
+      .map(value => clean(value, 180))
+      .filter(Boolean)
+      .slice(0, 12);
+    const isSample = /sample/i.test(requestLabel);
+    return {
+      nativeForm: true,
+      input: {
+        originalReference: formText(form, 'inquiry_reference', 80),
+        firstName: formText(form, 'firstname', 80),
+        lastName: formText(form, 'lastname', 80),
+        email: formText(form, 'email', 200),
+        phone: formText(form, 'phone', 80),
+        whatsapp: formText(form, 'phone', 80),
+        company: formText(form, 'company', 160),
+        customerType: formText(form, 'customer_type', 100),
+        estimatedQuantity: formText(form, 'estimated_quantity', 80),
+        country: formText(form, 'country', 100),
+        city: formText(form, 'city', 120),
+        postalCode: formText(form, 'zip', 40),
+        website: formText(form, 'website', 300),
+        jobTitle: formText(form, 'jobtitle', 120),
+        customization: formText(form, 'customization', 120),
+        orderTiming: formText(form, 'order_timing', 120),
+        preferredConfiguration: formText(form, 'preferred_configuration', 250),
+        shippingPreference: formText(form, 'shipping_preference', 120),
+        products,
+        leadSource: formText(form, 'lead_source', 120) || 'MING EAGLE website',
+        landingPage: formText(form, 'landing_page', 500),
+        referrer: formText(form, 'referrer', 500),
+        utmSource: formText(form, 'utm_source', 200),
+        utmMedium: formText(form, 'utm_medium', 200),
+        utmCampaign: formText(form, 'utm_campaign', 200),
+        utmContent: formText(form, 'utm_content', 200),
+        marketingConsent: formBool(form, 'marketing_consent'),
+        privacyAck: formBool(form, 'privacy_ack'),
+        requestLabel,
+        message: formText(form, 'message', 4000),
+        requestType: isSample ? 'SAMPLE' : 'WHOLESALE',
+        productInterest: productInterestFromProducts(products),
+      },
+    };
+  }
+
+  return { nativeForm: false, input: (await request.json()) as InquiryInput };
+}
+
+async function forwardInquiryEmail(input: InquiryInput, reference: string) {
+  try {
+    const response = await fetch(FORM_EMAIL_ENDPOINT, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({
+        _subject: `MING EAGLE inquiry ${reference}`,
+        _template: 'table',
+        _replyto: clean(input.email, 200),
+        'Inquiry reference': reference,
+        'Request type': clean(input.requestLabel, 80) || input.requestType || 'WHOLESALE',
+        Name: `${clean(input.firstName, 80)} ${clean(input.lastName, 80)}`.trim(),
+        Email: clean(input.email, 200),
+        Company: clean(input.company, 160),
+        'Role / title': clean(input.jobTitle, 120),
+        'Customer type': clean(input.customerType, 100),
+        'Phone / WhatsApp': clean(input.phone || input.whatsapp, 80),
+        'Website / social': clean(input.website, 300),
+        Products: normalizeProducts(input.products).join(', '),
+        'Estimated quantity': String(input.estimatedQuantity ?? ''),
+        Configuration: clean(input.preferredConfiguration, 250),
+        Customization: clean(input.customization, 120),
+        'Purchase timeline': clean(input.orderTiming, 120),
+        Country: clean(input.country, 100),
+        City: clean(input.city, 120),
+        'Postal / ZIP': clean(input.postalCode, 40),
+        'Shipping preference': clean(input.shippingPreference, 120),
+        Message: clean(input.message, 4000),
+        'Marketing consent': input.marketingConsent ? 'Yes' : 'No',
+        'Lead source': clean(input.leadSource, 120),
+        'Landing page': clean(input.landingPage, 500),
+        Referrer: clean(input.referrer, 500),
+        'UTM source': clean(input.utmSource, 200),
+        'UTM medium': clean(input.utmMedium, 200),
+        'UTM campaign': clean(input.utmCampaign, 200),
+        'UTM content': clean(input.utmContent, 200),
+      }),
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('inquiry_email_forward_failed', error);
+    return false;
+  }
+}
+
+function successResponse(nativeForm: boolean, reference: string, payload: Record<string, unknown>) {
+  if (nativeForm) {
+    return new Response(null, {
+      status: 303,
+      headers: {
+        Location: `${THANK_YOU_URL}?ref=${encodeURIComponent(reference)}`,
+        'cache-control': 'no-store',
+      },
+    });
+  }
+  return Response.json({ ok: true, reference, ...payload });
+}
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     if (!env.MINGEAGLE_DB) {
       return Response.json({ error: 'Database is not configured.' }, { status: 503 });
     }
 
-    const input = (await request.json()) as InquiryInput;
+    const { input, nativeForm } = await parseRequest(request);
     const firstName = clean(input.firstName, 80);
     const lastName = clean(input.lastName, 80);
     const email = clean(input.email, 200).toLowerCase();
@@ -91,21 +249,30 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const jobTitle = clean(input.jobTitle, 120);
     const customization = clean(input.customization, 120);
     const orderTiming = clean(input.orderTiming, 120);
+    const preferredConfiguration = clean(input.preferredConfiguration, 250);
+    const shippingPreference = clean(input.shippingPreference, 120);
     const leadSource = clean(input.leadSource, 120) || 'MING EAGLE website';
     const products = normalizeProducts(input.products);
-    const message = clean(input.message, 4000);
+    const rawMessage = clean(input.message, 4000);
+    const message = [
+      rawMessage,
+      preferredConfiguration ? `Preferred configuration: ${preferredConfiguration}` : '',
+      shippingPreference ? `Shipping preference: ${shippingPreference}` : '',
+    ].filter(Boolean).join('\n');
     const requestType = input.requestType === 'SAMPLE' ? 'SAMPLE' : 'WHOLESALE';
-    const productInterest = clean(input.productInterest, 120) || clean(products[0], 120) || 'SILENT_BALL';
+    const productInterest = clean(input.productInterest, 120) || productInterestFromProducts(products);
     const requestedReference = safeReference(input.originalReference);
 
+    if (nativeForm && !input.privacyAck) {
+      return new Response('Privacy acknowledgement is required.', { status: 400 });
+    }
     if (!firstName || !lastName || !email || !country || !email.includes('@')) {
       return Response.json({ error: 'First name, last name, valid email and country are required.' }, { status: 400 });
     }
 
     const db = env.MINGEAGLE_DB;
 
-    // A public website submission can be retried by the browser/Floot endpoint. Reuse the
-    // original MEQ/MES reference so one customer action never becomes duplicate CRM leads.
+    // Reuse the public website's ME reference so browser retries never create duplicate CRM leads.
     if (requestedReference) {
       const existing = await db.prepare(`SELECT i.id AS inquiry_id, i.reference, i.lead_id, i.status AS inquiry_status,
           l.status AS lead_status
@@ -117,10 +284,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (existing?.inquiry_id) {
         const existingSample = await db.prepare('SELECT id FROM samples WHERE inquiry_id=? LIMIT 1')
           .bind(existing.inquiry_id).first<{ id: string }>();
-        return Response.json({
-          ok: true,
+        return successResponse(nativeForm, existing.reference, {
           idempotent: true,
-          reference: existing.reference,
           inquiryId: existing.inquiry_id,
           sampleId: existingSample?.id || null,
           leadId: existing.lead_id,
@@ -197,7 +362,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         leadId,
         companyId,
         contactId,
-        `${leadSource} · ${requestType}`.slice(0, 240),
+        `${leadSource} · ${clean(input.requestLabel, 80) || requestType}`.slice(0, 240),
         leadStatus,
         productInterest,
         leadScore,
@@ -279,24 +444,33 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           jobTitle,
           customization,
           orderTiming,
+          preferredConfiguration,
+          shippingPreference,
           products,
           leadSource,
+          landingPage: clean(input.landingPage, 500),
+          referrer: clean(input.referrer, 500),
+          utmSource: clean(input.utmSource, 200),
+          utmMedium: clean(input.utmMedium, 200),
+          utmCampaign: clean(input.utmCampaign, 200),
+          utmContent: clean(input.utmContent, 200),
           marketingConsent: Boolean(input.marketingConsent),
           leadScore,
         }),
       ).run();
 
-    return Response.json({
-      ok: true,
-      reference,
+    const emailForwarded = await forwardInquiryEmail(input, reference);
+
+    return successResponse(nativeForm, reference, {
       inquiryId,
       sampleId,
       leadId,
       leadStatus,
+      emailForwarded,
       nextBestAction: nextAction,
-    }, { status: 201 });
+    });
   } catch (error) {
     console.error('inquiry_create_failed', error);
-    return Response.json({ error: 'Unable to save the inquiry right now.' }, { status: 500 });
+    return Response.json({ error: error instanceof Error ? error.message : 'Unable to save the inquiry right now.' }, { status: 500 });
   }
 };
