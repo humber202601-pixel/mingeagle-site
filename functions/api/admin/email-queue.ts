@@ -50,6 +50,11 @@ function templateFor(row: DueLead) {
   const company = clean(row.company, 160) || 'your organization';
   const days = Math.max(0, Math.floor(Number(row.days_since_contact || 0)));
 
+  if (status === 'WON') return {
+    type: 'REORDER_FOLLOW_UP',
+    subject: 'Ready for a restock? — MING EAGLE',
+    body: `Hi ${name},\n\nI hope everything has been going well with your MING EAGLE order. I wanted to check whether ${company} may need a restock or another batch of silent ball products.\n\nIf you are planning a repeat order, just reply with the approximate quantity and delivery location. I can prepare an updated quotation for you.\n\nBest regards,\nMING EAGLE`,
+  };
   if (status === 'QUOTE') return {
     type: 'QUOTE_FOLLOW_UP',
     subject: 'Following up on your MING EAGLE quote',
@@ -102,7 +107,7 @@ async function generateQueue(db: D1Database) {
     LEFT JOIN contacts ct ON ct.id=l.primary_contact_id
     WHERE l.next_action_at IS NOT NULL
       AND datetime(l.next_action_at) <= datetime('now')
-      AND l.status IN ('CONTACTED','INTERESTED','SAMPLE','QUOTE','NEGOTIATION')
+      AND l.status IN ('CONTACTED','INTERESTED','SAMPLE','QUOTE','NEGOTIATION','WON')
       AND COALESCE(ct.do_not_contact,0)=0
       AND ct.email IS NOT NULL AND ct.email<>''
     ORDER BY l.next_action_at ASC
@@ -116,8 +121,9 @@ async function generateQueue(db: D1Database) {
     const tmpl = templateFor(row);
     const nextAt = clean(row.next_action_at, 100) || 'now';
     const dedupe = `${leadId}|${String(row.status)}|${nextAt}|${tmpl.type}`;
-    const autoEligible = Number(row.auto_eligible || 0) === 1 ? 1 : 0;
-    const status = autoEligible ? 'READY' : 'REVIEW_REQUIRED';
+    const isReorder = String(row.status) === 'WON';
+    const autoEligible = isReorder ? 0 : (Number(row.auto_eligible || 0) === 1 ? 1 : 0);
+    const status = isReorder ? 'REVIEW_REQUIRED' : (autoEligible ? 'READY' : 'REVIEW_REQUIRED');
     const result = await db.prepare(`INSERT OR IGNORE INTO email_queue
       (id, lead_id, company_id, contact_id, email, subject, body, queue_type, status, auto_eligible, source_status, scheduled_for, dedupe_key)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
