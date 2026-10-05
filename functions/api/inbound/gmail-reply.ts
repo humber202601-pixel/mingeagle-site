@@ -30,6 +30,21 @@ function normalizeEmail(value: unknown) {
   return clean(value, 320).toLowerCase();
 }
 
+function canonicalEmail(value: unknown) {
+  const email = normalizeEmail(value);
+  const at = email.lastIndexOf('@');
+  if (at <= 0) return email;
+  let local = email.slice(0, at);
+  let domain = email.slice(at + 1);
+  if (domain === 'googlemail.com') domain = 'gmail.com';
+  if (domain === 'gmail.com') {
+    const plus = local.indexOf('+');
+    if (plus >= 0) local = local.slice(0, plus);
+    local = local.replace(/\./g, '');
+  }
+  return `${local}@${domain}`;
+}
+
 async function digest(value: string) {
   const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return new Uint8Array(hash);
@@ -130,6 +145,35 @@ async function createOrRefreshReplyTask(db: D1Database, params: {
   return id;
 }
 
+async function findLeadByInboundEmail(db: D1Database, fromEmail: string) {
+  const exact = await db.prepare(`SELECT
+      ct.id AS contact_id, ct.company_id, ct.email, COALESCE(ct.do_not_contact,0) AS do_not_contact,
+      l.id AS lead_id, l.status AS lead_status
+    FROM contacts ct
+    JOIN leads l ON l.primary_contact_id=ct.id
+    WHERE lower(ct.email)=lower(?)
+      AND l.status NOT IN ('LOST','NOT_FIT')
+    ORDER BY datetime(l.updated_at) DESC, datetime(l.created_at) DESC
+    LIMIT 1`)
+    .bind(fromEmail).first<Record<string, unknown>>();
+  if (exact?.lead_id) return exact;
+
+  const canonical = canonicalEmail(fromEmail);
+  if (!canonical.endsWith('@gmail.com')) return null;
+
+  const candidates = await db.prepare(`SELECT
+      ct.id AS contact_id, ct.company_id, ct.email, COALESCE(ct.do_not_contact,0) AS do_not_contact,
+      l.id AS lead_id, l.status AS lead_status, l.updated_at, l.created_at
+    FROM contacts ct
+    JOIN leads l ON l.primary_contact_id=ct.id
+    WHERE (lower(ct.email) LIKE '%@gmail.com' OR lower(ct.email) LIKE '%@googlemail.com')
+      AND l.status NOT IN ('LOST','NOT_FIT')
+    ORDER BY datetime(l.updated_at) DESC, datetime(l.created_at) DESC
+    LIMIT 1000`).all<Record<string, unknown>>();
+
+  return candidates.results.find(row => canonicalEmail(row.email) === canonical) || null;
+}
+
 export const onRequestOptions: PagesFunction<Env> = async () => new Response(null, { status: 204 });
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -156,7 +200,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!fromEmail || !fromEmail.includes('@') || !body || !gmailMessageId) {
       return Response.json({ ok: false, error: 'fromEmail, body and gmailMessageId are required.' }, { status: 400 });
     }
-    if (fromEmail === 'mingeaglecommerce@gmail.com') {
+    if (canonicalEmail(fromEmail) === canonicalEmail('mingeaglecommerce@gmail.com')) {
       return Response.json({ ok: true, ignored: true, reason: 'self_message' });
     }
 
@@ -167,16 +211,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ ok: true, duplicate: true, messageId: duplicate.id, leadId: duplicate.lead_id || null });
     }
 
-    const match = await db.prepare(`SELECT
-        ct.id AS contact_id, ct.company_id, COALESCE(ct.do_not_contact,0) AS do_not_contact,
-        l.id AS lead_id, l.status AS lead_status
-      FROM contacts ct
-      JOIN leads l ON l.primary_contact_id=ct.id
-      WHERE lower(ct.email)=lower(?)
-        AND l.status NOT IN ('LOST','NOT_FIT')
-      ORDER BY datetime(l.updated_at) DESC, datetime(l.created_at) DESC
-      LIMIT 1`)
-      .bind(fromEmail).first<Record<string, unknown>>();
+    const match = await findLeadByInboundEmail(db, fromEmail);
 
     if (!match?.lead_id) {
       return Response.json({ ok: true, ignored: true, reason: 'email_not_in_crm', fromEmail });
@@ -224,6 +259,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           crmMessageId,
           gmailMessageId,
           gmailThreadId: gmailThreadId || null,
+          matchedContactEmail: match.email ? String(match.email) : null,
+          canonicalMatchedEmail: canonicalEmail(fromEmail),
           intent: classification.intent,
           leadStatus: classification.leadStatus,
           suggestedReply: classification.suggestedReply,
@@ -236,6 +273,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       leadId,
       contactId,
       crmMessageId,
+      matchedContactEmail: match.email ? String(match.email) : null,
       intent: classification.intent,
       leadStatus: classification.leadStatus,
       nextBestAction: classification.nextBestAction,
