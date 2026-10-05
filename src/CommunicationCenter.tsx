@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Copy, Mail, MessageCircle, Phone, RefreshCcw, Send, UserRoundCheck } from 'lucide-react';
+import { Copy, Mail, MessageCircle, Phone, RefreshCcw, Send, Sparkles, UserRoundCheck } from 'lucide-react';
 import { statusLabel, zhDate } from './adminI18n';
 
 type Row = Record<string, unknown>;
@@ -33,6 +33,22 @@ type GmailSendResult = {
   to?: string;
   from?: string;
   leadStatus?: string | null;
+  error?: string;
+};
+
+type DraftResult = {
+  ok?: boolean;
+  subject?: string;
+  body?: string;
+  personalization?: {
+    company?: string;
+    customerType?: string;
+    location?: string;
+    contactUsed?: string;
+    contactTitle?: string;
+    fitReason?: string;
+    evidence?: string[];
+  };
   error?: string;
 };
 
@@ -94,6 +110,7 @@ export default function CommunicationCenter({ accessKey, onChanged }: { accessKe
   const [replyBody, setReplyBody] = useState('');
   const [replyChannel, setReplyChannel] = useState<'EMAIL' | 'WHATSAPP' | 'PHONE' | 'OTHER'>('EMAIL');
   const [suggestedReply, setSuggestedReply] = useState('');
+  const [draftInfo, setDraftInfo] = useState<DraftResult['personalization'] | null>(null);
   const [resultText, setResultText] = useState('');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -127,9 +144,30 @@ export default function CommunicationCenter({ accessKey, onChanged }: { accessKe
     const template = templates.find(t => t.id === id) || templates[0];
     setSubject(template.subject(target));
     setBody(template.body(target));
+    setDraftInfo(null);
   }
 
   useEffect(() => { if (selected) applyTemplate(templateId, selected); }, [selectedId]);
+
+  async function generatePersonalizedDraft() {
+    if (!selected) return;
+    setBusy('DRAFT'); setError(''); setResultText('');
+    try {
+      const response = await fetch('/api/admin/outreach-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
+        body: JSON.stringify({ leadId: selected.lead_id }),
+      });
+      const json = await response.json() as DraftResult;
+      if (!response.ok || !json.ok) throw new Error(json.error || '无法生成个性化开发信。');
+      setSubject(text(json.subject));
+      setBody(text(json.body));
+      setDraftInfo(json.personalization || null);
+      setResultText('已根据客户类型、地区和公开联系人资料生成个性化首封草稿。请审核后再发送。');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '无法生成个性化开发信。');
+    } finally { setBusy(''); }
+  }
 
   async function copy(value: string) {
     await navigator.clipboard.writeText(value);
@@ -211,12 +249,18 @@ export default function CommunicationCenter({ accessKey, onChanged }: { accessKe
         {isDnc && <div className="form-status error"><strong>该联系人已标记为“禁止联系”</strong><p>系统不会允许新的主动联系。客户主动回复仍可以登记。</p></div>}
 
         <section className="panel composer-panel">
-          <div className="panel-head"><h2>英文跟进话术</h2><span>模板可直接修改</span></div>
+          <div className="panel-head"><h2>英文跟进话术</h2><span>先自动生成，审核后再发送</span></div>
           <div className="composer-toolbar">
             <label>话术模板<select value={templateId} onChange={e => { const id = e.target.value; setTemplateId(id); applyTemplate(id); }}>{templates.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}</select></label>
+            <button className="button secondary small" disabled={busy !== ''} onClick={() => void generatePersonalizedDraft()}><Sparkles size={14}/>{busy === 'DRAFT' ? '生成中…' : '生成个性化首封'}</button>
           </div>
+          {draftInfo && <div className="form-status success"><strong>个性化依据</strong><p>{[
+            draftInfo.customerType ? `客户类型：${draftInfo.customerType}` : '',
+            draftInfo.location ? `地区：${draftInfo.location}` : '',
+            draftInfo.contactUsed ? `联系人：${draftInfo.contactUsed}${draftInfo.contactTitle ? ` · ${draftInfo.contactTitle}` : ''}` : '未确认具体负责人，采用机构团队称呼',
+          ].filter(Boolean).join('；')}</p></div>}
           <label className="composer-field">邮件主题<input value={subject} onChange={e => setSubject(e.target.value)} /></label>
-          <label className="composer-field">消息内容<textarea rows={10} value={body} onChange={e => setBody(e.target.value)} /></label>
+          <label className="composer-field">消息内容<textarea rows={12} value={body} onChange={e => setBody(e.target.value)} /></label>
           <div className="composer-actions">
             <button className="button secondary small" onClick={() => void copy(body)}><Copy size={14}/>复制话术</button>
             {mailto && !isDnc ? <a className="button secondary small" href={mailto}><Mail size={14}/>打开邮件</a> : <button className="button secondary small" disabled><Mail size={14}/>无邮箱</button>}
@@ -225,7 +269,7 @@ export default function CommunicationCenter({ accessKey, onChanged }: { accessKe
             <button className="button small" disabled={isDnc || !email || !subject.trim() || !body.trim() || busy !== ''} onClick={() => void sendWithGmail()}><Send size={14}/>{busy === 'GMAIL' ? 'Gmail 发送中…' : 'Gmail 发送并登记'}</button>
             <button className="button secondary small" disabled={isDnc || !body.trim() || busy !== ''} onClick={() => void saveMessage('OUTBOUND', 'OTHER', body, subject)}>{busy === 'OUTBOUND' ? '保存中…' : '其他渠道已发送并登记'}</button>
           </div>
-          <p className="detail-note">“Gmail 发送并登记”会真实发送邮件，并在成功后才写入 CRM；“打开邮件/WhatsApp”只是辅助入口，不会自动记为已发送。</p>
+          <p className="detail-note">“生成个性化首封”只生成草稿，不会发送；“Gmail 发送并登记”才会真实发信，并在发送成功后写入 CRM 和创建 3 天跟进任务。</p>
         </section>
 
         <section className="panel reply-panel">
