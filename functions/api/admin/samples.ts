@@ -67,8 +67,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const currency = clean(input.currency === undefined ? current.currency : input.currency, 10).toUpperCase() || 'USD';
     let costAmount: number | null = current.cost_amount === null || current.cost_amount === undefined ? null : Number(current.cost_amount);
     if (input.costAmount !== undefined) {
-      const parsed = Number(input.costAmount);
-      costAmount = Number.isFinite(parsed) && parsed >= 0 ? Number(parsed.toFixed(2)) : null;
+      if (input.costAmount === null || input.costAmount === '') {
+        costAmount = null;
+      } else {
+        const parsed = Number(input.costAmount);
+        costAmount = Number.isFinite(parsed) && parsed >= 0 ? Number(parsed.toFixed(2)) : null;
+      }
     }
     const followExpr = followUpExpression(status);
 
