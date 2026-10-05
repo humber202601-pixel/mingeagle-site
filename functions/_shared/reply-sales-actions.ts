@@ -11,6 +11,7 @@ export type ReplySalesAction = {
   kind: 'QUOTE_INQUIRY' | 'SAMPLE_REQUEST' | 'NONE';
   reference?: string;
   quantity?: number | null;
+  postalCode?: string | null;
   created?: boolean;
 };
 
@@ -33,11 +34,27 @@ export function extractReplyQuantity(value: unknown) {
   return null;
 }
 
+export function extractUsPostalCode(value: unknown) {
+  const text = clean(value);
+  const patterns = [
+    /(?:zip|zip\s*code|postal\s*code)\s*(?:is|:|#)?\s*(\d{5})(?:-(\d{4}))?/i,
+    /(?:ship|shipping|deliver|delivery|send)\s+(?:to|zip|postal(?:\s*code)?)?\s*[:#-]?\s*(\d{5})(?:-(\d{4}))?/i,
+    /(?:destination|location)\s*(?:is|:)?\s*(\d{5})(?:-(\d{4}))?/i,
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (!match) continue;
+    return match[2] ? `${match[1]}-${match[2]}` : match[1];
+  }
+  return null;
+}
+
 async function prepareQuoteInquiry(db: D1Database, params: ReplySalesParams): Promise<ReplySalesAction> {
   const lead = await db.prepare(`SELECT l.product_interest, COALESCE(c.customer_type,'') AS customer_type
     FROM leads l LEFT JOIN companies c ON c.id=l.company_id WHERE l.id=? LIMIT 1`)
     .bind(params.leadId).first<Record<string, unknown>>();
   const quantity = extractReplyQuantity(params.body);
+  const postalCode = extractUsPostalCode(params.body);
   let inquiry = await db.prepare(`SELECT id, reference, status FROM inquiries
     WHERE lead_id=? AND status<>'CLOSED'
     ORDER BY datetime(updated_at) DESC, datetime(created_at) DESC LIMIT 1`)
@@ -49,13 +66,14 @@ async function prepareQuoteInquiry(db: D1Database, params: ReplySalesParams): Pr
     const reference = `MEQ-${Date.now().toString(36).toUpperCase()}`;
     await db.prepare(`INSERT INTO inquiries (
       id, reference, lead_id, company_id, contact_id, request_type, customer_type,
-      product_interest, estimated_quantity, message, status
-    ) VALUES (?, ?, ?, ?, ?, 'WHOLESALE', ?, ?, ?, ?, 'QUALIFIED')`)
+      product_interest, estimated_quantity, shipping_country, shipping_postal_code, message, status
+    ) VALUES (?, ?, ?, ?, ?, 'WHOLESALE', ?, ?, ?, 'US', ?, ?, 'QUALIFIED')`)
       .bind(
         id, reference, params.leadId, params.companyId, params.contactId,
         clean(lead?.customer_type, 100) || null,
         clean(lead?.product_interest, 100) || 'SILENT_BALL',
         quantity ? String(quantity) : null,
+        postalCode,
         clean(params.body, 8000) || 'Created automatically from a customer pricing reply.',
       ).run();
     inquiry = { id, reference, status: 'QUALIFIED' };
@@ -65,25 +83,32 @@ async function prepareQuoteInquiry(db: D1Database, params: ReplySalesParams): Pr
     const nextStatus = currentStatus === 'QUOTED' ? 'QUOTED' : 'QUALIFIED';
     await db.prepare(`UPDATE inquiries SET
       estimated_quantity=COALESCE(?, estimated_quantity),
+      shipping_country=COALESCE(shipping_country, 'US'),
+      shipping_postal_code=COALESCE(?, shipping_postal_code),
       message=CASE WHEN ?<>'' THEN ? ELSE message END,
       status=?, updated_at=CURRENT_TIMESTAMP
       WHERE id=?`)
-      .bind(quantity ? String(quantity) : null, clean(params.body, 8000), clean(params.body, 8000), nextStatus, String(inquiry.id)).run();
+      .bind(
+        quantity ? String(quantity) : null,
+        postalCode,
+        clean(params.body, 8000), clean(params.body, 8000), nextStatus, String(inquiry.id),
+      ).run();
   }
 
   const reference = String(inquiry.reference);
-  const nextAction = quantity ? `Prepare quotation · ${reference} · ${quantity} units` : `Prepare quotation · ${reference}`;
+  const details = [quantity ? `${quantity} units` : '', postalCode ? `ZIP ${postalCode}` : ''].filter(Boolean).join(' · ');
+  const nextAction = `Prepare quotation · ${reference}${details ? ` · ${details}` : ''}`;
   await db.prepare(`UPDATE leads SET status='QUOTE', next_best_action=?, next_action_at=datetime('now','+1 day'), updated_at=CURRENT_TIMESTAMP WHERE id=?`)
     .bind(nextAction, params.leadId).run();
   await db.prepare(`INSERT INTO activities (id, entity_type, entity_id, activity_type, title, description, metadata_json)
     VALUES (?, 'LEAD', ?, 'AUTO_QUOTE_INQUIRY', 'Pricing reply converted to quote inquiry', ?, ?)`)
     .bind(
       crypto.randomUUID(), params.leadId,
-      `${reference}${quantity ? ` · ${quantity} units` : ''}`,
-      JSON.stringify({ reference, quantity, created, sourceMessageId: params.messageId || null }),
+      `${reference}${details ? ` · ${details}` : ''}`,
+      JSON.stringify({ reference, quantity, postalCode, created, sourceMessageId: params.messageId || null }),
     ).run();
 
-  return { kind: 'QUOTE_INQUIRY', reference, quantity, created };
+  return { kind: 'QUOTE_INQUIRY', reference, quantity, postalCode, created };
 }
 
 async function prepareSampleRequest(db: D1Database, params: ReplySalesParams): Promise<ReplySalesAction> {
