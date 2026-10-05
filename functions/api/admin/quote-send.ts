@@ -18,14 +18,32 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!quoteId) return Response.json({ ok: false, error: 'Quote id is required.' }, { status: 400 });
 
     const db = env.MINGEAGLE_DB;
-    const quote = await db.prepare(`SELECT id, reference, status, lead_id, company_id, contact_id, valid_until
+    const quote = await db.prepare(`SELECT id, reference, status, lead_id, company_id, contact_id, valid_until, total
       FROM quotes WHERE id = ? LIMIT 1`).bind(quoteId).first<{
-        id: string; reference: string; status: string; lead_id: string | null; company_id: string | null; contact_id: string | null; valid_until: string | null;
+        id: string;
+        reference: string;
+        status: string;
+        lead_id: string | null;
+        company_id: string | null;
+        contact_id: string | null;
+        valid_until: string | null;
+        total: number;
       }>();
 
     if (!quote) return Response.json({ ok: false, error: 'Quote not found.' }, { status: 404 });
     if (['ACCEPTED','CONVERTED','DECLINED','EXPIRED'].includes(quote.status)) {
       return Response.json({ ok: false, error: `Quote cannot be sent from status ${quote.status}.` }, { status: 409 });
+    }
+
+    const pricedItems = await db.prepare(`SELECT COUNT(*) AS value
+      FROM quote_items WHERE quote_id=? AND quantity > 0 AND unit_price > 0 AND line_total > 0`)
+      .bind(quote.id).first<{ value: number }>();
+
+    if (Number(quote.total || 0) <= 0 || Number(pricedItems?.value || 0) <= 0) {
+      return Response.json({
+        ok: false,
+        error: 'Quote has no valid price. Enter a unit price greater than 0 and review the total before generating a customer link.',
+      }, { status: 409 });
     }
 
     const token = `${crypto.randomUUID().replaceAll('-', '')}${crypto.randomUUID().replaceAll('-', '')}`;
@@ -42,7 +60,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     await db.prepare(`INSERT INTO activities (id, entity_type, entity_id, activity_type, title, description, metadata_json)
       VALUES (?, 'QUOTE', ?, 'QUOTE_SENT', 'Quote sent', ?, ?)`)
-      .bind(crypto.randomUUID(), quote.id, `${quote.reference} customer link generated`, JSON.stringify({ reference: quote.reference })).run();
+      .bind(crypto.randomUUID(), quote.id, `${quote.reference} customer link generated`, JSON.stringify({ reference: quote.reference, total: quote.total })).run();
 
     return Response.json({ ok: true, reference: quote.reference, publicPath: `/quote/${token}` });
   } catch (error) {
