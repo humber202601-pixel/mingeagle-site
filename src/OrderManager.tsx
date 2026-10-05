@@ -56,13 +56,18 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
     }
   }
 
-  function paymentSubmit(event: FormEvent<HTMLFormElement>, reference: string) {
+  function paymentSubmit(event: FormEvent<HTMLFormElement>, reference: string, maxAmount: number) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
+    const amount = Number(data.get('amount') || 0);
+    if (amount <= 0 || amount > maxAmount + 0.005) {
+      setMessage(prev => ({ ...prev, [reference]: { type: 'error', text: `本次到账金额必须大于 0 且不能超过剩余应付 ${maxAmount.toFixed(2)}。` } }));
+      return;
+    }
     void runAction(reference, 'MARK_PAID', {
       paymentMethod: data.get('paymentMethod'),
       paymentReference: data.get('paymentReference'),
-      amount: data.get('amount'),
+      amount,
     });
   }
 
@@ -87,6 +92,7 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
       const total = Number(order.total || 0);
       const received = Number(order.amount_received || 0);
       const outstanding = Math.max(0, total - received);
+      const paymentReference = `PAY-${reference}`;
       const note = message[reference];
       return <section className="panel order-card" key={reference}>
         <div className="order-head">
@@ -95,16 +101,16 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
         </div>
         <div className="order-meta">
           <div><small>付款状态</small><strong>{paymentStatus === 'PARTIAL' ? `${money(received, order.currency)} / ${money(total, order.currency)}` : statusLabel(paymentStatus)}</strong></div>
-          <div><small>履约状态</small><strong>{statusLabel(status)}</strong></div>
+          <div><small>付款备注号</small><strong>{paymentReference}</strong></div>
           <div><small>承运商</small><strong>{text(order.carrier)}</strong></div>
           <div><small>物流单号</small><strong>{text(order.tracking_number)}</strong></div>
         </div>
 
-        {paymentStatus !== 'PAID' && !['CANCELLED','COMPLETED'].includes(status) && <form className="order-action-form" onSubmit={e => paymentSubmit(e, reference)}>
+        {paymentStatus !== 'PAID' && !['CANCELLED','COMPLETED'].includes(status) && <form className="order-action-form" onSubmit={e => paymentSubmit(e, reference, outstanding || total)}>
           <div className="order-form-grid">
             <label>付款方式<select name="paymentMethod" defaultValue="BANK_TRANSFER"><option value="BANK_TRANSFER">银行转账</option><option value="WISE">Wise</option><option value="PAYONEER">Payoneer</option><option value="ACH">ACH</option><option value="WIRE">国际电汇</option><option value="OTHER">其他</option></select></label>
-            <label>本次到账金额<input name="amount" type="number" min="0.01" step="0.01" defaultValue={(outstanding || total).toFixed(2)} required /></label>
-            <label className="span-2">付款凭证 / 流水号<input name="paymentReference" placeholder="转账流水号或备注（可选）" /></label>
+            <label>本次到账金额<input name="amount" type="number" min="0.01" max={(outstanding || total).toFixed(2)} step="0.01" defaultValue={(outstanding || total).toFixed(2)} required /></label>
+            <label className="span-2">付款凭证 / 流水号<input name="paymentReference" placeholder={`转账流水号或备注（客户付款备注号：${paymentReference}）`} /></label>
           </div>
           {paymentStatus === 'PARTIAL' && <div className="payment-progress">已到账 {money(received, order.currency)} · 待收 {money(outstanding, order.currency)}</div>}
           <button className="button small" disabled={busy !== ''}>{busy === `${reference}:MARK_PAID` ? '正在保存…' : paymentStatus === 'PARTIAL' ? '记录下一笔付款' : '记录付款'}</button>
