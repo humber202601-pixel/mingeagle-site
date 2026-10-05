@@ -69,6 +69,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const origin = new URL(request.url).origin;
+    const successUrl = `${origin}/quote/${encodeURIComponent(token)}?payment_return=1`;
     const orderReference = String(order.reference);
     const currency = String(order.currency || 'USD').toUpperCase();
     const amount = Number(outstanding.toFixed(2));
@@ -87,7 +88,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         amount,
         currency,
         merchant_order_id: orderReference,
-        return_url: `${origin}/quote/${encodeURIComponent(token)}?payment_return=1`,
+        return_url: successUrl,
+        merchant_website_url: 'https://www.mingeagle.com/',
+        customer: order.contact_email || order.contact_name ? {
+          email: order.contact_email || undefined,
+          first_name: order.contact_name || undefined,
+        } : undefined,
         metadata: {
           order_reference: orderReference,
           quote_reference: String(order.quote_reference || ''),
@@ -128,6 +134,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       orderReference,
       sdkEnv: airwallexSdkEnv(env),
       countryCode: 'US',
+      successUrl,
     });
   } catch (error) {
     console.error('airwallex_checkout_create_failed', error);
