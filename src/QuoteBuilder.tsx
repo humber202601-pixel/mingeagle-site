@@ -16,6 +16,16 @@ type QuoteResult = {
   status: string;
 };
 
+type QuoteSendResult = {
+  ok?: boolean;
+  reference?: string;
+  publicPath?: string;
+  emailed?: boolean;
+  to?: string | null;
+  gmailMessageId?: string | null;
+  error?: string;
+};
+
 type EditDetail = {
   quote: Row;
   items: Row[];
@@ -50,7 +60,8 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   const [error, setError] = useState('');
   const [result, setResult] = useState<QuoteResult | null>(null);
   const [quotes, setQuotes] = useState<Row[]>([]);
-  const [customerLink, setCustomerLink] = useState<{ reference: string; url: string } | null>(null);
+  const [customerLink, setCustomerLink] = useState<{ reference: string; url: string; emailed?: boolean; to?: string } | null>(null);
+  const [quoteDeliveryMessage, setQuoteDeliveryMessage] = useState('');
   const [editDetail, setEditDetail] = useState<EditDetail | null>(null);
   const [editMessage, setEditMessage] = useState('');
   const [editPreviewTotal, setEditPreviewTotal] = useState<number | null>(null);
@@ -205,6 +216,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     setError('');
     setEditMessage('');
     setCustomerLink(null);
+    setQuoteDeliveryMessage('');
     try {
       const response = await fetch('/api/admin/quote-revise', {
         method: 'POST',
@@ -224,25 +236,36 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     }
   }
 
-  async function createSecureLink(quote: Row) {
+  async function deliverQuote(quote: Row, sendEmail: boolean) {
     const quoteId = text(quote.id);
     if (!quoteId) return;
+    if (sendEmail) {
+      const confirmed = window.confirm(`将通过 Gmail 向该客户真实发送报价 ${text(quote.reference)}。确认继续吗？`);
+      if (!confirmed) return;
+    }
     setBusyQuoteId(quoteId);
     setError('');
     setCustomerLink(null);
+    setQuoteDeliveryMessage('');
     try {
       const response = await fetch('/api/admin/quote-send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
-        body: JSON.stringify({ quoteId }),
+        body: JSON.stringify({ quoteId, sendEmail }),
       });
-      const body = await response.json() as { ok?: boolean; reference?: string; publicPath?: string; error?: string };
-      if (!response.ok || !body.ok || !body.reference || !body.publicPath) throw new Error(body.error || '无法生成客户安全链接。');
-      setCustomerLink({ reference: body.reference, url: `${window.location.origin}${body.publicPath}` });
+      const body = await response.json() as QuoteSendResult;
+      if (!response.ok || !body.ok || !body.reference || !body.publicPath) {
+        throw new Error(body.error || (sendEmail ? '报价邮件发送失败。' : '无法生成客户安全链接。'));
+      }
+      const url = `${window.location.origin}${body.publicPath}`;
+      setCustomerLink({ reference: body.reference, url, emailed: Boolean(body.emailed), to: text(body.to) });
+      setQuoteDeliveryMessage(body.emailed
+        ? `报价 ${body.reference} 已通过 Gmail 真实发送${body.to ? `至 ${body.to}` : ''}，并已安排 3 天后报价跟进。`
+        : `报价 ${body.reference} 的安全链接已生成。当前没有自动发送邮件，你可以复制链接通过其他渠道发送。`);
       onCreated();
       await loadQuotes();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '无法生成客户安全链接。');
+      setError(err instanceof Error ? err.message : (sendEmail ? '报价邮件发送失败。' : '无法生成客户安全链接。'));
     } finally {
       setBusyQuoteId('');
     }
@@ -333,7 +356,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
                 <input name={`quantity-${text(item.id)}`} type="number" min="1" step="1" defaultValue={Number(item.quantity || 1)} required />
               </label>
               <label>单价（{text(editDetail.quote.currency, 'USD')}）
-                <input name={`unitPrice-${text(item.id)}`} type="number" min="0" step="0.01" defaultValue={Number(item.unit_price || 0).toFixed(2)} required />
+                <input name={`unitPrice-${text(item.id)}`} type="number" min="0.01" step="0.01" defaultValue={Number(item.unit_price || 0).toFixed(2)} required />
               </label>
             </div>
           </div>)}
@@ -361,20 +384,22 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
         </div>
         <div className="quote-form-actions">
           <button className="button" disabled={busyQuoteId === text(editDetail.quote.id)}>{busyQuoteId === text(editDetail.quote.id) ? '正在保存…' : '保存草稿修改'}</button>
-          <small>总价实时预览 = 数量 × 单价 − 折扣 + 运费；保存时服务端会再次计算确认。</small>
+          <small>总价实时预览 = 数量 × 单价 − 折扣 + 运费；单价和总金额必须大于 0，服务端会再次校验。</small>
         </div>
         {editMessage && <div className="form-status success"><strong>修改已保存</strong><p>{editMessage}</p></div>}
       </form>
     </section>}
 
     {customerLink && <section className="panel secure-link-panel">
-      <div><strong>客户安全报价链接已生成 · {customerLink.reference}</strong><p>{customerLink.url}</p></div>
+      <div><strong>{customerLink.emailed ? '报价已通过 Gmail 发送' : '客户安全报价链接已生成'} · {customerLink.reference}</strong><p>{customerLink.url}</p>{customerLink.to && <small>收件人：{customerLink.to}</small>}</div>
       <div className="secure-link-actions"><button className="button secondary small" onClick={() => void copyLink()}>复制链接</button><a className="button small" href={customerLink.url} target="_blank" rel="noreferrer">打开客户报价页</a></div>
-      <small>同一张报价可以保留多个已生成链接；重新生成新链接不会使之前的已发链接失效。</small>
+      <small>同一张报价可以保留多个已生成链接；重新生成新链接不会使之前已发链接失效。</small>
     </section>}
 
+    {quoteDeliveryMessage && <div className="form-status success"><strong>报价交付完成</strong><p>{quoteDeliveryMessage}</p></div>}
+
     <section className="panel table-panel">
-      <div className="table-tools"><strong>共 {quotes.length} 张报价单</strong><span>草稿 → 审核修改 → 安全链接 → 客户查看 → 修订 → 接受 → 自动生成订单</span></div>
+      <div className="table-tools"><strong>共 {quotes.length} 张报价单</strong><span>草稿 → 审核修改 → Gmail / 安全链接 → 客户查看 → 修订 → 接受 → 自动生成订单</span></div>
       <div className="table-wrap"><table><thead><tr><th>报价单</th><th>客户</th><th>总金额</th><th>状态</th><th>有效期至</th><th>操作</th></tr></thead><tbody>
         {quotes.length === 0 && <tr><td colSpan={6}>暂无报价单。</td></tr>}
         {quotes.map((quote, i) => {
@@ -386,8 +411,10 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
             <td>{text(quote.reference)}</td><td>{text(quote.customer)}</td><td>{money(quote.total, quote.currency)}</td><td>{statusLabel(status)}</td><td>{text(quote.valid_until)}</td>
             <td><div className="secure-link-actions">
               {status === 'DRAFT' && <button type="button" className="table-action" disabled={busyQuoteId === id} onClick={() => void openEdit(quote)}>{busyQuoteId === id ? '加载中…' : '编辑草稿'}</button>}
+              {canSend && <button type="button" className="table-action primary" disabled={busyQuoteId === id} onClick={() => void deliverQuote(quote, true)}>{busyQuoteId === id ? '处理中…' : status === 'DRAFT' ? 'Gmail发送报价' : '重新邮件发送'}</button>}
+              {canSend && <button type="button" className="table-action" disabled={busyQuoteId === id} onClick={() => void deliverQuote(quote, false)}>{busyQuoteId === id ? '处理中…' : status === 'DRAFT' ? '仅生成安全链接' : '重新生成链接'}</button>}
               {canRevise && <button type="button" className="table-action" disabled={busyQuoteId === id} onClick={() => void createRevision(quote)}>{busyQuoteId === id ? '处理中…' : '创建修订版'}</button>}
-              {canSend ? <button type="button" className="table-action" disabled={busyQuoteId === id} onClick={() => void createSecureLink(quote)}>{busyQuoteId === id ? '处理中…' : status === 'DRAFT' ? '生成安全链接' : '重新生成链接'}</button> : !canRevise && <span>{status === 'CONVERTED' ? '已生成订单' : '不可操作'}</span>}
+              {!canSend && !canRevise && <span>{status === 'CONVERTED' ? '已生成订单' : '不可操作'}</span>}
             </div></td>
           </tr>;
         })}
