@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MING EAGLE 邮件队列</title>
+  <style>
+    :root{font-family:Arial,"Microsoft YaHei",sans-serif;color:#172033;background:#f4f6f8}
+    body{margin:0}.top{background:#17243a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center}.top h1{margin:0;font-size:22px}.top a{color:#fff;text-decoration:none}.wrap{max-width:1180px;margin:24px auto;padding:0 18px}.panel{background:#fff;border:1px solid #e4e7ec;border-radius:16px;padding:18px;margin-bottom:18px;box-shadow:0 8px 26px rgba(16,24,40,.05)}.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.toolbar label{font-size:12px;font-weight:700;color:#475467}.toolbar input,.toolbar select{display:block;margin-top:6px;padding:10px 12px;border:1px solid #d0d5dd;border-radius:9px;font:inherit;min-width:220px}.btn{border:0;border-radius:9px;padding:10px 13px;font-weight:800;cursor:pointer;background:#ef5b2a;color:#fff}.btn.secondary{background:#eef2f6;color:#344054}.btn.danger{background:#b42318}.btn:disabled{opacity:.5;cursor:not-allowed}.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}.stat{background:#fff;border:1px solid #e4e7ec;border-radius:12px;padding:14px}.stat small{display:block;color:#667085}.stat strong{font-size:25px}.msg{display:none;padding:12px 14px;border-radius:9px;margin-top:12px}.msg.ok{display:block;background:#ecfdf3;color:#027a48}.msg.bad{display:block;background:#fef3f2;color:#b42318}.queue{display:grid;gap:12px}.item{background:#fff;border:1px solid #e4e7ec;border-radius:14px;padding:16px}.head{display:flex;justify-content:space-between;gap:12px;align-items:start}.meta{color:#667085;font-size:13px;line-height:1.6}.subject{font-size:17px;font-weight:800;margin:10px 0}.body{white-space:pre-wrap;background:#f8fafc;border-radius:10px;padding:12px;color:#344054;line-height:1.55;max-height:220px;overflow:auto}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:800;background:#f2f4f7;color:#344054}.badge.ready{background:#ecfdf3;color:#027a48}.badge.review{background:#fff6ed;color:#b54708}.badge.failed{background:#fef3f2;color:#b42318}.badge.sent{background:#eff8ff;color:#175cd3}.badge.skip{background:#f2f4f7;color:#667085}.auto{font-size:12px;font-weight:700;color:#027a48}.cold{font-size:12px;font-weight:700;color:#b54708}.empty{text-align:center;color:#667085;padding:28px}.small{font-size:12px;color:#667085}.filters{margin-left:auto}
+    @media(max-width:760px){.stats{grid-template-columns:1fr 1fr}.head{display:block}.toolbar{display:block}.toolbar>*{margin-bottom:10px}.toolbar input,.toolbar select{width:100%;box-sizing:border-box}.filters{margin-left:0}}
+  </style>
+</head>
+<body>
+  <div class="top"><div><strong>MING EAGLE</strong> · 邮件队列控制台</div><a href="/app">返回 Growth Engine</a></div>
+  <div class="wrap">
+    <section class="panel">
+      <div class="toolbar">
+        <label>后台管理员访问密码<input id="key" type="password" autocomplete="current-password" placeholder="ADMIN_ACCESS_KEY" /></label>
+        <button id="load" class="btn secondary">加载队列</button>
+        <button id="scan" class="btn">立即扫描到期客户</button>
+        <label class="filters">状态筛选<select id="filter"><option value="OPEN">待处理</option><option value="ALL">全部</option><option value="REVIEW_REQUIRED">待审核</option><option value="READY">待发送</option><option value="FAILED">失败</option><option value="SENT">已发送</option><option value="SKIPPED">已跳过</option></select></label>
+      </div>
+      <div id="msg" class="msg"></div>
+      <p class="small">规则：网站询盘、样品、报价、洽谈等暖客户会标记为“可自动化”；陌生开发客户只进入“待审核”，不会自动群发。</p>
+    </section>
+
+    <div class="stats">
+      <div class="stat"><small>待审核</small><strong id="s-review">0</strong></div>
+      <div class="stat"><small>待发送</small><strong id="s-ready">0</strong></div>
+      <div class="stat"><small>失败</small><strong id="s-failed">0</strong></div>
+      <div class="stat"><small>已发送</small><strong id="s-sent">0</strong></div>
+      <div class="stat"><small>已跳过</small><strong id="s-skipped">0</strong></div>
+    </div>
+
+    <div id="queue" class="queue"><div class="empty">请输入管理员密码后加载。</div></div>
+  </div>
+  <script>
+    const keyEl=document.getElementById('key'); const msg=document.getElementById('msg'); const queue=document.getElementById('queue'); const filter=document.getElementById('filter');
+    keyEl.value=sessionStorage.getItem('mingeagle_admin_key')||'';
+    let rows=[];
+    function show(t,ok){msg.textContent=t;msg.className='msg '+(ok?'ok':'bad')}
+    function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]))}
+    function badge(status){const cls=status==='READY'?'ready':status==='REVIEW_REQUIRED'?'review':status==='FAILED'?'failed':status==='SENT'?'sent':'skip';const labels={READY:'待发送',REVIEW_REQUIRED:'待审核',FAILED:'失败',SENT:'已发送',SKIPPED:'已跳过'};return `<span class="badge ${cls}">${labels[status]||esc(status)}</span>`}
+    function render(){const f=filter.value;const open=['REVIEW_REQUIRED','READY','FAILED'];const list=rows.filter(r=>f==='ALL'||(f==='OPEN'?open.includes(r.status):r.status===f));if(!list.length){queue.innerHTML='<div class="empty">当前筛选下没有邮件。</div>';return}
+      queue.innerHTML=list.map(r=>`<article class="item"><div class="head"><div><div>${badge(r.status)} ${Number(r.auto_eligible)===1?'<span class="auto">暖客户 · 可自动化</span>':'<span class="cold">冷开发 · 需人工审核</span>'}</div><div class="subject">${esc(r.subject)}</div><div class="meta"><strong>${esc(r.company)}</strong> · ${esc(r.contact)} · ${esc(r.email)}<br>来源阶段：${esc(r.source_status)} · 计划时间：${esc(r.scheduled_for||r.created_at)} · 潜客评分：${esc(r.lead_score||0)}</div></div></div><div class="body">${esc(r.body)}</div>${r.last_error?`<div class="msg bad" style="display:block">${esc(r.last_error)}</div>`:''}<div class="actions">${r.status==='REVIEW_REQUIRED'?`<button class="btn secondary" onclick="act('APPROVE','${r.id}')">批准进入待发送</button>`:''}${['READY','REVIEW_REQUIRED','FAILED'].includes(r.status)?`<button class="btn" onclick="send('${r.id}')">Gmail 发送并登记</button><button class="btn secondary" onclick="delay('${r.id}',1)">延后1天</button><button class="btn secondary" onclick="delay('${r.id}',3)">延后3天</button><button class="btn secondary" onclick="delay('${r.id}',7)">延后7天</button><button class="btn danger" onclick="act('SKIP','${r.id}')">跳过</button>`:''}</div></article>`).join('')}
+    function updateStats(){const c={};rows.forEach(r=>c[r.status]=(c[r.status]||0)+1);document.getElementById('s-review').textContent=c.REVIEW_REQUIRED||0;document.getElementById('s-ready').textContent=c.READY||0;document.getElementById('s-failed').textContent=c.FAILED||0;document.getElementById('s-sent').textContent=c.SENT||0;document.getElementById('s-skipped').textContent=c.SKIPPED||0}
+    async function api(body,method='POST'){const key=keyEl.value.trim();if(!key)throw new Error('请输入管理员访问密码。');sessionStorage.setItem('mingeagle_admin_key',key);const res=await fetch('/api/admin/email-queue',{method,headers:{'Content-Type':'application/json','x-admin-key':key},body:method==='GET'?undefined:JSON.stringify(body||{})});const data=await res.json();if(!res.ok||!data.ok)throw new Error(data.error||'操作失败');return data}
+    async function load(){try{const data=await api(null,'GET');rows=data.rows||[];updateStats();render();show('队列已刷新。',true)}catch(e){show(e.message||'加载失败',false)}}
+    async function scan(){try{const d=await api({action:'GENERATE'});show(`扫描完成：检查 ${d.reviewed} 个到期客户，新生成 ${d.created} 封邮件。`,true);await load()}catch(e){show(e.message||'扫描失败',false)}}
+    async function act(action,id){try{await api({action,queueId:id});show('操作完成。',true);await load()}catch(e){show(e.message||'操作失败',false)}}
+    async function delay(id,days){try{await api({action:'DELAY',queueId:id,days});show(`已延后 ${days} 天。`,true);await load()}catch(e){show(e.message||'操作失败',false)}}
+    async function send(id){if(!confirm('确认使用 mingeaglecommerce@gmail.com 真实发送这封邮件，并写入 CRM？'))return;try{show('正在发送…',true);const d=await api({action:'SEND',queueId:id});show(`发送成功：${d.to}`,true);await load()}catch(e){show(e.message||'发送失败',false)}}
+    document.getElementById('load').onclick=load;document.getElementById('scan').onclick=scan;filter.onchange=render;
+    if(keyEl.value)load();
+  </script>
+</body>
+</html>
