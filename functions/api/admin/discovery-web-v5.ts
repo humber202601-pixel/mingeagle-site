@@ -2,7 +2,11 @@ interface Env { MINGEAGLE_DB: D1Database }
 
 type Input = { stateCode?: string; customerType?: string; targetCount?: number | string };
 type SearchHit = { title:string; url:string; snippet:string; query:string; city:string };
-type VerifiedHit = SearchHit & { fitScore:number; cues:string[]; orgName:string };
+type VerifiedHit = SearchHit & {
+  fitScore:number; cues:string[]; orgName:string;
+  email:string; phone:string; whatsapp:string; instagram:string; facebook:string; linkedin:string;
+  contactName:string; contactTitle:string; contactUrl:string; sourceUrls:string[];
+};
 
 const clean=(v:unknown,max=1000)=>typeof v==='string'?v.trim().slice(0,max):'';
 const allowedState=/^[A-Z]{2}$/;
@@ -21,6 +25,7 @@ const TERMS:Record<string,string[]>={
 const BLOCKED_DOMAINS=['bing.com','google.com','duckduckgo.com','yahoo.com','yelp.com','facebook.com','instagram.com','linkedin.com','youtube.com','wikipedia.org','reddit.com','x.com','twitter.com','tiktok.com','pinterest.com','yellowpages.com','mapquest.com','tripadvisor.com','indeed.com','ziprecruiter.com','chamberofcommerce.com','manta.com','bbb.org','maxpreps.com','hudl.com','eventbrite.com','foursquare.com','nba.com','wnba.com','espn.com','cbssports.com','foxsports.com','basketball-reference.com','flashscore.com','livescore.com','sofascore.com','crazygames.com','poki.com','games.com','formula1.com'];
 const HARD_NEGATIVE=/\b(formula\s*1|motorsport|racing|live\s*score|livescore|statistics|standings|box\s*score|video game|online game|play game|basketball reference|betting|odds|race calendar|full race)\b/i;
 const GENERIC_NAME=/^(home|basketball|adult basketball|youth basketball|basketball training|basketball academy|basketball program|basketball programs|training|academy|program|programs|sports|athletics|contact|about|team|coaches|coach|schedule|calendar)$/i;
+const BAD_PERSON_WORDS=new Set(['at','the','new','our','your','basketball','academy','training','program','programs','team','teams','contact','about','director','coach','manager','owner','founder','staff','membership','sports','adult','youth','club']);
 
 const STRONG_PAIR:Record<string,RegExp>={
   BASKETBALL_TRAINING:/(?:basketball|hoops).{0,90}(?:academy|training|skills?|coaching|player development|private lessons?|development program)|(?:academy|training|skills?|coaching|player development|private lessons?|development program).{0,90}(?:basketball|hoops)/i,
@@ -33,7 +38,16 @@ async function ensureTables(db:D1Database){
   await db.prepare(`CREATE TABLE IF NOT EXISTS discovery_jobs (id TEXT PRIMARY KEY,country TEXT NOT NULL DEFAULT 'US',state_region TEXT NOT NULL,customer_type TEXT NOT NULL,target_count INTEGER NOT NULL DEFAULT 20,source_provider TEXT NOT NULL DEFAULT 'OPENSTREETMAP',status TEXT NOT NULL DEFAULT 'RUNNING',result_count INTEGER NOT NULL DEFAULT 0,error TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,completed_at TEXT)`).run();
   await db.prepare(`CREATE TABLE IF NOT EXISTS discovery_candidates (id TEXT PRIMARY KEY,source_key TEXT NOT NULL UNIQUE,source_provider TEXT NOT NULL DEFAULT 'OPENSTREETMAP',name TEXT NOT NULL,customer_type TEXT NOT NULL,country TEXT NOT NULL DEFAULT 'US',state_region TEXT,city TEXT,address TEXT,website TEXT,email TEXT,phone TEXT,whatsapp TEXT,instagram_url TEXT,facebook_url TEXT,latitude REAL,longitude REAL,lead_score INTEGER NOT NULL DEFAULT 0,grade TEXT NOT NULL DEFAULT 'C',status TEXT NOT NULL DEFAULT 'NEW',source_url TEXT NOT NULL,source_evidence TEXT,raw_json TEXT,crm_lead_id TEXT,discovered_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
   const info=await db.prepare(`PRAGMA table_info(discovery_candidates)`).all<{name:string}>();const names=new Set(info.results.map(r=>r.name));
-  for(const [name,definition] of [['contact_person_name','TEXT'],['contact_person_title','TEXT'],['enrichment_status',`TEXT NOT NULL DEFAULT 'NOT_STARTED'`]] as Array<[string,string]>){if(!names.has(name)){try{await db.prepare(`ALTER TABLE discovery_candidates ADD COLUMN ${name} ${definition}`).run()}catch{}}}
+  const columns:Array<[string,string]>=[['linkedin_url','TEXT'],['contact_person_name','TEXT'],['contact_person_title','TEXT'],['website_contact_url','TEXT'],['enrichment_status',`TEXT NOT NULL DEFAULT 'NOT_STARTED'`],['enrichment_source_urls','TEXT'],['enrichment_error','TEXT'],['enriched_at','TEXT']];
+  for(const [name,definition] of columns){if(!names.has(name)){try{await db.prepare(`ALTER TABLE discovery_candidates ADD COLUMN ${name} ${definition}`).run()}catch{}}}
+  await db.prepare(`CREATE TRIGGER IF NOT EXISTS trg_discovery_person_sanity AFTER UPDATE OF contact_person_name ON discovery_candidates
+    WHEN NEW.contact_person_name IS NOT NULL AND (
+      lower(trim(NEW.contact_person_name)) LIKE 'at %' OR lower(trim(NEW.contact_person_name)) LIKE 'the %' OR
+      lower(trim(NEW.contact_person_name)) LIKE 'our %' OR lower(trim(NEW.contact_person_name)) LIKE '% basketball%' OR
+      lower(trim(NEW.contact_person_name)) IN ('director','coach','manager','owner','founder','staff') OR
+      instr(trim(NEW.contact_person_name),' ')=0
+    )
+    BEGIN UPDATE discovery_candidates SET contact_person_name=NULL,contact_person_title=NULL WHERE id=NEW.id; END`).run();
 }
 function decode(v:string){return v.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,'$1').replace(/&amp;/gi,'&').replace(/&quot;/gi,'"').replace(/&apos;|&#39;|&#x27;/gi,"'").replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&#(\d+);/g,(_,n)=>String.fromCharCode(Number(n)))}
 function strip(v:string){return decode(v.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<svg[\s\S]*?<\/svg>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim())}
@@ -42,89 +56,51 @@ function domainOf(v:string){try{return new URL(v).hostname.toLowerCase().replace
 function allowedWebsite(v:string){try{const u=new URL(v);const h=u.hostname.toLowerCase().replace(/^www\./,'');return ['http:','https:'].includes(u.protocol)&&!!h&&!BLOCKED_DOMAINS.some(d=>h===d||h.endsWith(`.${d}`))}catch{return false}}
 function grade(score:number){return score>=80?'A':score>=60?'B':'C'}
 
-async function fetchText(url:string,timeout=6000){const c=new AbortController();const t=setTimeout(()=>c.abort(),timeout);try{const r=await fetch(url,{headers:{accept:'text/html,application/xhtml+xml,application/rss+xml,application/xml;q=0.9,*/*;q=0.8','accept-language':'en-US,en;q=0.9','user-agent':'Mozilla/5.0 (compatible; MING-EAGLE-Discovery/6.0; +https://mingeagle.com)'},redirect:'follow',signal:c.signal});if(!r.ok)throw new Error(`HTTP ${r.status}`);return (await r.text()).slice(0,650000)}finally{clearTimeout(t)}}
-
-function metaContent(html:string,key:string){
-  const escaped=key.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-  const patterns=[
-    new RegExp(`<meta[^>]+(?:property|name)=["']${escaped}["'][^>]+content=["']([^"']+)["'][^>]*>`,'i'),
-    new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${escaped}["'][^>]*>`,'i')
-  ];
-  for(const p of patterns){const m=html.match(p);if(m)return strip(m[1])}return '';
-}
+async function fetchText(url:string,timeout=6000){const c=new AbortController();const t=setTimeout(()=>c.abort(),timeout);try{const r=await fetch(url,{headers:{accept:'text/html,application/xhtml+xml,application/rss+xml,application/xml;q=0.9,*/*;q=0.8','accept-language':'en-US,en;q=0.9','user-agent':'Mozilla/5.0 (compatible; MING-EAGLE-Discovery/6.1; +https://mingeagle.com)'},redirect:'follow',signal:c.signal});if(!r.ok)throw new Error(`HTTP ${r.status}`);return (await r.text()).slice(0,650000)}finally{clearTimeout(t)}}
+function metaContent(html:string,key:string){const escaped=key.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');const patterns=[new RegExp(`<meta[^>]+(?:property|name)=["']${escaped}["'][^>]+content=["']([^"']+)["'][^>]*>`,'i'),new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${escaped}["'][^>]*>`,'i')];for(const p of patterns){const m=html.match(p);if(m)return strip(m[1])}return ''}
 function titleText(html:string){const m=html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);return m?strip(m[1]):''}
 function genericName(value:string){const v=clean(value,120).replace(/\s+/g,' ');if(!v||v.length<3||v.length>100)return true;if(GENERIC_NAME.test(v))return true;if(HARD_NEGATIVE.test(v))return true;if(/^\d+$/.test(v))return true;return false}
-function humanizeDomain(domain:string){const stem=domain.split('.')[0].replace(/[-_]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase());return stem.slice(0,100)}
-function orgNameFromPage(html:string,searchTitle:string,url:string){
-  const domain=domainOf(url);const candidates:string[]=[];
-  for(const key of ['og:site_name','application-name','apple-mobile-web-app-title']){const v=metaContent(html,key);if(v)candidates.push(v)}
-  const titles=[titleText(html),searchTitle].filter(Boolean);
-  for(const title of titles){const parts=title.split(/\s+[|–—:]\s+|\s+-\s+/).map(x=>clean(x,120)).filter(Boolean);candidates.push(...parts.slice().reverse(),...parts)}
-  const logoAlts=[...html.matchAll(/<img[^>]+alt=["']([^"']+)["'][^>]*>/gi)].map(m=>strip(m[1])).filter(v=>/academy|basketball|hoops|sports|training|club|gym|athletic/i.test(v));candidates.push(...logoAlts.slice(0,3));
-  for(const raw of candidates){const value=raw.replace(/\s+(official site|home page)$/i,'').trim();if(!genericName(value))return value.slice(0,100)}
-  return humanizeDomain(domain);
-}
+function humanizeDomain(domain:string){return domain.split('.')[0].replace(/[-_]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase()).slice(0,100)}
+function orgNameFromPage(html:string,searchTitle:string,url:string){const domain=domainOf(url);const candidates:string[]=[];for(const key of ['og:site_name','application-name','apple-mobile-web-app-title']){const v=metaContent(html,key);if(v)candidates.push(v)}for(const title of [titleText(html),searchTitle].filter(Boolean)){const parts=title.split(/\s+[|–—:]\s+|\s+-\s+/).map(x=>clean(x,120)).filter(Boolean);candidates.push(...parts.slice().reverse(),...parts)}for(const raw of candidates){const value=raw.replace(/\s+(official site|home page)$/i,'').trim();if(!genericName(value))return value.slice(0,100)}return humanizeDomain(domain)}
 
-async function bing(query:string,city:string){
-  const q=`${query} -Formula1 -racing -livescore -stats -standings -betting -games`;
-  const data=await fetchText(`https://www.bing.com/search?q=${encodeURIComponent(q)}&format=rss&mkt=en-US&setlang=en-US`,7000);
-  const items=data.match(/<item\b[\s\S]*?<\/item>/gi)||[];const out:SearchHit[]=[];const seen=new Set<string>();
-  for(const item of items){const title=xml(item,'title'),url=decode(xml(item,'link')),snippet=xml(item,'description');const d=domainOf(url);if(!title||!url||!d||seen.has(d)||!allowedWebsite(url))continue;if(HARD_NEGATIVE.test(`${title} ${snippet}`))continue;seen.add(d);out.push({title,url,snippet,query,city});if(out.length>=12)break}
-  return out;
-}
-function extractSameOriginLinks(html:string,baseUrl:string){const links:string[]=[];const seen=new Set<string>();let base:URL;try{base=new URL(baseUrl)}catch{return links}const re=/<a\b[^>]*href=["']([^"'#]+)["'][^>]*>/gi;let m:RegExpExecArray|null;while((m=re.exec(html))){try{const u=new URL(decode(m[1]),base);if(u.origin!==base.origin)continue;if(!/(about|contact|program|training|coach|team|staff|basketball|skills|clinic|camp|facility|court|shop|store|membership|lesson)/i.test(u.pathname))continue;const href=u.toString();if(seen.has(href))continue;seen.add(href);links.push(href);if(links.length>=5)break}catch{}}return links}
+function validEmail(v:string){const e=v.toLowerCase().replace(/^mailto:/,'').split('?')[0].trim();if(!/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(e))return '';if(/\.(png|jpg|jpeg|gif|webp|svg|css|js)$/i.test(e)||/^(example|test|name)@/i.test(e))return '';return e.slice(0,320)}
+function emailsOf(html:string){const d=decode(html);const set=new Set<string>();for(const m of d.matchAll(/mailto:([^"'<>\s?]+)/gi)){const e=validEmail(m[1]);if(e)set.add(e)}for(const raw of d.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)||[]){const e=validEmail(raw);if(e)set.add(e)}return [...set]}
+function phoneValue(raw:string){let v=raw;try{v=decodeURIComponent(raw)}catch{}v=v.replace(/^tel:/i,'').split('?')[0].trim();const digits=v.replace(/\D/g,'');return digits.length>=10&&digits.length<=15?v.slice(0,80):''}
+function phonesOf(html:string,text:string){const set=new Set<string>();for(const m of html.matchAll(/href\s*=\s*["'](tel:[^"']+)["']/gi)){const p=phoneValue(m[1]);if(p)set.add(p)}for(const raw of text.match(/(?:\+?1[\s.\-()]*)?(?:\(?\d{3}\)?[\s.\-]*)\d{3}[\s.\-]*\d{4}(?:\s*(?:x|ext\.?)[\s]*\d{1,6})?/gi)||[]){const p=phoneValue(raw);if(p)set.add(p)}return [...set]}
+function hrefs(html:string,base:string){const out:string[]=[];const re=/href\s*=\s*["']([^"']+)["']/gi;let m:RegExpExecArray|null;while((m=re.exec(html))){const raw=decode(m[1]).trim();if(!raw||raw.startsWith('#')||/^(javascript|data):/i.test(raw))continue;try{out.push(new URL(raw,base).toString())}catch{}}return [...new Set(out)]}
+function firstSocial(links:string[],domains:string[]){return links.find(link=>{try{const h=new URL(link).hostname.toLowerCase();return domains.some(d=>h===d||h.endsWith(`.${d}`))}catch{return false}})||''}
+function whatsappOf(links:string[]){const link=firstSocial(links,['wa.me','whatsapp.com']);if(!link)return '';try{const u=new URL(link);return u.hostname.toLowerCase()==='wa.me'?u.pathname.replace(/\D/g,'').slice(0,20)||link:u.searchParams.get('phone')?.replace(/\D/g,'').slice(0,20)||link}catch{return link}}
+function chooseEmail(emails:string[],host:string){const domain=host.toLowerCase().replace(/^www\./,'');return emails.find(e=>e.endsWith(`@${domain}`))||emails.find(e=>/^(sales|info|contact|hello|office|admin|coach|training|orders)@/i.test(e))||emails[0]||''}
+function validPersonName(value:string){const parts=clean(value,120).replace(/\s+/g,' ').split(' ');if(parts.length<2||parts.length>3)return false;if(parts.some(p=>BAD_PERSON_WORDS.has(p.toLowerCase())))return false;return parts.every(p=>/^[A-Z][A-Za-z'’-]{1,30}$/.test(p))}
+function extractPerson(text:string){const roles='Owner|Founder|Co-Founder|Executive Director|Program Director|Basketball Director|Training Director|Head Coach|General Manager|Operations Director|Purchasing Manager|Procurement Manager|Director|Coach|Manager|President|CEO';const name="([A-Z][A-Za-z'’-]{1,30}(?:\\s+[A-Z][A-Za-z'’-]{1,30}){1,2})";const patterns=[new RegExp(`${name}\\s*(?:[-–—|,:]|\\bis\\s+(?:the\\s+)?)\\s*(${roles})`),new RegExp(`(${roles})\\s*(?:[-–—|,:])?\\s*${name}`)];for(let i=0;i<patterns.length;i++){const m=text.match(patterns[i]);if(!m)continue;const person=i===0?m[1]:m[2];const title=i===0?m[2]:m[1];if(validPersonName(person))return {name:clean(person,120),title:clean(title,120)}}return {name:'',title:''}}
 
-function scoreBusiness(hit:SearchHit,body:string,type:string,stateCode:string,orgName:string){
-  const searchText=`${hit.title} ${hit.snippet}`;const all=`${searchText} ${body}`;
-  if(HARD_NEGATIVE.test(searchText)||genericName(orgName))return {score:0,cues:['invalid-entity']};
-  const pair=STRONG_PAIR[type];if(!pair||!pair.test(body))return {score:0,cues:['no-strong-business-pair']};
-  const cues:string[]=['strong-business-pair','organization-identified'];let score=72;
-  if(pair.test(searchText)){score+=8;cues.push('pair-in-search')}
-  if(/programs?|services?|register|book|lessons?|sessions?|membership|pricing|enroll|tryouts?|teams?|shop|store|classes/i.test(body)){score+=7;cues.push('commercial-language')}
-  if(/contact|about|team|coach|staff|director|owner|founder/i.test(body)){score+=5;cues.push('organization-language')}
-  const state=(STATE_NAMES[stateCode]||'').toLowerCase();const lower=all.toLowerCase();const local=[hit.city.toLowerCase(),state,stateCode.toLowerCase()].filter(Boolean).some(x=>lower.includes(x));if(local){score+=8;cues.push('local-match')}
-  return {score:Math.min(100,score),cues};
-}
+async function bing(query:string,city:string){const q=`${query} -Formula1 -racing -livescore -stats -standings -betting -games`;const data=await fetchText(`https://www.bing.com/search?q=${encodeURIComponent(q)}&format=rss&mkt=en-US&setlang=en-US`,7000);const items=data.match(/<item\b[\s\S]*?<\/item>/gi)||[];const out:SearchHit[]=[];const seen=new Set<string>();for(const item of items){const title=xml(item,'title'),url=decode(xml(item,'link')),snippet=xml(item,'description');const d=domainOf(url);if(!title||!url||!d||seen.has(d)||!allowedWebsite(url))continue;if(HARD_NEGATIVE.test(`${title} ${snippet}`))continue;seen.add(d);out.push({title,url,snippet,query,city});if(out.length>=12)break}return out}
+function sameOriginPreferred(html:string,baseUrl:string){const out:string[]=[];let base:URL;try{base=new URL(baseUrl)}catch{return out}for(const link of hrefs(html,baseUrl)){try{const u=new URL(link);if(u.origin!==base.origin)continue;if(!/(about|contact|program|training|coach|team|staff|basketball|skills|clinic|camp|facility|court|shop|store|membership|lesson|leadership)/i.test(u.pathname))continue;out.push(u.toString());if(out.length>=5)break}catch{}}return [...new Set(out)]}
+function scoreBusiness(hit:SearchHit,body:string,type:string,stateCode:string,orgName:string){const searchText=`${hit.title} ${hit.snippet}`;const all=`${searchText} ${body}`;if(HARD_NEGATIVE.test(searchText)||genericName(orgName))return {score:0,cues:['invalid-entity']};const pair=STRONG_PAIR[type];if(!pair||!pair.test(body))return {score:0,cues:['no-strong-business-pair']};const cues:string[]=['strong-business-pair','organization-identified'];let score=72;if(pair.test(searchText)){score+=8;cues.push('pair-in-search')}if(/programs?|services?|register|book|lessons?|sessions?|membership|pricing|enroll|tryouts?|teams?|shop|store|classes/i.test(body)){score+=7;cues.push('commercial-language')}if(/contact|about|team|coach|staff|director|owner|founder/i.test(body)){score+=5;cues.push('organization-language')}const state=(STATE_NAMES[stateCode]||'').toLowerCase();const lower=all.toLowerCase();const local=[hit.city.toLowerCase(),state,stateCode.toLowerCase()].filter(Boolean).some(x=>lower.includes(x));if(local){score+=8;cues.push('local-match')}return {score:Math.min(100,score),cues}}
 
 async function verifyHit(hit:SearchHit,type:string,stateCode:string):Promise<VerifiedHit|null>{
   try{
-    const html=await fetchText(hit.url,5500);let body=strip(html).slice(0,150000);
-    const orgName=orgNameFromPage(html,hit.title,hit.url);if(genericName(orgName))return null;
-    const links=extractSameOriginLinks(html,hit.url).slice(0,2);
-    if(links.length){const extra=await Promise.allSettled(links.map(url=>fetchText(url,4000)));for(const r of extra){if(r.status==='fulfilled')body+=` ${strip(r.value).slice(0,55000)}`}}
-    const f=scoreBusiness(hit,body,type,stateCode,orgName);if(f.score<72)return null;
-    return {...hit,fitScore:f.score,cues:f.cues,orgName};
+    const homeHtml=await fetchText(hit.url,5500);const orgName=orgNameFromPage(homeHtml,hit.title,hit.url);if(genericName(orgName))return null;
+    const pageUrls=[hit.url,...sameOriginPreferred(homeHtml,hit.url).slice(0,2)];const pages:string[]=[homeHtml];for(const url of pageUrls.slice(1)){try{pages.push(await fetchText(url,4000))}catch{}}
+    const combinedHtml=pages.join('\n');const body=pages.map(strip).join(' ').slice(0,260000);const f=scoreBusiness(hit,body,type,stateCode,orgName);if(f.score<72)return null;
+    const allLinks=pages.flatMap((html,index)=>hrefs(html,pageUrls[index]||hit.url));const host=domainOf(hit.url);const email=chooseEmail(emailsOf(combinedHtml),host);const phone=phonesOf(combinedHtml,body)[0]||'';const whatsapp=whatsappOf(allLinks);const instagram=firstSocial(allLinks,['instagram.com']);const facebook=firstSocial(allLinks,['facebook.com','fb.com']);const linkedin=firstSocial(allLinks,['linkedin.com']);const person=extractPerson(body);const contactUrl=pageUrls.find(url=>/contact/i.test(url))||pageUrls[1]||hit.url;
+    return {...hit,fitScore:f.score,cues:f.cues,orgName,email,phone,whatsapp,instagram,facebook,linkedin,contactName:person.name,contactTitle:person.title,contactUrl,sourceUrls:pageUrls.slice(0,pages.length)};
   }catch{return null}
 }
 
-async function save(db:D1Database,hits:VerifiedHit[],stateCode:string,type:string,target:number){
-  let saved=0;const seen=new Set<string>();
-  for(const h of hits){if(saved>=target)break;const domain=domainOf(h.url);if(!domain||seen.has(domain))continue;seen.add(domain);const leadScore=Math.min(94,62+Math.round(h.fitScore*0.30));const evidence=`Verified web V5 · entity=${h.orgName} · fit=${h.fitScore} · cues=${h.cues.join(',')} · query=${h.query}`.slice(0,1000);
-    await db.prepare(`INSERT INTO discovery_candidates (id,source_key,source_provider,name,customer_type,state_region,city,website,lead_score,grade,status,source_url,source_evidence,raw_json) VALUES (?,?, 'WEB_SEARCH_VERIFIED_V5',?,?,?,?,?,?,?,'NEW',?,?,?) ON CONFLICT(source_key) DO UPDATE SET source_provider='WEB_SEARCH_VERIFIED_V5',name=excluded.name,customer_type=excluded.customer_type,state_region=excluded.state_region,city=excluded.city,website=excluded.website,lead_score=excluded.lead_score,grade=excluded.grade,status=CASE WHEN discovery_candidates.status='CRM' THEN 'CRM' ELSE 'NEW' END,source_url=excluded.source_url,source_evidence=excluded.source_evidence,raw_json=excluded.raw_json,contact_person_name=CASE WHEN discovery_candidates.status='CRM' THEN discovery_candidates.contact_person_name ELSE NULL END,contact_person_title=CASE WHEN discovery_candidates.status='CRM' THEN discovery_candidates.contact_person_title ELSE NULL END,enrichment_status=CASE WHEN discovery_candidates.status='CRM' THEN discovery_candidates.enrichment_status ELSE 'NOT_STARTED' END,updated_at=CURRENT_TIMESTAMP`)
-      .bind(crypto.randomUUID(),`web:${domain}`,h.orgName,type,stateCode,h.city,h.url,leadScore,grade(leadScore),h.url,evidence,JSON.stringify({title:h.title,snippet:h.snippet,query:h.query,city:h.city,fitScore:h.fitScore,cues:h.cues,orgName:h.orgName})).run();saved++
-  }
-  return saved;
-}
+async function save(db:D1Database,hits:VerifiedHit[],stateCode:string,type:string,target:number){let saved=0;const seen=new Set<string>();for(const h of hits){if(saved>=target)break;const domain=domainOf(h.url);if(!domain||seen.has(domain))continue;seen.add(domain);let leadScore=Math.min(94,62+Math.round(h.fitScore*0.30));if(h.email)leadScore=Math.min(100,leadScore+4);if(h.phone)leadScore=Math.min(100,leadScore+2);if(h.contactName)leadScore=Math.min(100,leadScore+3);const evidence=`Verified web V5 · entity=${h.orgName} · fit=${h.fitScore} · cues=${h.cues.join(',')} · query=${h.query}`.slice(0,1000);
+    await db.prepare(`INSERT INTO discovery_candidates (id,source_key,source_provider,name,customer_type,state_region,city,website,email,phone,whatsapp,instagram_url,facebook_url,linkedin_url,contact_person_name,contact_person_title,website_contact_url,lead_score,grade,status,source_url,source_evidence,raw_json,enrichment_status,enrichment_source_urls,enriched_at) VALUES (?,?, 'WEB_SEARCH_VERIFIED_V5',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'NEW',?,?,?,'COMPLETED',?,CURRENT_TIMESTAMP) ON CONFLICT(source_key) DO UPDATE SET source_provider='WEB_SEARCH_VERIFIED_V5',name=excluded.name,customer_type=excluded.customer_type,state_region=excluded.state_region,city=excluded.city,website=excluded.website,email=CASE WHEN discovery_candidates.status='CRM' THEN COALESCE(discovery_candidates.email,excluded.email) ELSE excluded.email END,phone=CASE WHEN discovery_candidates.status='CRM' THEN COALESCE(discovery_candidates.phone,excluded.phone) ELSE excluded.phone END,whatsapp=CASE WHEN discovery_candidates.status='CRM' THEN COALESCE(discovery_candidates.whatsapp,excluded.whatsapp) ELSE excluded.whatsapp END,instagram_url=CASE WHEN discovery_candidates.status='CRM' THEN COALESCE(discovery_candidates.instagram_url,excluded.instagram_url) ELSE excluded.instagram_url END,facebook_url=CASE WHEN discovery_candidates.status='CRM' THEN COALESCE(discovery_candidates.facebook_url,excluded.facebook_url) ELSE excluded.facebook_url END,linkedin_url=CASE WHEN discovery_candidates.status='CRM' THEN COALESCE(discovery_candidates.linkedin_url,excluded.linkedin_url) ELSE excluded.linkedin_url END,contact_person_name=CASE WHEN discovery_candidates.status='CRM' THEN COALESCE(discovery_candidates.contact_person_name,excluded.contact_person_name) ELSE excluded.contact_person_name END,contact_person_title=CASE WHEN discovery_candidates.status='CRM' THEN COALESCE(discovery_candidates.contact_person_title,excluded.contact_person_title) ELSE excluded.contact_person_title END,website_contact_url=excluded.website_contact_url,lead_score=excluded.lead_score,grade=excluded.grade,status=CASE WHEN discovery_candidates.status='CRM' THEN 'CRM' ELSE 'NEW' END,source_url=excluded.source_url,source_evidence=excluded.source_evidence,raw_json=excluded.raw_json,enrichment_status='COMPLETED',enrichment_source_urls=excluded.enrichment_source_urls,enriched_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP`)
+      .bind(crypto.randomUUID(),`web:${domain}`,h.orgName,type,stateCode,h.city,h.url,h.email||null,h.phone||null,h.whatsapp||null,h.instagram||null,h.facebook||null,h.linkedin||null,h.contactName||null,h.contactTitle||null,h.contactUrl,leadScore,grade(leadScore),h.url,evidence,JSON.stringify({title:h.title,snippet:h.snippet,query:h.query,city:h.city,fitScore:h.fitScore,cues:h.cues,orgName:h.orgName}),JSON.stringify(h.sourceUrls)).run();saved++}
+  return saved}
 
 export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
-  if(!env.MINGEAGLE_DB)return Response.json({ok:false,error:'Database is not configured.'},{status:503});
-  const db=env.MINGEAGLE_DB;await ensureTables(db);let jobId='';
+  if(!env.MINGEAGLE_DB)return Response.json({ok:false,error:'Database is not configured.'},{status:503});const db=env.MINGEAGLE_DB;await ensureTables(db);let jobId='';
   try{
-    const input=await request.json() as Input;const stateCode=clean(input.stateCode,2).toUpperCase();const type=clean(input.customerType,80).toUpperCase();const target=Math.min(100,Math.max(10,Math.round(Number(input.targetCount||20))));
-    if(!allowedState.test(stateCode)||!METROS[stateCode])return Response.json({ok:false,error:'请选择有效的美国州。'},{status:400});
-    if(!allowedTypes.has(type))return Response.json({ok:false,error:'不支持的客户类型。'},{status:400});
-
+    const input=await request.json() as Input;const stateCode=clean(input.stateCode,2).toUpperCase();const type=clean(input.customerType,80).toUpperCase();const target=Math.min(100,Math.max(10,Math.round(Number(input.targetCount||20))));if(!allowedState.test(stateCode)||!METROS[stateCode])return Response.json({ok:false,error:'请选择有效的美国州。'},{status:400});if(!allowedTypes.has(type))return Response.json({ok:false,error:'不支持的客户类型。'},{status:400});
     await db.prepare(`UPDATE discovery_candidates SET status='IGNORED',lead_score=0,grade='C',source_evidence='Quarantined by V5: entity or business identity not revalidated',updated_at=CURRENT_TIMESTAMP WHERE source_provider LIKE 'WEB_SEARCH%' AND source_provider<>'WEB_SEARCH_VERIFIED_V5' AND status='NEW'`).run();
-
     jobId=crypto.randomUUID();await db.prepare(`INSERT INTO discovery_jobs (id,state_region,customer_type,target_count,source_provider) VALUES (?,?,?,?, 'WEB_SEARCH_VERIFIED_V5')`).bind(jobId,stateCode,type,target).run();
-    const metros=METROS[stateCode].slice(0,5),terms=TERMS[type]||['basketball'];
-    const queries=metros.flatMap(city=>terms.slice(0,3).map(term=>({city,query:`${term} ${city} ${STATE_NAMES[stateCode]||stateCode}`}))).slice(0,12);
-    const searched=await Promise.allSettled(queries.map(q=>bing(q.query,q.city)));const raw=searched.flatMap(r=>r.status==='fulfilled'?r.value:[]);
-    const unique:SearchHit[]=[];const domains=new Set<string>();for(const h of raw){const d=domainOf(h.url);if(!d||domains.has(d))continue;domains.add(d);unique.push(h);if(unique.length>=Math.max(24,target*3))break}
+    const metros=METROS[stateCode].slice(0,5),terms=TERMS[type]||['basketball'];const queries=metros.flatMap(city=>terms.slice(0,3).map(term=>({city,query:`${term} ${city} ${STATE_NAMES[stateCode]||stateCode}`}))).slice(0,12);const searched=await Promise.allSettled(queries.map(q=>bing(q.query,q.city)));const raw=searched.flatMap(r=>r.status==='fulfilled'?r.value:[]);const unique:SearchHit[]=[];const domains=new Set<string>();for(const h of raw){const d=domainOf(h.url);if(!d||domains.has(d))continue;domains.add(d);unique.push(h);if(unique.length>=Math.max(24,target*3))break}
     if(!unique.length){await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=0,completed_at=CURRENT_TIMESTAMP,error='No public website candidates returned' WHERE id=?`).bind(jobId).run();return Response.json({ok:true,found:0,mode:'WEB_VERIFIED_V5',checked:0,verified:0,note:'公开搜索本次未返回可验证官网候选。'})}
-    const verified:VerifiedHit[]=[];for(let i=0;i<unique.length;i+=4){const batch=unique.slice(i,i+4);const result=await Promise.allSettled(batch.map(h=>verifyHit(h,type,stateCode)));verified.push(...result.flatMap(x=>x.status==='fulfilled'&&x.value?[x.value]:[]));if(verified.length>=target)break}
-    const found=await save(db,verified.sort((a,b)=>b.fitScore-a.fitScore),stateCode,type,target);
-    await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(found,jobId).run();
-    return Response.json({ok:true,found,mode:'WEB_VERIFIED_V5',checked:unique.length,verified:verified.length,note:found?`V5 已确认 ${found} 个具备明确机构身份和目标业务信号的候选。`:'本次没有候选同时通过机构身份与业务验证。'});
+    const verified:VerifiedHit[]=[];for(let i=0;i<unique.length;i+=4){const batch=unique.slice(i,i+4);const result=await Promise.allSettled(batch.map(h=>verifyHit(h,type,stateCode)));verified.push(...result.flatMap(x=>x.status==='fulfilled'&&x.value?[x.value]:[]));if(verified.length>=target)break}const found=await save(db,verified.sort((a,b)=>b.fitScore-a.fitScore),stateCode,type,target);await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(found,jobId).run();return Response.json({ok:true,found,mode:'WEB_VERIFIED_V5',checked:unique.length,verified:verified.length,note:found?`V5 已确认 ${found} 个具备明确机构身份和目标业务信号的候选。`:'本次没有候选同时通过机构身份与业务验证。'});
   }catch(error){const msg=error instanceof Error?error.message:'Web verification V5 failed.';if(jobId)await db.prepare(`UPDATE discovery_jobs SET status='FAILED',error=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(msg.slice(0,1000),jobId).run();return Response.json({ok:false,error:msg},{status:502})}
 };
