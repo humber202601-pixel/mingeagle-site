@@ -24,6 +24,10 @@ type EditDetail = {
 const text = (value: unknown, fallback = '') => value === null || value === undefined || value === '' ? fallback : String(value);
 const money = (value: unknown, currency: unknown) => `${text(currency, 'USD')} ${Number(value || 0).toFixed(2)}`;
 const dateOnly = (value: unknown) => text(value).slice(0, 10);
+const safeNumber = (value: FormDataEntryValue | null) => {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
 
 export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props) {
   const available = useMemo(
@@ -39,6 +43,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   const [customerLink, setCustomerLink] = useState<{ reference: string; url: string } | null>(null);
   const [editDetail, setEditDetail] = useState<EditDetail | null>(null);
   const [editMessage, setEditMessage] = useState('');
+  const [editPreviewTotal, setEditPreviewTotal] = useState<number | null>(null);
 
   const selected = available.find(item => text(item.reference) === selectedReference);
 
@@ -106,12 +111,27 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       const body = await response.json() as { ok?: boolean; quote?: Row; items?: Row[]; error?: string };
       if (!response.ok || !body.ok || !body.quote) throw new Error(body.error || '无法加载报价草稿。');
       setEditDetail({ quote: body.quote, items: body.items || [] });
+      setEditPreviewTotal(Number(body.quote.total || 0));
       window.setTimeout(() => document.getElementById('quote-edit-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
     } catch (err) {
       setError(err instanceof Error ? err.message : '无法加载报价草稿。');
     } finally {
       setBusyQuoteId('');
     }
+  }
+
+  function updateEditPreview(event: FormEvent<HTMLFormElement>) {
+    if (!editDetail) return;
+    const data = new FormData(event.currentTarget);
+    const subtotal = editDetail.items.reduce((sum, item) => {
+      const id = text(item.id);
+      const quantity = Math.max(0, safeNumber(data.get(`quantity-${id}`)));
+      const unitPrice = Math.max(0, safeNumber(data.get(`unitPrice-${id}`)));
+      return sum + quantity * unitPrice;
+    }, 0);
+    const shipping = Math.max(0, safeNumber(data.get('shipping')));
+    const discount = Math.max(0, safeNumber(data.get('discount')));
+    setEditPreviewTotal(Math.max(0, subtotal - discount + shipping));
   }
 
   async function saveEdit(event: FormEvent<HTMLFormElement>) {
@@ -148,6 +168,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       const body = await response.json() as { ok?: boolean; quote?: Row; error?: string };
       if (!response.ok || !body.ok) throw new Error(body.error || '无法保存报价草稿。');
       setEditMessage(`已保存 ${text(body.quote?.reference, text(editDetail.quote.reference))}，总金额 ${money(body.quote?.total, body.quote?.currency || editDetail.quote.currency)}。`);
+      setEditPreviewTotal(Number(body.quote?.total || 0));
       onCreated();
       await loadQuotes();
       await openEdit({ id: quoteId });
@@ -241,9 +262,9 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     {editDetail && <section id="quote-edit-panel" className="panel quote-builder">
       <div className="panel-head">
         <div><h2>编辑报价草稿 · {text(editDetail.quote.reference)}</h2><span>仅草稿可修改；发送给客户后将锁定。</span></div>
-        <button type="button" className="button secondary small" onClick={() => { setEditDetail(null); setEditMessage(''); }}>关闭编辑</button>
+        <button type="button" className="button secondary small" onClick={() => { setEditDetail(null); setEditMessage(''); setEditPreviewTotal(null); }}>关闭编辑</button>
       </div>
-      <form className="quote-form" onSubmit={saveEdit}>
+      <form className="quote-form" onSubmit={saveEdit} onInput={updateEditPreview}>
         <div className="quote-form-grid">
           {editDetail.items.map((item, index) => <div className="span-2" key={text(item.id, String(index))}>
             <div className="quote-form-grid">
@@ -267,8 +288,8 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           <label>有效期至
             <input name="validUntil" type="date" defaultValue={dateOnly(editDetail.quote.valid_until)} required />
           </label>
-          <label>当前总金额
-            <input value={money(editDetail.quote.total, editDetail.quote.currency)} readOnly />
+          <label>实时预览总金额
+            <input value={money(editPreviewTotal ?? editDetail.quote.total, editDetail.quote.currency)} readOnly />
           </label>
           <label className="span-2">付款条款（客户可见）
             <input name="paymentTerms" defaultValue={text(editDetail.quote.payment_terms)} />
@@ -282,7 +303,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
         </div>
         <div className="quote-form-actions">
           <button className="button" disabled={busyQuoteId === text(editDetail.quote.id)}>{busyQuoteId === text(editDetail.quote.id) ? '正在保存…' : '保存草稿修改'}</button>
-          <small>保存后请再次核对金额，再生成客户安全链接。</small>
+          <small>总价实时预览 = 数量 × 单价 − 折扣 + 运费；保存时服务端会再次计算确认。</small>
         </div>
         {editMessage && <div className="form-status success"><strong>修改已保存</strong><p>{editMessage}</p></div>}
       </form>
