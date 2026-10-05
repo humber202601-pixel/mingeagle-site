@@ -122,6 +122,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const orderId = String(order.id);
     const currency = String(order.currency || 'USD').toUpperCase();
     const amount = Number(outstanding.toFixed(2));
+    const fullName = String(order.contact_name || '').trim();
+    const email = String(order.contact_email || '').trim();
 
     const reusable = await latestReusableSession(db, orderId, amount, currency);
     if (reusable?.provider_intent_id) {
@@ -149,6 +151,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           sdkEnv: airwallexSdkEnv(env),
           countryCode: 'US',
           successUrl,
+          shopperEmail: email || undefined,
+          shopperName: fullName || undefined,
         });
       }
     }
@@ -156,8 +160,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const requestId = crypto.randomUUID();
     const accessToken = await getAirwallexAccessToken(env);
     const apiBase = airwallexApiBase(env);
-    const fullName = String(order.contact_name || '').trim();
-    const email = String(order.contact_email || '').trim();
     const customer = email || fullName ? { email: email || undefined, ...splitName(fullName) } : undefined;
 
     const response = await fetch(`${apiBase}/api/v1/pa/payment_intents/create`, {
@@ -222,6 +224,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       sdkEnv: airwallexSdkEnv(env),
       countryCode: 'US',
       successUrl,
+      shopperEmail: email || undefined,
+      shopperName: fullName || undefined,
     });
   } catch (error) {
     console.error('airwallex_checkout_create_failed', error);
