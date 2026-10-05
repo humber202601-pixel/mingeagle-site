@@ -31,12 +31,20 @@ async function payload(db: D1Database) {
       SUM(CASE WHEN status='FAILED' THEN 1 ELSE 0 END) AS failed,
       SUM(CASE WHEN status='SENT' THEN 1 ELSE 0 END) AS sent_total
     FROM email_queue`).first<Record<string, unknown>>().catch(() => null);
-  const recent = await db.prepare(`SELECT q.id, q.lead_id, q.email, q.subject, q.status, q.sent_at, q.updated_at,
-      COALESCE(c.name,'Individual buyer') AS company
-    FROM email_queue q
-    LEFT JOIN companies c ON c.id=q.company_id
-    ORDER BY datetime(COALESCE(q.sent_at,q.updated_at,q.created_at)) DESC
-    LIMIT 12`).all<Record<string, unknown>>().catch(() => ({ results: [] } as D1Result<Record<string, unknown>>));
+
+  let recentRows: Record<string, unknown>[] = [];
+  try {
+    const recent = await db.prepare(`SELECT q.id, q.lead_id, q.email, q.subject, q.status, q.sent_at, q.updated_at,
+        COALESCE(c.name,'Individual buyer') AS company
+      FROM email_queue q
+      LEFT JOIN companies c ON c.id=q.company_id
+      ORDER BY datetime(COALESCE(q.sent_at,q.updated_at,q.created_at)) DESC
+      LIMIT 12`).all<Record<string, unknown>>();
+    recentRows = recent.results || [];
+  } catch {
+    recentRows = [];
+  }
+
   return {
     settings: {
       enabled: Number(settings?.auto_email_enabled || 0) === 1,
@@ -51,7 +59,7 @@ async function payload(db: D1Database) {
       failed: Number(today?.failed || 0),
       sentTotal: Number(today?.sent_total || 0),
     },
-    recent: recent.results || [],
+    recent: recentRows,
   };
 }
 
