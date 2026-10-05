@@ -1,9 +1,9 @@
-interface Env { MINGEAGLE_DB: D1Database }
+interface Env { MINGEAGLE_DB: D1Database; GEOAPIFY_API_KEY?: string }
 
 type Input = { stateCode?: string; customerType?: string; targetCount?: number | string };
-type SourceResult = { ok?: boolean; found?: number; error?: string; mode?: string; provider?: string; checked?: number; verified?: number; note?: string; elapsedMs?: number; rawCount?: number; endpoint?: string; attempts?: number };
+type SourceResult = { ok?: boolean; found?: number; error?: string; mode?: string; provider?: string; checked?: number; verified?: number; note?: string; elapsedMs?: number; rawCount?: number; uniquePlaces?: number; websiteChecked?: number };
 
-const RELEASE = 'DISCOVERY_V10_1_PARALLEL_CITY_OSM_2026-10-05_2128';
+const RELEASE = 'DISCOVERY_V11_GEOAPIFY_FREE_2026-10-05_2145';
 const clean = (value: unknown, max = 1000) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 const allowedState = /^[A-Z]{2}$/;
 const allowedTypes = new Set(['BASKETBALL_TRAINING','BASKETBALL_GYM','YOUTH_CLUB','SPORTS_STORE']);
@@ -18,7 +18,7 @@ async function callSource(request: Request,path: string,body: Record<string, unk
       headers: {
         'content-type': 'application/json',
         'x-admin-key': request.headers.get('x-admin-key') || '',
-        'user-agent': 'MING-EAGLE-Discovery-Orchestrator/4.1',
+        'user-agent': 'MING-EAGLE-Discovery-Orchestrator/5.0',
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -28,8 +28,8 @@ async function callSource(request: Request,path: string,body: Record<string, unk
     return result;
   } catch (error) {
     if (error instanceof Error && (error.name === 'AbortError' || /aborted/i.test(error.message))) {
+      if (path.includes('geoapify')) throw new Error('Geoapify 免费地点源等待超时');
       if (path.includes('discovery-web')) throw new Error('Web 实体验证源等待超时');
-      throw new Error('并行城市地图商业实体源等待超时');
     }
     throw error;
   } finally {
@@ -50,24 +50,24 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!allowedTypes.has(customerType)) return Response.json({ ok: false, error: '不支持的客户类型。', release: RELEASE }, { status: 400, headers: { 'cache-control': 'no-store' } });
 
     const common = { stateCode, customerType, targetCount };
-    const [mapResult, webResult] = await Promise.allSettled([
-      callSource(request, '/api/admin/discovery-map-city-v1', common, 22000),
+    const [geoResult, webResult] = await Promise.allSettled([
+      callSource(request, '/api/admin/discovery-geoapify-v1', common, 30000),
       callSource(request, '/api/admin/discovery-web-v6', common, 34000),
     ]);
 
-    const map = mapResult.status === 'fulfilled' ? mapResult.value : null;
+    const geo = geoResult.status === 'fulfilled' ? geoResult.value : null;
     const web = webResult.status === 'fulfilled' ? webResult.value : null;
-    const mapError = mapResult.status === 'rejected' ? (mapResult.reason instanceof Error ? mapResult.reason.message : String(mapResult.reason)) : '';
+    const geoError = geoResult.status === 'rejected' ? (geoResult.reason instanceof Error ? geoResult.reason.message : String(geoResult.reason)) : '';
     const webError = webResult.status === 'rejected' ? (webResult.reason instanceof Error ? webResult.reason.message : String(webResult.reason)) : '';
-    const mapFound = Number(map?.found || 0);
+    const geoFound = Number(geo?.found || 0);
     const webFound = Number(web?.found || 0);
 
-    if (!map && !web) {
+    if (!geo && !web) {
       return new Response(JSON.stringify({
         ok: false,
-        error: `本次两个免费公开验证源都未成功。并行城市地图源：${mapError || '失败'}；Web核心源：${webError || '失败'}。`,
+        error: `本次两个发现源都未成功。Geoapify：${geoError || '失败'}；Web核心源：${webError || '失败'}。`,
         release: RELEASE,
-        sources: { map: false, web: false },
+        sources: { geoapify: false, web: false },
       }), { status: 502, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store, no-cache, must-revalidate, max-age=0' } });
     }
 
@@ -77,32 +77,36 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       // Non-critical cleanup.
     }
 
+    const geoNote = geo?.note || (geoError === 'GEOAPIFY_API_KEY_NOT_CONFIGURED'
+      ? 'Geoapify 免费 API Key 尚未配置；当前继续使用 Web 核心源。配置后可启用稳定地点发现。'
+      : geoError ? `Geoapify 地点源未完成：${geoError}。` : '');
     const notes = [
-      map?.note || (mapError ? `并行城市地图源未完成：${mapError}。` : ''),
+      geoNote,
       web?.note || (webError ? `Web核心源未完成：${webError}。` : ''),
-      'Bing RSS 扩展源继续停用；V10.1 将重点城市拆为独立小查询并行执行，单个城市失败不再拖死整个地图源。',
+      'Overpass 与 Bing RSS 已退出主发现链路；V11 使用 Geoapify 免费配额 + 官网验证。',
     ].filter(Boolean).join(' ');
 
     const body = {
       ok: true,
       release: RELEASE,
-      found: mapFound + webFound,
-      mapFound,
-      mapChecked: Number(map?.checked || 0),
-      mapVerified: Number(map?.verified || mapFound),
-      mapRawCount: Number(map?.rawCount || 0),
-      mapElapsedMs: Number(map?.elapsedMs || 0),
-      mapEndpoint: map?.endpoint || '',
-      mapAttempts: Number(map?.attempts || 0),
-      mapError,
+      found: geoFound + webFound,
+      geoapifyConfigured: Boolean(env.GEOAPIFY_API_KEY),
+      geoFound,
+      geoChecked: Number(geo?.checked || 0),
+      geoVerified: Number(geo?.verified || geoFound),
+      geoRawCount: Number(geo?.rawCount || 0),
+      geoUniquePlaces: Number(geo?.uniquePlaces || 0),
+      geoWebsiteChecked: Number(geo?.websiteChecked || 0),
+      geoElapsedMs: Number(geo?.elapsedMs || 0),
+      geoError,
       webFound,
       webChecked: Number(web?.checked || 0),
       webVerified: Number(web?.verified || webFound),
       webProvider: web?.provider || web?.mode || '',
       webError,
-      mode: 'VERIFIED_MULTI_SOURCE_V10_1',
-      sources: { map: Boolean(map), web: Boolean(web) },
-      note: notes || 'V10.1 并行城市双源验证已完成。',
+      mode: 'VERIFIED_MULTI_SOURCE_V11_0',
+      sources: { geoapify: Boolean(geo), web: Boolean(web) },
+      note: notes || 'V11 Geoapify + Web 双源验证已完成。',
     };
     return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store, no-cache, must-revalidate, max-age=0', 'pragma': 'no-cache' } });
   } catch (error) {
