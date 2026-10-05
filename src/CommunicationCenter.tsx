@@ -40,6 +40,8 @@ type DraftResult = {
   ok?: boolean;
   subject?: string;
   body?: string;
+  draftType?: string;
+  outboundCount?: number;
   personalization?: {
     company?: string;
     customerType?: string;
@@ -96,6 +98,15 @@ const intentLabels: Record<string, string> = {
   INTERESTED: '明确感兴趣',
   GENERAL_REPLY: '一般回复',
   OUTREACH: '主动开发消息',
+};
+
+const draftTypeLabels: Record<string,string> = {
+  INTRO: '个性化首封',
+  FOLLOWUP_1: '第 1 次跟进',
+  FOLLOWUP_2: '第 2 次跟进',
+  QUOTE_FOLLOWUP: '报价跟进',
+  SAMPLE_FOLLOWUP: '样品跟进',
+  SALES_FOLLOWUP: '销售推进跟进',
 };
 
 function digits(value: unknown) { return text(value).replace(/\D/g, ''); }
@@ -156,16 +167,16 @@ export default function CommunicationCenter({ accessKey, onChanged }: { accessKe
       const response = await fetch('/api/admin/outreach-draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
-        body: JSON.stringify({ leadId: selected.lead_id }),
+        body: JSON.stringify({ leadId: selected.lead_id, mode: 'AUTO' }),
       });
       const json = await response.json() as DraftResult;
-      if (!response.ok || !json.ok) throw new Error(json.error || '无法生成个性化开发信。');
+      if (!response.ok || !json.ok) throw new Error(json.error || '无法生成智能开发草稿。');
       setSubject(text(json.subject));
       setBody(text(json.body));
       setDraftInfo(json.personalization || null);
-      setResultText('已根据客户类型、地区和公开联系人资料生成个性化首封草稿。请审核后再发送。');
+      setResultText(`已生成${draftTypeLabels[text(json.draftType)] || '智能销售'}草稿${typeof json.outboundCount === 'number' ? `；历史已发送 ${json.outboundCount} 封` : ''}。请审核后再发送。`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '无法生成个性化开发信。');
+      setError(err instanceof Error ? err.message : '无法生成智能开发草稿。');
     } finally { setBusy(''); }
   }
 
@@ -249,10 +260,10 @@ export default function CommunicationCenter({ accessKey, onChanged }: { accessKe
         {isDnc && <div className="form-status error"><strong>该联系人已标记为“禁止联系”</strong><p>系统不会允许新的主动联系。客户主动回复仍可以登记。</p></div>}
 
         <section className="panel composer-panel">
-          <div className="panel-head"><h2>英文跟进话术</h2><span>先自动生成，审核后再发送</span></div>
+          <div className="panel-head"><h2>英文跟进话术</h2><span>根据客户阶段自动首封 / 跟进，审核后再发送</span></div>
           <div className="composer-toolbar">
             <label>话术模板<select value={templateId} onChange={e => { const id = e.target.value; setTemplateId(id); applyTemplate(id); }}>{templates.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}</select></label>
-            <button className="button secondary small" disabled={busy !== ''} onClick={() => void generatePersonalizedDraft()}><Sparkles size={14}/>{busy === 'DRAFT' ? '生成中…' : '生成个性化首封'}</button>
+            <button className="button secondary small" disabled={busy !== ''} onClick={() => void generatePersonalizedDraft()}><Sparkles size={14}/>{busy === 'DRAFT' ? '生成中…' : '智能生成草稿'}</button>
           </div>
           {draftInfo && <div className="form-status success"><strong>个性化依据</strong><p>{[
             draftInfo.customerType ? `客户类型：${draftInfo.customerType}` : '',
@@ -269,7 +280,7 @@ export default function CommunicationCenter({ accessKey, onChanged }: { accessKe
             <button className="button small" disabled={isDnc || !email || !subject.trim() || !body.trim() || busy !== ''} onClick={() => void sendWithGmail()}><Send size={14}/>{busy === 'GMAIL' ? 'Gmail 发送中…' : 'Gmail 发送并登记'}</button>
             <button className="button secondary small" disabled={isDnc || !body.trim() || busy !== ''} onClick={() => void saveMessage('OUTBOUND', 'OTHER', body, subject)}>{busy === 'OUTBOUND' ? '保存中…' : '其他渠道已发送并登记'}</button>
           </div>
-          <p className="detail-note">“生成个性化首封”只生成草稿，不会发送；“Gmail 发送并登记”才会真实发信，并在发送成功后写入 CRM 和创建 3 天跟进任务。</p>
+          <p className="detail-note">“智能生成草稿”会根据客户类型、CRM 阶段和历史发送次数自动选择首封、跟进、报价或样品话术，但不会发送；“Gmail 发送并登记”才会真实发信，并在成功后写入 CRM 和创建 3 天跟进任务。</p>
         </section>
 
         <section className="panel reply-panel">
