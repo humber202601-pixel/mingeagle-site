@@ -26,6 +26,16 @@ type ReplyResult = {
   error?: string;
 };
 
+type GmailSendResult = {
+  ok?: boolean;
+  gmailMessageId?: string;
+  gmailThreadId?: string | null;
+  to?: string;
+  from?: string;
+  leadStatus?: string | null;
+  error?: string;
+};
+
 const text = (value: unknown, fallback = '') => value === null || value === undefined || value === '' ? fallback : String(value);
 
 const templates = [
@@ -36,7 +46,7 @@ const templates = [
   },
   {
     id: 'followup1', label: '第 1 次跟进',
-    subject: (t: Target) => `Following up — MING EAGLE silent basketball`,
+    subject: () => `Following up — MING EAGLE silent basketball`,
     body: (t: Target) => `Hi ${text(t.first_name, text(t.contact, 'there').split(' ')[0])},\n\nJust following up on my previous message about our silent basketball products. If you work with youth players, indoor training, camps or retail customers, I can send a simple wholesale option based on the quantity you may need.\n\nWould it be useful if I sent pricing for 20, 50 and 100 units?\n\nBest regards,\nMING EAGLE`,
   },
   {
@@ -151,6 +161,27 @@ export default function CommunicationCenter({ accessKey, onChanged }: { accessKe
     } finally { setBusy(''); }
   }
 
+  async function sendWithGmail() {
+    if (!selected) return;
+    const recipient = text(selected.email);
+    if (!recipient || !recipient.includes('@')) { setError('当前联系人没有有效邮箱。'); return; }
+    setBusy('GMAIL'); setError(''); setResultText('');
+    try {
+      const response = await fetch('/api/admin/customer-email-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
+        body: JSON.stringify({ leadId: selected.lead_id, subject, body }),
+      });
+      const json = await response.json() as GmailSendResult;
+      if (!response.ok || !json.ok) throw new Error(json.error || 'Gmail 发送失败。');
+      setResultText(`Gmail 已真实发送至 ${json.to || recipient}，并已写入 CRM。Message ID: ${json.gmailMessageId || '—'}`);
+      await load();
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gmail 发送失败。');
+    } finally { setBusy(''); }
+  }
+
   const email = text(selected?.email);
   const whats = digits(selected?.whatsapp || selected?.phone);
   const isDnc = Number(selected?.do_not_contact || 0) === 1 || text(selected?.lead_status) === 'DO_NOT_CONTACT';
@@ -177,7 +208,7 @@ export default function CommunicationCenter({ accessKey, onChanged }: { accessKe
           <div className="contact-summary-badges"><span>{statusLabel(selected.lead_status)}</span><strong>评分 {text(selected.lead_score, '0')}</strong></div>
         </section>
 
-        {isDnc && <div className="form-status error"><strong>该联系人已标记为“禁止联系”</strong><p>系统不会允许登记新的主动开发消息。客户主动回复仍可以登记。</p></div>}
+        {isDnc && <div className="form-status error"><strong>该联系人已标记为“禁止联系”</strong><p>系统不会允许新的主动联系。客户主动回复仍可以登记。</p></div>}
 
         <section className="panel composer-panel">
           <div className="panel-head"><h2>英文跟进话术</h2><span>模板可直接修改</span></div>
@@ -191,9 +222,10 @@ export default function CommunicationCenter({ accessKey, onChanged }: { accessKe
             {mailto && !isDnc ? <a className="button secondary small" href={mailto}><Mail size={14}/>打开邮件</a> : <button className="button secondary small" disabled><Mail size={14}/>无邮箱</button>}
             {whatsappUrl && !isDnc ? <a className="button secondary small" href={whatsappUrl} target="_blank" rel="noreferrer"><MessageCircle size={14}/>打开 WhatsApp</a> : <button className="button secondary small" disabled><MessageCircle size={14}/>无 WhatsApp</button>}
             {text(selected.phone) && !isDnc && <a className="button secondary small" href={`tel:${text(selected.phone)}`}><Phone size={14}/>拨打电话</a>}
-            <button className="button small" disabled={isDnc || !body.trim() || busy !== ''} onClick={() => void saveMessage('OUTBOUND', templateId === 'intro' || templateId.startsWith('followup') || templateId === 'quote' || templateId === 'sample' || templateId === 'reorder' ? 'EMAIL' : 'OTHER', body, subject)}><Send size={14}/>{busy === 'OUTBOUND' ? '保存中…' : '确认已发送并登记'}</button>
+            <button className="button small" disabled={isDnc || !email || !subject.trim() || !body.trim() || busy !== ''} onClick={() => void sendWithGmail()}><Send size={14}/>{busy === 'GMAIL' ? 'Gmail 发送中…' : 'Gmail 发送并登记'}</button>
+            <button className="button secondary small" disabled={isDnc || !body.trim() || busy !== ''} onClick={() => void saveMessage('OUTBOUND', 'OTHER', body, subject)}>{busy === 'OUTBOUND' ? '保存中…' : '其他渠道已发送并登记'}</button>
           </div>
-          <p className="detail-note">“打开邮件/WhatsApp”不会自动记为已发送；实际发送后再点“确认已发送并登记”，避免 CRM 产生假记录。</p>
+          <p className="detail-note">“Gmail 发送并登记”会真实发送邮件，并在成功后才写入 CRM；“打开邮件/WhatsApp”只是辅助入口，不会自动记为已发送。</p>
         </section>
 
         <section className="panel reply-panel">
