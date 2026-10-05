@@ -17,7 +17,7 @@ async function callSource(request: Request,path: string,body: Record<string, unk
       headers: {
         'content-type': 'application/json',
         'x-admin-key': request.headers.get('x-admin-key') || '',
-        'user-agent': 'MING-EAGLE-Discovery-Orchestrator/2.0',
+        'user-agent': 'MING-EAGLE-Discovery-Orchestrator/2.1',
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -53,7 +53,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const [mapResult, webResult, expansionResult] = await Promise.allSettled([
       callSource(request, '/api/admin/discovery-map-v2', common, 30000),
       callSource(request, '/api/admin/discovery-web-v6', common, 34000),
-      callSource(request, '/api/admin/discovery-web-expansion-v2', common, 36000),
+      callSource(request, '/api/admin/discovery-web-expansion-v3', common, 32000),
     ]);
 
     const map = mapResult.status === 'fulfilled' ? mapResult.value : null;
@@ -97,9 +97,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       expansionChecked: Number(expansion?.checked || 0),
       expansionVerified: Number(expansion?.verified || expansionFound),
       expansionError,
-      mode: 'VERIFIED_MULTI_SOURCE_V6_4',
+      mode: 'VERIFIED_MULTI_SOURCE_V6_5',
       sources: { map: Boolean(map), web: Boolean(web), expansion: Boolean(expansion) },
-      note: notes || 'V6.4 三源验证已完成。',
+      note: notes || 'V6.5 三源验证已完成。',
     });
   } catch (error) {
     console.error('discovery_orchestrator_failed', error);
