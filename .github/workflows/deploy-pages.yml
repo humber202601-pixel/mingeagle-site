@@ -23,25 +23,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download the CURRENT V11 public website unchanged
+      - name: Download exact V15 current-site candidate
         run: |
           mkdir -p public
-          curl -fL "https://ming-eagle-sports.floot.app/_cdn/static/fa546f9d-4e0b-46ef-9b74-0a5299a06e5c-mingeagle-v11-free-hubspot-capture.zip" -o site.zip
+          curl -fL "https://ming-eagle-sports.floot.app/_cdn/static/mingeagle-v15-current-site-bridge.zip" -o site.zip
           unzip -q site.zip -d public
           echo "www.mingeagle.com" > public/CNAME
-
-      - name: Bridge only the existing inquiry form to the published Floot backend
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('public/inquiry.html')
-          html = p.read_text(encoding='utf-8')
-          old = 'action="https://formsubmit.co/mingeaglecommerce@gmail.com"'
-          new = 'action="https://ming-eagle-sports.floot.app/_api/inquiry"'
-          if old not in html:
-              raise SystemExit('Expected V11 inquiry form action was not found; refusing to publish.')
-          p.write_text(html.replace(old, new, 1), encoding='utf-8')
-          PY
 
       - name: Release guard — preserve current products and TikTok wall
         run: |
