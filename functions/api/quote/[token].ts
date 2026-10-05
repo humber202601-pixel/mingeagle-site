@@ -2,13 +2,27 @@ interface Env {
   MINGEAGLE_DB: D1Database;
 }
 
+type Row = Record<string, unknown>;
+
 async function sha256(value: string) {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+async function ensureQuoteLinks(db: D1Database) {
+  await db.prepare(`CREATE TABLE IF NOT EXISTS quote_public_links (
+    id TEXT PRIMARY KEY,
+    quote_id TEXT NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at TEXT
+  )`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_quote_public_links_quote ON quote_public_links(quote_id, created_at DESC)`).run();
+}
+
 async function getQuote(db: D1Database, token: string) {
+  await ensureQuoteLinks(db);
   const hash = await sha256(token);
   return db.prepare(`SELECT
       q.id, q.reference, q.status, q.currency, q.subtotal, q.discount, q.shipping, q.tax, q.total,
@@ -20,7 +34,12 @@ async function getQuote(db: D1Database, token: string) {
     FROM quotes q
     LEFT JOIN companies c ON c.id=q.company_id
     LEFT JOIN contacts ct ON ct.id=q.contact_id
-    WHERE q.public_token_hash=? LIMIT 1`).bind(hash).first<Record<string, unknown>>();
+    WHERE q.public_token_hash=?
+       OR EXISTS (
+         SELECT 1 FROM quote_public_links qpl
+         WHERE qpl.quote_id=q.id AND qpl.token_hash=? AND qpl.revoked_at IS NULL
+       )
+    LIMIT 1`).bind(hash, hash).first<Row>();
 }
 
 async function getOrder(db: D1Database, quoteId: string) {
@@ -32,7 +51,7 @@ async function getOrder(db: D1Database, quoteId: string) {
       (SELECT status FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS shipment_status,
       (SELECT shipped_at FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS shipped_at,
       (SELECT delivered_at FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS delivered_at
-    FROM orders o WHERE o.quote_id=? ORDER BY o.created_at DESC LIMIT 1`).bind(quoteId).first<Record<string, unknown>>();
+    FROM orders o WHERE o.quote_id=? ORDER BY o.created_at DESC LIMIT 1`).bind(quoteId).first<Row>();
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
@@ -94,7 +113,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
       await db.prepare(`UPDATE quotes SET status='EXPIRED', updated_at=CURRENT_TIMESTAMP WHERE id=? AND status NOT IN ('ACCEPTED','CONVERTED')`).bind(quoteId).run();
       return Response.json({ ok: false, error: 'This quote has expired. Please request an updated quote.' }, { status: 409 });
     }
-    if (['DECLINED'].includes(status)) return Response.json({ ok: false, error: 'This quote is no longer available.' }, { status: 409 });
+    if (status === 'DECLINED') return Response.json({ ok: false, error: 'This quote is no longer available.' }, { status: 409 });
     if (Number(quote.total || 0) <= 0) {
       return Response.json({ ok: false, error: 'This quotation has no valid price and cannot be accepted. Please request a corrected quotation.' }, { status: 409 });
     }
@@ -111,7 +130,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
     }
 
     const items = await db.prepare(`SELECT product_id, variant_id, description, quantity, unit_price, line_total FROM quote_items WHERE quote_id=? ORDER BY sort_order, id`)
-      .bind(quoteId).all<Record<string, unknown>>();
+      .bind(quoteId).all<Row>();
     if (!items.results.length) return Response.json({ ok: false, error: 'Quote has no line items.' }, { status: 409 });
     if (!items.results.some(item => Number(item.quantity || 0) > 0 && Number(item.unit_price || 0) > 0 && Number(item.line_total || 0) > 0)) {
       return Response.json({ ok: false, error: 'This quotation has no valid priced line items and cannot be accepted.' }, { status: 409 });
