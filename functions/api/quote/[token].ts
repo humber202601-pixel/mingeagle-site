@@ -95,6 +95,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
       return Response.json({ ok: false, error: 'This quote has expired. Please request an updated quote.' }, { status: 409 });
     }
     if (['DECLINED'].includes(status)) return Response.json({ ok: false, error: 'This quote is no longer available.' }, { status: 409 });
+    if (Number(quote.total || 0) <= 0) {
+      return Response.json({ ok: false, error: 'This quotation has no valid price and cannot be accepted. Please request a corrected quotation.' }, { status: 409 });
+    }
 
     await db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_quote_unique ON orders(quote_id) WHERE quote_id IS NOT NULL`).run();
     const existing = await getOrder(db, quoteId);
@@ -110,6 +113,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
     const items = await db.prepare(`SELECT product_id, variant_id, description, quantity, unit_price, line_total FROM quote_items WHERE quote_id=? ORDER BY sort_order, id`)
       .bind(quoteId).all<Record<string, unknown>>();
     if (!items.results.length) return Response.json({ ok: false, error: 'Quote has no line items.' }, { status: 409 });
+    if (!items.results.some(item => Number(item.quantity || 0) > 0 && Number(item.unit_price || 0) > 0 && Number(item.line_total || 0) > 0)) {
+      return Response.json({ ok: false, error: 'This quotation has no valid priced line items and cannot be accepted.' }, { status: 409 });
+    }
 
     const orderId = crypto.randomUUID();
     const orderReference = `ME-${Date.now().toString(36).toUpperCase()}`;
