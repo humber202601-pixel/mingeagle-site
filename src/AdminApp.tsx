@@ -11,6 +11,7 @@ import {
   Inbox,
   LogOut,
   MessageSquareText,
+  Radar,
   RefreshCcw,
   ShoppingBag,
   Target,
@@ -22,6 +23,7 @@ import AdminDetail from './AdminDetail';
 import CommunicationCenter from './CommunicationCenter';
 import ContactManager from './ContactManager';
 import AutomationCenter from './AutomationCenter';
+import DiscoveryCenter from './DiscoveryCenter';
 import {
   activityTypeLabel,
   customerTypeLabel,
@@ -54,6 +56,7 @@ const emptyData: AdminData = {
 
 const nav = [
   ['/app', Gauge, '仪表盘'],
+  ['/app/discovery', Radar, '客户发现'],
   ['/app/leads', Target, '潜在客户'],
   ['/app/inquiries', Inbox, '询盘'],
   ['/app/companies', Building2, '客户公司'],
@@ -202,6 +205,10 @@ export default function AdminApp() {
 
   let content: React.ReactNode;
   if (page === 'dashboard') content = <Dashboard data={data}/>;
+  else if (page === 'discovery') content = <>
+    <Top title="客户发现" description="从公开商业数据中自动发现美国潜在客户，评分、保留来源证据，并一键加入 CRM。"/>
+    <DiscoveryCenter accessKey={key} onChanged={() => void load()} />
+  </>;
   else if (page === 'leads' && detailId) content = <AdminDetail type="lead" id={detailId} accessKey={key}/>;
   else if (page === 'inquiries' && detailId) content = <AdminDetail type="inquiry" id={detailId} accessKey={key}/>;
   else if (page === 'companies' && detailId) content = <AdminDetail type="company" id={detailId} accessKey={key}/>;
