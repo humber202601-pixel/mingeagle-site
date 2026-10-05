@@ -1,7 +1,7 @@
 interface Env { MINGEAGLE_DB: D1Database }
 
 type Input = { stateCode?: string; customerType?: string; targetCount?: number | string };
-type SourceResult = { ok?: boolean; found?: number; error?: string; mode?: string; provider?: string; checked?: number; verified?: number; note?: string };
+type SourceResult = { ok?: boolean; found?: number; error?: string; mode?: string; provider?: string; checked?: number; verified?: number; note?: string; elapsedMs?: number };
 
 const clean = (value: unknown, max = 1000) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 const allowedState = /^[A-Z]{2}$/;
@@ -17,7 +17,7 @@ async function callSource(request: Request,path: string,body: Record<string, unk
       headers: {
         'content-type': 'application/json',
         'x-admin-key': request.headers.get('x-admin-key') || '',
-        'user-agent': 'MING-EAGLE-Discovery-Orchestrator/1.7',
+        'user-agent': 'MING-EAGLE-Discovery-Orchestrator/1.8',
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -49,18 +49,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     const common = { stateCode, customerType, targetCount };
     const [mapResult, webResult] = await Promise.allSettled([
-      callSource(request, '/api/admin/discovery-map-v2', common, 26000),
+      callSource(request, '/api/admin/discovery-map-v2', common, 30000),
       callSource(request, '/api/admin/discovery-web-v6', common, 34000),
     ]);
 
     const map = mapResult.status === 'fulfilled' ? mapResult.value : null;
     const web = webResult.status === 'fulfilled' ? webResult.value : null;
+    const mapError = mapResult.status === 'rejected' ? (mapResult.reason instanceof Error ? mapResult.reason.message : String(mapResult.reason)) : '';
+    const webError = webResult.status === 'rejected' ? (webResult.reason instanceof Error ? webResult.reason.message : String(webResult.reason)) : '';
     const mapFound = Number(map?.found || 0);
     const webFound = Number(web?.found || 0);
 
     if (!map && !web) {
-      const mapError = mapResult.status === 'rejected' ? (mapResult.reason instanceof Error ? mapResult.reason.message : String(mapResult.reason)) : '';
-      const webError = webResult.status === 'rejected' ? (webResult.reason instanceof Error ? webResult.reason.message : String(webResult.reason)) : '';
       return Response.json({
         ok: false,
         error: `本次两个免费公开数据源都未成功。地图官网验证源：${mapError || '失败'}；Web实体验证源：${webError || '失败'}。`,
@@ -68,20 +68,27 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       }, { status: 502 });
     }
 
-    const notes = [map?.note, web?.note].filter(Boolean).join(' ');
+    const notes = [
+      map?.note || (mapError ? `地图源未完成：${mapError}。` : ''),
+      web?.note || (webError ? `Web源未完成：${webError}。` : ''),
+    ].filter(Boolean).join(' ');
+
     return Response.json({
       ok: true,
       found: mapFound + webFound,
       mapFound,
       mapChecked: Number(map?.checked || 0),
       mapVerified: Number(map?.verified || mapFound),
+      mapElapsedMs: Number(map?.elapsedMs || 0),
+      mapError,
       webFound,
       webChecked: Number(web?.checked || 0),
       webVerified: Number(web?.verified || webFound),
       webProvider: web?.provider || web?.mode || '',
-      mode: 'VERIFIED_MULTI_SOURCE_V6_1',
+      webError,
+      mode: 'VERIFIED_MULTI_SOURCE_V6_2',
       sources: { map: Boolean(map), web: Boolean(web) },
-      note: notes || (!map ? '地图官网验证源未返回，本次由 V6 Web 真实机构与业务双重验证完成。' : !web ? 'Web 实体验证源未返回，本次由地图官网验证源完成。' : '地图官网验证源与 V6 Web 真实机构验证均已返回。'),
+      note: notes || 'V6.2 多源验证已完成。',
     });
   } catch (error) {
     console.error('discovery_orchestrator_failed', error);
