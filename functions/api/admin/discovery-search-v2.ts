@@ -74,6 +74,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       }, { status: 502 });
     }
 
+    try {
+      await env.MINGEAGLE_DB.prepare(`DELETE FROM discovery_candidates WHERE status='IGNORED' AND crm_lead_id IS NULL AND source_evidence LIKE 'Quarantined by V6:%'`).run();
+    } catch {
+      // Cleanup is non-critical and must never block discovery results.
+    }
+
     const notes = [
       map?.note || (mapError ? `地图源未完成：${mapError}。` : ''),
       web?.note || (webError ? `Web核心源未完成：${webError}。` : ''),
