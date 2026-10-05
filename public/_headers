@@ -1,0 +1,22 @@
+/*
+  Strict-Transport-Security: max-age=31536000
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(self)
+  X-Permitted-Cross-Domain-Policies: none
+
+/app*
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+
+/email-queue.html
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+
+/gmail-reply-setup.html
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+
+/gmail-test.html
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+
+/quote-assistant.html
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
