@@ -1,8 +1,14 @@
 interface Env {
   MINGEAGLE_DB: D1Database;
+  ADMIN_ACCESS_KEY?: string;
+  AUTO_EMAIL_ENABLED?: string;
 }
 
 type DueLead = Record<string, unknown>;
+
+const EMAIL_QUEUE_API = 'https://app.mingeagle.com/api/admin/email-queue';
+const MAX_AUTO_SEND_PER_RUN = 5;
+const MAX_AUTO_SEND_PER_LEAD = 3;
 
 function taskFor(status: string, reference: string, daysSinceContact: number) {
   if (status === 'CONTACTED') {
@@ -109,6 +115,65 @@ async function queueDueEmails(db: D1Database, due: DueLead[]) {
   return queued;
 }
 
+async function autoSendReadyEmails(env: Env) {
+  const enabled = String(env.AUTO_EMAIL_ENABLED || '').toLowerCase() === 'true';
+  const adminKey = env.ADMIN_ACCESS_KEY || '';
+  if (!enabled || !adminKey) {
+    return { enabled, configured: Boolean(adminKey), reviewed: 0, sent: 0, manualReview: 0, failed: 0 };
+  }
+
+  const db = env.MINGEAGLE_DB;
+  await ensureEmailQueue(db);
+  const ready = await db.prepare(`SELECT id, lead_id
+    FROM email_queue
+    WHERE status='READY'
+      AND auto_eligible=1
+      AND datetime(COALESCE(scheduled_for,created_at)) <= datetime('now')
+    ORDER BY datetime(COALESCE(scheduled_for,created_at)) ASC
+    LIMIT ?`).bind(MAX_AUTO_SEND_PER_RUN).all<{ id: string; lead_id: string }>();
+
+  let sent = 0;
+  let manualReview = 0;
+  let failed = 0;
+
+  for (const item of ready.results) {
+    const prior = await db.prepare(`SELECT COUNT(*) AS count FROM email_queue
+      WHERE lead_id=? AND auto_eligible=1 AND status='SENT'`).bind(item.lead_id).first<{ count: number }>();
+    if (Number(prior?.count || 0) >= MAX_AUTO_SEND_PER_LEAD) {
+      await db.prepare(`UPDATE email_queue
+        SET status='REVIEW_REQUIRED', last_error='Automatic follow-up limit reached; manual review required.', updated_at=CURRENT_TIMESTAMP
+        WHERE id=? AND status='READY'`).bind(item.id).run();
+      await db.prepare(`INSERT INTO activities (id, entity_type, entity_id, activity_type, title, description)
+        VALUES (?, 'LEAD', ?, 'AUTOMATION_REVIEW_REQUIRED', 'Automatic email limit reached', 'Three automatic emails have already been sent. Manual review is required before further outreach.')`)
+        .bind(crypto.randomUUID(), item.lead_id).run();
+      manualReview += 1;
+      continue;
+    }
+
+    try {
+      const response = await fetch(EMAIL_QUEUE_API, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-admin-key': adminKey,
+          'user-agent': 'MING-EAGLE-Followup-Scheduler/1.0',
+        },
+        body: JSON.stringify({ action: 'SEND', queueId: item.id }),
+      });
+      const result = await response.json() as { ok?: boolean; error?: string };
+      if (!response.ok || !result.ok) throw new Error(result.error || `Email API returned ${response.status}`);
+      sent += 1;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Automatic email send failed.';
+      await db.prepare(`UPDATE email_queue SET status='FAILED', last_error=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status<>'SENT'`)
+        .bind(message.slice(0, 1000), item.id).run();
+      failed += 1;
+    }
+  }
+
+  return { enabled: true, configured: true, reviewed: ready.results.length, sent, manualReview, failed };
+}
+
 async function runSweep(env: Env) {
   const db = env.MINGEAGLE_DB;
   const due = await db.prepare(`SELECT
@@ -138,10 +203,17 @@ async function runSweep(env: Env) {
     LIMIT 200`).all<DueLead>();
 
   const queued = await queueDueEmails(db, due.results);
+  const autoEmail = await autoSendReadyEmails(env);
 
   let created = 0;
   for (const row of due.results) {
     const leadId = String(row.id);
+    const autoEligible = Number(row.auto_eligible || 0) === 1;
+    const autoMode = String(env.AUTO_EMAIL_ENABLED || '').toLowerCase() === 'true' && Boolean(env.ADMIN_ACCESS_KEY);
+
+    // Warm leads handled by the email queue should not also receive an immediate duplicate task.
+    if (autoMode && autoEligible && String(row.status) !== 'REPLIED') continue;
+
     const open = await db.prepare(`SELECT id FROM tasks WHERE lead_id=? AND status IN ('OPEN','IN_PROGRESS') LIMIT 1`).bind(leadId).first<{ id: string }>();
     if (open?.id) continue;
 
@@ -162,7 +234,12 @@ async function runSweep(env: Env) {
     created += 1;
   }
 
-  return { reviewed: due.results.length, tasksCreated: created, emailsQueued: queued };
+  return {
+    reviewed: due.results.length,
+    tasksCreated: created,
+    emailsQueued: queued,
+    autoEmail,
+  };
 }
 
 export default {
@@ -174,6 +251,9 @@ export default {
       ok: true,
       service: 'MING EAGLE follow-up scheduler',
       mode: 'cron-only',
+      autoEmailRequires: ['ADMIN_ACCESS_KEY', 'AUTO_EMAIL_ENABLED=true'],
+      maxAutomaticEmailsPerRun: MAX_AUTO_SEND_PER_RUN,
+      maxAutomaticEmailsPerLead: MAX_AUTO_SEND_PER_LEAD,
     });
   },
 };
