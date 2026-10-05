@@ -1,7 +1,7 @@
 interface Env { GEOAPIFY_API_KEY?: string }
 
-const RELEASE = 'MINGEAGLE_GROWTH_ENGINE_V14_QUOTE_DELIVERY_2026-10-05';
-const DEPLOY_TRIGGER = 'V14_QUOTE_DELIVERY';
+const RELEASE = 'MINGEAGLE_GROWTH_ENGINE_V15_WEBSITE_BRIDGE_2026-10-05';
+const DEPLOY_TRIGGER = 'V15_WEBSITE_BRIDGE';
 
 export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
   return new Response(JSON.stringify({
@@ -11,6 +11,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
     geoapifyConfigured: Boolean(env.GEOAPIFY_API_KEY),
     features: {
       discovery: 'Geoapify + verified web',
+      websiteInquiryBridge: true,
+      websiteInquiryIdempotency: true,
+      websiteInquiryRichFields: true,
       salesPreparation: true,
       smartOutreachDrafts: true,
       firstOutreachReviewQueue: true,
