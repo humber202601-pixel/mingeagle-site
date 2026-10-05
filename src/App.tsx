@@ -56,7 +56,7 @@ function PublicFooter() {
   return <footer className="site-footer">
     <div><strong>MING EAGLE</strong><p>Silent Ball products for families, coaches, academies, camps and retailers.</p></div>
     <div><span>SALES</span><a href={`mailto:${SALES_EMAIL}`}>{SALES_EMAIL}</a><Link to="/wholesale">Wholesale inquiry</Link><Link to="/sample">Sample request</Link></div>
-    <div><span>OPERATIONS</span><Link to="/app">Growth Engine</Link><p>© 2026 MING EAGLE COMMERCE LLC</p></div>
+    <div><span>OPERATIONS</span><Link to="/app">Growth Engine</Link><Link to="/privacy">Privacy Policy</Link><Link to="/terms">Terms of Service</Link><p>© 2026 MING EAGLE COMMERCE LLC</p></div>
   </footer>;
 }
 
@@ -80,7 +80,7 @@ function HomePage() {
     <section className="workflow-band"><div><span className="eyebrow">COMMERCIAL WORKFLOW</span><h2>FROM FIRST QUESTION TO REPEAT ORDER.</h2></div><div className="workflow-grid">{[
       ['01','INQUIRY','Customer tells us product, quantity and destination.'],['02','QUOTE','We build the actual configuration and commercial terms.'],['03','ORDER','Accepted quote becomes a tracked order.'],['04','SHIP','Carrier, tracking and delivery stay attached to the order.'],['05','REORDER','History is preserved so the next order is easier.']
     ].map(([n,t,d])=><div key={n}><span>{n}</span><strong>{t}</strong><p>{d}</p></div>)}</div></section>
-    <section id="faq" className="section compact"><div className="section-head"><div><span className="eyebrow">FAQ</span><h2>BUILT FOR REAL BUYING QUESTIONS.</h2></div></div><div className="faq-grid"><article><strong>Do you support wholesale orders?</strong><p>Yes. Quantity, configuration, destination and timing are used to prepare an actual quote.</p></article><article><strong>Can I request samples first?</strong><p>Yes. Sample requests are tracked separately and can later be converted into a wholesale opportunity.</p></article><article><strong>How do repeat orders work?</strong><p>Your previous product mix, order history and commercial notes stay attached to the customer record.</p></article><article><strong>Can I buy for an academy or retailer?</strong><p>Yes. The site is designed for both individual customers and commercial buyers.</p></article></div></section>
+    <section id="faq" className="section compact"><div className="section-head"><div><span className="eyebrow">FAQ</span><h2>BUILT FOR REAL BUYING QUESTIONS.</h2></div></div><div className="faq-grid"><article><strong>Do you support wholesale orders?</strong><p>Yes. Quantity, configuration, destination and timing are used to prepare an actual quote.</p></article><article><strong>Can I request samples first?</strong><p>Yes. Sample requests are tracked separately and can later be converted into a wholesale opportunity.</p></article><article><strong>How do repeat orders work?</strong><p>Your previous product mix, order history and commercial notes stay attached to the customer record.</p></article><article><strong>What is the Growth Engine?</strong><p>It is MING EAGLE's internal sales workflow for customer inquiries, quotations, order follow-up and approved business email communication.</p></article></div></section>
   </main><PublicFooter/></div>;
 }
 
@@ -112,11 +112,42 @@ function WholesalePage({ sample = false }: { sample?: boolean }) {
     </form></main><PublicFooter/></div>;
 }
 
+function PrivacyPage() {
+  return <div className="public-shell"><PublicHeader/><main className="form-page"><section className="form-intro" style={{maxWidth:'920px'}}>
+    <span className="eyebrow">LEGAL</span><h1>PRIVACY POLICY</h1><p>Effective date: October 5, 2026</p>
+    <h2>1. Who we are</h2><p>MING EAGLE COMMERCE LLC operates the MING EAGLE website and Growth Engine. Contact: <a href={`mailto:${SALES_EMAIL}`}>{SALES_EMAIL}</a>.</p>
+    <h2>2. Information we collect</h2><p>We may collect business contact details, inquiry information, sample requests, quotation and order information, shipping details, communication history, and technical information needed to operate our services.</p>
+    <h2>3. Google user data and Gmail API</h2><p>Our Growth Engine may connect to a Google account using OAuth 2.0. The application requests the Gmail <strong>gmail.send</strong> scope only so an authorized MING EAGLE user can send business email through that connected Gmail account. The application does not request permission to read, search, download, or modify the Gmail inbox.</p>
+    <p>OAuth access and refresh tokens are used only to authenticate approved Gmail API requests. Tokens are stored as protected server-side secrets and are not displayed publicly. We do not sell Google user data, use it for advertising, or share it with third parties except service providers necessary to operate the application and only as required to provide the service.</p>
+    <h2>4. How we use information</h2><p>We use information to respond to inquiries, prepare quotations, manage samples and orders, provide shipping and customer support, maintain sales records, send approved business communications, protect our systems, and comply with legal obligations.</p>
+    <h2>5. Data sharing</h2><p>We do not sell personal information. We may use infrastructure and service providers such as Cloudflare and Google to host the application, store application data, or provide authorized email functionality. We may also disclose information when required by law.</p>
+    <h2>6. Data retention and security</h2><p>We retain business records only as reasonably necessary for customer service, commercial operations, legal compliance, and security. We use access controls, encrypted secrets, and service-provider security features to protect information.</p>
+    <h2>7. Your choices</h2><p>You may ask us to correct or delete eligible information, stop sales communications, or revoke Google OAuth access at any time through your Google Account security settings. Revoking access prevents future Gmail API use until the account is authorized again.</p>
+    <h2>8. Contact</h2><p>For privacy questions, email <a href={`mailto:${SALES_EMAIL}`}>{SALES_EMAIL}</a>.</p>
+  </section></main><PublicFooter/></div>;
+}
+
+function TermsPage() {
+  return <div className="public-shell"><PublicHeader/><main className="form-page"><section className="form-intro" style={{maxWidth:'920px'}}>
+    <span className="eyebrow">LEGAL</span><h1>TERMS OF SERVICE</h1><p>Effective date: October 5, 2026</p>
+    <h2>1. Scope</h2><p>These terms govern use of the MING EAGLE website, inquiry forms, quotation links, customer communications, and related business services operated by MING EAGLE COMMERCE LLC.</p>
+    <h2>2. Business information</h2><p>Product descriptions, prices, lead times, shipping estimates, customization options, and availability may change. A quotation or order is binding only when the applicable commercial terms are confirmed.</p>
+    <h2>3. Acceptable use</h2><p>You may not misuse the website, attempt unauthorized access, interfere with the service, submit unlawful content, or use the service to violate applicable law or third-party rights.</p>
+    <h2>4. Email and communications</h2><p>Where authorized, MING EAGLE may use connected communication services to send inquiry responses, quotations, order updates, follow-ups, and other legitimate business communications. Recipients may request that sales communications stop.</p>
+    <h2>5. Intellectual property</h2><p>MING EAGLE branding, website content, product materials, and software remain the property of MING EAGLE COMMERCE LLC or their respective licensors unless otherwise stated.</p>
+    <h2>6. Disclaimer</h2><p>The website and Growth Engine are provided on an as-available basis. We work to keep information and services accurate and available but do not guarantee uninterrupted operation.</p>
+    <h2>7. Changes</h2><p>We may update these terms as our services change. The effective date above identifies the current version.</p>
+    <h2>8. Contact</h2><p>Questions about these terms may be sent to <a href={`mailto:${SALES_EMAIL}`}>{SALES_EMAIL}</a>.</p>
+  </section></main><PublicFooter/></div>;
+}
+
 export default function App() {
   return <Routes>
     <Route path="/" element={<HomePage/>}/>
     <Route path="/wholesale" element={<WholesalePage/>}/>
     <Route path="/sample" element={<WholesalePage sample/>}/>
+    <Route path="/privacy" element={<PrivacyPage/>}/>
+    <Route path="/terms" element={<TermsPage/>}/>
     <Route path="/app/*" element={<AdminApp/>}/>
     <Route path="*" element={<HomePage/>}/>
   </Routes>;
