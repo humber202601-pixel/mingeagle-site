@@ -1,10 +1,13 @@
-const RELEASE = 'DISCOVERY_V10_1_PARALLEL_CITY_OSM_2026-10-05_2128';
+interface Env { GEOAPIFY_API_KEY?: string }
 
-export const onRequestGet: PagesFunction = async () => {
+const RELEASE = 'DISCOVERY_V11_GEOAPIFY_FREE_2026-10-05_2145';
+
+export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
   return new Response(JSON.stringify({
     ok: true,
     release: RELEASE,
     component: 'mingeagle-app',
+    geoapifyConfigured: Boolean(env.GEOAPIFY_API_KEY),
     timestamp: new Date().toISOString(),
   }), {
     status: 200,
