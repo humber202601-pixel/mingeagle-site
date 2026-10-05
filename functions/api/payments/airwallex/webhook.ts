@@ -39,10 +39,57 @@ async function validSignature(secret: string, timestamp: string, rawBody: string
   return constantTimeEqual(bytesToHex(digest).toLowerCase(), signature.trim().toLowerCase());
 }
 
+async function ensureTables(db: D1Database) {
+  await db.prepare(`CREATE TABLE IF NOT EXISTS payment_provider_sessions (
+    id TEXT PRIMARY KEY,
+    order_id TEXT NOT NULL,
+    provider TEXT NOT NULL DEFAULT 'AIRWALLEX',
+    provider_intent_id TEXT NOT NULL UNIQUE,
+    request_id TEXT NOT NULL UNIQUE,
+    amount REAL NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'USD',
+    status TEXT NOT NULL DEFAULT 'REQUIRES_PAYMENT_METHOD',
+    client_secret TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`).run();
+  await db.prepare(`CREATE TABLE IF NOT EXISTS payment_webhook_events (
+    provider TEXT NOT NULL,
+    event_id TEXT NOT NULL,
+    event_name TEXT NOT NULL,
+    received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    processed_at TEXT,
+    PRIMARY KEY (provider, event_id)
+  )`).run();
+  await db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_provider_reference_unique
+    ON payments(provider, provider_reference)
+    WHERE provider IS NOT NULL AND provider_reference IS NOT NULL`).run();
+}
+
 async function addActivity(db: D1Database, orderId: string, type: string, title: string, description: string, metadata: Record<string, unknown>) {
   await db.prepare(`INSERT INTO activities (id, entity_type, entity_id, activity_type, title, description, metadata_json)
     VALUES (?, 'ORDER', ?, ?, ?, ?, ?)`)
     .bind(crypto.randomUUID(), orderId, type, title, description, JSON.stringify(metadata)).run();
+}
+
+async function markEventProcessed(db: D1Database, eventId: string) {
+  await db.prepare(`UPDATE payment_webhook_events SET processed_at=CURRENT_TIMESTAMP WHERE provider='AIRWALLEX' AND event_id=?`)
+    .bind(eventId).run();
+}
+
+function mappedStatus(eventName: string, objectStatus: unknown) {
+  const apiStatus = String(objectStatus || '').toUpperCase();
+  if (apiStatus) return apiStatus;
+  const map: Record<string, string> = {
+    'payment_intent.pending': 'PENDING',
+    'payment_intent.pending_review': 'PENDING_REVIEW',
+    'payment_intent.requires_customer_action': 'REQUIRES_CUSTOMER_ACTION',
+    'payment_intent.requires_payment_method': 'REQUIRES_PAYMENT_METHOD',
+    'payment_intent.payment_failed': 'PAYMENT_FAILED',
+    'payment_intent.cancelled': 'CANCELLED',
+    'payment_intent.succeeded': 'SUCCEEDED',
+  };
+  return map[eventName] || eventName.toUpperCase();
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -65,112 +112,181 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return new Response('Invalid JSON', { status: 400 });
   }
 
-  if (event.name !== 'payment_intent.succeeded') {
-    return Response.json({ ok: true, ignored: true });
-  }
+  const eventId = String(event.id || '').trim();
+  const eventName = String(event.name || '').trim();
+  if (!eventId || !eventName) return Response.json({ ok: true, ignored: true, reason: 'missing_event_identity' });
+
+  const relevantEvents = new Set([
+    'payment_intent.requires_payment_method',
+    'payment_intent.requires_customer_action',
+    'payment_intent.pending',
+    'payment_intent.pending_review',
+    'payment_intent.payment_failed',
+    'payment_intent.cancelled',
+    'payment_intent.succeeded',
+  ]);
 
   try {
+    const db = env.MINGEAGLE_DB;
+    await ensureTables(db);
+
+    await db.prepare(`INSERT OR IGNORE INTO payment_webhook_events(provider, event_id, event_name)
+      VALUES ('AIRWALLEX', ?, ?)`).bind(eventId, eventName).run();
+    const existingEvent = await db.prepare(`SELECT processed_at FROM payment_webhook_events WHERE provider='AIRWALLEX' AND event_id=?`)
+      .bind(eventId).first<{ processed_at?: string }>();
+    if (existingEvent?.processed_at) return Response.json({ ok: true, duplicate: true });
+
+    if (!relevantEvents.has(eventName)) {
+      await markEventProcessed(db, eventId);
+      return Response.json({ ok: true, ignored: true });
+    }
+
     const object = event.data?.object || {};
     const orderReference = String(object.merchant_order_id || '').trim();
     const providerReference = String(object.id || '').trim();
+    const providerStatus = mappedStatus(eventName, object.status);
     const currency = String(object.currency || 'USD').toUpperCase();
     const captured = Number(object.captured_amount || 0);
     const amount = Number((captured > 0 ? captured : Number(object.amount || 0)).toFixed(2));
 
-    if (!orderReference || !providerReference || amount <= 0) {
-      console.error('airwallex_webhook_missing_payment_fields', { eventId: event.id, orderReference, providerReference, amount });
+    if (!orderReference || !providerReference) {
+      console.error('airwallex_webhook_missing_payment_fields', { eventId, orderReference, providerReference, eventName });
+      await markEventProcessed(db, eventId);
       return Response.json({ ok: true, ignored: true, reason: 'missing_payment_fields' });
     }
 
-    const db = env.MINGEAGLE_DB;
     const order = await db.prepare(`SELECT id, reference, lead_id, company_id, contact_id, status, payment_status, total, currency
       FROM orders WHERE reference=? LIMIT 1`).bind(orderReference).first<Record<string, unknown>>();
     if (!order) {
-      console.error('airwallex_webhook_order_not_found', { eventId: event.id, orderReference, providerReference });
+      console.error('airwallex_webhook_order_not_found', { eventId, orderReference, providerReference });
+      await markEventProcessed(db, eventId);
       return Response.json({ ok: true, ignored: true, reason: 'order_not_found' });
     }
 
     const orderId = String(order.id);
     const orderCurrency = String(order.currency || 'USD').toUpperCase();
     if (currency !== orderCurrency) {
-      console.error('airwallex_webhook_currency_mismatch', { eventId: event.id, orderReference, currency, orderCurrency });
+      console.error('airwallex_webhook_currency_mismatch', { eventId, orderReference, currency, orderCurrency });
+      await markEventProcessed(db, eventId);
       return Response.json({ ok: true, ignored: true, reason: 'currency_mismatch' });
     }
 
-    await db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_provider_reference_unique
-      ON payments(provider, provider_reference)
-      WHERE provider IS NOT NULL AND provider_reference IS NOT NULL`).run();
+    await db.prepare(`UPDATE payment_provider_sessions
+      SET status=?, updated_at=CURRENT_TIMESTAMP
+      WHERE provider='AIRWALLEX' AND provider_intent_id=?`)
+      .bind(providerStatus, providerReference).run();
 
-    const inserted = await db.prepare(`INSERT OR IGNORE INTO payments
-      (id, order_id, method, provider, provider_reference, amount, currency, status, received_at, notes)
-      VALUES (?, ?, 'ONLINE_PAYMENT', 'AIRWALLEX', ?, ?, ?, 'RECEIVED', CURRENT_TIMESTAMP, ?)`)
-      .bind(
-        crypto.randomUUID(), orderId, providerReference, amount, currency,
-        `Airwallex payment_intent.succeeded${event.id ? ` · ${event.id}` : ''}`,
-      ).run();
+    const metadata = { eventId, eventName, providerReference, providerStatus, amount, currency };
 
-    const totals = await db.prepare(`SELECT COALESCE(SUM(amount),0) AS received
-      FROM payments WHERE order_id=? AND status='RECEIVED'`).bind(orderId).first<{ received: number }>();
-    const receivedTotal = Number(totals?.received || 0);
-    const orderTotal = Number(order.total || 0);
-    const fullyPaid = receivedTotal + 0.005 >= orderTotal;
-    const leadId = order.lead_id ? String(order.lead_id) : null;
-    const companyId = order.company_id ? String(order.company_id) : null;
-    const contactId = order.contact_id ? String(order.contact_id) : null;
+    if (eventName === 'payment_intent.succeeded') {
+      if (amount <= 0) {
+        console.error('airwallex_webhook_invalid_amount', metadata);
+        return new Response('Invalid payment amount', { status: 500 });
+      }
 
-    if (fullyPaid) {
-      await db.prepare(`UPDATE orders
-        SET payment_status='PAID',
-            status=CASE WHEN status IN ('DRAFT','CONFIRMED','PAYMENT_PENDING') THEN 'PAID' ELSE status END,
-            paid_at=COALESCE(paid_at,CURRENT_TIMESTAMP),
-            updated_at=CURRENT_TIMESTAMP
-        WHERE id=?`).bind(orderId).run();
-      await db.prepare(`UPDATE tasks SET status='DONE', completed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
-        WHERE order_id=? AND type='PAYMENT' AND status IN ('OPEN','IN_PROGRESS')`).bind(orderId).run();
-      await db.prepare(`INSERT INTO tasks (id, lead_id, company_id, contact_id, order_id, type, title, description, status, priority, due_at)
-        SELECT ?, ?, ?, ?, ?, 'FULFILLMENT', ?, ?, 'OPEN', 'HIGH', datetime('now','+1 day')
-        WHERE NOT EXISTS (
-          SELECT 1 FROM tasks WHERE order_id=? AND type='FULFILLMENT' AND status IN ('OPEN','IN_PROGRESS')
-        )`)
+      const before = await db.prepare(`SELECT COALESCE(SUM(amount),0) AS received
+        FROM payments WHERE order_id=? AND status='RECEIVED'`).bind(orderId).first<{ received: number }>();
+      const beforeReceived = Number(before?.received || 0);
+
+      const inserted = await db.prepare(`INSERT OR IGNORE INTO payments
+        (id, order_id, method, provider, provider_reference, amount, currency, status, received_at, notes)
+        VALUES (?, ?, 'ONLINE_PAYMENT', 'AIRWALLEX', ?, ?, ?, 'RECEIVED', CURRENT_TIMESTAMP, ?)`)
         .bind(
-          crypto.randomUUID(), leadId, companyId, contactId, orderId,
-          `Start processing ${orderReference}`, 'Online payment completed through Airwallex. Prepare the order for fulfillment.', orderId,
+          crypto.randomUUID(), orderId, providerReference, amount, currency,
+          `Airwallex payment_intent.succeeded · ${eventId}`,
         ).run();
-      if (leadId) {
-        await db.prepare(`UPDATE leads SET status='WON', next_best_action='Start fulfillment', next_action_at=datetime('now','+1 day'), updated_at=CURRENT_TIMESTAMP WHERE id=?`)
-          .bind(leadId).run();
+
+      const totals = await db.prepare(`SELECT COALESCE(SUM(amount),0) AS received
+        FROM payments WHERE order_id=? AND status='RECEIVED'`).bind(orderId).first<{ received: number }>();
+      const receivedTotal = Number(totals?.received || 0);
+      const orderTotal = Number(order.total || 0);
+      const fullyPaid = receivedTotal + 0.005 >= orderTotal;
+      const overpaid = receivedTotal > orderTotal + 0.005;
+      const leadId = order.lead_id ? String(order.lead_id) : null;
+      const companyId = order.company_id ? String(order.company_id) : null;
+      const contactId = order.contact_id ? String(order.contact_id) : null;
+
+      if (fullyPaid) {
+        await db.prepare(`UPDATE orders
+          SET payment_status='PAID',
+              status=CASE WHEN status IN ('DRAFT','CONFIRMED','PAYMENT_PENDING') THEN 'PAID' ELSE status END,
+              paid_at=COALESCE(paid_at,CURRENT_TIMESTAMP),
+              updated_at=CURRENT_TIMESTAMP
+          WHERE id=?`).bind(orderId).run();
+        await db.prepare(`UPDATE tasks SET status='DONE', completed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
+          WHERE order_id=? AND type='PAYMENT' AND status IN ('OPEN','IN_PROGRESS')`).bind(orderId).run();
+        await db.prepare(`INSERT INTO tasks (id, lead_id, company_id, contact_id, order_id, type, title, description, status, priority, due_at)
+          SELECT ?, ?, ?, ?, ?, 'FULFILLMENT', ?, ?, 'OPEN', 'HIGH', datetime('now','+1 day')
+          WHERE NOT EXISTS (
+            SELECT 1 FROM tasks WHERE order_id=? AND type='FULFILLMENT' AND status IN ('OPEN','IN_PROGRESS')
+          )`)
+          .bind(
+            crypto.randomUUID(), leadId, companyId, contactId, orderId,
+            `Start processing ${orderReference}`, 'Online payment completed through Airwallex. Prepare the order for fulfillment.', orderId,
+          ).run();
+        if (leadId) {
+          await db.prepare(`UPDATE leads SET status='WON', next_best_action='Start fulfillment', next_action_at=datetime('now','+1 day'), updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+            .bind(leadId).run();
+        }
+        if (companyId) {
+          await db.prepare(`UPDATE companies SET status='CUSTOMER', updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(companyId).run();
+        }
+        if (Number(inserted.meta?.changes || 0) > 0) {
+          await addActivity(db, orderId, 'PAYMENT_RECEIVED', 'Airwallex payment completed', `${orderReference} is fully paid`, {
+            ...metadata,
+            receivedBefore: beforeReceived,
+            receivedTotal,
+            orderTotal,
+          });
+        }
+        if (overpaid) {
+          await db.prepare(`INSERT INTO tasks (id, lead_id, company_id, contact_id, order_id, type, title, description, status, priority, due_at)
+            SELECT ?, ?, ?, ?, ?, 'PAYMENT', ?, ?, 'OPEN', 'URGENT', CURRENT_TIMESTAMP
+            WHERE NOT EXISTS (
+              SELECT 1 FROM tasks WHERE order_id=? AND type='PAYMENT' AND status IN ('OPEN','IN_PROGRESS') AND title LIKE 'Review overpayment%'
+            )`)
+            .bind(
+              crypto.randomUUID(), leadId, companyId, contactId, orderId,
+              `Review overpayment for ${orderReference}`,
+              `${currency} ${receivedTotal.toFixed(2)} received against order total ${currency} ${orderTotal.toFixed(2)}. Review and refund any excess if required.`,
+              orderId,
+            ).run();
+        }
+      } else {
+        await db.prepare(`UPDATE orders SET payment_status='PARTIAL', status='PAYMENT_PENDING', updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(orderId).run();
+        await db.prepare(`UPDATE tasks SET description=?, updated_at=CURRENT_TIMESTAMP
+          WHERE order_id=? AND type='PAYMENT' AND status IN ('OPEN','IN_PROGRESS')`)
+          .bind(`Partial Airwallex payment received. ${currency} ${receivedTotal.toFixed(2)} of ${orderTotal.toFixed(2)} received.`, orderId).run();
+        if (Number(inserted.meta?.changes || 0) > 0) {
+          await addActivity(db, orderId, 'PAYMENT_PARTIAL', 'Partial Airwallex payment received', `${orderReference} received a partial online payment`, {
+            ...metadata,
+            receivedBefore: beforeReceived,
+            receivedTotal,
+            orderTotal,
+          });
+        }
       }
-      if (companyId) {
-        await db.prepare(`UPDATE companies SET status='CUSTOMER', updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(companyId).run();
-      }
-      if (Number(inserted.meta?.changes || 0) > 0) {
-        await addActivity(db, orderId, 'PAYMENT_RECEIVED', 'Airwallex payment completed', `${orderReference} is fully paid`, {
-          eventId: event.id || null,
-          providerReference,
-          amount,
-          currency,
-          receivedTotal,
-          orderTotal,
-        });
-      }
-    } else {
-      await db.prepare(`UPDATE orders SET payment_status='PARTIAL', status='PAYMENT_PENDING', updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(orderId).run();
-      await db.prepare(`UPDATE tasks SET description=?, updated_at=CURRENT_TIMESTAMP
-        WHERE order_id=? AND type='PAYMENT' AND status IN ('OPEN','IN_PROGRESS')`)
-        .bind(`Partial Airwallex payment received. ${currency} ${receivedTotal.toFixed(2)} of ${orderTotal.toFixed(2)} received.`, orderId).run();
-      if (Number(inserted.meta?.changes || 0) > 0) {
-        await addActivity(db, orderId, 'PAYMENT_PARTIAL', 'Partial Airwallex payment received', `${orderReference} received a partial online payment`, {
-          eventId: event.id || null,
-          providerReference,
-          amount,
-          currency,
-          receivedTotal,
-          orderTotal,
-        });
-      }
+
+      await markEventProcessed(db, eventId);
+      return Response.json({ ok: true, orderReference, paymentStatus: fullyPaid ? 'PAID' : 'PARTIAL' });
     }
 
-    return Response.json({ ok: true, orderReference, paymentStatus: fullyPaid ? 'PAID' : 'PARTIAL' });
+    if (eventName === 'payment_intent.pending' || eventName === 'payment_intent.pending_review') {
+      await db.prepare(`UPDATE orders SET status='PAYMENT_PENDING', updated_at=CURRENT_TIMESTAMP WHERE id=? AND payment_status!='PAID'`).bind(orderId).run();
+      await addActivity(db, orderId, 'PAYMENT_PENDING', 'Airwallex payment is processing', `${orderReference} payment is ${providerStatus.toLowerCase().replace(/_/g, ' ')}`, metadata);
+    } else if (eventName === 'payment_intent.requires_customer_action') {
+      await addActivity(db, orderId, 'PAYMENT_ACTION_REQUIRED', 'Customer action required for payment', `${orderReference} requires additional customer authentication or action`, metadata);
+    } else if (eventName === 'payment_intent.payment_failed') {
+      await addActivity(db, orderId, 'PAYMENT_FAILED', 'Airwallex payment failed', `${orderReference} payment attempt failed; customer may retry`, metadata);
+      await db.prepare(`UPDATE tasks SET description=?, updated_at=CURRENT_TIMESTAMP
+        WHERE order_id=? AND type='PAYMENT' AND status IN ('OPEN','IN_PROGRESS')`)
+        .bind('Airwallex payment attempt failed. Customer can retry online payment or use bank transfer.', orderId).run();
+    } else if (eventName === 'payment_intent.cancelled') {
+      await addActivity(db, orderId, 'PAYMENT_CANCELLED', 'Airwallex payment cancelled', `${orderReference} payment intent was cancelled`, metadata);
+    }
+
+    await markEventProcessed(db, eventId);
+    return Response.json({ ok: true, orderReference, paymentIntentStatus: providerStatus });
   } catch (error) {
     console.error('airwallex_webhook_processing_failed', error);
     return new Response('Webhook processing failed', { status: 500 });
