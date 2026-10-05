@@ -33,7 +33,7 @@ const statusLabel = (value: unknown) => value === 'CRM' ? '已加入 CRM' : valu
 const gradeClass = (grade: unknown) => `discovery-grade grade-${String(grade || 'C').toLowerCase()}`;
 const sourceLabel = (provider: unknown) => {
   const value = String(provider || '').toUpperCase();
-  if (value.startsWith('WEB_SEARCH')) return 'Web验证';
+  if (value.startsWith('WEB_SEARCH') || value.startsWith('WEB_EXPANSION')) return 'Web验证';
   if (value.startsWith('OPENSTREETMAP')) return 'OSM地图';
   return '来源证据';
 };
@@ -209,7 +209,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
   }
 
   const counts = useMemo(() => ({
-    total: candidates.length,
+    total: candidates.filter(r => text(r.status, 'NEW') !== 'IGNORED').length,
     fresh: candidates.filter(r => text(r.status, 'NEW') === 'NEW').length,
     a: candidates.filter(r => text(r.grade) === 'A' && text(r.status, 'NEW') === 'NEW').length,
     crm: candidates.filter(r => text(r.status) === 'CRM').length,
@@ -217,7 +217,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
 
   return <>
     <section className="metric-grid discovery-metrics">
-      <div className="metric"><span>候选客户库</span><strong>{counts.total}</strong><small>累计发现</small></div>
+      <div className="metric"><span>候选客户库</span><strong>{counts.total}</strong><small>有效候选</small></div>
       <div className="metric"><span>待开发</span><strong>{counts.fresh}</strong><small>尚未加入 CRM</small></div>
       <div className="metric"><span>A 级潜客</span><strong>{counts.a}</strong><small>优先开发</small></div>
       <div className="metric"><span>已入 CRM</span><strong>{counts.crm}</strong><small>进入销售流程</small></div>
@@ -257,7 +257,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
 
     <section className="panel table-panel">
       <div className="table-tools searchable-tools">
-        <div><strong>客户候选 · {visible.length}</strong><span> / 库中 {candidates.length}</span></div>
+        <div><strong>客户候选 · {visible.length}</strong><span> / 有效库 {counts.total}</span></div>
         <div className="table-filters">
           <input value={query} onChange={e => setQuery(e.target.value)} placeholder="搜索名称、负责人、网站、邮箱…"/>
           <select value={gradeFilter} onChange={e => setGradeFilter(e.target.value)}><option value="ALL">全部评分</option><option value="A">A级</option><option value="B">B级</option><option value="C">C级</option></select>
