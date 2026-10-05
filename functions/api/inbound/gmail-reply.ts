@@ -4,6 +4,7 @@ interface Env {
 }
 
 type InboundPayload = {
+  test?: boolean;
   fromEmail?: string;
   fromName?: string;
   subject?: string;
@@ -141,6 +142,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     const input = await request.json() as InboundPayload;
+    if (input.test === true) {
+      return Response.json({ ok: true, connected: true, service: 'MING EAGLE Gmail inbound reply bridge' });
+    }
+
     const fromEmail = normalizeEmail(input.fromEmail);
     const subject = clean(input.subject, 500) || null;
     const body = clean(input.body, 12000);
@@ -195,7 +200,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     await db.prepare(`UPDATE tasks SET status='DONE', completed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
       WHERE lead_id=? AND type='OUTREACH_FOLLOW_UP' AND status IN ('OPEN','IN_PROGRESS')`).bind(leadId).run();
 
-    // A real customer reply always stops queued follow-up emails until the reply has been handled.
     await db.prepare(`UPDATE email_queue SET status='SKIPPED',
       last_error='Customer replied; automatic follow-up stopped.', updated_at=CURRENT_TIMESTAMP
       WHERE lead_id=? AND status IN ('READY','REVIEW_REQUIRED','FAILED')`).bind(leadId).run().catch(() => undefined);
