@@ -11,14 +11,26 @@ type Props = {
 
 const text = (value: unknown, fallback = '—') => value === null || value === undefined || value === '' ? fallback : String(value);
 const money = (value: unknown, currency: unknown) => `${text(currency, 'USD')} ${Number(value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const paymentMethodLabel = (value: unknown) => ({
-  BANK_TRANSFER: '银行转账',
-  WISE: 'Wise',
-  PAYONEER: 'Payoneer',
-  ACH: 'ACH',
-  WIRE: '国际电汇',
-  OTHER: '其他',
-}[text(value, '')] || text(value));
+const paymentMethodLabel = (value: unknown, provider?: unknown) => {
+  if (text(provider, '') === 'AIRWALLEX' || text(value, '') === 'ONLINE_PAYMENT') return 'Airwallex 在线支付';
+  return ({
+    BANK_TRANSFER: '银行转账',
+    WISE: 'Wise',
+    PAYONEER: 'Payoneer',
+    ACH: 'ACH',
+    WIRE: '国际电汇',
+    OTHER: '其他',
+  } as Record<string, string>)[text(value, '')] || text(value);
+};
+const onlineStatusLabel = (value: unknown) => ({
+  REQUIRES_PAYMENT_METHOD: '等待客户选择付款方式',
+  REQUIRES_CUSTOMER_ACTION: '等待客户完成验证',
+  PENDING: 'Airwallex 处理中',
+  PENDING_REVIEW: 'Airwallex 风控审核中',
+  SUCCEEDED: 'Airwallex 已确认成功',
+  CANCELLED: '已取消',
+  PAYMENT_FAILED: '付款失败',
+}[text(value, '')] || text(value, '暂无线上支付'));
 
 function parsePayments(value: unknown): Row[] {
   if (!value) return [];
@@ -121,6 +133,7 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
       const paymentReference = `PAY-${reference}`;
       const payments = parsePayments(order.payments_json);
       const note = message[reference];
+      const onlineStatus = text(order.online_payment_status, '');
       return <section className="panel order-card" key={reference}>
         <div className="order-head">
           <div><span className="eyebrow">订单</span><h2>{reference}</h2><p>{text(order.customer)} · {money(order.total, order.currency)}</p></div>
@@ -133,13 +146,18 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
           <div><small>物流单号</small><strong>{text(order.tracking_number)}</strong></div>
         </div>
 
+        {onlineStatus && <div className={`form-status ${['SUCCEEDED'].includes(onlineStatus) ? 'success' : ['CANCELLED','PAYMENT_FAILED'].includes(onlineStatus) ? 'error' : ''}`}>
+          <strong>Airwallex 在线支付：{onlineStatusLabel(onlineStatus)}</strong>
+          <p>{text(order.online_payment_intent_id, '') ? `PaymentIntent：${text(order.online_payment_intent_id)} · ` : ''}{text(order.online_payment_updated_at, '') ? `更新时间：${zhDate(order.online_payment_updated_at)}` : ''}</p>
+        </div>}
+
         <div className="payment-history-block">
           <div className="panel-head"><h3>付款记录</h3><span>共 {payments.length} 笔 · 累计 {money(received, order.currency)} · 待收 {money(outstanding, order.currency)}</span></div>
-          {payments.length === 0 ? <div className="empty-row">暂无付款记录。</div> : <div className="table-wrap"><table>
+          {payments.length === 0 ? <div className="empty-row">暂无已确认到账记录。Airwallex 处理中状态会显示在上方，不会提前记作已收款。</div> : <div className="table-wrap"><table>
             <thead><tr><th>到账时间</th><th>付款方式</th><th>本次金额</th><th>流水号 / 凭证号</th><th>状态</th></tr></thead>
             <tbody>{payments.map((payment, paymentIndex) => <tr key={text(payment.id, `${reference}-payment-${paymentIndex}`)}>
               <td>{zhDate(payment.received_at || payment.created_at)}</td>
-              <td>{paymentMethodLabel(payment.method)}</td>
+              <td>{paymentMethodLabel(payment.method, payment.provider)}</td>
               <td><strong>{money(payment.amount, payment.currency || order.currency)}</strong></td>
               <td>{text(payment.provider_reference)}</td>
               <td>{statusLabel(payment.status)}</td>
@@ -149,12 +167,13 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
 
         {paymentStatus !== 'PAID' && !['CANCELLED','COMPLETED'].includes(status) && <form className="order-action-form" onSubmit={e => paymentSubmit(e, reference, outstanding || total)}>
           <div className="order-form-grid">
-            <label>付款方式<select name="paymentMethod" defaultValue="BANK_TRANSFER"><option value="BANK_TRANSFER">银行转账</option><option value="WISE">Wise</option><option value="PAYONEER">Payoneer</option><option value="ACH">ACH</option><option value="WIRE">国际电汇</option><option value="OTHER">其他</option></select></label>
+            <label>线下 / 银行到账方式<select name="paymentMethod" defaultValue="BANK_TRANSFER"><option value="BANK_TRANSFER">银行转账</option><option value="WISE">Wise</option><option value="PAYONEER">Payoneer</option><option value="ACH">ACH</option><option value="WIRE">国际电汇</option><option value="OTHER">其他</option></select></label>
             <label>本次到账金额<input name="amount" type="number" min="0.01" max={(outstanding || total).toFixed(2)} step="0.01" defaultValue={(outstanding || total).toFixed(2)} required /></label>
             <label className="span-2">付款凭证 / 流水号<input name="paymentReference" placeholder={`转账流水号或备注（客户付款备注号：${paymentReference}）`} /></label>
           </div>
+          <small>仅用于人工确认 Wise / ACH / Wire 等已实际到账的款项。Airwallex 在线付款由 Webhook 自动入账，请不要重复手工登记。</small>
           {paymentStatus === 'PARTIAL' && <div className="payment-progress">已到账 {money(received, order.currency)} · 待收 {money(outstanding, order.currency)}</div>}
-          <button className="button small" disabled={busy !== ''}>{busy === `${reference}:MARK_PAID` ? '正在保存…' : paymentStatus === 'PARTIAL' ? '记录下一笔付款' : '记录付款'}</button>
+          <button className="button small" disabled={busy !== ''}>{busy === `${reference}:MARK_PAID` ? '正在保存…' : paymentStatus === 'PARTIAL' ? '记录下一笔付款' : '记录银行到账'}</button>
         </form>}
 
         {paymentStatus === 'PAID' && status === 'PAID' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'START_PROCESSING')}>开始处理订单</button></div>}
