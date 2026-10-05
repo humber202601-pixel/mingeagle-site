@@ -7,6 +7,7 @@ import './forms.css';
 import './admin.css';
 import './communication.css';
 import './contact-manager.css';
+import './discovery.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
