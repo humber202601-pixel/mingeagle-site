@@ -16,6 +16,12 @@ const DEFAULT_MAX_AUTO_SEND_PER_RUN = 5;
 const DEFAULT_MAX_AUTO_SEND_PER_LEAD = 3;
 
 function taskFor(status: string, reference: string, daysSinceContact: number) {
+  if (status === 'WON') return {
+    type: 'REORDER',
+    title: `复购跟进 · ${reference}`,
+    description: '客户已完成历史订单，复购周期已到。请审核复购邮件草稿并确认是否发送。',
+    priority: 'MEDIUM',
+  };
   if (status === 'CONTACTED') {
     const stage = daysSinceContact >= 14 ? '最终跟进' : daysSinceContact >= 7 ? '第二次跟进' : '第一次跟进';
     return {
@@ -87,6 +93,10 @@ function emailTemplate(row: DueLead) {
   const company = String(row.company || 'your organization');
   const days = Math.max(0, Math.floor(Number(row.days_since_contact || 0)));
 
+  if (status === 'WON') return {
+    type: 'REORDER_FOLLOW_UP', subject: 'Ready for a restock? — MING EAGLE',
+    body: `Hi ${name},\n\nI hope everything has been going well with your MING EAGLE order. I wanted to check whether ${company} may need a restock or another batch of silent ball products.\n\nIf you are planning a repeat order, just reply with the approximate quantity and delivery location. I can prepare an updated quotation for you.\n\nBest regards,\nMING EAGLE`,
+  };
   if (status === 'QUOTE') return {
     type: 'QUOTE_FOLLOW_UP', subject: 'Following up on your MING EAGLE quote',
     body: `Hi ${name},\n\nI wanted to follow up on the MING EAGLE quotation we shared. Please let me know if you have any questions about pricing, shipping, lead time or payment terms. We can review the order configuration before confirmation.\n\nBest regards,\nMING EAGLE`,
@@ -124,8 +134,9 @@ async function queueDueEmails(db: D1Database, due: DueLead[]) {
     const leadId = String(row.id);
     const nextAt = String(row.next_action_at || 'now');
     const dedupe = `${leadId}|${String(row.status)}|${nextAt}|${tmpl.type}`;
-    const autoEligible = Number(row.auto_eligible || 0) === 1 ? 1 : 0;
-    const status = autoEligible ? 'READY' : 'REVIEW_REQUIRED';
+    const isReorder = String(row.status) === 'WON';
+    const autoEligible = isReorder ? 0 : (Number(row.auto_eligible || 0) === 1 ? 1 : 0);
+    const status = isReorder ? 'REVIEW_REQUIRED' : (autoEligible ? 'READY' : 'REVIEW_REQUIRED');
     const result = await db.prepare(`INSERT OR IGNORE INTO email_queue
       (id, lead_id, company_id, contact_id, email, subject, body, queue_type, status, auto_eligible, source_status, scheduled_for, dedupe_key)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
@@ -224,7 +235,7 @@ async function runSweep(env: Env) {
     LEFT JOIN contacts ct ON ct.id=l.primary_contact_id
     WHERE l.next_action_at IS NOT NULL
       AND datetime(l.next_action_at) <= datetime('now')
-      AND l.status IN ('CONTACTED','REPLIED','INTERESTED','SAMPLE','QUOTE','NEGOTIATION')
+      AND l.status IN ('CONTACTED','REPLIED','INTERESTED','SAMPLE','QUOTE','NEGOTIATION','WON')
       AND COALESCE(ct.do_not_contact,0)=0
     ORDER BY l.next_action_at ASC
     LIMIT 200`).all<DueLead>();
@@ -235,7 +246,8 @@ async function runSweep(env: Env) {
   let created = 0;
   for (const row of due.results) {
     const leadId = String(row.id);
-    const autoEligible = Number(row.auto_eligible || 0) === 1;
+    const isReorder = String(row.status) === 'WON';
+    const autoEligible = !isReorder && Number(row.auto_eligible || 0) === 1;
     const autoMode = String(env.AUTO_EMAIL_ENABLED || '').toLowerCase() === 'true' && Boolean(env.ADMIN_ACCESS_KEY) && settings.enabled;
 
     if (autoMode && autoEligible && String(row.status) !== 'REPLIED') continue;
