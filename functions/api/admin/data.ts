@@ -10,6 +10,20 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
   const db = env.MINGEAGLE_DB;
 
   try {
+    await db.prepare(`CREATE TABLE IF NOT EXISTS payment_provider_sessions (
+      id TEXT PRIMARY KEY,
+      order_id TEXT NOT NULL,
+      provider TEXT NOT NULL DEFAULT 'AIRWALLEX',
+      provider_intent_id TEXT NOT NULL UNIQUE,
+      request_id TEXT NOT NULL UNIQUE,
+      amount REAL NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'USD',
+      status TEXT NOT NULL DEFAULT 'REQUIRES_PAYMENT_METHOD',
+      client_secret TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`).run();
+
     const [
       leadCount,
       inquiryCount,
@@ -63,6 +77,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
       db.prepare(`SELECT o.id, o.reference, o.quote_id, COALESCE(c.name, ct.full_name, ct.email, 'Unknown') AS customer,
         o.total, o.currency, o.status, o.payment_status,
         (SELECT COALESCE(SUM(p.amount),0) FROM payments p WHERE p.order_id=o.id AND p.status='RECEIVED') AS amount_received,
+        (SELECT pps.status FROM payment_provider_sessions pps WHERE pps.order_id=o.id AND pps.provider='AIRWALLEX' ORDER BY datetime(pps.updated_at) DESC, datetime(pps.created_at) DESC LIMIT 1) AS online_payment_status,
+        (SELECT pps.provider_intent_id FROM payment_provider_sessions pps WHERE pps.order_id=o.id AND pps.provider='AIRWALLEX' ORDER BY datetime(pps.updated_at) DESC, datetime(pps.created_at) DESC LIMIT 1) AS online_payment_intent_id,
+        (SELECT pps.updated_at FROM payment_provider_sessions pps WHERE pps.order_id=o.id AND pps.provider='AIRWALLEX' ORDER BY datetime(pps.updated_at) DESC, datetime(pps.created_at) DESC LIMIT 1) AS online_payment_updated_at,
         (SELECT COALESCE(json_group_array(json_object(
           'id', p.id,
           'method', p.method,
