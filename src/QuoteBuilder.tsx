@@ -16,8 +16,14 @@ type QuoteResult = {
   status: string;
 };
 
+type EditDetail = {
+  quote: Row;
+  items: Row[];
+};
+
 const text = (value: unknown, fallback = '') => value === null || value === undefined || value === '' ? fallback : String(value);
 const money = (value: unknown, currency: unknown) => `${text(currency, 'USD')} ${Number(value || 0).toFixed(2)}`;
+const dateOnly = (value: unknown) => text(value).slice(0, 10);
 
 export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props) {
   const available = useMemo(
@@ -31,6 +37,8 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   const [result, setResult] = useState<QuoteResult | null>(null);
   const [quotes, setQuotes] = useState<Row[]>([]);
   const [customerLink, setCustomerLink] = useState<{ reference: string; url: string } | null>(null);
+  const [editDetail, setEditDetail] = useState<EditDetail | null>(null);
+  const [editMessage, setEditMessage] = useState('');
 
   const selected = available.find(item => text(item.reference) === selectedReference);
 
@@ -84,6 +92,69 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       setError(err instanceof Error ? err.message : '无法创建报价草稿。');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function openEdit(quote: Row) {
+    const quoteId = text(quote.id);
+    if (!quoteId) return;
+    setBusyQuoteId(quoteId);
+    setError('');
+    setEditMessage('');
+    try {
+      const response = await fetch(`/api/admin/quote-edit?quoteId=${encodeURIComponent(quoteId)}`, { headers: { 'x-admin-key': accessKey } });
+      const body = await response.json() as { ok?: boolean; quote?: Row; items?: Row[]; error?: string };
+      if (!response.ok || !body.ok || !body.quote) throw new Error(body.error || '无法加载报价草稿。');
+      setEditDetail({ quote: body.quote, items: body.items || [] });
+      window.setTimeout(() => document.getElementById('quote-edit-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '无法加载报价草稿。');
+    } finally {
+      setBusyQuoteId('');
+    }
+  }
+
+  async function saveEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editDetail) return;
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const quoteId = text(editDetail.quote.id);
+    setBusyQuoteId(quoteId);
+    setEditMessage('');
+    setError('');
+
+    try {
+      const items = editDetail.items.map(item => ({
+        id: text(item.id),
+        description: data.get(`description-${text(item.id)}`),
+        quantity: data.get(`quantity-${text(item.id)}`),
+        unitPrice: data.get(`unitPrice-${text(item.id)}`),
+      }));
+      const response = await fetch('/api/admin/quote-edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
+        body: JSON.stringify({
+          quoteId,
+          items,
+          shipping: data.get('shipping'),
+          discount: data.get('discount'),
+          validUntil: data.get('validUntil'),
+          paymentTerms: data.get('paymentTerms'),
+          shippingTerms: data.get('shippingTerms'),
+          notes: data.get('notes'),
+        }),
+      });
+      const body = await response.json() as { ok?: boolean; quote?: Row; error?: string };
+      if (!response.ok || !body.ok) throw new Error(body.error || '无法保存报价草稿。');
+      setEditMessage(`已保存 ${text(body.quote?.reference, text(editDetail.quote.reference))}，总金额 ${money(body.quote?.total, body.quote?.currency || editDetail.quote.currency)}。`);
+      onCreated();
+      await loadQuotes();
+      await openEdit({ id: quoteId });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '无法保存报价草稿。');
+    } finally {
+      setBusyQuoteId('');
     }
   }
 
@@ -167,15 +238,65 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       </form>}
     </section>
 
+    {editDetail && <section id="quote-edit-panel" className="panel quote-builder">
+      <div className="panel-head">
+        <div><h2>编辑报价草稿 · {text(editDetail.quote.reference)}</h2><span>仅草稿可修改；发送给客户后将锁定。</span></div>
+        <button type="button" className="button secondary small" onClick={() => { setEditDetail(null); setEditMessage(''); }}>关闭编辑</button>
+      </div>
+      <form className="quote-form" onSubmit={saveEdit}>
+        <div className="quote-form-grid">
+          {editDetail.items.map((item, index) => <div className="span-2" key={text(item.id, String(index))}>
+            <div className="quote-form-grid">
+              <label className="span-2">产品描述 #{index + 1}
+                <input name={`description-${text(item.id)}`} defaultValue={text(item.description)} required />
+              </label>
+              <label>数量
+                <input name={`quantity-${text(item.id)}`} type="number" min="1" step="1" defaultValue={Number(item.quantity || 1)} required />
+              </label>
+              <label>单价（{text(editDetail.quote.currency, 'USD')}）
+                <input name={`unitPrice-${text(item.id)}`} type="number" min="0" step="0.01" defaultValue={Number(item.unit_price || 0).toFixed(2)} required />
+              </label>
+            </div>
+          </div>)}
+          <label>运费
+            <input name="shipping" type="number" min="0" step="0.01" defaultValue={Number(editDetail.quote.shipping || 0).toFixed(2)} />
+          </label>
+          <label>优惠 / 折扣
+            <input name="discount" type="number" min="0" step="0.01" defaultValue={Number(editDetail.quote.discount || 0).toFixed(2)} />
+          </label>
+          <label>有效期至
+            <input name="validUntil" type="date" defaultValue={dateOnly(editDetail.quote.valid_until)} required />
+          </label>
+          <label>当前总金额
+            <input value={money(editDetail.quote.total, editDetail.quote.currency)} readOnly />
+          </label>
+          <label className="span-2">付款条款（客户可见）
+            <input name="paymentTerms" defaultValue={text(editDetail.quote.payment_terms)} />
+          </label>
+          <label className="span-2">运输条款（客户可见）
+            <input name="shippingTerms" defaultValue={text(editDetail.quote.shipping_terms)} />
+          </label>
+          <label className="span-2">报价备注（客户可见）
+            <textarea name="notes" rows={3} defaultValue={text(editDetail.quote.notes)} />
+          </label>
+        </div>
+        <div className="quote-form-actions">
+          <button className="button" disabled={busyQuoteId === text(editDetail.quote.id)}>{busyQuoteId === text(editDetail.quote.id) ? '正在保存…' : '保存草稿修改'}</button>
+          <small>保存后请再次核对金额，再生成客户安全链接。</small>
+        </div>
+        {editMessage && <div className="form-status success"><strong>修改已保存</strong><p>{editMessage}</p></div>}
+      </form>
+    </section>}
+
     {customerLink && <section className="panel secure-link-panel">
       <div><strong>客户安全报价链接已生成 · {customerLink.reference}</strong><p>{customerLink.url}</p></div>
       <div className="secure-link-actions"><button className="button secondary small" onClick={() => void copyLink()}>复制链接</button><a className="button small" href={customerLink.url} target="_blank" rel="noreferrer">打开客户报价页</a></div>
-      <small>如果重新生成安全链接，该报价之前生成的客户链接将失效。</small>
+      <small>同一张报价可以保留多个已生成链接；重新生成新链接不会使之前的已发链接失效。</small>
     </section>}
 
     <section className="panel table-panel">
-      <div className="table-tools"><strong>共 {quotes.length} 张报价单</strong><span>草稿 → 安全链接 → 客户查看 → 接受 → 自动生成订单</span></div>
-      <div className="table-wrap"><table><thead><tr><th>报价单</th><th>客户</th><th>总金额</th><th>状态</th><th>有效期至</th><th>客户链接</th></tr></thead><tbody>
+      <div className="table-tools"><strong>共 {quotes.length} 张报价单</strong><span>草稿 → 审核修改 → 安全链接 → 客户查看 → 接受 → 自动生成订单</span></div>
+      <div className="table-wrap"><table><thead><tr><th>报价单</th><th>客户</th><th>总金额</th><th>状态</th><th>有效期至</th><th>操作</th></tr></thead><tbody>
         {quotes.length === 0 && <tr><td colSpan={6}>暂无报价单。</td></tr>}
         {quotes.map((quote, i) => {
           const id = text(quote.id, String(i));
@@ -183,7 +304,10 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           const canSend = ['DRAFT','SENT','VIEWED'].includes(status);
           return <tr key={id}>
             <td>{text(quote.reference)}</td><td>{text(quote.customer)}</td><td>{money(quote.total, quote.currency)}</td><td>{statusLabel(status)}</td><td>{text(quote.valid_until)}</td>
-            <td>{canSend ? <button type="button" className="table-action" disabled={busyQuoteId === id} onClick={() => void createSecureLink(quote)}>{busyQuoteId === id ? '处理中…' : status === 'DRAFT' ? '生成安全链接' : '重新生成链接'}</button> : <span>{status === 'CONVERTED' ? '已生成订单' : '不可操作'}</span>}</td>
+            <td><div className="secure-link-actions">
+              {status === 'DRAFT' && <button type="button" className="table-action" disabled={busyQuoteId === id} onClick={() => void openEdit(quote)}>{busyQuoteId === id ? '加载中…' : '编辑草稿'}</button>}
+              {canSend ? <button type="button" className="table-action" disabled={busyQuoteId === id} onClick={() => void createSecureLink(quote)}>{busyQuoteId === id ? '处理中…' : status === 'DRAFT' ? '生成安全链接' : '重新生成链接'}</button> : <span>{status === 'CONVERTED' ? '已生成订单' : '不可操作'}</span>}
+            </div></td>
           </tr>;
         })}
       </tbody></table></div>
