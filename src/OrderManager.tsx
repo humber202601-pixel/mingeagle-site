@@ -43,9 +43,17 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
         headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
         body: JSON.stringify({ orderReference, action, ...extra }),
       });
-      const body = await response.json() as { ok?: boolean; error?: string };
+      const body = await response.json() as {
+        ok?: boolean;
+        error?: string;
+        email?: { sent?: boolean; skipped?: boolean; reason?: string; to?: string };
+      };
       if (!response.ok || !body.ok) throw new Error(body.error || '无法更新订单。');
-      setMessage(prev => ({ ...prev, [orderReference]: { type: 'success', text: '订单状态已更新。' } }));
+      let resultText = '订单状态已更新。';
+      if (body.email?.sent) resultText += ` 客户通知邮件已发送至 ${body.email.to || '客户邮箱'}。`;
+      else if (body.email?.skipped) resultText += ` 未发送客户邮件：${body.email.reason || '已跳过'}。`;
+      else if (body.email && !body.email.sent) resultText += ` 订单已更新，但客户通知邮件发送失败：${body.email.reason || '未知原因'}。`;
+      setMessage(prev => ({ ...prev, [orderReference]: { type: 'success', text: resultText } }));
       onChanged();
     } catch (error) {
       setMessage(prev => ({ ...prev, [orderReference]: { type: 'error', text: error instanceof Error ? error.message : '无法更新订单。' } }));
