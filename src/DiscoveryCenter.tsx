@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { ExternalLink, LoaderCircle, MapPin, Search, UserPlus, X } from 'lucide-react';
+import { ExternalLink, LoaderCircle, MapPin, RefreshCcw, Search, UserPlus, X } from 'lucide-react';
 
 type Row = Record<string, unknown>;
 
@@ -37,6 +37,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
   const [jobs, setJobs] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [batching, setBatching] = useState(false);
   const [busyId, setBusyId] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -90,6 +91,14 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
     }
   }
 
+  async function syncCandidateToCrm(candidateId: string) {
+    await fetch('/api/admin/discovery-enrich', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
+      body: JSON.stringify({ action: 'SYNC_CRM', candidateId }),
+    }).catch(() => undefined);
+  }
+
   async function candidateAction(candidateId: string, action: 'ADD_TO_CRM' | 'IGNORE') {
     setBusyId(candidateId);
     setError('');
@@ -102,11 +111,48 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
       });
       const body = await response.json() as { ok?: boolean; leadId?: string; alreadyAdded?: boolean; error?: string };
       if (!response.ok || !body.ok) throw new Error(body.error || '操作失败。');
+      if (action === 'ADD_TO_CRM') await syncCandidateToCrm(candidateId);
       setMessage(action === 'ADD_TO_CRM' ? `已加入 CRM${body.alreadyAdded ? '（已匹配现有客户）' : ''}。` : '已忽略该候选客户。');
       await load();
       if (action === 'ADD_TO_CRM') onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : '操作失败。');
+    } finally {
+      setBusyId('');
+    }
+  }
+
+  async function callEnrichment(candidateId: string) {
+    const response = await fetch('/api/admin/discovery-enrich', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
+      body: JSON.stringify({ action: 'ENRICH', candidateId }),
+    });
+    const body = await response.json() as {
+      ok?: boolean;
+      pagesChecked?: number;
+      score?: number;
+      grade?: string;
+      found?: Record<string, boolean>;
+      error?: string;
+    };
+    if (!response.ok || !body.ok) throw new Error(body.error || '官网补全失败。');
+    return body;
+  }
+
+  async function enrichOne(candidateId: string) {
+    setBusyId(candidateId);
+    setError('');
+    setMessage('');
+    try {
+      const body = await callEnrichment(candidateId);
+      const foundCount = Object.values(body.found || {}).filter(Boolean).length;
+      setMessage(`官网补全完成：检查 ${body.pagesChecked || 1} 个页面，新识别 ${foundCount} 类公开信息，评分更新为 ${body.grade || '—'} · ${body.score || 0}/100。`);
+      await load();
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '官网补全失败。');
+      await load();
     } finally {
       setBusyId('');
     }
@@ -119,9 +165,37 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
       const matchesGrade = gradeFilter === 'ALL' || text(row.grade) === gradeFilter;
       if (!matchesStatus || !matchesGrade) return false;
       if (!q) return true;
-      return [row.name,row.city,row.state_region,row.website,row.email,row.phone,row.customer_type].some(value => String(value || '').toLowerCase().includes(q));
+      return [
+        row.name,row.city,row.state_region,row.website,row.email,row.phone,row.customer_type,
+        row.contact_person_name,row.contact_person_title,row.linkedin_url,
+      ].some(value => String(value || '').toLowerCase().includes(q));
     });
   }, [candidates, query, statusFilter, gradeFilter]);
+
+  async function batchEnrich() {
+    const targets = visible.filter(row => {
+      const website = text(row.website, '');
+      const status = text(row.status, 'NEW');
+      const enrichment = text(row.enrichment_status, 'NOT_STARTED');
+      const incomplete = !text(row.email, '') || !text(row.phone, '') || !text(row.contact_person_name, '');
+      return Boolean(website) && status !== 'IGNORED' && incomplete && enrichment !== 'RUNNING';
+    }).slice(0, 5);
+    if (!targets.length) {
+      setMessage('当前筛选结果里没有需要官网补全的客户。');
+      return;
+    }
+    setBatching(true);
+    setError('');
+    setMessage('');
+    const results = await Promise.allSettled(targets.map(row => callEnrichment(text(row.id, ''))));
+    const success = results.filter(result => result.status === 'fulfilled').length;
+    const failed = results.length - success;
+    setMessage(`批量官网补全完成：成功 ${success} 个${failed ? `，失败 ${failed} 个` : ''}。`);
+    if (failed) setError('部分官网可能有反爬、超时、非 HTML 页面或无法访问；可以稍后单独重试。');
+    await load();
+    onChanged();
+    setBatching(false);
+  }
 
   const counts = useMemo(() => ({
     total: candidates.length,
@@ -140,7 +214,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
 
     <section className="panel discovery-search-panel">
       <div className="panel-head">
-        <div><h2>自动发现美国潜在客户</h2><span>V1 数据源：OpenStreetMap / Overpass · 免费无需 API Key</span></div>
+        <div><h2>自动发现美国潜在客户</h2><span>免费发现 + 官网公开资料补全 · 无需付费 API Key</span></div>
         {loading && <LoaderCircle size={18} className="spin"/>}
       </div>
       <form className="discovery-search-form" onSubmit={runSearch}>
@@ -162,21 +236,24 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
         </label>
         <button className="button discovery-search-button" disabled={searching}>{searching ? <><LoaderCircle size={16} className="spin"/> 正在搜索…</> : <><Search size={16}/> 开始发现客户</>}</button>
       </form>
-      <div className="discovery-note">系统只保存公开商业资料，并记录来源证据。公开地图数据的联系方式可能不完整；下一阶段会增加“官网公开联系方式自动补全”。</div>
+      <div className="discovery-enrich-bar">
+        <div className="discovery-note">第一层从 OpenStreetMap 发现客户；第二层只访问候选客户的公开官网，并最多检查首页 + 2 个 Contact/About/Team 页面。</div>
+        <button type="button" className="button secondary small" disabled={batching} onClick={() => void batchEnrich()}>{batching ? <><LoaderCircle size={14} className="spin"/> 正在批量补全…</> : <><RefreshCcw size={14}/> 批量补全前 5 个</>}</button>
+      </div>
       {message && <div className="form-status success"><strong>操作成功</strong><p>{message}</p></div>}
-      {error && <div className="form-status error"><strong>操作失败</strong><p>{error}</p></div>}
+      {error && <div className="form-status error"><strong>提示</strong><p>{error}</p></div>}
     </section>
 
     <section className="panel table-panel">
       <div className="table-tools searchable-tools">
         <div><strong>客户候选 · {visible.length}</strong><span> / 库中 {candidates.length}</span></div>
         <div className="table-filters">
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="搜索名称、城市、网站、邮箱…"/>
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="搜索名称、负责人、网站、邮箱…"/>
           <select value={gradeFilter} onChange={e => setGradeFilter(e.target.value)}><option value="ALL">全部评分</option><option value="A">A级</option><option value="B">B级</option><option value="C">C级</option></select>
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option value="NEW">待开发</option><option value="CRM">已入CRM</option><option value="IGNORED">已忽略</option><option value="ALL">全部状态</option></select>
         </div>
       </div>
-      <div className="table-wrap"><table><thead><tr><th>客户</th><th>类型 / 地区</th><th>公开联系方式</th><th>评分</th><th>来源</th><th>操作</th></tr></thead><tbody>
+      <div className="table-wrap"><table><thead><tr><th>客户</th><th>类型 / 地区</th><th>公开联系人 / 联系方式</th><th>评分</th><th>来源</th><th>操作</th></tr></thead><tbody>
         {visible.length === 0 && <tr><td colSpan={6}>暂无符合条件的客户。先从上方选择州和客户类型开始搜索。</td></tr>}
         {visible.map((row, index) => {
           const id = text(row.id, String(index));
@@ -184,17 +261,36 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
           const email = text(row.email, '');
           const phone = text(row.phone, '');
           const whatsapp = text(row.whatsapp, '');
+          const instagram = text(row.instagram_url, '');
+          const facebook = text(row.facebook_url, '');
+          const linkedin = text(row.linkedin_url, '');
+          const person = text(row.contact_person_name, '');
+          const personTitle = text(row.contact_person_title, '');
           const status = text(row.status, 'NEW');
+          const enrichment = text(row.enrichment_status, 'NOT_STARTED');
           return <tr key={id}>
-            <td><div className="discovery-name"><strong>{text(row.name)}</strong>{website && <a href={website} target="_blank" rel="noreferrer">官网 <ExternalLink size={12}/></a>}</div><small>{statusLabel(status)}</small></td>
+            <td><div className="discovery-name"><strong>{text(row.name)}</strong>{website && <a href={website} target="_blank" rel="noreferrer">官网 <ExternalLink size={12}/></a>}</div><small>{statusLabel(status)}{enrichment === 'COMPLETED' ? ' · 官网已补全' : enrichment === 'FAILED' ? ' · 补全失败' : ''}</small></td>
             <td><strong>{typeLabel(row.customer_type)}</strong><small className="discovery-location"><MapPin size={12}/>{[text(row.city,''), text(row.state_region,'')].filter(Boolean).join(', ') || '—'}</small><small>{text(row.address,'')}</small></td>
-            <td><div className="discovery-contact-list">{email ? <a href={`mailto:${email}`}>{email}</a> : <span>邮箱待补全</span>}{phone ? <a href={`tel:${phone}`}>{phone}</a> : <span>电话待补全</span>}{whatsapp && <span>WhatsApp: {whatsapp}</span>}</div></td>
+            <td><div className="discovery-contact-list">
+              {person && <strong>{person}{personTitle ? ` · ${personTitle}` : ''}</strong>}
+              {email ? <a href={`mailto:${email}`}>{email}</a> : <span>邮箱待补全</span>}
+              {phone ? <a href={`tel:${phone}`}>{phone}</a> : <span>电话待补全</span>}
+              {whatsapp && <span>WhatsApp: {whatsapp}</span>}
+              <div className="discovery-socials">
+                {linkedin && <a href={linkedin} target="_blank" rel="noreferrer">LinkedIn</a>}
+                {instagram && <a href={instagram} target="_blank" rel="noreferrer">Instagram</a>}
+                {facebook && <a href={facebook} target="_blank" rel="noreferrer">Facebook</a>}
+              </div>
+            </div></td>
             <td><div className="discovery-score"><span className={gradeClass(row.grade)}>{text(row.grade)}</span><strong>{text(row.lead_score, '0')}</strong><small>/100</small></div></td>
-            <td><a className="discovery-source" href={text(row.source_url,'#')} target="_blank" rel="noreferrer">OSM证据 <ExternalLink size={12}/></a><small>{text(row.source_evidence,'')}</small></td>
-            <td>{status === 'NEW' ? <div className="secure-link-actions">
-              <button className="table-action" disabled={busyId === id} onClick={() => void candidateAction(id,'ADD_TO_CRM')}><UserPlus size={13}/>{busyId === id ? '处理中…' : '加入CRM'}</button>
-              <button className="table-action" disabled={busyId === id} onClick={() => void candidateAction(id,'IGNORE')}><X size={13}/>忽略</button>
-            </div> : status === 'CRM' ? <span>已进入销售流程</span> : <span>已忽略</span>}</td>
+            <td><a className="discovery-source" href={text(row.source_url,'#')} target="_blank" rel="noreferrer">OSM证据 <ExternalLink size={12}/></a>{text(row.website_contact_url,'') && <a className="discovery-source" href={text(row.website_contact_url,'')} target="_blank" rel="noreferrer">官网证据 <ExternalLink size={12}/></a>}<small>{text(row.source_evidence,'')}</small></td>
+            <td><div className="secure-link-actions">
+              {website && status !== 'IGNORED' && <button className="table-action" disabled={busyId === id} onClick={() => void enrichOne(id)}><RefreshCcw size={13}/>{busyId === id ? '补全中…' : enrichment === 'COMPLETED' ? '重新补全' : '官网补全'}</button>}
+              {status === 'NEW' && <button className="table-action" disabled={busyId === id} onClick={() => void candidateAction(id,'ADD_TO_CRM')}><UserPlus size={13}/>{busyId === id ? '处理中…' : '加入CRM'}</button>}
+              {status === 'NEW' && <button className="table-action" disabled={busyId === id} onClick={() => void candidateAction(id,'IGNORE')}><X size={13}/>忽略</button>}
+              {status === 'CRM' && <span>已进入销售流程</span>}
+              {status === 'IGNORED' && <span>已忽略</span>}
+            </div></td>
           </tr>;
         })}
       </tbody></table></div>
@@ -205,6 +301,6 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
       {jobs.slice(0,8).map((job,index) => <div className="list-row" key={text(job.id,String(index))}><div><strong>{typeLabel(job.customer_type)} · {text(job.state_region)}</strong><small>目标 {text(job.target_count)} · 实际 {text(job.result_count,'0')} · {text(job.source_provider)}</small></div><span>{text(job.status)}</span></div>)}
     </section>}
 
-    <div className="discovery-attribution">Data © OpenStreetMap contributors · 仅用于公开商业线索发现与来源验证。</div>
+    <div className="discovery-attribution">Data © OpenStreetMap contributors · 官网补全仅提取公开商业信息并保留来源链接。</div>
   </>;
 }
