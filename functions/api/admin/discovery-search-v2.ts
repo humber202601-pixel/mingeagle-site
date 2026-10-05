@@ -1,7 +1,7 @@
 interface Env { MINGEAGLE_DB: D1Database }
 
 type Input = { stateCode?: string; customerType?: string; targetCount?: number | string };
-type SourceResult = { ok?: boolean; found?: number; error?: string; mode?: string; provider?: string };
+type SourceResult = { ok?: boolean; found?: number; error?: string; mode?: string; provider?: string; checked?: number; verified?: number };
 
 const clean = (value: unknown, max = 1000) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 const allowedState = /^[A-Z]{2}$/;
@@ -22,7 +22,7 @@ async function callSource(
       headers: {
         'content-type': 'application/json',
         'x-admin-key': request.headers.get('x-admin-key') || '',
-        'user-agent': 'MING-EAGLE-Discovery-Orchestrator/1.1',
+        'user-agent': 'MING-EAGLE-Discovery-Orchestrator/1.2',
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -32,7 +32,7 @@ async function callSource(
     return result;
   } catch (error) {
     if (error instanceof Error && (error.name === 'AbortError' || /aborted/i.test(error.message))) {
-      throw new Error(path.includes('discovery-web') ? 'Web 搜索源等待超时' : '地图源等待超时');
+      throw new Error(path.includes('discovery-web') ? 'Web 验证源等待超时' : '地图源等待超时');
     }
     throw error;
   } finally {
@@ -54,8 +54,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     const common = { stateCode, customerType, targetCount };
     const [mapResult, webResult] = await Promise.allSettled([
-      callSource(request, '/api/admin/discovery', { action: 'SEARCH', ...common }, 10000),
-      callSource(request, '/api/admin/discovery-web', common, 22000),
+      callSource(request, '/api/admin/discovery', { action: 'SEARCH', ...common }, 8000),
+      callSource(request, '/api/admin/discovery-web-v2', common, 26000),
     ]);
 
     const map = mapResult.status === 'fulfilled' ? mapResult.value : null;
@@ -68,7 +68,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const webError = webResult.status === 'rejected' ? (webResult.reason instanceof Error ? webResult.reason.message : String(webResult.reason)) : '';
       return Response.json({
         ok: false,
-        error: `本次两个免费公开数据源都未成功。地图源：${mapError || '失败'}；Web源：${webError || '失败'}。`,
+        error: `本次两个免费公开数据源都未成功。地图源：${mapError || '失败'}；Web验证源：${webError || '失败'}。`,
         sources: { map: false, web: false },
       }, { status: 502 });
     }
@@ -78,10 +78,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       found: mapFound + webFound,
       mapFound,
       webFound,
+      webChecked: Number(web?.checked || 0),
+      webVerified: Number(web?.verified || webFound),
       webProvider: web?.provider || web?.mode || '',
-      mode: 'DUAL_SOURCE',
+      mode: 'VERIFIED_MULTI_SOURCE',
       sources: { map: Boolean(map), web: Boolean(web) },
-      note: !map ? '地图源未返回，本次由 Web 搜索源完成。' : !web ? 'Web 搜索源未返回，本次由地图源完成。' : '地图源和 Web 搜索源均已返回。',
+      note: !map ? '地图源未返回，本次由严格验证后的 Web 官网候选完成。' : !web ? 'Web 验证源未返回，本次由地图源完成。' : '地图源与严格验证后的 Web 官网候选均已返回。',
     });
   } catch (error) {
     console.error('discovery_orchestrator_failed', error);
