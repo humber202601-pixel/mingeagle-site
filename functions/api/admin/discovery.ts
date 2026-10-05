@@ -87,48 +87,71 @@ function overpassFilters(customerType: string) {
     nwr["sport"="basketball"]["name"~"academy|training|basketball|hoops",i](area.searchArea);`;
 }
 
-function buildQuery(stateCode: string, customerType: string, limit: number) {
-  return `[out:json][timeout:22];
-area["ISO3166-2"="US-${stateCode}"]["boundary"="administrative"]->.searchArea;
+function fallbackFilters(customerType: string) {
+  if (customerType === 'SPORTS_STORE') return `
+    nwr["shop"="sports"]["name"](area.searchArea);`;
+  if (customerType === 'YOUTH_CLUB') return `
+    nwr["club"="sport"]["sport"="basketball"]["name"](area.searchArea);
+    nwr["sport"="basketball"]["club"="sport"]["name"](area.searchArea);`;
+  if (customerType === 'BASKETBALL_GYM') return `
+    nwr["sport"="basketball"]["leisure"="sports_centre"]["name"](area.searchArea);
+    nwr["sport"="basketball"]["leisure"="fitness_centre"]["name"](area.searchArea);`;
+  return `
+    nwr["sport"="basketball"]["leisure"="sports_centre"]["name"](area.searchArea);
+    nwr["sport"="basketball"]["club"="sport"]["name"](area.searchArea);`;
+}
+
+function buildQuery(stateCode: string, customerType: string, limit: number, fallback = false) {
+  const filters = fallback ? fallbackFilters(customerType) : overpassFilters(customerType);
+  return `[out:json][timeout:18];
+area["ISO3166-2"="US-${stateCode}"]->.searchArea;
 (
-${overpassFilters(customerType)}
+${filters}
 );
-out center ${Math.min(150, Math.max(10, limit * 2))};`;
+out center ${Math.min(120, Math.max(20, limit * 2))};`;
+}
+
+async function fetchOverpassEndpoint(endpoint: string, query: string) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        'accept': 'application/json',
+        'user-agent': 'MING-EAGLE-Customer-Discovery/1.1',
+      },
+      body: new URLSearchParams({ data: query }).toString(),
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json() as { elements?: OverpassElement[] };
+    return data.elements || [];
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function fetchOverpass(query: string) {
   const endpoints = [
-    'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter',
   ];
-  let lastError = 'Overpass request failed.';
-  for (const endpoint of endpoints) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 24000);
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
-          'accept': 'application/json',
-          'user-agent': 'MING-EAGLE-Customer-Discovery/1.0',
-        },
-        body: new URLSearchParams({ data: query }).toString(),
-        signal: controller.signal,
-      });
-      if (!response.ok) {
-        lastError = `OpenStreetMap search returned ${response.status}.`;
-        continue;
-      }
-      const data = await response.json() as { elements?: OverpassElement[] };
-      return data.elements || [];
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : lastError;
-    } finally {
-      clearTimeout(timer);
-    }
+  try {
+    return await Promise.any(endpoints.map(endpoint => fetchOverpassEndpoint(endpoint, query)));
+  } catch {
+    throw new Error('PUBLIC_SOURCE_BUSY');
   }
-  throw new Error(lastError);
+}
+
+async function fetchOverpassResilient(stateCode: string, customerType: string, targetCount: number) {
+  try {
+    return await fetchOverpass(buildQuery(stateCode, customerType, targetCount, false));
+  } catch {
+    return fetchOverpass(buildQuery(stateCode, customerType, targetCount, true));
+  }
 }
 
 function firstTag(tags: Record<string, string>, keys: string[]) {
@@ -209,7 +232,7 @@ async function searchCandidates(db: D1Database, stateCode: string, customerType:
     .bind(jobId, stateCode, customerType, targetCount).run();
 
   try {
-    const elements = await fetchOverpass(buildQuery(stateCode, customerType, targetCount));
+    const elements = await fetchOverpassResilient(stateCode, customerType, targetCount);
     const seen = new Set<string>();
     let saved = 0;
 
@@ -409,6 +432,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ ok: false, error: 'Unsupported action.' }, { status: 400 });
   } catch (error) {
     console.error('discovery_action_failed', error);
-    return Response.json({ ok: false, error: error instanceof Error ? error.message : 'Discovery action failed.' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Discovery action failed.';
+    if (message === 'PUBLIC_SOURCE_BUSY') {
+      return Response.json({ ok: false, error: '公共地图数据源目前较忙。系统已经自动尝试多个备用节点，请等待约 30 秒后再试一次。' }, { status: 503 });
+    }
+    return Response.json({ ok: false, error: message }, { status: 500 });
   }
 };
