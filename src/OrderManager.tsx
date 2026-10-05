@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { statusLabel } from './adminI18n';
+import { statusLabel, zhDate } from './adminI18n';
 
 type Row = Record<string, unknown>;
 
@@ -11,6 +11,24 @@ type Props = {
 
 const text = (value: unknown, fallback = '—') => value === null || value === undefined || value === '' ? fallback : String(value);
 const money = (value: unknown, currency: unknown) => `${text(currency, 'USD')} ${Number(value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const paymentMethodLabel = (value: unknown) => ({
+  BANK_TRANSFER: '银行转账',
+  WISE: 'Wise',
+  PAYONEER: 'Payoneer',
+  ACH: 'ACH',
+  WIRE: '国际电汇',
+  OTHER: '其他',
+}[text(value, '')] || text(value));
+
+function parsePayments(value: unknown): Row[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(String(value));
+    return Array.isArray(parsed) ? parsed as Row[] : [];
+  } catch {
+    return [];
+  }
+}
 
 export default function OrderManager({ orders, accessKey, onChanged }: Props) {
   const [busy, setBusy] = useState('');
@@ -93,6 +111,7 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
       const received = Number(order.amount_received || 0);
       const outstanding = Math.max(0, total - received);
       const paymentReference = `PAY-${reference}`;
+      const payments = parsePayments(order.payments_json);
       const note = message[reference];
       return <section className="panel order-card" key={reference}>
         <div className="order-head">
@@ -104,6 +123,20 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
           <div><small>付款备注号</small><strong>{paymentReference}</strong></div>
           <div><small>承运商</small><strong>{text(order.carrier)}</strong></div>
           <div><small>物流单号</small><strong>{text(order.tracking_number)}</strong></div>
+        </div>
+
+        <div className="payment-history-block">
+          <div className="panel-head"><h3>付款记录</h3><span>共 {payments.length} 笔 · 累计 {money(received, order.currency)} · 待收 {money(outstanding, order.currency)}</span></div>
+          {payments.length === 0 ? <div className="empty-row">暂无付款记录。</div> : <div className="table-wrap"><table>
+            <thead><tr><th>到账时间</th><th>付款方式</th><th>本次金额</th><th>流水号 / 凭证号</th><th>状态</th></tr></thead>
+            <tbody>{payments.map((payment, paymentIndex) => <tr key={text(payment.id, `${reference}-payment-${paymentIndex}`)}>
+              <td>{zhDate(payment.received_at || payment.created_at)}</td>
+              <td>{paymentMethodLabel(payment.method)}</td>
+              <td><strong>{money(payment.amount, payment.currency || order.currency)}</strong></td>
+              <td>{text(payment.provider_reference)}</td>
+              <td>{statusLabel(payment.status)}</td>
+            </tr>)}</tbody>
+          </table></div>}
         </div>
 
         {paymentStatus !== 'PAID' && !['CANCELLED','COMPLETED'].includes(status) && <form className="order-action-form" onSubmit={e => paymentSubmit(e, reference, outstanding || total)}>
