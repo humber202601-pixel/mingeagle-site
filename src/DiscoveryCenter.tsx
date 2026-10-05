@@ -70,19 +70,18 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
     setError('');
     setMessage('');
     try {
-      const response = await fetch('/api/admin/discovery', {
+      const response = await fetch('/api/admin/discovery-search-v2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
         body: JSON.stringify({
-          action: 'SEARCH',
           stateCode: data.get('stateCode'),
           customerType: data.get('customerType'),
           targetCount: data.get('targetCount'),
         }),
       });
-      const body = await response.json() as { ok?: boolean; found?: number; error?: string };
+      const body = await response.json() as { ok?: boolean; found?: number; mode?: string; error?: string };
       if (!response.ok || !body.ok) throw new Error(body.error || '搜索失败。');
-      setMessage(`本次发现并更新 ${body.found || 0} 个公开客户候选。`);
+      setMessage(`都会区分片搜索完成：本次发现并更新 ${body.found || 0} 个公开客户候选。`);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : '搜索失败。');
@@ -237,7 +236,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
         <button className="button discovery-search-button" disabled={searching}>{searching ? <><LoaderCircle size={16} className="spin"/> 正在搜索…</> : <><Search size={16}/> 开始发现客户</>}</button>
       </form>
       <div className="discovery-enrich-bar">
-        <div className="discovery-note">第一层从 OpenStreetMap 发现客户；第二层只访问候选客户的公开官网，并最多检查首页 + 2 个 Contact/About/Team 页面。</div>
+        <div className="discovery-note">第一层按州内主要都会区分片搜索公开地图数据；第二层只访问候选客户的公开官网，并最多检查首页 + 2 个 Contact/About/Team 页面。</div>
         <button type="button" className="button secondary small" disabled={batching} onClick={() => void batchEnrich()}>{batching ? <><LoaderCircle size={14} className="spin"/> 正在批量补全…</> : <><RefreshCcw size={14}/> 批量补全前 5 个</>}</button>
       </div>
       {message && <div className="form-status success"><strong>操作成功</strong><p>{message}</p></div>}
