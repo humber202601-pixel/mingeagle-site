@@ -24,7 +24,19 @@ async function sha256(value: string) {
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+async function ensureQuoteLinks(db: D1Database) {
+  await db.prepare(`CREATE TABLE IF NOT EXISTS quote_public_links (
+    id TEXT PRIMARY KEY,
+    quote_id TEXT NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at TEXT
+  )`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_quote_public_links_quote ON quote_public_links(quote_id, created_at DESC)`).run();
+}
+
 async function getQuote(db: D1Database, token: string) {
+  await ensureQuoteLinks(db);
   const hash = await sha256(token);
   return db.prepare(`SELECT
       q.id, q.reference, q.status, q.currency, q.subtotal, q.discount, q.shipping, q.tax, q.total,
@@ -36,7 +48,12 @@ async function getQuote(db: D1Database, token: string) {
     FROM quotes q
     LEFT JOIN companies c ON c.id=q.company_id
     LEFT JOIN contacts ct ON ct.id=q.contact_id
-    WHERE q.public_token_hash=? LIMIT 1`).bind(hash).first<Row>();
+    WHERE q.public_token_hash=?
+       OR EXISTS (
+         SELECT 1 FROM quote_public_links qpl
+         WHERE qpl.quote_id=q.id AND qpl.token_hash=? AND qpl.revoked_at IS NULL
+       )
+    LIMIT 1`).bind(hash, hash).first<Row>();
 }
 
 async function getOrder(db: D1Database, quoteId: string) {
@@ -61,7 +78,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
   try {
     const db = env.MINGEAGLE_DB;
     const quote = await getQuote(db, token);
-    if (!quote) return errorPage('Quote not found. The link may have been replaced by a newer secure link.');
+    if (!quote) return errorPage('Quote not found. This link is invalid or has been revoked.');
 
     const quoteId = String(quote.id);
     if (Number(quote.is_expired) === 1 && !['ACCEPTED', 'CONVERTED'].includes(String(quote.status))) {
@@ -82,7 +99,6 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
     const order = await getOrder(db, quoteId);
     const currency = String(quote.currency || 'USD');
     const tokenJson = JSON.stringify(token);
-
     const itemRows = items.map(item => `<tr><td>${esc(item.description)}</td><td>${esc(item.quantity)}</td><td>${esc(money(item.unit_price, currency))}</td><td>${esc(money(item.line_total, currency))}</td></tr>`).join('');
 
     let actionArea = '';
@@ -94,6 +110,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
       actionArea = `<div class="notice error">This quote has expired. Please request an updated quotation.</div>`;
     } else if (['DECLINED', 'CONVERTED', 'ACCEPTED'].includes(String(quote.status))) {
       actionArea = `<div class="notice error">This quote is no longer awaiting acceptance.</div>`;
+    } else if (Number(quote.total || 0) <= 0) {
+      actionArea = `<div class="notice error">This quotation has no valid price. Please contact MING EAGLE for a corrected quotation.</div>`;
     } else {
       actionArea = `<div id="acceptArea" class="accept"><label><input id="agree" type="checkbox"> <span>I have reviewed the quotation and authorize MING EAGLE to create the order based on these terms.</span></label><button id="acceptBtn" class="button" disabled>Accept quote & create order</button><div id="message"></div></div>`;
     }
@@ -122,7 +140,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
 const token=${tokenJson};
 const agree=document.getElementById('agree');
 const btn=document.getElementById('acceptBtn');
-if(agree&&btn){agree.addEventListener('change',()=>{btn.disabled=!agree.checked});btn.addEventListener('click',async()=>{if(!agree.checked)return;btn.disabled=true;btn.textContent='Creating order…';const message=document.getElementById('message');try{const r=await fetch('/api/quote/'+token,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'accept'})});const b=await r.json();if(!r.ok||!b.ok)throw new Error(b.error||'Unable to accept quote.');window.location.reload()}catch(e){if(message)message.innerHTML='<div class="notice error">'+${JSON.stringify('<strong>Unable to create order:</strong> ')}+String(e&&e.message?e.message:e)+'</div>';btn.disabled=false;btn.textContent='Accept quote & create order'}})}
+if(agree&&btn){agree.addEventListener('change',()=>{btn.disabled=!agree.checked});btn.addEventListener('click',async()=>{if(!agree.checked)return;btn.disabled=true;btn.textContent='Creating order…';const message=document.getElementById('message');try{const r=await fetch('/api/quote/'+token,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'accept'})});const b=await r.json();if(!r.ok||!b.ok)throw new Error(b.error||'Unable to accept quote.');window.location.reload()}catch(e){if(message)message.innerHTML='<div class="notice error"><strong>Unable to create order:</strong> '+String(e&&e.message?e.message:e)+'</div>';btn.disabled=false;btn.textContent='Accept quote & create order'}})}
 </script>
 </body></html>`;
 
