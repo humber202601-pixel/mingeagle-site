@@ -19,9 +19,9 @@ export function airwallexApiBase(env: AirwallexEnv) {
     : 'https://api.airwallex.com';
 }
 
-export function airwallexSdkEnv(env: AirwallexEnv): 'demo' | 'prod' {
+export function airwallexSdkEnv(env: AirwallexEnv): 'sandbox' | 'prod' {
   const mode = String(env.AIRWALLEX_ENV || 'prod').toLowerCase();
-  return mode === 'sandbox' || mode === 'demo' ? 'demo' : 'prod';
+  return mode === 'sandbox' || mode === 'demo' ? 'sandbox' : 'prod';
 }
 
 export function isAirwallexConfigured(env: AirwallexEnv) {
