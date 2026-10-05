@@ -26,7 +26,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
       pipeline,
     ] = await Promise.all([
       db.prepare("SELECT COUNT(*) AS value FROM leads WHERE created_at >= datetime('now','-7 days')").first<{ value: number }>(),
-      db.prepare("SELECT COUNT(*) AS value FROM inquiries WHERE status IN ('NEW','REVIEWING')").first<{ value: number }>(),
+      db.prepare("SELECT COUNT(*) AS value FROM inquiries WHERE status IN ('NEW','REVIEWING','RESPONDED','QUALIFIED')").first<{ value: number }>(),
       db.prepare("SELECT COUNT(*) AS value FROM quotes WHERE status IN ('SENT','VIEWED')").first<{ value: number }>(),
       db.prepare("SELECT COUNT(*) AS value FROM orders WHERE status NOT IN ('COMPLETED','CANCELLED')").first<{ value: number }>(),
       db.prepare(`SELECT
@@ -38,12 +38,16 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
         LEFT JOIN contacts ct ON ct.id = l.primary_contact_id
         ORDER BY l.created_at DESC LIMIT 100`).all(),
       db.prepare(`SELECT
-        i.id, i.reference, COALESCE(c.name, ct.full_name, ct.email, 'Unknown') AS customer,
-        i.request_type, i.estimated_quantity, i.status, i.created_at
+        i.id, i.reference, i.lead_id, COALESCE(c.name, ct.full_name, ct.email, 'Unknown') AS customer,
+        i.request_type, i.customer_type, i.product_interest, i.estimated_quantity,
+        i.size_preference, i.color_preference, i.customization, i.order_timing,
+        i.shipping_country, i.shipping_city, i.shipping_postal_code, i.message,
+        i.status, i.created_at, i.updated_at
         FROM inquiries i
         LEFT JOIN companies c ON c.id = i.company_id
         LEFT JOIN contacts ct ON ct.id = i.contact_id
-        ORDER BY i.created_at DESC LIMIT 100`).all(),
+        ORDER BY CASE i.status WHEN 'QUALIFIED' THEN 0 WHEN 'RESPONDED' THEN 1 WHEN 'REVIEWING' THEN 2 WHEN 'NEW' THEN 3 WHEN 'QUOTED' THEN 4 ELSE 5 END,
+          datetime(i.updated_at) DESC LIMIT 100`).all(),
       db.prepare(`SELECT id, name, customer_type, country, state_region, city, status, created_at
         FROM companies ORDER BY created_at DESC LIMIT 100`).all(),
       db.prepare(`SELECT ct.id, ct.full_name, COALESCE(c.name,'—') AS company,
