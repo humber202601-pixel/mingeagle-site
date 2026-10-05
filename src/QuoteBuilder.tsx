@@ -179,6 +179,32 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     }
   }
 
+  async function createRevision(quote: Row) {
+    const quoteId = text(quote.id);
+    if (!quoteId) return;
+    setBusyQuoteId(quoteId);
+    setError('');
+    setEditMessage('');
+    setCustomerLink(null);
+    try {
+      const response = await fetch('/api/admin/quote-revise', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
+        body: JSON.stringify({ quoteId }),
+      });
+      const body = await response.json() as { ok?: boolean; quote?: Row; source?: Row; error?: string };
+      if (!response.ok || !body.ok || !body.quote?.id) throw new Error(body.error || '无法创建报价修订版。');
+      onCreated();
+      await loadQuotes();
+      await openEdit({ id: body.quote.id });
+      setEditMessage(`已从 ${text(body.quote.sourceReference, text(quote.reference))} 创建修订版 ${text(body.quote.reference)}。原已发送报价已停止接受下单，请审核新草稿后再发送。`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '无法创建报价修订版。');
+    } finally {
+      setBusyQuoteId('');
+    }
+  }
+
   async function createSecureLink(quote: Row) {
     const quoteId = text(quote.id);
     if (!quoteId) return;
@@ -316,18 +342,20 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     </section>}
 
     <section className="panel table-panel">
-      <div className="table-tools"><strong>共 {quotes.length} 张报价单</strong><span>草稿 → 审核修改 → 安全链接 → 客户查看 → 接受 → 自动生成订单</span></div>
+      <div className="table-tools"><strong>共 {quotes.length} 张报价单</strong><span>草稿 → 审核修改 → 安全链接 → 客户查看 → 修订 → 接受 → 自动生成订单</span></div>
       <div className="table-wrap"><table><thead><tr><th>报价单</th><th>客户</th><th>总金额</th><th>状态</th><th>有效期至</th><th>操作</th></tr></thead><tbody>
         {quotes.length === 0 && <tr><td colSpan={6}>暂无报价单。</td></tr>}
         {quotes.map((quote, i) => {
           const id = text(quote.id, String(i));
           const status = text(quote.status);
           const canSend = ['DRAFT','SENT','VIEWED'].includes(status);
+          const canRevise = ['SENT','VIEWED','EXPIRED','DECLINED'].includes(status);
           return <tr key={id}>
             <td>{text(quote.reference)}</td><td>{text(quote.customer)}</td><td>{money(quote.total, quote.currency)}</td><td>{statusLabel(status)}</td><td>{text(quote.valid_until)}</td>
             <td><div className="secure-link-actions">
               {status === 'DRAFT' && <button type="button" className="table-action" disabled={busyQuoteId === id} onClick={() => void openEdit(quote)}>{busyQuoteId === id ? '加载中…' : '编辑草稿'}</button>}
-              {canSend ? <button type="button" className="table-action" disabled={busyQuoteId === id} onClick={() => void createSecureLink(quote)}>{busyQuoteId === id ? '处理中…' : status === 'DRAFT' ? '生成安全链接' : '重新生成链接'}</button> : <span>{status === 'CONVERTED' ? '已生成订单' : '不可操作'}</span>}
+              {canRevise && <button type="button" className="table-action" disabled={busyQuoteId === id} onClick={() => void createRevision(quote)}>{busyQuoteId === id ? '处理中…' : '创建修订版'}</button>}
+              {canSend ? <button type="button" className="table-action" disabled={busyQuoteId === id} onClick={() => void createSecureLink(quote)}>{busyQuoteId === id ? '处理中…' : status === 'DRAFT' ? '生成安全链接' : '重新生成链接'}</button> : !canRevise && <span>{status === 'CONVERTED' ? '已生成订单' : '不可操作'}</span>}
             </div></td>
           </tr>;
         })}
