@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, CheckCircle2, Clock3, MailCheck, PauseCircle, PlayCircle, RefreshCcw, Send, ShieldCheck, X } from 'lucide-react';
+import { Activity, CheckCircle2, Clock3, MailCheck, PackageCheck, PauseCircle, PlayCircle, RefreshCcw, Send, ShieldCheck, X } from 'lucide-react';
 import { zhDate } from './adminI18n';
 
 type Row = Record<string, unknown>;
@@ -7,15 +7,25 @@ type Settings = { enabled: boolean; maxPerRun: number; maxPerLead: number; updat
 type Metrics = { sentToday: number; ready: number; reviewRequired: number; failed: number; sentTotal: number };
 type ResponseData = { ok?: boolean; settings?: Settings; metrics?: Metrics; recent?: Row[]; error?: string };
 type QueueData = { ok?: boolean; rows?: Row[]; counts?: Row[]; error?: string; reviewed?: number; created?: number; initialCreated?: number; followupCreated?: number };
+type SamplesData = { ok?: boolean; samples?: Row[]; error?: string };
 type QueueAction = 'APPROVE'|'SEND'|'DELAY'|'SKIP'|'RETRY';
+type SampleDraft = { status: string; shippingAddress: string; carrier: string; trackingNumber: string; costAmount: string; currency: string };
 
 const emptySettings: Settings = { enabled: true, maxPerRun: 5, maxPerLead: 3 };
 const emptyMetrics: Metrics = { sentToday: 0, ready: 0, reviewRequired: 0, failed: 0, sentTotal: 0 };
+const sampleStatuses = ['REQUESTED','APPROVED','PAYMENT_PENDING','PREPARING','SHIPPED','DELIVERED','FOLLOW_UP','CONVERTED','CLOSED'];
 const text = (value: unknown, fallback = '—') => value === null || value === undefined || value === '' ? fallback : String(value);
 
 function statusLabel(status: unknown) {
   const value = text(status, '');
   return ({ READY: '已批准 / 待发送', REVIEW_REQUIRED: '待人工审核', FAILED: '发送失败', SENT: '已发送', SKIPPED: '已跳过' } as Record<string,string>)[value] || value || '未知';
+}
+
+function sampleStatusLabel(status: unknown) {
+  const value = text(status, '');
+  return ({
+    REQUESTED:'客户已申请', APPROVED:'已批准', PAYMENT_PENDING:'待付款/费用确认', PREPARING:'准备中', SHIPPED:'已发出', DELIVERED:'已送达', FOLLOW_UP:'待回访', CONVERTED:'已转销售', CLOSED:'已关闭',
+  } as Record<string,string>)[value] || value || '未知';
 }
 
 function queueTypeLabel(value: unknown) {
@@ -30,14 +40,28 @@ function queueTypeLabel(value: unknown) {
   return type || '邮件';
 }
 
+function sampleDraftFromRow(row: Row): SampleDraft {
+  return {
+    status: text(row.status, 'REQUESTED'),
+    shippingAddress: text(row.shipping_address, ''),
+    carrier: text(row.carrier, ''),
+    trackingNumber: text(row.tracking_number, ''),
+    costAmount: row.cost_amount === null || row.cost_amount === undefined ? '' : String(row.cost_amount),
+    currency: text(row.currency, 'USD'),
+  };
+}
+
 export default function AutomationCenter({ accessKey }: { accessKey: string }) {
   const [settings, setSettings] = useState<Settings>(emptySettings);
   const [metrics, setMetrics] = useState<Metrics>(emptyMetrics);
   const [recent, setRecent] = useState<Row[]>([]);
   const [queue, setQueue] = useState<Row[]>([]);
+  const [samples, setSamples] = useState<Row[]>([]);
+  const [sampleDrafts, setSampleDrafts] = useState<Record<string, SampleDraft>>({});
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [rowBusy, setRowBusy] = useState('');
+  const [sampleBusy, setSampleBusy] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -46,18 +70,24 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
   const load = useCallback(async () => {
     setBusy(true); setError('');
     try {
-      const [automationResponse, queueResponse] = await Promise.all([
+      const [automationResponse, queueResponse, samplesResponse] = await Promise.all([
         fetch('/api/admin/automation-control', { headers: { 'x-admin-key': accessKey } }),
         fetch('/api/admin/email-queue', { headers: { 'x-admin-key': accessKey } }),
+        fetch('/api/admin/samples', { headers: { 'x-admin-key': accessKey } }),
       ]);
       const body = await automationResponse.json() as ResponseData;
       const queueBody = await queueResponse.json() as QueueData;
+      const samplesBody = await samplesResponse.json() as SamplesData;
       if (!automationResponse.ok || !body.ok) throw new Error(body.error || '无法加载自动化设置。');
       if (!queueResponse.ok || !queueBody.ok) throw new Error(queueBody.error || '无法加载邮件队列。');
+      if (!samplesResponse.ok || !samplesBody.ok) throw new Error(samplesBody.error || '无法加载样品申请。');
       setSettings(body.settings || emptySettings);
       setMetrics(body.metrics || emptyMetrics);
       setRecent(body.recent || []);
       setQueue(queueBody.rows || []);
+      const nextSamples = samplesBody.samples || [];
+      setSamples(nextSamples);
+      setSampleDrafts(Object.fromEntries(nextSamples.map(row => [text(row.id,''), sampleDraftFromRow(row)])));
     } catch (err) {
       setError(err instanceof Error ? err.message : '无法加载自动化设置。');
     } finally { setBusy(false); }
@@ -125,6 +155,7 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
   const selectedRows = useMemo(() => reviewQueue.filter(row => selectedIds.includes(text(row.id,''))), [reviewQueue, selectedIds]);
   const selectedReviewCount = selectedRows.filter(row => text(row.status,'') === 'REVIEW_REQUIRED').length;
   const selectedReadyCount = selectedRows.filter(row => text(row.status,'') === 'READY').length;
+  const openSamples = useMemo(() => samples.filter(row => !['CONVERTED','CLOSED'].includes(text(row.status,''))).slice(0,30), [samples]);
 
   function toggleSelected(id: string) {
     setSelectedIds(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]);
@@ -172,12 +203,42 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
     setBusy(false);
   }
 
+  function updateSampleDraft(id: string, patch: Partial<SampleDraft>) {
+    setSampleDrafts(current => ({ ...current, [id]: { ...(current[id] || { status:'REQUESTED', shippingAddress:'', carrier:'', trackingNumber:'', costAmount:'', currency:'USD' }), ...patch } }));
+  }
+
+  async function saveSample(sampleId: string) {
+    const draft = sampleDrafts[sampleId];
+    if (!draft) return;
+    setSampleBusy(sampleId); setError(''); setMessage('');
+    try {
+      const response = await fetch('/api/admin/samples', {
+        method:'POST', headers,
+        body:JSON.stringify({
+          sampleId,
+          status:draft.status,
+          shippingAddress:draft.shippingAddress,
+          carrier:draft.carrier,
+          trackingNumber:draft.trackingNumber,
+          costAmount:draft.costAmount === '' ? null : Number(draft.costAmount),
+          currency:draft.currency,
+        }),
+      });
+      const body = await response.json() as { ok?:boolean; error?:string; reference?:string; status?:string };
+      if (!response.ok || !body.ok) throw new Error(body.error || '保存样品申请失败。');
+      setMessage(`样品申请 ${body.reference || ''} 已更新为“${sampleStatusLabel(body.status)}”。`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '保存样品申请失败。');
+    } finally { setSampleBusy(''); }
+  }
+
   return <div>
     <section className="metric-grid">
       <div className="metric"><span>今日已自动发送</span><strong>{metrics.sentToday}</strong><small>UTC 当日统计</small></div>
       <div className="metric"><span>待自动发送</span><strong>{metrics.ready}</strong><small>仅暖客户</small></div>
       <div className="metric"><span>待人工审核</span><strong>{metrics.reviewRequired}</strong><small>首封冷开发或超限客户</small></div>
-      <div className="metric"><span>发送失败</span><strong>{metrics.failed}</strong><small>需要人工查看</small></div>
+      <div className="metric"><span>待处理样品</span><strong>{openSamples.length}</strong><small>客户回复自动生成</small></div>
     </section>
 
     <section className="admin-grid two-col">
@@ -243,6 +304,36 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
             <button className="button secondary small" disabled={rowBusy===id} onClick={() => void queueAction(id,'DELAY')}><Clock3 size={14}/>延期3天</button>
             <button className="button secondary small" disabled={rowBusy===id} onClick={() => void queueAction(id,'SKIP')}><X size={14}/>跳过</button>
           </div>
+        </div>;
+      })}
+    </section>
+
+    <section className="panel">
+      <div className="panel-head"><div><h2>样品申请</h2><span>客户回复 sample / try / demo 后自动创建</span></div><PackageCheck size={20}/></div>
+      {openSamples.length === 0 && <div className="empty-row">当前没有待处理样品申请。</div>}
+      {openSamples.map((row,i)=>{
+        const id = text(row.id,String(i));
+        const draft = sampleDrafts[id] || sampleDraftFromRow(row);
+        return <div key={id} style={{padding:'16px 0',borderBottom:'1px solid #e4e7ec',display:'grid',gap:10}}>
+          <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start'}}>
+            <div><strong>{text(row.reference)} · {text(row.customer)}</strong><p style={{margin:'5px 0 0',color:'#667085'}}>数量 {text(row.quantity,'1')} · {text(row.email,'无邮箱')} · {text(row.phone || row.whatsapp,'无电话')}</p></div>
+            <span className="priority high">{sampleStatusLabel(row.status)}</span>
+          </div>
+          <details>
+            <summary style={{cursor:'pointer',color:'#475467'}}>编辑样品状态 / 地址 / 物流</summary>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10,marginTop:12}}>
+              <label style={{display:'grid',gap:6,fontWeight:700}}>状态<select value={draft.status} onChange={e=>updateSampleDraft(id,{status:e.target.value})} style={{padding:9,border:'1px solid #d0d5dd',borderRadius:8}}>{sampleStatuses.map(s=><option key={s} value={s}>{sampleStatusLabel(s)}</option>)}</select></label>
+              <label style={{display:'grid',gap:6,fontWeight:700}}>物流商<input value={draft.carrier} onChange={e=>updateSampleDraft(id,{carrier:e.target.value})} placeholder="USPS / UPS / FedEx..." style={{padding:9,border:'1px solid #d0d5dd',borderRadius:8}}/></label>
+              <label style={{display:'grid',gap:6,fontWeight:700}}>运单号<input value={draft.trackingNumber} onChange={e=>updateSampleDraft(id,{trackingNumber:e.target.value})} style={{padding:9,border:'1px solid #d0d5dd',borderRadius:8}}/></label>
+              <label style={{display:'grid',gap:6,fontWeight:700}}>样品成本<input type="number" min="0" step="0.01" value={draft.costAmount} onChange={e=>updateSampleDraft(id,{costAmount:e.target.value})} style={{padding:9,border:'1px solid #d0d5dd',borderRadius:8}}/></label>
+              <label style={{display:'grid',gap:6,fontWeight:700}}>币种<input value={draft.currency} onChange={e=>updateSampleDraft(id,{currency:e.target.value.toUpperCase()})} style={{padding:9,border:'1px solid #d0d5dd',borderRadius:8}}/></label>
+              <label style={{display:'grid',gap:6,fontWeight:700,gridColumn:'1 / -1'}}>收货地址<input value={draft.shippingAddress} onChange={e=>updateSampleDraft(id,{shippingAddress:e.target.value})} placeholder="客户确认后填写完整地址" style={{padding:9,border:'1px solid #d0d5dd',borderRadius:8}}/></label>
+            </div>
+            <div style={{marginTop:10,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+              <button className="button small" disabled={sampleBusy===id} onClick={() => void saveSample(id)}><CheckCircle2 size={14}/>{sampleBusy===id ? '保存中…' : '保存样品进度'}</button>
+              {Boolean(row.follow_up_at) && <span style={{color:'#667085'}}>计划回访：{zhDate(row.follow_up_at)}</span>}
+            </div>
+          </details>
         </div>;
       })}
     </section>
