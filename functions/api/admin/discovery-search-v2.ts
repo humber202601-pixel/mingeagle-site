@@ -17,7 +17,7 @@ async function callSource(request: Request,path: string,body: Record<string, unk
       headers: {
         'content-type': 'application/json',
         'x-admin-key': request.headers.get('x-admin-key') || '',
-        'user-agent': 'MING-EAGLE-Discovery-Orchestrator/1.8',
+        'user-agent': 'MING-EAGLE-Discovery-Orchestrator/1.9',
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -27,7 +27,9 @@ async function callSource(request: Request,path: string,body: Record<string, unk
     return result;
   } catch (error) {
     if (error instanceof Error && (error.name === 'AbortError' || /aborted/i.test(error.message))) {
-      throw new Error(path.includes('discovery-web') ? 'Web 实体验证源等待超时' : '地图官网验证源等待超时');
+      if (path.includes('expansion')) throw new Error('Web 扩展源等待超时');
+      if (path.includes('discovery-web')) throw new Error('Web 实体验证源等待超时');
+      throw new Error('地图官网验证源等待超时');
     }
     throw error;
   } finally {
@@ -48,34 +50,39 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!allowedTypes.has(customerType)) return Response.json({ ok: false, error: '不支持的客户类型。' }, { status: 400 });
 
     const common = { stateCode, customerType, targetCount };
-    const [mapResult, webResult] = await Promise.allSettled([
+    const [mapResult, webResult, expansionResult] = await Promise.allSettled([
       callSource(request, '/api/admin/discovery-map-v2', common, 30000),
       callSource(request, '/api/admin/discovery-web-v6', common, 34000),
+      callSource(request, '/api/admin/discovery-web-expansion-v1', common, 32000),
     ]);
 
     const map = mapResult.status === 'fulfilled' ? mapResult.value : null;
     const web = webResult.status === 'fulfilled' ? webResult.value : null;
+    const expansion = expansionResult.status === 'fulfilled' ? expansionResult.value : null;
     const mapError = mapResult.status === 'rejected' ? (mapResult.reason instanceof Error ? mapResult.reason.message : String(mapResult.reason)) : '';
     const webError = webResult.status === 'rejected' ? (webResult.reason instanceof Error ? webResult.reason.message : String(webResult.reason)) : '';
+    const expansionError = expansionResult.status === 'rejected' ? (expansionResult.reason instanceof Error ? expansionResult.reason.message : String(expansionResult.reason)) : '';
     const mapFound = Number(map?.found || 0);
     const webFound = Number(web?.found || 0);
+    const expansionFound = Number(expansion?.found || 0);
 
-    if (!map && !web) {
+    if (!map && !web && !expansion) {
       return Response.json({
         ok: false,
-        error: `本次两个免费公开数据源都未成功。地图官网验证源：${mapError || '失败'}；Web实体验证源：${webError || '失败'}。`,
-        sources: { map: false, web: false },
+        error: `本次三个免费公开数据源都未成功。地图源：${mapError || '失败'}；Web核心源：${webError || '失败'}；Web扩展源：${expansionError || '失败'}。`,
+        sources: { map: false, web: false, expansion: false },
       }, { status: 502 });
     }
 
     const notes = [
       map?.note || (mapError ? `地图源未完成：${mapError}。` : ''),
-      web?.note || (webError ? `Web源未完成：${webError}。` : ''),
+      web?.note || (webError ? `Web核心源未完成：${webError}。` : ''),
+      expansion?.note || (expansionError ? `Web扩展源未完成：${expansionError}。` : ''),
     ].filter(Boolean).join(' ');
 
     return Response.json({
       ok: true,
-      found: mapFound + webFound,
+      found: mapFound + webFound + expansionFound,
       mapFound,
       mapChecked: Number(map?.checked || 0),
       mapVerified: Number(map?.verified || mapFound),
@@ -86,9 +93,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       webVerified: Number(web?.verified || webFound),
       webProvider: web?.provider || web?.mode || '',
       webError,
-      mode: 'VERIFIED_MULTI_SOURCE_V6_2',
-      sources: { map: Boolean(map), web: Boolean(web) },
-      note: notes || 'V6.2 多源验证已完成。',
+      expansionFound,
+      expansionChecked: Number(expansion?.checked || 0),
+      expansionVerified: Number(expansion?.verified || expansionFound),
+      expansionError,
+      mode: 'VERIFIED_MULTI_SOURCE_V6_3',
+      sources: { map: Boolean(map), web: Boolean(web), expansion: Boolean(expansion) },
+      note: notes || 'V6.3 三源验证已完成。',
     });
   } catch (error) {
     console.error('discovery_orchestrator_failed', error);
