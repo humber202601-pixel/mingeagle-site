@@ -6,8 +6,8 @@ interface Env {
   AIRWALLEX_ENV?: string;
 }
 
-const RELEASE = 'MINGEAGLE_GROWTH_ENGINE_V16_PAYMENTS_2026-10-06';
-const DEPLOY_TRIGGER = 'V16_AIRWALLEX_PAYMENTS';
+const RELEASE = 'MINGEAGLE_GROWTH_ENGINE_V17_SECURITY_2026-10-06';
+const DEPLOY_TRIGGER = 'V17_SECURITY_HARDENING';
 
 export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
   const paymentEnvironment = ['sandbox','demo'].includes(String(env.AIRWALLEX_ENV || '').toLowerCase()) ? 'sandbox' : 'prod';
@@ -54,6 +54,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
       paymentAutoReconciliation: true,
       amountBasedPaymentGuidance: true,
       bankTransferGuidance: true,
+      adminBruteForceRateLimit: true,
+      adminNoStoreResponses: true,
+      securityResponseHeaders: true,
+      hstsOnApp: true,
+      antiClickjacking: true,
       replyToSampleRequest: true,
       sampleWorkflow: true,
       followupAutomation: true,
