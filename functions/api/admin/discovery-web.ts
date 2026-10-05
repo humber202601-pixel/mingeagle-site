@@ -1,7 +1,7 @@
 interface Env { MINGEAGLE_DB: D1Database }
 
 type Input = { stateCode?: string; customerType?: string; targetCount?: number | string };
-type SearchHit = { title: string; url: string; query: string; city: string };
+type SearchHit = { title: string; url: string; query: string; city: string; provider: string; snippet?: string };
 
 const clean = (value: unknown, max = 1000) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 const allowedState = /^[A-Z]{2}$/;
@@ -31,7 +31,8 @@ const QUERY_TERMS: Record<string,string[]> = {
 
 const BLOCKED_DOMAINS = [
   'duckduckgo.com','google.com','bing.com','yahoo.com','yelp.com','facebook.com','instagram.com','linkedin.com','youtube.com',
-  'yellowpages.com','mapquest.com','tripadvisor.com','indeed.com','ziprecruiter.com','chamberofcommerce.com','manta.com','bbb.org','apple.com'
+  'yellowpages.com','mapquest.com','tripadvisor.com','indeed.com','ziprecruiter.com','chamberofcommerce.com','manta.com','bbb.org','apple.com',
+  'wikipedia.org','reddit.com','x.com','twitter.com','tiktok.com','pinterest.com','maxpreps.com','hudl.com','eventbrite.com','foursquare.com'
 ];
 
 async function ensureTables(db:D1Database){
@@ -41,24 +42,16 @@ async function ensureTables(db:D1Database){
 
 function decodeEntities(value:string){
   return value
-    .replace(/&amp;/gi,'&').replace(/&quot;/gi,'"').replace(/&#x27;|&#39;/gi,"'")
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,'$1')
+    .replace(/&amp;/gi,'&').replace(/&quot;/gi,'"').replace(/&apos;|&#x27;|&#39;/gi,"'")
     .replace(/&lt;/gi,'<').replace(/&gt;/gi,'>')
     .replace(/&#(\d+);/g,(_,n)=>String.fromCharCode(Number(n)));
 }
 
 function stripTags(value:string){ return decodeEntities(value.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim()); }
-
-function decodeResultUrl(raw:string){
-  const value = decodeEntities(raw);
-  try{
-    const absolute = value.startsWith('//') ? `https:${value}` : value.startsWith('/') ? `https://duckduckgo.com${value}` : value;
-    const url = new URL(absolute);
-    if(url.hostname.endsWith('duckduckgo.com')){
-      const uddg = url.searchParams.get('uddg');
-      if(uddg) return decodeURIComponent(uddg);
-    }
-    return absolute;
-  }catch{return ''}
+function extractXmlTag(block:string, tag:string){
+  const match = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+  return match ? stripTags(match[1]) : '';
 }
 
 function allowedWebsite(value:string){
@@ -71,11 +64,7 @@ function allowedWebsite(value:string){
   }catch{return false}
 }
 
-function domainOf(value:string){
-  try{return new URL(value).hostname.toLowerCase().replace(/^www\./,'')}catch{return ''}
-}
-
-function normalizeName(value:string){return value.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().slice(0,220)}
+function domainOf(value:string){ try{return new URL(value).hostname.toLowerCase().replace(/^www\./,'')}catch{return ''} }
 
 function companyName(title:string, domain:string){
   const cleaned = stripTags(title)
@@ -86,63 +75,109 @@ function companyName(title:string, domain:string){
   return domain.split('.')[0].replace(/[-_]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase()).slice(0,120);
 }
 
-async function searchDuckDuckGo(query:string, city:string){
+function relevantHit(hit:SearchHit, customerType:string){
+  const text = `${hit.title} ${hit.snippet || ''}`.toLowerCase();
+  if(!/(basketball|hoops|sport|athletic)/.test(text)) return false;
+  if(customerType==='BASKETBALL_TRAINING') return /(academy|training|skills|coach|camp|basketball)/.test(text);
+  if(customerType==='BASKETBALL_GYM') return /(gym|facility|center|centre|court|basketball)/.test(text);
+  if(customerType==='YOUTH_CLUB') return /(youth|club|aau|academy|basketball)/.test(text);
+  if(customerType==='SPORTS_STORE') return /(store|shop|sporting goods|equipment|basketball)/.test(text);
+  return true;
+}
+
+async function fetchText(url:string, timeoutMs:number){
   const controller = new AbortController();
-  const timer = setTimeout(()=>controller.abort(),9000);
+  const timer = setTimeout(()=>controller.abort(),timeoutMs);
   try{
-    const response = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,{
+    const response = await fetch(url, {
       headers:{
-        'accept':'text/html,application/xhtml+xml',
+        'accept':'text/html,application/xhtml+xml,application/rss+xml,application/xml;q=0.9,*/*;q=0.8',
         'accept-language':'en-US,en;q=0.9',
-        'user-agent':'Mozilla/5.0 (compatible; MING-EAGLE-Customer-Discovery/1.0; +https://mingeagle.com)'
+        'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36'
       },
+      redirect:'follow',
       signal:controller.signal,
     });
     if(!response.ok) throw new Error(`HTTP ${response.status}`);
-    const html = (await response.text()).slice(0,900000);
-    const hits:SearchHit[]=[];
-    const patterns = [
-      /<a[^>]+class=["'][^"']*result__a[^"']*["'][^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
-      /<a[^>]+href=["']([^"']+)["'][^>]+class=["'][^"']*result__a[^"']*["'][^>]*>([\s\S]*?)<\/a>/gi,
-    ];
-    const seen=new Set<string>();
-    for(const pattern of patterns){
-      let match:RegExpExecArray|null;
-      while((match=pattern.exec(html))){
-        const url=decodeResultUrl(match[1]);
-        if(!url || !allowedWebsite(url)) continue;
-        const domain=domainOf(url); if(!domain || seen.has(domain)) continue;
-        const title=stripTags(match[2]); if(!title) continue;
-        seen.add(domain); hits.push({title,url,query,city});
-        if(hits.length>=12) break;
-      }
-      if(hits.length) break;
-    }
-    return hits;
+    return (await response.text()).slice(0,900000);
   } finally { clearTimeout(timer); }
 }
 
+async function searchBingRss(query:string, city:string){
+  const url = `https://www.bing.com/search?q=${encodeURIComponent(query)}&format=rss&mkt=en-US&setlang=en-US`;
+  const xml = await fetchText(url, 8000);
+  const blocks = xml.match(/<item\b[\s\S]*?<\/item>/gi) || [];
+  const hits:SearchHit[]=[];
+  const seen = new Set<string>();
+  for(const block of blocks){
+    const title = extractXmlTag(block,'title');
+    const resultUrl = decodeEntities(extractXmlTag(block,'link'));
+    const snippet = extractXmlTag(block,'description');
+    if(!title || !resultUrl || !allowedWebsite(resultUrl)) continue;
+    const domain=domainOf(resultUrl); if(!domain || seen.has(domain)) continue;
+    const hit={title,url:resultUrl,query,city,provider:'BING_RSS',snippet};
+    if(!relevantHit(hit,'BASKETBALL_TRAINING') && !/(basketball|sport|hoops)/i.test(`${title} ${snippet}`)) continue;
+    seen.add(domain); hits.push(hit);
+    if(hits.length>=10) break;
+  }
+  return hits;
+}
+
+function decodeDuckUrl(raw:string){
+  const value=decodeEntities(raw);
+  try{
+    const absolute=value.startsWith('//')?`https:${value}`:value.startsWith('/')?`https://html.duckduckgo.com${value}`:value;
+    const url=new URL(absolute);
+    if(url.hostname.endsWith('duckduckgo.com')){
+      const uddg=url.searchParams.get('uddg');
+      if(uddg) return decodeURIComponent(uddg);
+    }
+    return absolute;
+  }catch{return ''}
+}
+
+async function searchDuckDuckGo(query:string, city:string){
+  const html=await fetchText(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,7000);
+  const hits:SearchHit[]=[]; const seen=new Set<string>();
+  const patterns=[
+    /<a[^>]+class=["'][^"']*result__a[^"']*["'][^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
+    /<a[^>]+href=["']([^"']+)["'][^>]+class=["'][^"']*result__a[^"']*["'][^>]*>([\s\S]*?)<\/a>/gi,
+  ];
+  for(const pattern of patterns){
+    let match:RegExpExecArray|null;
+    while((match=pattern.exec(html))){
+      const resultUrl=decodeDuckUrl(match[1]); if(!resultUrl||!allowedWebsite(resultUrl)) continue;
+      const domain=domainOf(resultUrl); if(!domain||seen.has(domain)) continue;
+      const title=stripTags(match[2]); if(!title) continue;
+      seen.add(domain); hits.push({title,url:resultUrl,query,city,provider:'DUCKDUCKGO'});
+      if(hits.length>=8) break;
+    }
+    if(hits.length) break;
+  }
+  return hits;
+}
+
 function grade(score:number){return score>=80?'A':score>=60?'B':'C'}
-function scoreHit(name:string,type:string){
-  let score=58;
-  const n=name.toLowerCase();
+function scoreHit(hit:SearchHit,type:string){
+  let score=58; const n=`${hit.title} ${hit.snippet||''}`.toLowerCase();
   if(/basketball|hoops/.test(n)) score+=10;
-  if(type==='BASKETBALL_TRAINING' && /academy|training|skills|camp/.test(n)) score+=7;
+  if(type==='BASKETBALL_TRAINING' && /academy|training|skills|coach|camp/.test(n)) score+=7;
   if(type==='YOUTH_CLUB' && /youth|club|aau/.test(n)) score+=7;
-  if(type==='SPORTS_STORE' && /sport|basketball|equipment/.test(n)) score+=5;
-  return Math.min(88,score);
+  if(type==='SPORTS_STORE' && /sport|basketball|equipment|store|shop/.test(n)) score+=5;
+  if(hit.provider==='BING_RSS') score+=3;
+  return Math.min(90,score);
 }
 
 async function saveHits(db:D1Database,hits:SearchHit[],stateCode:string,customerType:string,target:number){
   const seen=new Set<string>(); let saved=0;
   for(const hit of hits){
     if(saved>=target) break;
-    const domain=domainOf(hit.url); if(!domain || seen.has(domain)) continue; seen.add(domain);
-    const name=companyName(hit.title,domain); const key=`web:${domain}`; const score=scoreHit(name,customerType);
-    const evidence=`Public web search · query=${hit.query} · result=${hit.title}`.slice(0,1000);
+    const domain=domainOf(hit.url); if(!domain||seen.has(domain)||!relevantHit(hit,customerType)) continue; seen.add(domain);
+    const name=companyName(hit.title,domain); const key=`web:${domain}`; const score=scoreHit(hit,customerType);
+    const evidence=`Public web search · provider=${hit.provider} · query=${hit.query} · result=${hit.title}`.slice(0,1000);
     await db.prepare(`INSERT INTO discovery_candidates (id,source_key,source_provider,name,customer_type,state_region,city,website,lead_score,grade,source_url,source_evidence,raw_json)
       VALUES (?,?, 'WEB_SEARCH',?,?,?,?,?,?,?,?,?,?)
-      ON CONFLICT(source_key) DO UPDATE SET name=excluded.name,customer_type=excluded.customer_type,state_region=excluded.state_region,city=excluded.city,website=COALESCE(discovery_candidates.website,excluded.website),lead_score=MAX(discovery_candidates.lead_score,excluded.lead_score),grade=CASE WHEN MAX(discovery_candidates.lead_score,excluded.lead_score)>=80 THEN 'A' WHEN MAX(discovery_candidates.lead_score,excluded.lead_score)>=60 THEN 'B' ELSE 'C' END,source_evidence=excluded.source_evidence,updated_at=CURRENT_TIMESTAMP`)
+      ON CONFLICT(source_key) DO UPDATE SET name=excluded.name,customer_type=excluded.customer_type,state_region=excluded.state_region,city=excluded.city,website=COALESCE(discovery_candidates.website,excluded.website),lead_score=MAX(discovery_candidates.lead_score,excluded.lead_score),grade=CASE WHEN MAX(discovery_candidates.lead_score,excluded.lead_score)>=80 THEN 'A' WHEN MAX(discovery_candidates.lead_score,excluded.lead_score)>=60 THEN 'B' ELSE 'C' END,source_evidence=excluded.source_evidence,raw_json=excluded.raw_json,updated_at=CURRENT_TIMESTAMP`)
       .bind(crypto.randomUUID(),key,name,customerType,stateCode,hit.city,hit.url,score,grade(score),hit.url,evidence,JSON.stringify(hit)).run();
     saved++;
   }
@@ -160,19 +195,32 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     if(!allowedState.test(stateCode)||!METROS[stateCode])return Response.json({ok:false,error:'请选择有效的美国州。'},{status:400});
     if(!allowedTypes.has(customerType))return Response.json({ok:false,error:'不支持的客户类型。'},{status:400});
     jobId=crypto.randomUUID();
-    await db.prepare(`INSERT INTO discovery_jobs (id,state_region,customer_type,target_count,source_provider) VALUES (?,?,?,?, 'WEB_SEARCH_PUBLIC')`).bind(jobId,stateCode,customerType,targetCount).run();
+    await db.prepare(`INSERT INTO discovery_jobs (id,state_region,customer_type,target_count,source_provider) VALUES (?,?,?,?, 'WEB_SEARCH_BING_RSS')`).bind(jobId,stateCode,customerType,targetCount).run();
 
     const metros=METROS[stateCode].slice(0,5); const terms=QUERY_TERMS[customerType]||['basketball'];
-    const queries=metros.map((city,index)=>({city,query:`${terms[index%terms.length]} ${city} ${stateCode}`}));
-    const settled=await Promise.allSettled(queries.map(item=>searchDuckDuckGo(item.query,item.city)));
-    const hits=settled.flatMap(result=>result.status==='fulfilled'?result.value:[]);
+    const queries=metros.map((city,index)=>({city,query:`${terms[index%terms.length]} ${city} ${stateCode} official site`}));
+
+    const bingSettled=await Promise.allSettled(queries.map(item=>searchBingRss(item.query,item.city)));
+    let hits=bingSettled.flatMap(result=>result.status==='fulfilled'?result.value:[]);
+
+    if(hits.length<Math.min(6,targetCount)){
+      const duckSettled=await Promise.allSettled(queries.slice(0,3).map(item=>searchDuckDuckGo(item.query,item.city)));
+      hits=[...hits,...duckSettled.flatMap(result=>result.status==='fulfilled'?result.value:[])];
+    }
+
     if(!hits.length) throw new Error('WEB_SOURCE_BUSY');
     const found=await saveHits(db,hits,stateCode,customerType,targetCount);
+    if(!found) throw new Error('WEB_NO_USABLE_RESULTS');
+
     await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(found,jobId).run();
-    return Response.json({ok:true,jobId,found,mode:'WEB'});
+    return Response.json({ok:true,jobId,found,mode:'WEB_MULTI',provider:'BING_RSS'});
   }catch(error){
     const raw=error instanceof Error?error.message:'Web discovery failed.';
-    const message=raw==='WEB_SOURCE_BUSY'?'公开 Web 搜索源暂时没有返回可用结果，请稍后重试。':raw;
+    const message=raw==='WEB_SOURCE_BUSY'
+      ? '公开 Web 搜索源暂时没有返回结果。'
+      : raw==='WEB_NO_USABLE_RESULTS'
+        ? '公开 Web 搜索有返回，但没有通过官网相关性筛选的结果。'
+        : raw;
     if(jobId)await db.prepare(`UPDATE discovery_jobs SET status='FAILED',error=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(message.slice(0,1000),jobId).run();
     console.error('discovery_web_failed',error);
     return Response.json({ok:false,error:message},{status:502});
