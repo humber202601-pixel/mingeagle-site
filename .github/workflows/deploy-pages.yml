@@ -30,14 +30,14 @@ jobs:
           unzip -q site.zip -d public
           echo "www.mingeagle.com" > public/CNAME
 
-      - name: Bridge only the existing inquiry form to MING EAGLE Growth Engine
+      - name: Bridge only the existing inquiry form to the published Floot backend
         run: |
           python - <<'PY'
           from pathlib import Path
           p = Path('public/inquiry.html')
           html = p.read_text(encoding='utf-8')
           old = 'action="https://formsubmit.co/mingeaglecommerce@gmail.com"'
-          new = 'action="https://app.mingeagle.com/api/inquiries"'
+          new = 'action="https://ming-eagle-sports.floot.app/_api/inquiry"'
           if old not in html:
               raise SystemExit('Expected V11 inquiry form action was not found; refusing to publish.')
           p.write_text(html.replace(old, new, 1), encoding='utf-8')
@@ -50,6 +50,7 @@ jobs:
           index = Path('public/index.html').read_text(encoding='utf-8')
           videos = Path('public/videos.html').read_text(encoding='utf-8')
           inquiry = Path('public/inquiry.html').read_text(encoding='utf-8')
+          products_page = Path('public/products.html').read_text(encoding='utf-8')
 
           home_players = index.count('tiktok.com/player')
           wall_players = videos.count('tiktok.com/player')
@@ -62,13 +63,14 @@ jobs:
               'Basketball Uniform', 'Soccer Uniform', 'Training Shirt',
               'Team Socks', 'Shin Guards', 'Team Packages', 'Custom Studio'
           ]
-          combined = index + '\n' + videos + '\n' + inquiry + '\n' + Path('public/products.html').read_text(encoding='utf-8')
+          combined = index + '\n' + videos + '\n' + inquiry + '\n' + products_page
           found = [term for term in forbidden if term.lower() in combined.lower()]
           if found:
               raise SystemExit('Out-of-scope product/content detected: ' + ', '.join(found))
 
-          if 'https://app.mingeagle.com/api/inquiries' not in inquiry:
-              raise SystemExit('Growth-engine inquiry bridge is missing.')
+          expected_bridge = 'https://ming-eagle-sports.floot.app/_api/inquiry'
+          if expected_bridge not in inquiry:
+              raise SystemExit('Published Floot inquiry bridge is missing.')
 
           required_products = [
               'Flocked Silent Basketball Set',
@@ -76,7 +78,6 @@ jobs:
               'Weighted Flocked Silent Basketball',
               'Flocked Silent Soccer Ball',
           ]
-          products_page = Path('public/products.html').read_text(encoding='utf-8')
           missing = [p for p in required_products if p not in products_page]
           if missing:
               raise SystemExit('Current V11 product regression: ' + ', '.join(missing))
