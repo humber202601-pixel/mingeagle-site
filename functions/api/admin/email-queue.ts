@@ -317,16 +317,25 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         return Response.json({ ok: true, ...sent });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unable to send queued email.';
-        await db.prepare(`UPDATE email_queue SET status='FAILED', last_error=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(message, queueId).run();
-        return Response.json({ ok: false, error: message }, { status: 502 });
+        const validationError = message === 'Approve this draft before sending.' || message === 'This queue item is already closed.' || message === 'This contact is marked DO NOT CONTACT.' || message === 'Queue item not found.';
+        if (!validationError) {
+          await db.prepare(`UPDATE email_queue SET status='FAILED', last_error=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='READY'`).bind(message, queueId).run();
+        }
+        return Response.json({ ok: false, error: message }, { status: validationError ? 409 : 502 });
       }
     }
-    if (action === 'APPROVE' || action === 'RETRY') {
-      await db.prepare(`UPDATE email_queue SET status='READY', last_error=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status NOT IN ('SENT','SKIPPED')`).bind(queueId).run();
+    if (action === 'APPROVE') {
+      const result = await db.prepare(`UPDATE email_queue SET status='READY', last_error=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='REVIEW_REQUIRED'`).bind(queueId).run();
+      if ((result.meta?.changes || 0) === 0) return Response.json({ ok:false, error:'Only review-required drafts can be approved.' }, { status:409 });
+      return Response.json({ ok: true });
+    }
+    if (action === 'RETRY') {
+      const result = await db.prepare(`UPDATE email_queue SET status='READY', last_error=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='FAILED'`).bind(queueId).run();
+      if ((result.meta?.changes || 0) === 0) return Response.json({ ok:false, error:'Only failed sends can be retried.' }, { status:409 });
       return Response.json({ ok: true });
     }
     if (action === 'SKIP') {
-      await db.prepare(`UPDATE email_queue SET status='SKIPPED', updated_at=CURRENT_TIMESTAMP WHERE id=? AND status<>'SENT'`).bind(queueId).run();
+      await db.prepare(`UPDATE email_queue SET status='SKIPPED', updated_at=CURRENT_TIMESTAMP WHERE id=? AND status NOT IN ('SENT','SKIPPED')`).bind(queueId).run();
       return Response.json({ ok: true });
     }
     if (action === 'DELAY') {
