@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MING EAGLE 客户回复报价助手</title>
+  <style>
+    :root{font-family:Arial,"Microsoft YaHei",sans-serif;color:#172033;background:#f4f6f8}*{box-sizing:border-box}body{margin:0}.top{background:#17243a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;gap:14px;align-items:center}.top a{color:#fff;text-decoration:none}.wrap{max-width:1180px;margin:24px auto;padding:0 18px}.panel{background:#fff;border:1px solid #e4e7ec;border-radius:16px;padding:18px;margin-bottom:18px;box-shadow:0 8px 26px rgba(16,24,40,.05)}.grid{display:grid;grid-template-columns:360px 1fr;gap:18px}.list{display:grid;gap:8px;max-height:720px;overflow:auto}.item{border:1px solid #e4e7ec;border-radius:12px;padding:12px;text-align:left;background:#fff;cursor:pointer}.item.active{border-color:#ef5b2a;background:#fff8f5}.item strong,.item span,.item small{display:block}.item span{margin:5px 0;color:#475467}.item small{color:#667085;line-height:1.5}.badge{display:inline-block!important;width:auto;padding:3px 7px;border-radius:999px;background:#fff6ed;color:#b54708;font-size:11px;font-weight:800}.reply{white-space:pre-wrap;background:#f8fafc;border-radius:10px;padding:14px;line-height:1.6;color:#344054;margin:12px 0}.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.form-grid label{font-size:12px;font-weight:800;color:#475467}.form-grid input,.form-grid textarea{display:block;width:100%;margin-top:6px;padding:10px 12px;border:1px solid #d0d5dd;border-radius:9px;font:inherit}.span-2{grid-column:1/-1}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}.btn{border:0;border-radius:9px;padding:10px 14px;font-weight:800;cursor:pointer;background:#ef5b2a;color:#fff}.btn.secondary{background:#eef2f6;color:#344054}.btn:disabled{opacity:.5;cursor:not-allowed}.msg{padding:12px 14px;border-radius:9px;margin-top:12px}.msg.ok{background:#ecfdf3;color:#027a48}.msg.bad{background:#fef3f2;color:#b42318}.muted{color:#667085}.summary{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}.summary div{background:#f8fafc;padding:10px 12px;border-radius:10px;min-width:150px}.summary small{display:block;color:#667085}.summary strong{font-size:20px}.empty{text-align:center;color:#667085;padding:30px}.linkbox{word-break:break-all;background:#eff8ff;color:#175cd3;padding:12px;border-radius:9px;margin-top:10px}@media(max-width:850px){.grid{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.span-2{grid-column:auto}}
+  </style>
+</head>
+<body>
+  <div class="top"><div><strong>MING EAGLE</strong> · 客户回复报价助手</div><div><a href="/app/communications">沟通中心</a>　<a href="/app/quotes">报价单</a></div></div>
+  <div class="wrap">
+    <section class="panel">
+      <div class="actions" style="margin-top:0;align-items:end">
+        <label style="font-size:12px;font-weight:800;color:#475467">管理员访问密码<input id="key" type="password" style="display:block;margin-top:6px;padding:10px 12px;border:1px solid #d0d5dd;border-radius:9px" placeholder="ADMIN_ACCESS_KEY"></label>
+        <button id="load" class="btn secondary">刷新客户回复</button>
+      </div>
+      <p class="muted">只列出 CRM 已识别为“询价 / 感兴趣 / 洽谈 / 样品”的客户邮件。系统自动提取数量，但价格、运费和条款仍由你审核。</p>
+      <div id="topmsg"></div>
+    </section>
+
+    <div class="grid">
+      <section class="panel">
+        <h2 style="margin-top:0">待报价客户回复</h2>
+        <div id="list" class="list"><div class="empty">正在加载…</div></div>
+      </section>
+
+      <section class="panel">
+        <div id="detail"><div class="empty">请选择一条客户回复。</div></div>
+      </section>
+    </div>
+  </div>
+<script>
+const keyEl=document.getElementById('key');
+const listEl=document.getElementById('list');
+const detailEl=document.getElementById('detail');
+const topmsg=document.getElementById('topmsg');
+keyEl.value=sessionStorage.getItem('mingeagle_admin_key')||'';
+let rows=[];let selected=null;let draft=null;let publicLink='';
+function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]))}
+function show(t,ok=true){topmsg.innerHTML=`<div class="msg ${ok?'ok':'bad'}">${esc(t)}</div>`}
+function key(){const k=keyEl.value.trim();if(!k)throw new Error('请输入管理员访问密码。');sessionStorage.setItem('mingeagle_admin_key',k);return k}
+async function api(url,opts={}){const headers=Object.assign({'x-admin-key':key()},opts.headers||{});const res=await fetch(url,Object.assign({},opts,{headers}));const data=await res.json();if(!res.ok||!data.ok)throw new Error(data.error||'操作失败');return data}
+function intent(v){return ({PRICE_QUOTE:'询价 / 要求报价',INTERESTED:'明确感兴趣',NEGOTIATION:'商务洽谈',SAMPLE_INTEREST:'样品意向'})[v]||v||'客户回复'}
+function renderList(){if(!rows.length){listEl.innerHTML='<div class="empty">当前没有待处理的报价型回复。</div>';return}listEl.innerHTML=rows.map((r,i)=>`<button class="item ${selected&&selected.message_id===r.message_id?'active':''}" onclick="selectRow(${i})"><span class="badge">${esc(intent(r.intent))}</span><strong>${esc(r.company)}</strong><span>${esc(r.contact)} · ${esc(r.email)}</span><small>${r.extracted_quantity?`识别数量：${esc(r.extracted_quantity)} 件 · `:''}${esc(r.sent_at||'')}</small></button>`).join('')}
+window.selectRow=function(i){selected=rows[i];draft=null;publicLink='';renderList();renderDetail()}
+function renderDetail(){if(!selected){detailEl.innerHTML='<div class="empty">请选择一条客户回复。</div>';return}const qty=Number(selected.extracted_quantity||selected.inquiry_quantity||1)||1;detailEl.innerHTML=`<div class="summary"><div><small>客户</small><strong>${esc(selected.company)}</strong></div><div><small>系统识别数量</small><strong>${esc(qty)} 件</strong></div><div><small>当前阶段</small><strong>${esc(intent(selected.intent))}</strong></div></div><h3>${esc(selected.subject||'客户回复')}</h3><div class="reply">${esc(selected.customer_text||selected.body||'')}</div><form id="quoteForm"><div class="form-grid"><label>数量<input id="qty" type="number" min="1" value="${esc(qty)}" required></label><label>单价 USD<input id="unitPrice" type="number" min="0" step="0.01" placeholder="例如 12.50" required></label><label class="span-2">产品描述<input id="description" value="MING EAGLE Silent Basketball" required></label><label>运费 USD<input id="shipping" type="number" min="0" step="0.01" value="0"></label><label>优惠 USD<input id="discount" type="number" min="0" step="0.01" value="0"></label><label>报价有效期（天）<input id="validDays" type="number" min="1" max="90" value="14"></label><label>付款条款<input id="paymentTerms" value="Payment terms to be confirmed before sending."></label><label class="span-2">运输条款<input id="shippingTerms" value="Shipping terms to be confirmed before sending."></label><label class="span-2">备注<textarea id="notes" rows="3" placeholder="客户可见备注"></textarea></label></div><div class="actions"><button class="btn" type="submit">创建报价草稿</button>${draft?'<button class="btn secondary" id="linkBtn" type="button">生成客户安全链接</button>':''}${publicLink?'<button class="btn" id="sendBtn" type="button">Gmail发送报价链接</button>':''}<a class="btn secondary" href="/app/quotes" style="text-decoration:none">打开报价单管理</a></div></form><div id="result">${draft?`<div class="msg ok">报价草稿已创建：${esc(draft.reference)} · USD ${Number(draft.total||0).toFixed(2)}</div>`:''}${publicLink?`<div class="linkbox">${esc(publicLink)}</div>`:''}</div>`;document.getElementById('quoteForm').onsubmit=createDraft;const lb=document.getElementById('linkBtn');if(lb)lb.onclick=createLink;const sb=document.getElementById('sendBtn');if(sb)sb.onclick=sendQuote}
+async function load(){try{show('正在加载…');const d=await api('/api/admin/quote-assistant');rows=d.suggestions||[];selected=rows[0]||null;draft=null;publicLink='';renderList();renderDetail();show(`已加载 ${rows.length} 条可用于报价的客户回复。`)}catch(e){show(e.message||'加载失败',false);listEl.innerHTML='<div class="empty">加载失败。</div>'}}
+async function createDraft(e){e.preventDefault();if(!selected)return;try{const qty=Number(document.getElementById('qty').value||1);show('正在准备询盘并创建报价草稿…');const prepared=await api('/api/admin/quote-assistant',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'PREPARE',leadId:selected.lead_id,messageId:selected.message_id,quantity:qty})});const q=await api('/api/admin/quotes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({inquiryReference:prepared.inquiryReference,description:document.getElementById('description').value,quantity:qty,unitPrice:document.getElementById('unitPrice').value,shipping:document.getElementById('shipping').value,discount:document.getElementById('discount').value,validDays:document.getElementById('validDays').value,paymentTerms:document.getElementById('paymentTerms').value,shippingTerms:document.getElementById('shippingTerms').value,notes:document.getElementById('notes').value})});draft=q;publicLink='';renderDetail();show(`报价草稿 ${q.reference} 已创建，尚未发送给客户。`)}catch(e){show(e.message||'创建报价失败',false)}}
+async function createLink(){if(!draft)return;try{show('正在生成客户安全链接…');const d=await api('/api/admin/quote-send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({quoteId:draft.quoteId})});publicLink=location.origin+d.publicPath;renderDetail();show('客户安全报价链接已生成。请确认后再发送。')}catch(e){show(e.message||'生成链接失败',false)}}
+async function sendQuote(){if(!draft||!publicLink||!selected)return;if(!confirm(`确认通过 mingeaglecommerce@gmail.com 向 ${selected.email} 发送报价链接？`))return;try{show('正在通过 Gmail 发送报价链接…');const subject=`Your MING EAGLE quotation ${draft.reference}`;const body=`Hi ${String(selected.contact||'there').split(' ')[0]},\n\nThank you for your interest in MING EAGLE. We have prepared your quotation based on the requested quantity.\n\nPlease review your quotation here:\n${publicLink}\n\nIf you have any questions about pricing, shipping, lead time or payment terms, just reply to this email.\n\nBest regards,\nMING EAGLE`;const d=await api('/api/admin/customer-email-send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({leadId:selected.lead_id,subject,body})});show(`报价已通过 Gmail 发送至 ${d.to||selected.email}，并已写入 CRM。`)}catch(e){show(e.message||'发送失败',false)}}
+document.getElementById('load').onclick=load;if(keyEl.value)load();
+</script>
+</body>
+</html>
