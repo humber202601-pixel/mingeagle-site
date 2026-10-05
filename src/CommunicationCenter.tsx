@@ -13,6 +13,10 @@ type Target = Row & {
   phone?: string;
   whatsapp?: string;
   do_not_contact?: number;
+  inquiry_reference?: string;
+  inquiry_quantity?: string | number;
+  sample_reference?: string;
+  sample_status?: string;
 };
 
 type ApiData = { ok?: boolean; targets?: Target[]; messages?: Row[]; error?: string };
@@ -23,6 +27,7 @@ type ReplyResult = {
   leadStatus?: string | null;
   suggestedReply?: string | null;
   nextBestAction?: string | null;
+  salesAction?: { kind?: string; reference?: string; quantity?: number | null; created?: boolean };
   error?: string;
 };
 
@@ -145,7 +150,7 @@ export default function CommunicationCenter({ accessKey, onChanged }: { accessKe
   const visibleTargets = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return targets;
-    return targets.filter(t => [t.company, t.contact, t.email, t.phone, t.whatsapp, t.lead_status].some(v => text(v).toLowerCase().includes(q)));
+    return targets.filter(t => [t.company, t.contact, t.email, t.phone, t.whatsapp, t.lead_status, t.inquiry_reference, t.sample_reference].some(v => text(v).toLowerCase().includes(q)));
   }, [targets, query]);
   const selected = targets.find(t => text(t.lead_id) === selectedId) || null;
   const recent = useMemo(() => (data.messages || []).filter(m => text(m.lead_id) === selectedId).slice(0, 30), [data.messages, selectedId]);
@@ -197,7 +202,13 @@ export default function CommunicationCenter({ accessKey, onChanged }: { accessKe
       const json = await response.json() as ReplyResult;
       if (!response.ok || !json.ok) throw new Error(json.error || '无法保存沟通记录。');
       if (direction === 'INBOUND') {
-        setResultText(`系统判断：${intentLabels[text(json.intent)] || text(json.intent)}；Lead 阶段：${statusLabel(json.leadStatus)}。`);
+        const action = json.salesAction;
+        const actionText = action?.kind === 'QUOTE_INQUIRY'
+          ? ` 系统已自动建立/更新报价询盘 ${action.reference || ''}${action.quantity ? `（识别数量 ${action.quantity}）` : ''}，请到“报价单/询盘”继续处理。`
+          : action?.kind === 'SAMPLE_REQUEST'
+            ? ` 系统已自动建立/更新样品申请 ${action.reference || ''}${action.quantity ? `（数量 ${action.quantity}）` : ''}，可到“自动化中心”维护样品进度。`
+            : '';
+        setResultText(`系统判断：${intentLabels[text(json.intent)] || text(json.intent)}；Lead 阶段：${statusLabel(json.leadStatus)}。${actionText}`);
         setSuggestedReply(text(json.suggestedReply));
         setReplyBody('');
       } else {
@@ -240,7 +251,7 @@ export default function CommunicationCenter({ accessKey, onChanged }: { accessKe
   return <div className="communication-layout">
     <section className="panel communication-targets">
       <div className="panel-head"><h2>客户队列</h2><button className="icon-action" onClick={() => void load()} title="刷新"><RefreshCcw size={16}/></button></div>
-      <input className="communication-search" value={query} onChange={e => setQuery(e.target.value)} placeholder="搜索公司、联系人、邮箱…" />
+      <input className="communication-search" value={query} onChange={e => setQuery(e.target.value)} placeholder="搜索公司、联系人、邮箱、MEQ/MES…" />
       <div className="target-list">
         {!visibleTargets.length && <div className="empty-row">暂无客户。</div>}
         {visibleTargets.map(target => <button key={text(target.lead_id)} className={`target-item ${selectedId === text(target.lead_id) ? 'active' : ''}`} onClick={() => setSelectedId(text(target.lead_id))}>
@@ -256,6 +267,11 @@ export default function CommunicationCenter({ accessKey, onChanged }: { accessKe
           <div><span className="eyebrow">当前客户</span><h2>{text(selected.company, '个人客户')}</h2><p>{text(selected.contact)} · {email || '无邮箱'} · {text(selected.whatsapp || selected.phone, '无电话')}</p></div>
           <div className="contact-summary-badges"><span>{statusLabel(selected.lead_status)}</span><strong>评分 {text(selected.lead_score, '0')}</strong></div>
         </section>
+
+        {(selected.inquiry_reference || selected.sample_reference) && <div className="form-status success"><strong>已生成销售动作</strong><p>{[
+          selected.inquiry_reference ? `报价询盘 ${selected.inquiry_reference}${selected.inquiry_quantity ? ` · 数量 ${selected.inquiry_quantity}` : ''}` : '',
+          selected.sample_reference ? `样品申请 ${selected.sample_reference} · ${text(selected.sample_status)}` : '',
+        ].filter(Boolean).join('；')}</p></div>}
 
         {isDnc && <div className="form-status error"><strong>该联系人已标记为“禁止联系”</strong><p>系统不会允许新的主动联系。客户主动回复仍可以登记。</p></div>}
 
@@ -284,7 +300,7 @@ export default function CommunicationCenter({ accessKey, onChanged }: { accessKe
         </section>
 
         <section className="panel reply-panel">
-          <div className="panel-head"><h2>登记客户回复</h2><span>自动识别意向并推进 Lead</span></div>
+          <div className="panel-head"><h2>登记客户回复</h2><span>自动识别意向，并自动建立报价询盘 / 样品申请</span></div>
           <div className="reply-grid">
             <label>回复渠道<select value={replyChannel} onChange={e => setReplyChannel(e.target.value as typeof replyChannel)}><option value="EMAIL">邮件</option><option value="WHATSAPP">WhatsApp</option><option value="PHONE">电话</option><option value="OTHER">其他</option></select></label>
             <label className="reply-body">客户原文<textarea rows={6} value={replyBody} onChange={e => setReplyBody(e.target.value)} placeholder="把客户的英文回复粘贴在这里…" /></label>
