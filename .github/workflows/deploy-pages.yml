@@ -1,9 +1,8 @@
-name: Deploy MING EAGLE website
+name: Deploy MING EAGLE current-site V15
 
 on:
   push:
     branches: ["main"]
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -24,12 +23,66 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download V11 free HubSpot capture website payload
+      - name: Download the CURRENT V11 public website unchanged
         run: |
           mkdir -p public
           curl -fL "https://ming-eagle-sports.floot.app/_cdn/static/fa546f9d-4e0b-46ef-9b74-0a5299a06e5c-mingeagle-v11-free-hubspot-capture.zip" -o site.zip
           unzip -q site.zip -d public
           echo "www.mingeagle.com" > public/CNAME
+
+      - name: Bridge only the existing inquiry form to MING EAGLE Growth Engine
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('public/inquiry.html')
+          html = p.read_text(encoding='utf-8')
+          old = 'action="https://formsubmit.co/mingeaglecommerce@gmail.com"'
+          new = 'action="https://app.mingeagle.com/api/inquiries"'
+          if old not in html:
+              raise SystemExit('Expected V11 inquiry form action was not found; refusing to publish.')
+          p.write_text(html.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Release guard — preserve current products and TikTok wall
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          index = Path('public/index.html').read_text(encoding='utf-8')
+          videos = Path('public/videos.html').read_text(encoding='utf-8')
+          inquiry = Path('public/inquiry.html').read_text(encoding='utf-8')
+
+          home_players = index.count('tiktok.com/player')
+          wall_players = videos.count('tiktok.com/player')
+          if home_players < 6:
+              raise SystemExit(f'Homepage TikTok regression: expected at least 6 players, found {home_players}.')
+          if wall_players < 16:
+              raise SystemExit(f'Video Wall regression: expected at least 16 players, found {wall_players}.')
+
+          forbidden = [
+              'Basketball Uniform', 'Soccer Uniform', 'Training Shirt',
+              'Team Socks', 'Shin Guards', 'Team Packages', 'Custom Studio'
+          ]
+          combined = index + '\n' + videos + '\n' + inquiry + '\n' + Path('public/products.html').read_text(encoding='utf-8')
+          found = [term for term in forbidden if term.lower() in combined.lower()]
+          if found:
+              raise SystemExit('Out-of-scope product/content detected: ' + ', '.join(found))
+
+          if 'https://app.mingeagle.com/api/inquiries' not in inquiry:
+              raise SystemExit('Growth-engine inquiry bridge is missing.')
+
+          required_products = [
+              'Flocked Silent Basketball Set',
+              'Fabric-Cover Silent Basketball Set',
+              'Weighted Flocked Silent Basketball',
+              'Flocked Silent Soccer Ball',
+          ]
+          products_page = Path('public/products.html').read_text(encoding='utf-8')
+          missing = [p for p in required_products if p not in products_page]
+          if missing:
+              raise SystemExit('Current V11 product regression: ' + ', '.join(missing))
+
+          print(f'V15 guard passed: homepage TikTok={home_players}, Video Wall TikTok={wall_players}.')
+          PY
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
