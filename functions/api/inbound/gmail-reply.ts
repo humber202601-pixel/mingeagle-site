@@ -1,3 +1,5 @@
+import { applyReplySalesAction } from '../../_shared/reply-sales-actions';
+
 interface Env {
   MINGEAGLE_DB: D1Database;
   INBOUND_REPLY_KEY?: string;
@@ -212,7 +214,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const match = await findLeadByInboundEmail(db, fromEmail);
-
     if (!match?.lead_id) {
       return Response.json({ ok: true, ignored: true, reason: 'email_not_in_crm', fromEmail });
     }
@@ -250,6 +251,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         WHERE lead_id=? AND status IN ('OPEN','IN_PROGRESS') AND type IN ('REPLY_ACTION','OUTREACH_FOLLOW_UP')`).bind(leadId).run();
     }
 
+    const salesAction = await applyReplySalesAction(db, {
+      leadId, companyId, contactId, intent: classification.intent, body, messageId: crmMessageId,
+    });
+
+    if (salesAction.kind === 'QUOTE_INQUIRY') {
+      const title = salesAction.quantity
+        ? `Prepare customer quotation · ${salesAction.quantity} units · ${salesAction.reference}`
+        : `Prepare customer quotation · ${salesAction.reference}`;
+      await db.prepare(`UPDATE tasks SET title=?, description=?, priority='HIGH', due_at=datetime('now','+1 day'), updated_at=CURRENT_TIMESTAMP
+        WHERE lead_id=? AND type='REPLY_ACTION' AND status IN ('OPEN','IN_PROGRESS')`)
+        .bind(title, `Pricing request converted to inquiry ${salesAction.reference}. Review quantity, unit price, shipping and terms before sending any quotation.`, leadId).run();
+    } else if (salesAction.kind === 'SAMPLE_REQUEST') {
+      await db.prepare(`UPDATE tasks SET title=?, description=?, priority='HIGH', due_at=datetime('now','+1 day'), updated_at=CURRENT_TIMESTAMP
+        WHERE lead_id=? AND type='REPLY_ACTION' AND status IN ('OPEN','IN_PROGRESS')`)
+        .bind(`Review sample request · ${salesAction.reference}`, `Sample request ${salesAction.reference} was created automatically. Confirm product, quantity, shipping ZIP/address and sample/payment terms before making any commitment.`, leadId).run();
+    }
+
     await db.prepare(`INSERT INTO activities (id, entity_type, entity_id, activity_type, title, description, metadata_json)
       VALUES (?, 'LEAD', ?, 'MESSAGE_INBOUND', 'Customer Gmail reply imported automatically', ?, ?)`)
       .bind(
@@ -264,6 +282,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           intent: classification.intent,
           leadStatus: classification.leadStatus,
           suggestedReply: classification.suggestedReply,
+          salesAction,
         }),
       ).run();
 
@@ -278,6 +297,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       leadStatus: classification.leadStatus,
       nextBestAction: classification.nextBestAction,
       suggestedReply: classification.suggestedReply,
+      salesAction,
     }, { status: 201 });
   } catch (error) {
     console.error('gmail_inbound_reply_failed', error);
