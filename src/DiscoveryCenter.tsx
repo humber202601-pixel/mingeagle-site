@@ -33,6 +33,7 @@ const statusLabel = (value: unknown) => value === 'CRM' ? '已加入 CRM' : valu
 const gradeClass = (grade: unknown) => `discovery-grade grade-${String(grade || 'C').toLowerCase()}`;
 const sourceLabel = (provider: unknown) => {
   const value = String(provider || '').toUpperCase();
+  if (value.startsWith('GEOAPIFY')) return 'Geoapify地点';
   if (value.startsWith('WEB_SEARCH') || value.startsWith('WEB_EXPANSION')) return 'Web验证';
   if (value.startsWith('OPENSTREETMAP')) return 'OSM地图';
   return '来源证据';
@@ -44,6 +45,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [batching, setBatching] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const [busyId, setBusyId] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -87,12 +89,15 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
       });
       const body = await response.json() as {
         ok?: boolean; found?: number; mode?: string; error?: string; note?: string;
-        mapFound?: number; webFound?: number; webChecked?: number; webVerified?: number;
+        geoFound?: number; geoChecked?: number; geoVerified?: number; geoRawCount?: number;
+        webFound?: number; webChecked?: number; webVerified?: number;
       };
       if (!response.ok || !body.ok) throw new Error(body.error || '搜索失败。');
-      const details = typeof body.webChecked === 'number'
-        ? `Web 候选检查 ${body.webChecked} 个，通过官网业务验证 ${body.webVerified || 0} 个；地图源 ${body.mapFound || 0} 个。`
-        : '';
+      const details = typeof body.geoChecked === 'number'
+        ? `Geoapify 原始 ${body.geoRawCount || 0} 条，补全检查 ${body.geoChecked} 个，通过 ${body.geoVerified || body.geoFound || 0} 个；Web 官网验证 ${body.webVerified || body.webFound || 0} 个。`
+        : typeof body.webChecked === 'number'
+          ? `Web 候选检查 ${body.webChecked} 个，通过官网业务验证 ${body.webVerified || 0} 个。`
+          : '';
       setMessage(`高精度发现完成：本次新增或更新 ${body.found || 0} 个候选。${details}${body.note ? ` ${body.note}` : ''}`);
       await load();
     } catch (err) {
@@ -110,20 +115,36 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
     }).catch(() => undefined);
   }
 
+  async function addCandidateToCrm(candidateId: string) {
+    const response = await fetch('/api/admin/discovery', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
+      body: JSON.stringify({ action: 'ADD_TO_CRM', candidateId }),
+    });
+    const body = await response.json() as { ok?: boolean; leadId?: string; alreadyAdded?: boolean; error?: string };
+    if (!response.ok || !body.ok) throw new Error(body.error || '加入 CRM 失败。');
+    await syncCandidateToCrm(candidateId);
+    return body;
+  }
+
   async function candidateAction(candidateId: string, action: 'ADD_TO_CRM' | 'IGNORE') {
     setBusyId(candidateId);
     setError('');
     setMessage('');
     try {
-      const response = await fetch('/api/admin/discovery', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
-        body: JSON.stringify({ action, candidateId }),
-      });
-      const body = await response.json() as { ok?: boolean; leadId?: string; alreadyAdded?: boolean; error?: string };
-      if (!response.ok || !body.ok) throw new Error(body.error || '操作失败。');
-      if (action === 'ADD_TO_CRM') await syncCandidateToCrm(candidateId);
-      setMessage(action === 'ADD_TO_CRM' ? `已加入 CRM${body.alreadyAdded ? '（已匹配现有客户）' : ''}。` : '已忽略该候选客户。');
+      if (action === 'ADD_TO_CRM') {
+        const body = await addCandidateToCrm(candidateId);
+        setMessage(`已加入 CRM${body.alreadyAdded ? '（已匹配现有客户）' : ''}。`);
+      } else {
+        const response = await fetch('/api/admin/discovery', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
+          body: JSON.stringify({ action, candidateId }),
+        });
+        const body = await response.json() as { ok?: boolean; error?: string };
+        if (!response.ok || !body.ok) throw new Error(body.error || '操作失败。');
+        setMessage('已忽略该候选客户。');
+      }
       await load();
       if (action === 'ADD_TO_CRM') onChanged();
     } catch (err) {
@@ -134,10 +155,10 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
   }
 
   async function callEnrichment(candidateId: string) {
-    const response = await fetch('/api/admin/discovery-enrich', {
+    const response = await fetch('/api/admin/discovery-enrich-v2', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
-      body: JSON.stringify({ action: 'ENRICH', candidateId }),
+      body: JSON.stringify({ candidateId }),
     });
     const body = await response.json() as {
       ok?: boolean;
@@ -208,6 +229,56 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
     setBatching(false);
   }
 
+  async function prepareSalesBatch() {
+    const targets = visible.filter(row => text(row.status, 'NEW') === 'NEW' && Number(row.lead_score || 0) >= 60).slice(0, 5);
+    if (!targets.length) {
+      setMessage('当前筛选结果里没有 B 级以上、可准备销售的待开发客户。');
+      return;
+    }
+    setPreparing(true);
+    setError('');
+    setMessage('');
+    let enriched = 0;
+    let added = 0;
+    let noDirectContact = 0;
+    let failed = 0;
+    for (const row of targets) {
+      const candidateId = text(row.id, '');
+      if (!candidateId) continue;
+      let found: Record<string, boolean> = {};
+      const website = text(row.website, '');
+      const incomplete = !text(row.email, '') || !text(row.phone, '') || !text(row.contact_person_name, '');
+      if (website && incomplete) {
+        try {
+          const result = await callEnrichment(candidateId);
+          found = result.found || {};
+          enriched += 1;
+        } catch {
+          // Existing direct contacts can still be promoted to CRM even if a website blocks enrichment.
+        }
+      }
+      const hasDirectContact = Boolean(
+        text(row.email, '') || text(row.phone, '') || text(row.whatsapp, '') ||
+        found.email || found.phone || found.whatsapp
+      );
+      if (!hasDirectContact) {
+        noDirectContact += 1;
+        continue;
+      }
+      try {
+        await addCandidateToCrm(candidateId);
+        added += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    setMessage(`销售准备完成：处理 ${targets.length} 个，官网补全 ${enriched} 个，加入 CRM ${added} 个${noDirectContact ? `，${noDirectContact} 个暂缺邮箱/电话/WhatsApp` : ''}${failed ? `，失败 ${failed} 个` : ''}。`);
+    if (noDirectContact) setError('暂缺直接联系方式的客户会继续保留在候选库，不会自动发送任何消息；可后续再次补全或人工核对官网联系表单。');
+    await load();
+    onChanged();
+    setPreparing(false);
+  }
+
   const counts = useMemo(() => ({
     total: candidates.filter(r => text(r.status, 'NEW') !== 'IGNORED').length,
     fresh: candidates.filter(r => text(r.status, 'NEW') === 'NEW').length,
@@ -225,7 +296,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
 
     <section className="panel discovery-search-panel">
       <div className="panel-head">
-        <div><h2>自动发现美国潜在客户</h2><span>免费发现 + 官网公开资料补全 · 无需付费 API Key</span></div>
+        <div><h2>自动发现美国潜在客户</h2><span>Geoapify 免费地点发现 + 官网公开资料补全</span></div>
         {loading && <LoaderCircle size={18} className="spin"/>}
       </div>
       <form className="discovery-search-form" onSubmit={runSearch}>
@@ -248,8 +319,9 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
         <button className="button discovery-search-button" disabled={searching}>{searching ? <><LoaderCircle size={16} className="spin"/> 正在搜索…</> : <><Search size={16}/> 开始发现客户</>}</button>
       </form>
       <div className="discovery-enrich-bar">
-        <div className="discovery-note">第一层并行查询公开地图与 Web 数据；Web 候选必须再次通过官网业务验证。第二层再补全 Contact / About / Team / Coach 等公开页面信息。</div>
-        <button type="button" className="button secondary small" disabled={batching} onClick={() => void batchEnrich()}>{batching ? <><LoaderCircle size={14} className="spin"/> 正在批量补全…</> : <><RefreshCcw size={14}/> 批量补全前 5 个</>}</button>
+        <div className="discovery-note">第一层用 Geoapify 免费配额与 Web 官网验证发现真实商业客户；第二层补全 Contact / About / Team / Coach 等公开页面，再进入 CRM 销售流程。</div>
+        <button type="button" className="button secondary small" disabled={batching || preparing} onClick={() => void batchEnrich()}>{batching ? <><LoaderCircle size={14} className="spin"/> 正在批量补全…</> : <><RefreshCcw size={14}/> 批量补全前 5 个</>}</button>
+        <button type="button" className="button small" disabled={preparing || batching} onClick={() => void prepareSalesBatch()}>{preparing ? <><LoaderCircle size={14} className="spin"/> 正在准备销售…</> : <><UserPlus size={14}/> 一键准备销售前 5 个</>}</button>
       </div>
       {message && <div className="form-status success"><strong>操作成功</strong><p>{message}</p></div>}
       {error && <div className="form-status error"><strong>提示</strong><p>{error}</p></div>}
