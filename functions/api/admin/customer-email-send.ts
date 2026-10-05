@@ -24,6 +24,21 @@ function encodedHeader(value: string) {
   return `=?UTF-8?B?${btoa(binary)}?=`;
 }
 
+async function upsertFollowUpTask(db: D1Database, leadId: string, companyId: string | null, contactId: string | null) {
+  const existing = await db.prepare(`SELECT id FROM tasks WHERE lead_id=? AND type='OUTREACH_FOLLOW_UP' AND status IN ('OPEN','IN_PROGRESS') LIMIT 1`)
+    .bind(leadId).first<{ id: string }>();
+
+  if (existing?.id) {
+    await db.prepare(`UPDATE tasks SET title='Follow up customer email', description='No reply yet. Follow up if the customer has not responded.', priority='MEDIUM', due_at=datetime('now','+3 days'), updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+      .bind(existing.id).run();
+    return;
+  }
+
+  await db.prepare(`INSERT INTO tasks (id, lead_id, company_id, contact_id, type, title, description, status, priority, due_at)
+    VALUES (?, ?, ?, ?, 'OUTREACH_FOLLOW_UP', 'Follow up customer email', 'No reply yet. Follow up if the customer has not responded.', 'OPEN', 'MEDIUM', datetime('now','+3 days'))`)
+    .bind(crypto.randomUUID(), leadId, companyId, contactId).run();
+}
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.MINGEAGLE_DB) return Response.json({ ok: false, error: 'Database is not configured.' }, { status: 503 });
 
@@ -89,6 +104,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const nextStatus = ['DISCOVERED','ANALYZED','QUALIFIED','ENRICHING','READY_TO_CONTACT'].includes(currentStatus) ? 'CONTACTED' : currentStatus;
     await env.MINGEAGLE_DB.prepare(`UPDATE leads SET status=?, last_contact_at=CURRENT_TIMESTAMP, next_best_action='Wait for reply / follow up', next_action_at=datetime('now','+3 days'), updated_at=CURRENT_TIMESTAMP WHERE id=?`)
       .bind(nextStatus, leadId).run();
+
+    await upsertFollowUpTask(env.MINGEAGLE_DB, leadId, companyId, contactId);
 
     await env.MINGEAGLE_DB.prepare(`INSERT INTO activities (id, entity_type, entity_id, activity_type, title, description, metadata_json)
       VALUES (?, 'LEAD', ?, 'MESSAGE_OUTBOUND', 'Email sent through Gmail API', ?, ?)`)
