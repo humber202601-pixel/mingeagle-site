@@ -31,7 +31,11 @@ jobs:
           unzip -q site.zip -d public
           echo "www.mingeagle.com" > public/CNAME
 
-      - name: Release guard — preserve current products and TikTok wall
+      - name: Apply V19 product education and responsive fixes
+        run: |
+          python site-overrides/patch_site.py public
+
+      - name: Release guard — preserve current products, TikTok wall and V19 guide
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -39,6 +43,8 @@ jobs:
           videos = Path('public/videos.html').read_text(encoding='utf-8')
           inquiry = Path('public/inquiry.html').read_text(encoding='utf-8')
           products_page = Path('public/products.html').read_text(encoding='utf-8')
+          guide = Path('public/silent-basketball-guide.html').read_text(encoding='utf-8')
+          styles = Path('public/styles.css').read_text(encoding='utf-8')
 
           home_players = index.count('tiktok.com/player')
           wall_players = videos.count('tiktok.com/player')
@@ -51,7 +57,7 @@ jobs:
               'Basketball Uniform', 'Soccer Uniform', 'Training Shirt',
               'Team Socks', 'Shin Guards', 'Team Packages', 'Custom Studio'
           ]
-          combined = index + '\n' + videos + '\n' + inquiry + '\n' + products_page
+          combined = index + '\n' + videos + '\n' + inquiry + '\n' + products_page + '\n' + guide
           found = [term for term in forbidden if term.lower() in combined.lower()]
           if found:
               raise SystemExit('Out-of-scope product/content detected: ' + ', '.join(found))
@@ -70,7 +76,20 @@ jobs:
           if missing:
               raise SystemExit('Current V11 product regression: ' + ', '.join(missing))
 
-          print(f'V15 guard passed: homepage TikTok={home_players}, Video Wall TikTok={wall_players}.')
+          for page in [
+              'silent-basketball.html', 'fabric-silent-basketball.html',
+              'weighted-flocked-basketball.html', 'silent-soccer.html'
+          ]:
+              text = Path('public', page).read_text(encoding='utf-8')
+              if 'id="product-benefits"' not in text:
+                  raise SystemExit(f'V19 product detail section missing: {page}')
+
+          if 'QUIETER PLAY, EXPLAINED.' not in guide or 'SET UP THE MINI HOOP THE RIGHT WAY.' not in guide:
+              raise SystemExit('V19 silent basketball guide is incomplete.')
+          if '@keyframes meTicker' not in styles:
+              raise SystemExit('V19 ticker overflow fix is missing.')
+
+          print(f'V19 guard passed: homepage TikTok={home_players}, Video Wall TikTok={wall_players}.')
           PY
 
       - name: Configure Pages
