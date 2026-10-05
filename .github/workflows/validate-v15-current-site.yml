@@ -1,0 +1,69 @@
+name: Validate V15 current-site candidate
+
+on:
+  push:
+    branches: ["v15-current-site"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download exact candidate
+        run: |
+          mkdir -p public
+          curl -fL "https://ming-eagle-sports.floot.app/_cdn/static/mingeagle-v15-current-site-bridge.zip" -o site.zip
+          unzip -q site.zip -d public
+
+      - name: Validate current-site preservation and bridge
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          required_files = [
+              'index.html','products.html','videos.html','stories.html','inquiry.html',
+              'wholesale.html','order-status.html','policies.html','site.js','styles.css'
+          ]
+          missing_files = [f for f in required_files if not Path('public', f).exists()]
+          if missing_files:
+              raise SystemExit('Missing required current-site files: ' + ', '.join(missing_files))
+
+          index = Path('public/index.html').read_text(encoding='utf-8')
+          videos = Path('public/videos.html').read_text(encoding='utf-8')
+          inquiry = Path('public/inquiry.html').read_text(encoding='utf-8')
+          products = Path('public/products.html').read_text(encoding='utf-8')
+          combined = '\n'.join([index, videos, inquiry, products])
+
+          if index.count('tiktok.com/player') < 6:
+              raise SystemExit('Homepage TikTok player regression.')
+          if videos.count('tiktok.com/player') < 16:
+              raise SystemExit('Video Wall TikTok player regression.')
+
+          required_products = [
+              'Flocked Silent Basketball Set',
+              'Fabric-Cover Silent Basketball Set',
+              'Weighted Flocked Silent Basketball',
+              'Flocked Silent Soccer Ball',
+          ]
+          for product in required_products:
+              if product not in products:
+                  raise SystemExit('Missing current product: ' + product)
+
+          forbidden = [
+              'Basketball Uniform','Soccer Uniform','Training Shirt','Team Socks',
+              'Shin Guards','Team Packages','Custom Studio'
+          ]
+          bad = [term for term in forbidden if term.lower() in combined.lower()]
+          if bad:
+              raise SystemExit('Out-of-scope content found: ' + ', '.join(bad))
+
+          bridge = 'https://ming-eagle-sports.floot.app/_api/inquiry'
+          if bridge not in inquiry:
+              raise SystemExit('Floot inquiry bridge missing.')
+          if 'https://formsubmit.co/mingeaglecommerce@gmail.com' in inquiry:
+              raise SystemExit('Old direct FormSubmit action still active.')
+
+          print('PASS: current V11 frontend preserved; only backend inquiry route upgraded.')
+          PY
