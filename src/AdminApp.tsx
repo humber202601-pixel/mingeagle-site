@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
   BarChart3,
+  Bot,
   Building2,
   CircleDollarSign,
   ClipboardList,
@@ -20,6 +21,7 @@ import TaskManager from './TaskManager';
 import AdminDetail from './AdminDetail';
 import CommunicationCenter from './CommunicationCenter';
 import ContactManager from './ContactManager';
+import AutomationCenter from './AutomationCenter';
 import {
   activityTypeLabel,
   customerTypeLabel,
@@ -57,6 +59,7 @@ const nav = [
   ['/app/companies', Building2, '客户公司'],
   ['/app/contacts', ContactRound, '联系人'],
   ['/app/communications', MessageSquareText, '沟通中心'],
+  ['/app/automation', Bot, '自动化中心'],
   ['/app/quotes', CircleDollarSign, '报价单'],
   ['/app/orders', ShoppingBag, '订单'],
   ['/app/tasks', ClipboardList, '跟进任务'],
@@ -218,6 +221,10 @@ export default function AdminApp() {
   else if (page === 'communications') content = <>
     <Top title="沟通中心" description="使用免费渠道开展邮件 / WhatsApp 跟进，登记客户回复，并自动推进潜客阶段和下一步任务。"/>
     <CommunicationCenter accessKey={key} onChanged={() => void load()} />
+  </>;
+  else if (page === 'automation') content = <>
+    <Top title="自动化中心" description="集中控制暖客户自动跟进、发送上限、待审核队列和自动化运行状态。"/>
+    <AutomationCenter accessKey={key} />
   </>;
   else if (page === 'quotes') content = <>
     <Top title="报价单" description="创建报价草稿、生成客户安全链接、跟踪查看状态并自动转订单。"/>
