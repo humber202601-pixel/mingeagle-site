@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MING EAGLE Gmail 回复同步设置</title>
+  <style>
+    :root{font-family:Arial,"Microsoft YaHei",sans-serif;color:#172033;background:#f4f6f8}body{margin:0}.top{background:#17243a;color:#fff;padding:18px 24px}.wrap{max-width:820px;margin:28px auto;padding:0 18px}.card{background:#fff;border:1px solid #e4e7ec;border-radius:16px;padding:22px;margin-bottom:18px}.eyebrow{font-size:12px;font-weight:800;color:#ef5b2a}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}label{font-size:13px;font-weight:700;flex:1}input{display:block;width:100%;box-sizing:border-box;margin-top:7px;padding:11px;border:1px solid #d0d5dd;border-radius:9px;font:inherit}.btn{border:0;border-radius:9px;padding:11px 15px;background:#ef5b2a;color:#fff;font-weight:800;cursor:pointer}.secondary{background:#eef2f6;color:#344054}.secret{font-family:Consolas,monospace;word-break:break-all;background:#101828;color:#fff;border-radius:10px;padding:14px;display:none}.msg{margin-top:12px;padding:11px;border-radius:9px;display:none}.ok{display:block;background:#ecfdf3;color:#027a48}.bad{display:block;background:#fef3f2;color:#b42318}.steps{line-height:1.8;color:#475467}.warn{background:#fff6ed;border:1px solid #fedf89;color:#b54708;padding:12px;border-radius:10px}.small{font-size:12px;color:#667085}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:10px}
+  </style>
+</head>
+<body>
+  <div class="top"><strong>MING EAGLE</strong> · Gmail 客户回复自动同步</div>
+  <div class="wrap">
+    <section class="card">
+      <span class="eyebrow">STEP 1</span><h1>生成专用同步密钥</h1>
+      <p>这个密钥只用于 Gmail 回复同步，不具备报价、订单或后台管理权限。</p>
+      <div class="row"><label>后台管理员访问密码<input id="admin" type="password" autocomplete="current-password" placeholder="ADMIN_ACCESS_KEY"/></label><button class="btn" id="generate">生成 / 重新生成密钥</button></div>
+      <div id="msg" class="msg"></div>
+      <div id="secret" class="secret"></div>
+      <div class="actions"><button class="btn secondary" id="copy" style="display:none">复制同步密钥</button><button class="btn secondary" id="test" style="display:none">测试 CRM 邮箱清单接口</button></div>
+      <p class="warn">密钥生成后只在本页显示这一次。请先复制保存。重新生成会立即让旧密钥失效。</p>
+    </section>
+    <section class="card">
+      <span class="eyebrow">STEP 2</span><h2>Google Apps Script</h2>
+      <div class="steps">
+        <p>1. 登录 <strong>mingeaglecommerce@gmail.com</strong>，打开 Google Apps Script，新建一个项目。</p>
+        <p>2. 把我给你的 <strong>MING EAGLE Gmail Reply Sync</strong> 脚本粘贴进去。</p>
+        <p>3. 把刚才复制的同步密钥填进脚本里的 <code>INBOUND_REPLY_KEY</code>。</p>
+        <p>4. 首次运行配置函数并授权 Gmail；随后安装每 5 分钟运行一次的触发器。</p>
+        <p>5. 系统会先读取 CRM 已知联系人邮箱清单；只有命中 CRM 客户的来信正文才会同步，其他私人邮件不会上传。</p>
+      </div>
+      <p class="small">完成后，新客户回复会自动进入沟通中心，并自动停止该客户尚未发送的跟进邮件。</p>
+    </section>
+  </div>
+<script>
+  const admin=document.getElementById('admin'),msg=document.getElementById('msg'),secret=document.getElementById('secret'),copy=document.getElementById('copy'),test=document.getElementById('test');
+  admin.value=sessionStorage.getItem('mingeagle_admin_key')||'';
+  let inboundKey='';
+  function show(t,ok){msg.textContent=t;msg.className='msg '+(ok?'ok':'bad')}
+  document.getElementById('generate').onclick=async()=>{try{const key=admin.value.trim();if(!key)throw new Error('请输入后台管理员访问密码。');sessionStorage.setItem('mingeagle_admin_key',key);const r=await fetch('/api/admin/inbound-reply-key',{method:'POST',headers:{'content-type':'application/json','x-admin-key':key},body:JSON.stringify({action:'GENERATE'})});const d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'生成失败');inboundKey=d.key;secret.textContent=inboundKey;secret.style.display='block';copy.style.display='inline-block';test.style.display='inline-block';show('同步密钥已生成。请立即复制保存。',true)}catch(e){show(e.message||'生成失败',false)}};
+  copy.onclick=async()=>{if(!inboundKey)return;await navigator.clipboard.writeText(inboundKey);show('已复制到剪贴板。',true)};
+  test.onclick=async()=>{try{const r=await fetch('/api/inbound/known-emails-v2',{headers:{'x-inbound-key':inboundKey}});const d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'测试失败');show(`接口正常：CRM 当前有 ${d.emails.length} 个可识别联系人邮箱。`,true)}catch(e){show(e.message||'测试失败',false)}};
+</script>
+</body>
+</html>
