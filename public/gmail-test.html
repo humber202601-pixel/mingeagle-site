@@ -16,6 +16,8 @@
     <h1>Gmail API 测试发送</h1>
     <p class="sub">发件账号：MING EAGLE &lt;mingeaglecommerce@gmail.com&gt;</p>
     <div id="msg" class="msg"></div>
+    <label>后台管理员访问密码</label>
+    <input id="adminKey" type="password" autocomplete="current-password" placeholder="输入 Growth Engine 管理员访问密码" />
     <label>测试收件邮箱</label>
     <input id="to" type="email" placeholder="your@email.com" />
     <label>邮件主题</label>
@@ -23,19 +25,21 @@
     <label>测试内容</label>
     <textarea id="body" rows="6">This is a test email sent by the MING EAGLE Growth Engine through the Gmail API.</textarea>
     <button id="send">发送测试邮件</button>
-    <p class="small">请先在同一浏览器登录 Growth Engine。此页面只读取当前会话中的后台访问凭证并调用受保护的 Gmail 测试接口，不会显示 Gmail Refresh Token。</p>
+    <p class="small">管理员密码只用于本次调用受保护的 Gmail 测试接口，不会显示 Gmail Refresh Token，也不会写入页面 URL。</p>
   </div>
   <script>
     const msg = document.getElementById('msg');
     const button = document.getElementById('send');
-    const key = sessionStorage.getItem('mingeagle_admin_key') || '';
+    const adminKey = document.getElementById('adminKey');
+    const sessionKey = sessionStorage.getItem('mingeagle_admin_key') || '';
+    if (sessionKey) adminKey.value = sessionKey;
     function show(text, ok){ msg.textContent = text; msg.className = 'msg ' + (ok ? 'ok' : 'bad'); }
-    if (!key) show('未检测到后台登录会话。请先打开 /app 登录 Growth Engine，再回到此页面。', false);
     button.addEventListener('click', async () => {
+      const key = adminKey.value.trim();
       const to = document.getElementById('to').value.trim();
       const subject = document.getElementById('subject').value.trim();
       const body = document.getElementById('body').value;
-      if (!key) return show('请先登录 Growth Engine。', false);
+      if (!key) return show('请输入后台管理员访问密码。', false);
       if (!to || !to.includes('@')) return show('请输入有效的测试收件邮箱。', false);
       button.disabled = true; button.textContent = '发送中…';
       try {
