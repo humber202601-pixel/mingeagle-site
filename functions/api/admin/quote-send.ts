@@ -10,6 +10,17 @@ async function sha256(value: string) {
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+async function ensureQuoteLinks(db: D1Database) {
+  await db.prepare(`CREATE TABLE IF NOT EXISTS quote_public_links (
+    id TEXT PRIMARY KEY,
+    quote_id TEXT NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at TEXT
+  )`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_quote_public_links_quote ON quote_public_links(quote_id, created_at DESC)`).run();
+}
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.MINGEAGLE_DB) return Response.json({ ok: false, error: 'Database is not configured.' }, { status: 503 });
 
@@ -18,7 +29,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!quoteId) return Response.json({ ok: false, error: 'Quote id is required.' }, { status: 400 });
 
     const db = env.MINGEAGLE_DB;
-    const quote = await db.prepare(`SELECT id, reference, status, lead_id, company_id, contact_id, valid_until, total
+    await ensureQuoteLinks(db);
+
+    const quote = await db.prepare(`SELECT id, reference, status, lead_id, company_id, contact_id, valid_until, total, public_token_hash
       FROM quotes WHERE id = ? LIMIT 1`).bind(quoteId).first<{
         id: string;
         reference: string;
@@ -28,6 +41,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         contact_id: string | null;
         valid_until: string | null;
         total: number;
+        public_token_hash: string | null;
       }>();
 
     if (!quote) return Response.json({ ok: false, error: 'Quote not found.' }, { status: 404 });
@@ -46,8 +60,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       }, { status: 409 });
     }
 
+    if (quote.public_token_hash) {
+      await db.prepare(`INSERT OR IGNORE INTO quote_public_links (id, quote_id, token_hash)
+        VALUES (?, ?, ?)`)
+        .bind(crypto.randomUUID(), quote.id, quote.public_token_hash).run();
+    }
+
     const token = `${crypto.randomUUID().replaceAll('-', '')}${crypto.randomUUID().replaceAll('-', '')}`;
     const tokenHash = await sha256(token);
+
+    await db.prepare(`INSERT INTO quote_public_links (id, quote_id, token_hash)
+      VALUES (?, ?, ?)`)
+      .bind(crypto.randomUUID(), quote.id, tokenHash).run();
 
     await db.prepare(`UPDATE quotes
       SET status='SENT', public_token_hash=?, sent_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
@@ -60,7 +84,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     await db.prepare(`INSERT INTO activities (id, entity_type, entity_id, activity_type, title, description, metadata_json)
       VALUES (?, 'QUOTE', ?, 'QUOTE_SENT', 'Quote sent', ?, ?)`)
-      .bind(crypto.randomUUID(), quote.id, `${quote.reference} customer link generated`, JSON.stringify({ reference: quote.reference, total: quote.total })).run();
+      .bind(
+        crypto.randomUUID(),
+        quote.id,
+        `${quote.reference} customer link generated`,
+        JSON.stringify({ reference: quote.reference, total: quote.total, previousLinksRemainValid: true }),
+      ).run();
 
     return Response.json({ ok: true, reference: quote.reference, publicPath: `/quote/${token}` });
   } catch (error) {
