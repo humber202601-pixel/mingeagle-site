@@ -1,3 +1,5 @@
+import { applyReplySalesAction, type ReplySalesAction } from '../../_shared/reply-sales-actions';
+
 interface Env {
   MINGEAGLE_DB: D1Database;
 }
@@ -130,7 +132,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
         ct.id AS contact_id, COALESCE(ct.full_name, ct.email, 'Unknown contact') AS contact,
         ct.first_name, ct.email, ct.phone, ct.whatsapp, ct.do_not_contact,
         (SELECT direction FROM messages m WHERE m.lead_id=l.id ORDER BY m.sent_at DESC, m.created_at DESC LIMIT 1) AS last_direction,
-        (SELECT sent_at FROM messages m WHERE m.lead_id=l.id ORDER BY m.sent_at DESC, m.created_at DESC LIMIT 1) AS last_message_at
+        (SELECT sent_at FROM messages m WHERE m.lead_id=l.id ORDER BY m.sent_at DESC, m.created_at DESC LIMIT 1) AS last_message_at,
+        (SELECT reference FROM inquiries i WHERE i.lead_id=l.id AND i.status<>'CLOSED' ORDER BY datetime(i.updated_at) DESC LIMIT 1) AS inquiry_reference,
+        (SELECT estimated_quantity FROM inquiries i WHERE i.lead_id=l.id AND i.status<>'CLOSED' ORDER BY datetime(i.updated_at) DESC LIMIT 1) AS inquiry_quantity,
+        (SELECT reference FROM samples s WHERE s.lead_id=l.id AND s.status NOT IN ('CONVERTED','CLOSED') ORDER BY datetime(s.updated_at) DESC LIMIT 1) AS sample_reference,
+        (SELECT status FROM samples s WHERE s.lead_id=l.id AND s.status NOT IN ('CONVERTED','CLOSED') ORDER BY datetime(s.updated_at) DESC LIMIT 1) AS sample_status
       FROM leads l
       LEFT JOIN companies c ON c.id=l.company_id
       LEFT JOIN contacts ct ON ct.id=l.primary_contact_id
@@ -182,6 +188,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
       .bind(messageId, leadId, companyId, contactId, channel, direction, subject, body, classification?.intent || 'OUTREACH').run();
 
+    let salesAction: ReplySalesAction = { kind: 'NONE' };
+
     if (direction === 'OUTBOUND') {
       const currentStatus = String(lead.status || '');
       const nextStatus = ['DISCOVERED','ANALYZED','QUALIFIED','ENRICHING','READY_TO_CONTACT'].includes(currentStatus) ? 'CONTACTED' : currentStatus;
@@ -212,6 +220,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         await db.prepare(`UPDATE tasks SET status='CANCELLED', completed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
           WHERE lead_id=? AND status IN ('OPEN','IN_PROGRESS') AND type IN ('REPLY_ACTION','OUTREACH_FOLLOW_UP')`).bind(leadId).run();
       }
+
+      salesAction = await applyReplySalesAction(db, {
+        leadId, companyId, contactId, intent: classification.intent, body, messageId,
+      });
+
+      if (salesAction.kind === 'QUOTE_INQUIRY') {
+        const title = salesAction.quantity
+          ? `Prepare customer quotation · ${salesAction.quantity} units · ${salesAction.reference}`
+          : `Prepare customer quotation · ${salesAction.reference}`;
+        await db.prepare(`UPDATE tasks SET title=?, description=?, priority='HIGH', due_at=datetime('now','+1 day'), updated_at=CURRENT_TIMESTAMP
+          WHERE lead_id=? AND type='REPLY_ACTION' AND status IN ('OPEN','IN_PROGRESS')`)
+          .bind(title, `Pricing request converted to inquiry ${salesAction.reference}. Review quantity, unit price, shipping and terms before sending any quotation.`, leadId).run();
+      } else if (salesAction.kind === 'SAMPLE_REQUEST') {
+        await db.prepare(`UPDATE tasks SET title=?, description=?, priority='HIGH', due_at=datetime('now','+1 day'), updated_at=CURRENT_TIMESTAMP
+          WHERE lead_id=? AND type='REPLY_ACTION' AND status IN ('OPEN','IN_PROGRESS')`)
+          .bind(`Review sample request · ${salesAction.reference}`, `Sample request ${salesAction.reference} was created automatically. Confirm product, quantity, shipping ZIP/address and sample/payment terms before making any commitment.`, leadId).run();
+      }
     }
 
     await db.prepare(`INSERT INTO activities (id, entity_type, entity_id, activity_type, title, description, metadata_json)
@@ -221,7 +246,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         direction === 'INBOUND' ? 'MESSAGE_INBOUND' : 'MESSAGE_OUTBOUND',
         direction === 'INBOUND' ? 'Customer reply logged' : 'Outbound message logged',
         `${channel}: ${body.slice(0, 300)}`,
-        JSON.stringify({ messageId, channel, direction, intent: classification?.intent || 'OUTREACH' }),
+        JSON.stringify({ messageId, channel, direction, intent: classification?.intent || 'OUTREACH', salesAction }),
       ).run();
 
     return Response.json({
@@ -231,6 +256,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       leadStatus: classification?.leadStatus || null,
       suggestedReply: classification?.suggestedReply || null,
       nextBestAction: classification?.nextBestAction || 'Wait for reply / follow up',
+      salesAction,
     }, { status: 201 });
   } catch (error) {
     console.error('communications_save_failed', error);
