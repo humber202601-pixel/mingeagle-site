@@ -31,6 +31,12 @@ const text = (value: unknown, fallback = '—') => value === null || value === u
 const typeLabel = (value: unknown) => TYPE_OPTIONS.find(([key]) => key === String(value))?.[1] || text(value);
 const statusLabel = (value: unknown) => value === 'CRM' ? '已加入 CRM' : value === 'IGNORED' ? '已忽略' : '待开发';
 const gradeClass = (grade: unknown) => `discovery-grade grade-${String(grade || 'C').toLowerCase()}`;
+const sourceLabel = (provider: unknown) => {
+  const value = String(provider || '').toUpperCase();
+  if (value.startsWith('WEB_SEARCH')) return 'Web验证';
+  if (value.startsWith('OPENSTREETMAP')) return 'OSM地图';
+  return '来源证据';
+};
 
 export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
   const [candidates, setCandidates] = useState<Row[]>([]);
@@ -79,9 +85,15 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
           targetCount: data.get('targetCount'),
         }),
       });
-      const body = await response.json() as { ok?: boolean; found?: number; mode?: string; error?: string };
+      const body = await response.json() as {
+        ok?: boolean; found?: number; mode?: string; error?: string; note?: string;
+        mapFound?: number; webFound?: number; webChecked?: number; webVerified?: number;
+      };
       if (!response.ok || !body.ok) throw new Error(body.error || '搜索失败。');
-      setMessage(`都会区分片搜索完成：本次发现并更新 ${body.found || 0} 个公开客户候选。`);
+      const details = typeof body.webChecked === 'number'
+        ? `Web 候选检查 ${body.webChecked} 个，通过官网业务验证 ${body.webVerified || 0} 个；地图源 ${body.mapFound || 0} 个。`
+        : '';
+      setMessage(`高精度发现完成：本次新增或更新 ${body.found || 0} 个候选。${details}${body.note ? ` ${body.note}` : ''}`);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : '搜索失败。');
@@ -236,7 +248,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
         <button className="button discovery-search-button" disabled={searching}>{searching ? <><LoaderCircle size={16} className="spin"/> 正在搜索…</> : <><Search size={16}/> 开始发现客户</>}</button>
       </form>
       <div className="discovery-enrich-bar">
-        <div className="discovery-note">第一层按州内主要都会区分片搜索公开地图数据；第二层只访问候选客户的公开官网，并最多检查首页 + 2 个 Contact/About/Team 页面。</div>
+        <div className="discovery-note">第一层并行查询公开地图与 Web 数据；Web 候选必须再次通过官网业务验证。第二层再补全 Contact / About / Team / Coach 等公开页面信息。</div>
         <button type="button" className="button secondary small" disabled={batching} onClick={() => void batchEnrich()}>{batching ? <><LoaderCircle size={14} className="spin"/> 正在批量补全…</> : <><RefreshCcw size={14}/> 批量补全前 5 个</>}</button>
       </div>
       {message && <div className="form-status success"><strong>操作成功</strong><p>{message}</p></div>}
@@ -282,7 +294,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
               </div>
             </div></td>
             <td><div className="discovery-score"><span className={gradeClass(row.grade)}>{text(row.grade)}</span><strong>{text(row.lead_score, '0')}</strong><small>/100</small></div></td>
-            <td><a className="discovery-source" href={text(row.source_url,'#')} target="_blank" rel="noreferrer">OSM证据 <ExternalLink size={12}/></a>{text(row.website_contact_url,'') && <a className="discovery-source" href={text(row.website_contact_url,'')} target="_blank" rel="noreferrer">官网证据 <ExternalLink size={12}/></a>}<small>{text(row.source_evidence,'')}</small></td>
+            <td><a className="discovery-source" href={text(row.source_url,'#')} target="_blank" rel="noreferrer">{sourceLabel(row.source_provider)} <ExternalLink size={12}/></a>{text(row.website_contact_url,'') && <a className="discovery-source" href={text(row.website_contact_url,'')} target="_blank" rel="noreferrer">官网证据 <ExternalLink size={12}/></a>}<small>{text(row.source_evidence,'')}</small></td>
             <td><div className="secure-link-actions">
               {website && status !== 'IGNORED' && <button className="table-action" disabled={busyId === id} onClick={() => void enrichOne(id)}><RefreshCcw size={13}/>{busyId === id ? '补全中…' : enrichment === 'COMPLETED' ? '重新补全' : '官网补全'}</button>}
               {status === 'NEW' && <button className="table-action" disabled={busyId === id} onClick={() => void candidateAction(id,'ADD_TO_CRM')}><UserPlus size={13}/>{busyId === id ? '处理中…' : '加入CRM'}</button>}
@@ -300,6 +312,6 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
       {jobs.slice(0,8).map((job,index) => <div className="list-row" key={text(job.id,String(index))}><div><strong>{typeLabel(job.customer_type)} · {text(job.state_region)}</strong><small>目标 {text(job.target_count)} · 实际 {text(job.result_count,'0')} · {text(job.source_provider)}</small></div><span>{text(job.status)}</span></div>)}
     </section>}
 
-    <div className="discovery-attribution">Data © OpenStreetMap contributors · 官网补全仅提取公开商业信息并保留来源链接。</div>
+    <div className="discovery-attribution">公开数据源仅用于发现公开商业信息；官网补全仅访问公开网页并保留来源证据。</div>
   </>;
 }
