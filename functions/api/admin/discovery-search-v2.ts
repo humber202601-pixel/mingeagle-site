@@ -3,7 +3,7 @@ interface Env { MINGEAGLE_DB: D1Database }
 type Input = { stateCode?: string; customerType?: string; targetCount?: number | string };
 type SourceResult = { ok?: boolean; found?: number; error?: string; mode?: string; provider?: string; checked?: number; verified?: number; note?: string; elapsedMs?: number; rawCount?: number; endpoint?: string; attempts?: number };
 
-const RELEASE = 'DISCOVERY_V10_CITY_OSM_2026-10-05_2118';
+const RELEASE = 'DISCOVERY_V10_1_PARALLEL_CITY_OSM_2026-10-05_2128';
 const clean = (value: unknown, max = 1000) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 const allowedState = /^[A-Z]{2}$/;
 const allowedTypes = new Set(['BASKETBALL_TRAINING','BASKETBALL_GYM','YOUTH_CLUB','SPORTS_STORE']);
@@ -18,7 +18,7 @@ async function callSource(request: Request,path: string,body: Record<string, unk
       headers: {
         'content-type': 'application/json',
         'x-admin-key': request.headers.get('x-admin-key') || '',
-        'user-agent': 'MING-EAGLE-Discovery-Orchestrator/4.0',
+        'user-agent': 'MING-EAGLE-Discovery-Orchestrator/4.1',
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -29,7 +29,7 @@ async function callSource(request: Request,path: string,body: Record<string, unk
   } catch (error) {
     if (error instanceof Error && (error.name === 'AbortError' || /aborted/i.test(error.message))) {
       if (path.includes('discovery-web')) throw new Error('Web 实体验证源等待超时');
-      throw new Error('城市级地图商业实体源等待超时');
+      throw new Error('并行城市地图商业实体源等待超时');
     }
     throw error;
   } finally {
@@ -51,7 +51,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     const common = { stateCode, customerType, targetCount };
     const [mapResult, webResult] = await Promise.allSettled([
-      callSource(request, '/api/admin/discovery-map-city-v1', common, 27000),
+      callSource(request, '/api/admin/discovery-map-city-v1', common, 22000),
       callSource(request, '/api/admin/discovery-web-v6', common, 34000),
     ]);
 
@@ -65,7 +65,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!map && !web) {
       return new Response(JSON.stringify({
         ok: false,
-        error: `本次两个免费公开验证源都未成功。城市级地图商业实体源：${mapError || '失败'}；Web核心源：${webError || '失败'}。`,
+        error: `本次两个免费公开验证源都未成功。并行城市地图源：${mapError || '失败'}；Web核心源：${webError || '失败'}。`,
         release: RELEASE,
         sources: { map: false, web: false },
       }), { status: 502, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store, no-cache, must-revalidate, max-age=0' } });
@@ -78,9 +78,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const notes = [
-      map?.note || (mapError ? `城市级地图商业实体源未完成：${mapError}。` : ''),
+      map?.note || (mapError ? `并行城市地图源未完成：${mapError}。` : ''),
       web?.note || (webError ? `Web核心源未完成：${webError}。` : ''),
-      'Bing RSS 扩展源继续停用；V10 改为重点城市半径内商业实体发现，避免全州 Overpass 查询超时。',
+      'Bing RSS 扩展源继续停用；V10.1 将重点城市拆为独立小查询并行执行，单个城市失败不再拖死整个地图源。',
     ].filter(Boolean).join(' ');
 
     const body = {
@@ -100,9 +100,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       webVerified: Number(web?.verified || webFound),
       webProvider: web?.provider || web?.mode || '',
       webError,
-      mode: 'VERIFIED_MULTI_SOURCE_V10_0',
+      mode: 'VERIFIED_MULTI_SOURCE_V10_1',
       sources: { map: Boolean(map), web: Boolean(web) },
-      note: notes || 'V10 城市级双源验证已完成。',
+      note: notes || 'V10.1 并行城市双源验证已完成。',
     };
     return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store, no-cache, must-revalidate, max-age=0', 'pragma': 'no-cache' } });
   } catch (error) {
