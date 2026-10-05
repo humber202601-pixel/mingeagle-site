@@ -1,14 +1,26 @@
-interface Env { GEOAPIFY_API_KEY?: string }
+interface Env {
+  GEOAPIFY_API_KEY?: string;
+  AIRWALLEX_CLIENT_ID?: string;
+  AIRWALLEX_API_KEY?: string;
+  AIRWALLEX_WEBHOOK_SECRET?: string;
+  AIRWALLEX_ENV?: string;
+}
 
-const RELEASE = 'MINGEAGLE_GROWTH_ENGINE_V15_CURRENT_SITE_BRIDGE_2026-10-05';
-const DEPLOY_TRIGGER = 'V15_CURRENT_SITE_BRIDGE';
+const RELEASE = 'MINGEAGLE_GROWTH_ENGINE_V16_PAYMENTS_2026-10-06';
+const DEPLOY_TRIGGER = 'V16_AIRWALLEX_PAYMENTS';
 
 export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
+  const paymentEnvironment = ['sandbox','demo'].includes(String(env.AIRWALLEX_ENV || '').toLowerCase()) ? 'sandbox' : 'prod';
   return new Response(JSON.stringify({
     ok: true,
     release: RELEASE,
     component: 'mingeagle-app',
     geoapifyConfigured: Boolean(env.GEOAPIFY_API_KEY),
+    payments: {
+      airwallexConfigured: Boolean(env.AIRWALLEX_CLIENT_ID && env.AIRWALLEX_API_KEY),
+      airwallexWebhookConfigured: Boolean(env.AIRWALLEX_WEBHOOK_SECRET),
+      environment: paymentEnvironment,
+    },
     features: {
       discovery: 'Geoapify + verified web',
       websiteInquiryBridge: true,
@@ -31,9 +43,17 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
       quotePrefillFromInquiry: true,
       duplicateQuoteProtection: true,
       zeroPriceQuoteProtection: true,
+      quoteLiveTotalPreview: true,
+      customerReadyQuoteTerms: true,
       quoteSecureLink: true,
       quoteGmailDelivery: true,
       quoteFollowupAutomation: true,
+      quoteToOrderConversion: true,
+      airwallexHostedCheckout: true,
+      airwallexPaymentWebhook: true,
+      paymentAutoReconciliation: true,
+      amountBasedPaymentGuidance: true,
+      bankTransferGuidance: true,
       replyToSampleRequest: true,
       sampleWorkflow: true,
       followupAutomation: true,
