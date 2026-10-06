@@ -1,0 +1,125 @@
+{
+  "product": "Flocked Silent Basketball Set",
+  "video_count": 16,
+  "creator_count": 6,
+  "creators": {
+    "mannysavagee": 4,
+    "theone_finds": 4,
+    "clutchshopmark": 4,
+    "jess_reviews_ttshop": 2,
+    "thecontentfactor": 1,
+    "thepinksoftera": 1
+  },
+  "videos": [
+    {
+      "code": "V001",
+      "creator": "@mannysavagee",
+      "video_id": "7599023950089178398",
+      "url": "https://www.tiktok.com/@mannysavagee/video/7599023950089178398"
+    },
+    {
+      "code": "V002",
+      "creator": "@mannysavagee",
+      "video_id": "7607601999680408863",
+      "url": "https://www.tiktok.com/@mannysavagee/video/7607601999680408863"
+    },
+    {
+      "code": "V003",
+      "creator": "@mannysavagee",
+      "video_id": "7603220504274685215",
+      "url": "https://www.tiktok.com/@mannysavagee/video/7603220504274685215"
+    },
+    {
+      "code": "V004",
+      "creator": "@mannysavagee",
+      "video_id": "7590429423782956319",
+      "url": "https://www.tiktok.com/@mannysavagee/video/7590429423782956319"
+    },
+    {
+      "code": "V005",
+      "creator": "@theone_finds",
+      "video_id": "7687526423040576781",
+      "url": "https://www.tiktok.com/@theone_finds/video/7687526423040576781",
+      "featured": true,
+      "editorial_rank": "Homepage Hero",
+      "caption_note": "quiet indoors · #basketball #indoorbasketball #silentball",
+      "metrics_snapshot": {
+        "views": "41.9K",
+        "likes": 261,
+        "comments": 7,
+        "reviewed": "2026-10"
+      }
+    },
+    {
+      "code": "V006",
+      "creator": "@theone_finds",
+      "video_id": "7657322799383596301",
+      "url": "https://www.tiktok.com/@theone_finds/video/7657322799383596301"
+    },
+    {
+      "code": "V007",
+      "creator": "@theone_finds",
+      "video_id": "7651729595615530254",
+      "url": "https://www.tiktok.com/@theone_finds/video/7651729595615530254"
+    },
+    {
+      "code": "V008",
+      "creator": "@theone_finds",
+      "video_id": "7648736938035383566",
+      "url": "https://www.tiktok.com/@theone_finds/video/7648736938035383566"
+    },
+    {
+      "code": "V009",
+      "creator": "@clutchshopmark",
+      "video_id": "7494938670835813675",
+      "url": "https://www.tiktok.com/@clutchshopmark/video/7494938670835813675",
+      "basketball_related_confirmed": true,
+      "caption_note": "basketball / basketball hoop creator ad"
+    },
+    {
+      "code": "V010",
+      "creator": "@clutchshopmark",
+      "video_id": "7495118697636400430",
+      "url": "https://www.tiktok.com/@clutchshopmark/video/7495118697636400430",
+      "basketball_related_confirmed": true,
+      "caption_note": "basketball / basketball hoop creator ad"
+    },
+    {
+      "code": "V011",
+      "creator": "@clutchshopmark",
+      "video_id": "7493970882583448875",
+      "url": "https://www.tiktok.com/@clutchshopmark/video/7493970882583448875"
+    },
+    {
+      "code": "V012",
+      "creator": "@clutchshopmark",
+      "video_id": "7493620006278876462",
+      "url": "https://www.tiktok.com/@clutchshopmark/video/7493620006278876462"
+    },
+    {
+      "code": "V013",
+      "creator": "@jess_reviews_ttshop",
+      "video_id": "7621596542599761183",
+      "url": "https://www.tiktok.com/@jess_reviews_ttshop/video/7621596542599761183"
+    },
+    {
+      "code": "V014",
+      "creator": "@jess_reviews_ttshop",
+      "video_id": "7615695131009682718",
+      "url": "https://www.tiktok.com/@jess_reviews_ttshop/video/7615695131009682718"
+    },
+    {
+      "code": "V015",
+      "creator": "@thecontentfactor",
+      "video_id": "7622768476549172510",
+      "url": "https://www.tiktok.com/@thecontentfactor/video/7622768476549172510"
+    },
+    {
+      "code": "V016",
+      "creator": "@thepinksoftera",
+      "video_id": "7606457907504303374",
+      "url": "https://www.tiktok.com/@thepinksoftera/video/7606457907504303374"
+    }
+  ],
+  "editorial_note": "V005 is the current featured clip based on a TikTok Shop review snapshot. Engagement counts can change."
+}
