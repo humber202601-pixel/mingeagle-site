@@ -41,6 +41,21 @@ jobs:
 
       - name: Apply V21 reliable product videos and premium selling-point visuals
         run: |
+          python - <<'PY'
+          from pathlib import Path
+          pages = [
+              'silent-basketball.html', 'fabric-silent-basketball.html',
+              'weighted-flocked-basketball.html', 'silent-soccer.html'
+          ]
+          old = '<section class="section realHighlightsV20" id="real-product-highlights"><div class="wrap"><div class="eyebrow">REAL PRODUCT HIGHLIGHTS</div>'
+          normalized = '<section class="section"><div class="wrap"><div class="eyebrow" data-i18n="common.gallery">REAL PRODUCT HIGHLIGHTS</div>'
+          for page in pages:
+              path = Path('public', page)
+              text = path.read_text(encoding='utf-8')
+              if old in text:
+                  text = text.replace(old, normalized, 1)
+                  path.write_text(text, encoding='utf-8')
+          PY
           cat site-overrides/v20_product.css >> public/styles.css
           python site-overrides/v20_fix_product_pages.py public
 
