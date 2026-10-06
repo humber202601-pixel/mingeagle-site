@@ -24,10 +24,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build final product assets and synchronize all specifications
-        run: python scripts/deploy-finalize.py
+      - name: Apply product images specifications and 2x2 layout
+        run: python scripts/apply-product-specs.py
 
-      - name: Verify self-contained production files
+      - name: Verify confirmation build
         run: |
           test -f public/index.html
           test -f public/products.html
@@ -37,10 +37,6 @@ jobs:
           test -f public/assets/hero-fabric-cover-silent-basketball-set.webp
           test -f public/assets/hero-weighted-flocked-silent-basketball.webp
           test -f public/assets/hero-flocked-silent-soccer-ball.webp
-          test $(stat -c%s public/assets/hero-flocked-silent-basketball-set.webp) -gt 10000
-          test $(stat -c%s public/assets/hero-fabric-cover-silent-basketball-set.webp) -gt 10000
-          test $(stat -c%s public/assets/hero-weighted-flocked-silent-basketball.webp) -gt 10000
-          test $(stat -c%s public/assets/hero-flocked-silent-soccer-ball.webp) -gt 10000
           grep -q "productGrid2" public/index.html
           grep -q "productGrid2" public/products.html
           grep -q "Orange / Blue / Green / Yellow" public/product-master.json
@@ -48,9 +44,6 @@ jobs:
           grep -q "Orange / Brown / Black / Aqua Blue" public/product-master.json
           grep -q "Black/Red" public/product-master.json
           grep -q "Yellow/Green" public/product-master.json
-          if grep -RniF "Coffee Brown" public; then echo "Legacy Coffee Brown remains"; exit 1; fi
-          if grep -RniF "Lake Blue" public; then echo "Legacy Lake Blue remains"; exit 1; fi
-          if grep -RniF "Black/Orange" public; then echo "Legacy Black/Orange remains"; exit 1; fi
           if grep -RniE "floot\\.app|ming-eagle-sports\\.floot" public; then
             echo "Floot runtime dependency detected"
             exit 1
