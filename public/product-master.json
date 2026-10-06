@@ -1,0 +1,35 @@
+{
+  "p1": {
+    "name": "Flocked Silent Basketball Set",
+    "sizes_tag": "Sizes 3 / 5 / 7",
+    "sizes": "No. 3 / No. 5 / No. 7",
+    "colors": "Orange / Blue / Green / Yellow",
+    "colorways": "4 colors",
+    "hero": "assets/hero-flocked-silent-basketball-set.webp"
+  },
+  "p2": {
+    "name": "Fabric-Cover Silent Basketball Set",
+    "sizes_tag": "Sizes 3 / 5 / 7",
+    "sizes": "No. 3 / No. 5 / No. 7",
+    "colors": "Orange / Green",
+    "colorways": "2 colors",
+    "hero": "assets/hero-fabric-cover-silent-basketball-set.webp"
+  },
+  "p3": {
+    "name": "Weighted Flocked Silent Basketball",
+    "sizes_tag": "Sizes 3 / 4 / 6 / 7",
+    "sizes": "No. 3 / No. 4 / No. 6 / No. 7",
+    "colors": "Orange / Brown / Black / Aqua Blue",
+    "colorways": "4 colors",
+    "hero": "assets/hero-weighted-flocked-silent-basketball.webp"
+  },
+  "p4": {
+    "name": "Flocked Silent Soccer Ball",
+    "sizes_tag": "Size 5",
+    "sizes": "No. 5",
+    "colors": "Black/White / Black/Green / Black/Red / Yellow/Green / Black/Gold",
+    "colors_dots": "Black/White · Black/Green · Black/Red · Yellow/Green · Black/Gold",
+    "colorways": "5 colorways",
+    "hero": "assets/hero-flocked-silent-soccer-ball.webp"
+  }
+}

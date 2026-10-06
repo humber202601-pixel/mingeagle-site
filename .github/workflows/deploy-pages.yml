@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Apply product images specifications and 2x2 layout
-        run: python scripts/apply-product-specs.py
+        run: python scripts/deploy-finalize.py
 
       - name: Verify confirmation build
         run: |
