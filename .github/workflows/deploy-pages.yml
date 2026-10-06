@@ -1,4 +1,4 @@
-name: Publish approved REAL PRODUCT HIGHLIGHTS
+name: Publish full-resolution REAL PRODUCT HIGHLIGHTS
 
 on:
   push:
@@ -24,67 +24,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Decode approved highlight artwork
+      - name: Fetch approved 1254px artwork once
         run: |
           mkdir -p public/assets
-          base64 -d source-assets/highlights/highlight-flocked-set.webp.b64 > public/assets/real-highlight-flocked-set.webp
-          base64 -d source-assets/highlights/highlight-weighted-flocked.webp.b64 > public/assets/real-highlight-weighted-flocked.webp
-          base64 -d source-assets/highlights/highlight-fabric-cover.webp.b64 > public/assets/real-highlight-fabric-cover.webp
-          base64 -d source-assets/highlights/highlight-soccer.webp.b64 > public/assets/real-highlight-soccer.webp
-          test -s public/assets/real-highlight-flocked-set.webp
-          test -s public/assets/real-highlight-weighted-flocked.webp
-          test -s public/assets/real-highlight-fabric-cover.webp
-          test -s public/assets/real-highlight-soccer.webp
+          curl -fL 'https://ming-eagle.floot.app/_cdn/static/c170c574-8300-47b6-94d0-24bde251e1a2-highlight-flocked-set-1254.webp' -o public/assets/real-highlight-flocked-set.webp
+          curl -fL 'https://ming-eagle.floot.app/_cdn/static/470b2457-9cd4-4547-836d-aec83a10ef5a-highlight-weighted-flocked-1254.webp' -o public/assets/real-highlight-weighted-flocked.webp
+          curl -fL 'https://ming-eagle.floot.app/_cdn/static/1b2d4432-fe34-409d-a624-51e2584fa95b-highlight-fabric-cover-1254.webp' -o public/assets/real-highlight-fabric-cover.webp
+          curl -fL 'https://ming-eagle.floot.app/_cdn/static/bb8f0e0e-b076-407f-bcf4-65b3034234ae-highlight-soccer-1254.webp' -o public/assets/real-highlight-soccer.webp
+          test $(stat -c%s public/assets/real-highlight-flocked-set.webp) -gt 150000
+          test $(stat -c%s public/assets/real-highlight-weighted-flocked.webp) -gt 150000
+          test $(stat -c%s public/assets/real-highlight-fabric-cover.webp) -gt 150000
+          test $(stat -c%s public/assets/real-highlight-soccer.webp) -gt 150000
 
-      - name: Replace REAL PRODUCT HIGHLIGHTS images
+      - name: Verify pages use local highlight artwork
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
+          grep -q 'assets/real-highlight-flocked-set.webp' public/silent-basketball.html
+          grep -q 'assets/real-highlight-weighted-flocked.webp' public/weighted-flocked-basketball.html
+          grep -q 'assets/real-highlight-fabric-cover.webp' public/fabric-silent-basketball.html
+          grep -q 'assets/real-highlight-soccer.webp' public/silent-soccer.html
 
-          pages = {
-              'public/silent-basketball.html': ('assets/real-highlight-flocked-set.webp', 'Flocked Silent Basketball Set real product highlights'),
-              'public/weighted-flocked-basketball.html': ('assets/real-highlight-weighted-flocked.webp', 'Weighted Flocked Silent Basketball real product highlights'),
-              'public/fabric-silent-basketball.html': ('assets/real-highlight-fabric-cover.webp', 'Fabric-Cover Silent Basketball Set real product highlights'),
-              'public/silent-soccer.html': ('assets/real-highlight-soccer.webp', 'Flocked Silent Soccer Ball real product highlights'),
-          }
-
-          pattern = re.compile(r'<div class="realPhotoGrid">.*?</div><div class="sellingPointGrid">', re.S)
-          for filename, (src, alt) in pages.items():
-              path = Path(filename)
-              text = path.read_text(encoding='utf-8')
-              replacement = f'<div class="realProductPoster"><img src="{src}" alt="{alt}" loading="lazy"></div><div class="sellingPointGrid">'
-              text2, count = pattern.subn(replacement, text, count=1)
-              if count != 1:
-                  raise SystemExit(f'Expected one realPhotoGrid in {filename}, found {count}')
-              path.write_text(text2, encoding='utf-8')
-
-          css = Path('public/styles.css')
-          text = css.read_text(encoding='utf-8')
-          marker = '/* REAL PRODUCT POSTER V1 */'
-          if marker not in text:
-              text += '''\n\n/* REAL PRODUCT POSTER V1 */\n.realProductPoster{margin:24px 0 28px}.realProductPoster img{display:block;width:100%;max-width:1180px;height:auto;margin:0 auto;border-radius:20px;box-shadow:0 18px 48px rgba(6,35,85,.12)}\n@media(max-width:720px){.realProductPoster{margin:18px 0 22px}.realProductPoster img{border-radius:14px}}\n'''
-              css.write_text(text, encoding='utf-8')
-          PY
-
-      - name: Verify replacement and no Floot runtime dependency
-        run: |
-          grep -q 'real-highlight-flocked-set.webp' public/silent-basketball.html
-          grep -q 'real-highlight-weighted-flocked.webp' public/weighted-flocked-basketball.html
-          grep -q 'real-highlight-fabric-cover.webp' public/fabric-silent-basketball.html
-          grep -q 'real-highlight-soccer.webp' public/silent-soccer.html
-          if grep -RniE "floot\.app|ming-eagle-sports\.floot" public; then
-            echo "Floot runtime dependency detected"
-            exit 1
-          fi
-
-      - name: Freeze approved artwork into repository
+      - name: Freeze full-resolution artwork into GitHub
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/assets/real-highlight-*.webp public/silent-basketball.html public/weighted-flocked-basketball.html public/fabric-silent-basketball.html public/silent-soccer.html public/styles.css
+          git add public/assets/real-highlight-*.webp
           if ! git diff --cached --quiet; then
-            git commit -m "Publish approved REAL PRODUCT HIGHLIGHTS artwork [skip ci]"
+            git commit -m "Freeze 1254px approved REAL PRODUCT HIGHLIGHTS artwork [skip ci]"
             git push origin HEAD:main
           fi
 
