@@ -1,0 +1,25 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const {rules,summary,buildPayload,sendPayload}=require('../public/inquiry.js');
+(async()=>{
+ const context={window:{}};vm.runInNewContext(fs.readFileSync('public/inquiry-config.js','utf8'),context);
+ const config=context.window.MINGEAGLE_INQUIRY_CONFIG;
+ assert.equal(config.portalId,'247596371');
+ if(config.enabled)assert.match(config.formId,/^[a-f0-9-]{36}$/);
+ assert.equal(rules('General product question').purchase,false);
+ assert.equal(rules('Order support').order,true);
+ assert.equal(rules('Sample request').purchase,true);
+ const data={reference:'ME-TEST',firstname:'QA TEST',email:'test@example.com',requestType:'Sample request',products:'Weighted Flocked Silent Basketball — No. 6 / Aqua Blue',quantity:'1–2 samples',country:'United States',company:'',customization:'Not specified',timing:'Not specified'};
+ const payload=buildPayload(data,config,{pageUri:'https://www.mingeagle.com/inquiry.html',referrer:'Direct / unknown',campaign:'utm_source=test'});
+ assert.equal(payload.fields.find(x=>x.name===config.fields.products).value,data.products);
+ assert.equal(payload.fields.find(x=>x.name===config.fields.reference).value,'ME-TEST');
+ assert(!payload.fields.some(x=>x.name==='company'));
+ assert(summary(data).includes('No. 6 / Aqua Blue'));
+ const c={...config,enabled:true,formId:'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'};
+ assert.deepEqual(await sendPayload(c,payload,async(url,opts)=>{assert.equal(JSON.parse(opts.body).fields[1].value,'test@example.com');assert(url.endsWith(c.formId));return {status:200}}),{accepted:true});
+ for(const [status,message] of [[400,'REJECTED'],[429,'RATE_LIMIT'],[500,'UNCERTAIN']])await assert.rejects(sendPayload(c,payload,async()=>({status})),new RegExp(message));
+ await assert.rejects(sendPayload(c,payload,async()=>{throw new TypeError('Network error')}),/UNCERTAIN/);
+ await assert.rejects(sendPayload({...c,enabled:false},payload,()=>{throw new Error('Must not send')}),/NOT_CONFIGURED/);
+ console.log('Inquiry flow checks passed: rules, configuration persistence, empty-field preservation, and submission outcomes.');
+})().catch(e=>{console.error(e);process.exit(1)});

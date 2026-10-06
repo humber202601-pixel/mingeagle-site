@@ -1,0 +1,19 @@
+{
+  "portalId": "247596371",
+  "formId": "eef6eb0b-5533-416f-9bda-7017b3160456",
+  "formName": "MING EAGLE Website Inquiry",
+  "contactMatching": "Existing email updates the same contact; a new email creates a contact. Browser-cookie matching is disabled for new emails.",
+  "customProperties": [
+    {"name":"me_inquiry_reference","label":"ME Inquiry Reference","type":"string","fieldType":"text"},
+    {"name":"me_request_type","label":"ME Request Type","type":"string","fieldType":"text"},
+    {"name":"me_product_configuration","label":"ME Product Configuration","type":"string","fieldType":"textarea"},
+    {"name":"me_customer_type","label":"ME Customer Type","type":"string","fieldType":"text"},
+    {"name":"me_estimated_quantity","label":"ME Estimated Quantity","type":"string","fieldType":"text"},
+    {"name":"me_inquiry_details","label":"ME Inquiry Details","type":"string","fieldType":"textarea"},
+    {"name":"me_privacy_consent","label":"ME Privacy Consent","type":"bool","fieldType":"booleancheckbox"}
+  ],
+  "standardProperties": ["firstname","email","phone","company","country","zip","message"],
+  "serverRequiredFields": ["email","firstname"],
+  "websiteRequiredFields": {"all":["firstname","email","privacy_ack"],"quoteSamplePartnership":["products[]","estimated_quantity","country"],"generalQuestion":["message"],"orderSupport":["order_reference","message"]},
+  "notes": "Each submission is retained in form history and the contact timeline. Contact properties hold the latest supplied values. No access tokens are exposed in the website. Sales deal stages and automated deal creation belong to a later batch."
+}

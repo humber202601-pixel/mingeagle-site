@@ -160,6 +160,9 @@ for d in data.values():
         if re.fullmatch(r'p[1-4]\.spec\d+', key):
             d[key] = value
 
+for locale in data.values():
+    locale.update(json.loads(Path('admin/inquiry-copy.json').read_text(encoding='utf-8')))
+
 i18n_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
 # site.js embeds the dictionaries used by the browser; updating i18n.json alone
@@ -205,7 +208,7 @@ for path in ROOT.glob('*.html'):
         page = page.replace('Size 5 · Five colorways', 'Size 5 · Black/White · Black/Green · Black/Red · Yellow/Green · Black/Gold')
     # Avoid duplicate CSS links when the script runs again during deployment.
     page = re.sub(r'(?:<link href="product-grid-2x2\.css(?:\?[^"]*)?" rel="stylesheet"/>)+', '<link href="product-grid-2x2.css?v=20261007-1" rel="stylesheet"/>', page)
-    page = re.sub(r'src="site\.js(?:\?[^"]*)?"', 'src="site.js?v=20261007-1"', page)
+    page = re.sub(r'src="site\.js(?:\?[^"]*)?"', 'src="site.js?v=20261007-4"', page)
     for hero in images.values():
         page = re.sub(r'src="' + re.escape(hero) + r'(?:\?[^"]*)?"', 'src="' + hero + '?v=20261007-1"', page)
     path.write_text(page, encoding='utf-8')

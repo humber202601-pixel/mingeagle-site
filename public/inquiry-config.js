@@ -1,0 +1,2 @@
+// Only public form identifiers belong here. Never add CRM credentials.
+window.MINGEAGLE_INQUIRY_CONFIG=Object.freeze({enabled:true,portalId:'247596371',formId:'eef6eb0b-5533-416f-9bda-7017b3160456',fields:{reference:'me_inquiry_reference',requestType:'me_request_type',products:'me_product_configuration',customerType:'me_customer_type',quantity:'me_estimated_quantity',details:'me_inquiry_details',privacy:'me_privacy_consent'}});

@@ -18,3 +18,6 @@ for product in products.values():
         raise SystemExit(f'Incomplete WebP image: {path}')
     print(f'Complete hero image: {path.name} ({len(content)} bytes)')
 print('Approved hero images and product specifications ready for deployment.')
+
+# Guard request routing and server-confirmed success behavior before deployment.
+subprocess.run(['node', 'scripts/check-inquiry.cjs'], check=True)
