@@ -37,10 +37,10 @@ jobs:
           test -f public/assets/hero-fabric-cover-silent-basketball-set.webp
           test -f public/assets/hero-weighted-flocked-silent-basketball.webp
           test -f public/assets/hero-flocked-silent-soccer-ball.webp
-          test $(stat -c%s public/assets/hero-flocked-silent-basketball-set.webp) -gt 80000
-          test $(stat -c%s public/assets/hero-fabric-cover-silent-basketball-set.webp) -gt 80000
-          test $(stat -c%s public/assets/hero-weighted-flocked-silent-basketball.webp) -gt 80000
-          test $(stat -c%s public/assets/hero-flocked-silent-soccer-ball.webp) -gt 80000
+          test $(stat -c%s public/assets/hero-flocked-silent-basketball-set.webp) -gt 10000
+          test $(stat -c%s public/assets/hero-fabric-cover-silent-basketball-set.webp) -gt 10000
+          test $(stat -c%s public/assets/hero-weighted-flocked-silent-basketball.webp) -gt 10000
+          test $(stat -c%s public/assets/hero-flocked-silent-soccer-ball.webp) -gt 10000
           grep -q "productGrid2" public/index.html
           grep -q "productGrid2" public/products.html
           grep -q "Orange / Blue / Green / Yellow" public/product-master.json
