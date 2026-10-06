@@ -1,0 +1,28 @@
+/* MING EAGLE V22 — real-product-only visual system */
+.realProductHighlights{background:linear-gradient(180deg,#fffdf9 0%,#f7f9fc 100%)}
+.realProductHighlights .lead{max-width:940px}
+.realPhotoGrid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;margin-top:28px}
+.realPhotoCard{grid-column:span 4;background:#fff;border:1px solid var(--line);border-radius:24px;overflow:hidden;box-shadow:0 10px 34px rgba(18,32,51,.06)}
+.realPhotoCard.wide{grid-column:span 6}
+.realPhotoCard img{display:block;width:100%;aspect-ratio:1/1;object-fit:contain;background:#fff}
+.realPhotoCard.wide img{aspect-ratio:4/3}
+.realPhotoMeta{padding:14px 16px 16px;border-top:1px solid var(--line)}
+.realPhotoMeta b{display:block;font-size:15px;line-height:1.15;margin-bottom:5px}
+.realPhotoMeta span{display:block;color:var(--muted);font-size:13px;line-height:1.45}
+.realProductNote{display:flex;gap:10px;align-items:flex-start;margin:18px 0 0;padding:14px 16px;border:1px solid #d7e5dc;border-radius:16px;background:#f4fbf6;color:#244231;font-size:13px;line-height:1.55}
+.realProductNote strong{white-space:nowrap}
+.productSpecBand{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:22px 0 0}
+.productSpecItem{background:#0f1e33;color:#fff;border-radius:18px;padding:16px 17px}
+.productSpecItem small{display:block;color:#9eb0c8;font-weight:800;letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px}
+.productSpecItem b{font-size:17px;line-height:1.3}
+.schoolAudienceV22{background:#0d1a2b;color:#fff}
+.schoolAudienceV22 .eyebrow{color:#ff9d23}
+.schoolAudienceV22 h2{color:#fff}
+.schoolAudienceV22 .lead{color:#c8d2df;max-width:900px}
+.schoolAudienceGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:26px}
+.schoolAudienceCard{border:1px solid rgba(255,255,255,.14);border-radius:22px;padding:21px;background:rgba(255,255,255,.05)}
+.schoolAudienceCard h3{margin:0 0 8px;color:#fff;font-size:20px}
+.schoolAudienceCard p{margin:0;color:#c8d2df;font-size:14px}
+.schoolAudienceV22 .actions{margin-top:24px}
+@media(max-width:980px){.realPhotoCard,.realPhotoCard.wide{grid-column:span 6}.productSpecBand{grid-template-columns:repeat(2,1fr)}.schoolAudienceGrid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:620px){.realPhotoCard,.realPhotoCard.wide{grid-column:1/-1}.productSpecBand{grid-template-columns:1fr}.schoolAudienceGrid{grid-template-columns:1fr}.realProductNote{display:block}.realProductNote strong{display:block;margin-bottom:4px}}
