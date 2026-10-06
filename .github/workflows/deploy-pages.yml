@@ -70,6 +70,10 @@ jobs:
           cat site-overrides/v23_schools.css >> public/styles.css
           python site-overrides/v23_schools_guide.py public
 
+      - name: Apply V26 REAL PRODUCT HIGHLIGHTS from approved product artwork
+        run: |
+          python site-overrides/v26_highlight_copy.py public
+
       - name: Release guard — preserve products, TikTok wall, guide, schools and confirmed real-product data
         run: |
           python - <<'PY'
