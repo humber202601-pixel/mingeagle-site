@@ -6,8 +6,8 @@ interface Env {
   AIRWALLEX_ENV?: string;
 }
 
-const RELEASE = 'MINGEAGLE_GROWTH_ENGINE_V18_PAYMENT_CLOSURE_2026-10-06';
-const DEPLOY_TRIGGER = 'V18_AIRWALLEX_PAYMENT_CLOSURE';
+const RELEASE = 'MINGEAGLE_GROWTH_ENGINE_V19_SCHOOL_PROCUREMENT_2026-10-06';
+const DEPLOY_TRIGGER = 'V19_SCHOOL_PROCUREMENT_DISCOVERY';
 
 export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
   const paymentEnvironment = ['sandbox','demo'].includes(String(env.AIRWALLEX_ENV || '').toLowerCase()) ? 'sandbox' : 'prod';
@@ -22,13 +22,17 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
       environment: paymentEnvironment,
     },
     features: {
-      discovery: 'Geoapify + verified web',
+      discovery: 'Geoapify + verified web + school procurement discovery',
+      schoolDiscovery: true,
+      schoolTypes: ['PRESCHOOL_KINDERGARTEN','ELEMENTARY_SCHOOL','MIDDLE_HIGH_SCHOOL','PRIVATE_CHARTER_SCHOOL','SCHOOL_DISTRICT','AFTER_SCHOOL_PROGRAM','EDUCATION_SUPPLIER'],
+      schoolRoleDiscovery: ['Athletic Director','PE Teacher','Purchasing Manager','Procurement Manager','Buyer','School Administrator'],
+      schoolProcurementEvidence: true,
       websiteInquiryBridge: true,
       websiteNativeFormPost: true,
       websiteInquiryEmailForward: true,
       websiteInquiryIdempotency: true,
       websiteInquiryRichFields: true,
-      currentPublicSiteBaseline: 'V11',
+      currentPublicSiteBaseline: 'V15 + V23 enhancements',
       currentPublicProductsOnly: true,
       salesPreparation: true,
       smartOutreachDrafts: true,
