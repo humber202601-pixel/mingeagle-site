@@ -73,22 +73,22 @@ jobs:
 
       - name: Decode approved product 1 artwork
         run: |
-          base64 -d site-overrides/assets/product1-highlights.b64 > public/assets/product1-highlights-v24.webp
+          base64 --ignore-garbage -d site-overrides/assets/product1-highlights.b64 > public/assets/product1-highlights-v24.webp
           test $(stat -c%s public/assets/product1-highlights-v24.webp) -gt 50000
 
       - name: Decode approved product 2 artwork
         run: |
-          base64 -d site-overrides/assets/product2-highlights.b64 > public/assets/product2-highlights-v24.webp
+          base64 --ignore-garbage -d site-overrides/assets/product2-highlights.b64 > public/assets/product2-highlights-v24.webp
           test $(stat -c%s public/assets/product2-highlights-v24.webp) -gt 50000
 
       - name: Decode approved product 3 artwork
         run: |
-          base64 -d site-overrides/assets/product3-highlights.b64 > public/assets/product3-highlights-v24.webp
+          base64 --ignore-garbage -d site-overrides/assets/product3-highlights.b64 > public/assets/product3-highlights-v24.webp
           test $(stat -c%s public/assets/product3-highlights-v24.webp) -gt 50000
 
       - name: Decode approved product 4 artwork
         run: |
-          base64 -d site-overrides/assets/product4-highlights.b64 > public/assets/product4-highlights-v24.webp
+          base64 --ignore-garbage -d site-overrides/assets/product4-highlights.b64 > public/assets/product4-highlights-v24.webp
           test $(stat -c%s public/assets/product4-highlights-v24.webp) -gt 50000
 
       - name: Apply approved artwork and final product master data
