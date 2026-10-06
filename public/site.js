@@ -56,5 +56,7 @@ function bootThankReference(){
   document.querySelector('#receiptEyebrow').textContent='REQUEST RECEIVED';
   document.querySelector('#receiptTitle').textContent='THANK YOU. WE HAVE YOUR REQUEST.';
   document.querySelector('#receiptDescription').textContent='Your inquiry was accepted. Keep this reference when contacting MING EAGLE about your request.';
+  const messageLink=document.querySelector('#receiptWhatsApp');
+  if(messageLink){messageLink.href='https://wa.me/8613851585237?text='+encodeURIComponent('Hello MING EAGLE, I just submitted a website request. My reference is: '+receipt.reference);messageLink.textContent='Add a WhatsApp message'}
 }
 document.addEventListener('DOMContentLoaded',bootThankReference);
