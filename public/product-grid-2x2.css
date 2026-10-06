@@ -1,0 +1,17 @@
+/* MING EAGLE product collection: desktop/tablet 2 columns x 2 rows. */
+.productGrid2{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:24px;
+  margin-top:38px;
+}
+.productGrid2 .pcard img{
+  width:100%;
+  aspect-ratio:1/1;
+  object-fit:contain;
+  padding:0;
+  background:#fff;
+}
+@media(max-width:620px){
+  .productGrid2{grid-template-columns:1fr;}
+}

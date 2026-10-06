@@ -24,27 +24,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Apply canonical product specifications
+      - name: Apply canonical product specifications and hero images
         run: python scripts/apply-product-specs.py
 
       - name: Verify self-contained production files
         run: |
           test -f public/index.html
+          test -f public/products.html
           test -f public/product-master.json
-          test -f public/assets/real-highlight-flocked-set.webp
-          test -f public/assets/real-highlight-weighted-flocked.webp
-          test -f public/assets/real-highlight-fabric-cover.webp
-          test -f public/assets/real-highlight-soccer.webp
-          test $(stat -c%s public/assets/real-highlight-flocked-set.webp) -gt 150000
-          test $(stat -c%s public/assets/real-highlight-weighted-flocked.webp) -gt 150000
-          test $(stat -c%s public/assets/real-highlight-fabric-cover.webp) -gt 150000
-          test $(stat -c%s public/assets/real-highlight-soccer.webp) -gt 150000
+          test -f public/product-grid-2x2.css
+          test -f public/assets/hero-flocked-silent-basketball-set.webp
+          test -f public/assets/hero-fabric-cover-silent-basketball-set.webp
+          test -f public/assets/hero-weighted-flocked-silent-basketball.webp
+          test -f public/assets/hero-flocked-silent-soccer-ball.webp
+          test $(stat -c%s public/assets/hero-flocked-silent-basketball-set.webp) -gt 80000
+          test $(stat -c%s public/assets/hero-fabric-cover-silent-basketball-set.webp) -gt 80000
+          test $(stat -c%s public/assets/hero-weighted-flocked-silent-basketball.webp) -gt 80000
+          test $(stat -c%s public/assets/hero-flocked-silent-soccer-ball.webp) -gt 80000
+          grep -q "productGrid2" public/index.html
+          grep -q "productGrid2" public/products.html
           grep -q "Orange / Blue / Green / Yellow" public/product-master.json
           grep -q "No. 3 / No. 4 / No. 6 / No. 7" public/product-master.json
           grep -q "Orange / Brown / Black / Aqua Blue" public/product-master.json
           grep -q "Black/Red" public/product-master.json
           grep -q "Yellow/Green" public/product-master.json
-          if grep -RniE "floot\.app|ming-eagle-sports\.floot" public; then
+          if grep -RniE "floot\\.app|ming-eagle-sports\\.floot" public; then
             echo "Floot runtime dependency detected"
             exit 1
           fi
