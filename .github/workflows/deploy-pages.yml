@@ -39,7 +39,12 @@ jobs:
         run: |
           python site-overrides/v20_polish.py public
 
-      - name: Release guard — preserve current products, TikTok wall and V20 polish
+      - name: Apply V21 reliable product videos and premium selling-point visuals
+        run: |
+          cat site-overrides/v20_product.css >> public/styles.css
+          python site-overrides/v20_fix_product_pages.py public
+
+      - name: Release guard — preserve products, TikTok wall, guide and V21 polish
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -87,19 +92,21 @@ jobs:
           for page in product_pages:
               text = Path('public', page).read_text(encoding='utf-8')
               if 'id="product-benefits"' not in text:
-                  raise SystemExit(f'V19 product detail section missing: {page}')
-              if 'id="real-product-highlights"' not in text:
-                  raise SystemExit(f'V20 visual highlight section missing: {page}')
+                  raise SystemExit(f'Product detail section missing: {page}')
+              if 'id="real-product-highlights"' not in text or 'sellingPointGrid' not in text:
+                  raise SystemExit(f'V21 visual selling-point section missing: {page}')
 
           first_product = Path('public/silent-basketball.html').read_text(encoding='utf-8')
-          if 'productVideoRail' not in first_product:
-              raise SystemExit('V20 product creator-video layout missing.')
+          first_product_players = first_product.count('tiktok.com/player')
+          if 'id="creator-videos"' not in first_product or 'creatorShowcase' not in first_product or first_product_players < 6:
+              raise SystemExit(f'V21 reliable product creator-video section missing or incomplete: {first_product_players} players')
+
           if 'QUIETER PLAY, EXPLAINED.' not in guide or 'SET UP THE MINI HOOP THE RIGHT WAY.' not in guide:
               raise SystemExit('Silent basketball guide is incomplete.')
-          if '@keyframes meTicker' not in styles or 'MING EAGLE V20' not in styles:
-              raise SystemExit('V20 CSS polish is missing.')
+          if '@keyframes meTicker' not in styles or 'MING EAGLE V20 product highlights' not in styles:
+              raise SystemExit('V21 product highlight CSS is missing.')
 
-          print(f'V20 guard passed: homepage TikTok={home_players}, Video Wall TikTok={wall_players}.')
+          print(f'V21 guard passed: homepage TikTok={home_players}, product TikTok={first_product_players}, Video Wall TikTok={wall_players}.')
           PY
 
       - name: Configure Pages
