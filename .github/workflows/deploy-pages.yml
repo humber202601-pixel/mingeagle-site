@@ -35,7 +35,11 @@ jobs:
         run: |
           python site-overrides/patch_site.py public
 
-      - name: Release guard — preserve current products, TikTok wall and V19 guide
+      - name: Apply V20 creator-video and visual highlight polish
+        run: |
+          python site-overrides/v20_polish.py public
+
+      - name: Release guard — preserve current products, TikTok wall and V20 polish
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -74,22 +78,28 @@ jobs:
           ]
           missing = [p for p in required_products if p not in products_page]
           if missing:
-              raise SystemExit('Current V11 product regression: ' + ', '.join(missing))
+              raise SystemExit('Current product regression: ' + ', '.join(missing))
 
-          for page in [
+          product_pages = [
               'silent-basketball.html', 'fabric-silent-basketball.html',
               'weighted-flocked-basketball.html', 'silent-soccer.html'
-          ]:
+          ]
+          for page in product_pages:
               text = Path('public', page).read_text(encoding='utf-8')
               if 'id="product-benefits"' not in text:
                   raise SystemExit(f'V19 product detail section missing: {page}')
+              if 'id="real-product-highlights"' not in text:
+                  raise SystemExit(f'V20 visual highlight section missing: {page}')
 
+          first_product = Path('public/silent-basketball.html').read_text(encoding='utf-8')
+          if 'productVideoRail' not in first_product:
+              raise SystemExit('V20 product creator-video layout missing.')
           if 'QUIETER PLAY, EXPLAINED.' not in guide or 'SET UP THE MINI HOOP THE RIGHT WAY.' not in guide:
-              raise SystemExit('V19 silent basketball guide is incomplete.')
-          if '@keyframes meTicker' not in styles:
-              raise SystemExit('V19 ticker overflow fix is missing.')
+              raise SystemExit('Silent basketball guide is incomplete.')
+          if '@keyframes meTicker' not in styles or 'MING EAGLE V20' not in styles:
+              raise SystemExit('V20 CSS polish is missing.')
 
-          print(f'V19 guard passed: homepage TikTok={home_players}, Video Wall TikTok={wall_players}.')
+          print(f'V20 guard passed: homepage TikTok={home_players}, Video Wall TikTok={wall_players}.')
           PY
 
       - name: Configure Pages
