@@ -19,7 +19,7 @@
       "tags": ["Adhesive hoop", "Soft flocked feel"],
       "bestFor": "Family indoor play, schools, mini-hoop activities",
       "heroImage": "assets/silent-set.jpg",
-      "highlightImage": "",
+      "highlightImage": "assets/real-highlight-flocked-set.webp",
       "status": "published",
       "sort": 1
     },
@@ -34,7 +34,7 @@
       "tags": ["Fabric cover", "Ball + hoop set"],
       "bestFor": "Younger users, family play, school activity rooms",
       "heroImage": "assets/fabric-ball.jpg",
-      "highlightImage": "",
+      "highlightImage": "assets/real-highlight-fabric-cover.webp",
       "status": "published",
       "sort": 2
     },
@@ -45,11 +45,11 @@
       "name": "Weighted Flocked Silent Basketball",
       "short": "A weighted flocked silent basketball for training-style drills and a hand feel closer to a real basketball.",
       "sizes": ["No. 3", "No. 4", "No. 6", "No. 7"],
-      "colors": ["Orange", "Coffee Brown", "Black", "Lake Blue"],
+      "colors": ["Orange", "Brown", "Black", "Aqua Blue"],
       "tags": ["Weighted feel", "Training use"],
       "bestFor": "Indoor practice, skill work, more realistic basketball feel",
       "heroImage": "assets/flocked-ball.jpg",
-      "highlightImage": "",
+      "highlightImage": "assets/real-highlight-weighted-flocked.webp",
       "status": "published",
       "sort": 3
     },
@@ -57,14 +57,14 @@
       "id": "ME-P4",
       "slug": "silent-soccer",
       "page": "silent-soccer.html",
-      "name": "Flocked Silent Indoor Soccer Ball",
+      "name": "Flocked Silent Soccer Ball",
       "short": "A size 5 flocked silent soccer ball for indoor kids and teen play, home footwork and low-noise fun.",
       "sizes": ["No. 5"],
       "colors": ["Black/White", "Black/Green", "Black/Red", "Yellow/Green", "Black/Gold"],
       "tags": ["Indoor play", "Soft flocked surface"],
       "bestFor": "Children's indoor football, parent-child play, schools",
       "heroImage": "assets/flocked-soccer.jpg",
-      "highlightImage": "",
+      "highlightImage": "assets/real-highlight-soccer.webp",
       "status": "published",
       "sort": 4
     }
