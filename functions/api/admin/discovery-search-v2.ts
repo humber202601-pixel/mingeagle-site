@@ -3,10 +3,11 @@ interface Env { MINGEAGLE_DB: D1Database; GEOAPIFY_API_KEY?: string }
 type Input = { stateCode?: string; customerType?: string; targetCount?: number | string };
 type SourceResult = { ok?: boolean; found?: number; error?: string; mode?: string; provider?: string; checked?: number; verified?: number; note?: string; elapsedMs?: number; rawCount?: number; uniquePlaces?: number; websiteChecked?: number };
 
-const RELEASE = 'DISCOVERY_V11_GEOAPIFY_FREE_2026-10-05_2145';
+const RELEASE = 'DISCOVERY_V12_SCHOOL_PROCUREMENT_2026-10-06';
 const clean = (value: unknown, max = 1000) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 const allowedState = /^[A-Z]{2}$/;
-const allowedTypes = new Set(['BASKETBALL_TRAINING','BASKETBALL_GYM','YOUTH_CLUB','SPORTS_STORE']);
+const schoolTypes = new Set(['PRESCHOOL_KINDERGARTEN','ELEMENTARY_SCHOOL','MIDDLE_HIGH_SCHOOL','PRIVATE_CHARTER_SCHOOL','SCHOOL_DISTRICT','AFTER_SCHOOL_PROGRAM','EDUCATION_SUPPLIER']);
+const allowedTypes = new Set(['BASKETBALL_TRAINING','BASKETBALL_GYM','YOUTH_CLUB','SPORTS_STORE', ...schoolTypes]);
 
 async function callSource(request: Request,path: string,body: Record<string, unknown>,timeoutMs: number): Promise<SourceResult> {
   const controller = new AbortController();
@@ -18,7 +19,7 @@ async function callSource(request: Request,path: string,body: Record<string, unk
       headers: {
         'content-type': 'application/json',
         'x-admin-key': request.headers.get('x-admin-key') || '',
-        'user-agent': 'MING-EAGLE-Discovery-Orchestrator/5.0',
+        'user-agent': 'MING-EAGLE-Discovery-Orchestrator/6.0',
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -28,6 +29,7 @@ async function callSource(request: Request,path: string,body: Record<string, unk
     return result;
   } catch (error) {
     if (error instanceof Error && (error.name === 'AbortError' || /aborted/i.test(error.message))) {
+      if (path.includes('school')) throw new Error('学校/教育客户发现等待超时');
       if (path.includes('geoapify')) throw new Error('Geoapify 免费地点源等待超时');
       if (path.includes('discovery-web')) throw new Error('Web 实体验证源等待超时');
     }
@@ -50,6 +52,31 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!allowedTypes.has(customerType)) return Response.json({ ok: false, error: '不支持的客户类型。', release: RELEASE }, { status: 400, headers: { 'cache-control': 'no-store' } });
 
     const common = { stateCode, customerType, targetCount };
+
+    if (schoolTypes.has(customerType)) {
+      const school = await callSource(request, '/api/admin/discovery-school-v1', common, 36000);
+      return new Response(JSON.stringify({
+        ok: true,
+        release: RELEASE,
+        found: Number(school.found || 0),
+        geoapifyConfigured: Boolean(env.GEOAPIFY_API_KEY),
+        geoFound: Number(school.found || 0),
+        geoChecked: Number(school.checked || 0),
+        geoVerified: Number(school.verified || 0),
+        geoRawCount: Number(school.rawCount || 0),
+        geoUniquePlaces: Number(school.uniquePlaces || 0),
+        geoWebsiteChecked: Number(school.websiteChecked || 0),
+        geoElapsedMs: Number(school.elapsedMs || 0),
+        webFound: 0,
+        webChecked: 0,
+        webVerified: 0,
+        webProvider: '',
+        mode: school.mode || 'SCHOOL_PROCUREMENT_V1',
+        sources: { school: true, geoapify: true, web: false },
+        note: school.note || '学校/教育客户搜索已完成。',
+      }), { status: 200, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store, no-cache, must-revalidate, max-age=0', 'pragma': 'no-cache' } });
+    }
+
     const [geoResult, webResult] = await Promise.allSettled([
       callSource(request, '/api/admin/discovery-geoapify-v1', common, 30000),
       callSource(request, '/api/admin/discovery-web-v6', common, 34000),
@@ -83,7 +110,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const notes = [
       geoNote,
       web?.note || (webError ? `Web核心源未完成：${webError}。` : ''),
-      'Overpass 与 Bing RSS 已退出主发现链路；V11 使用 Geoapify 免费配额 + 官网验证。',
+      'Overpass 与 Bing RSS 已退出主发现链路；V12 对学校/教育客户使用专用 Geoapify + 官网采购联系人验证。',
     ].filter(Boolean).join(' ');
 
     const body = {
@@ -104,9 +131,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       webVerified: Number(web?.verified || webFound),
       webProvider: web?.provider || web?.mode || '',
       webError,
-      mode: 'VERIFIED_MULTI_SOURCE_V11_0',
+      mode: 'VERIFIED_MULTI_SOURCE_V12_0',
       sources: { geoapify: Boolean(geo), web: Boolean(web) },
-      note: notes || 'V11 Geoapify + Web 双源验证已完成。',
+      note: notes || 'V12 Geoapify + Web 双源验证已完成。',
     };
     return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store, no-cache, must-revalidate, max-age=0', 'pragma': 'no-cache' } });
   } catch (error) {
