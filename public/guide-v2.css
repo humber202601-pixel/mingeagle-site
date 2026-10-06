@@ -1,0 +1,96 @@
+.guidePage{background:#fff;color:#122033;font-size:16px;line-height:1.65}
+.guidePage main h1,.guidePage main h2,.guidePage main h3{font-weight:850}
+.guidePage main h1{font-size:clamp(48px,5.8vw,76px);line-height:1.04;letter-spacing:-.055em;margin:18px 0 22px}
+.guidePage main h2{font-size:clamp(32px,3.7vw,46px);line-height:1.12;letter-spacing:-.04em;margin:12px 0 20px}
+.guidePage main h3{line-height:1.25;letter-spacing:-.02em}
+.guidePage main p{color:#526071;margin:0 0 16px}
+.guidePage main figure{margin:0}
+.guidePage .gEyebrow{font-size:12px;font-weight:850;letter-spacing:.14em;color:#bd4b0b;text-transform:uppercase}
+.guidePage .gHero{background:#f6f3ed;border-bottom:1px solid #e4e6e9;padding:52px 0}
+.guidePage .gHeroGrid{display:grid;grid-template-columns:1.08fr .92fr;gap:64px;align-items:center}
+.guidePage .gIntro{font-size:19px;line-height:1.65;max-width:540px}
+.guidePage .gPills{display:flex;gap:9px;flex-wrap:wrap;margin:24px 0}
+.guidePage .gPills span{font-size:13px;font-weight:750;border:1px solid #dcdedc;background:#fff;border-radius:8px;padding:7px 11px}
+.guidePage .gHeroPhoto{position:relative;overflow:hidden;border-radius:24px;background:#e5d9ca}
+.guidePage .gHeroPhoto img{width:100%;height:auto;aspect-ratio:1/1;object-fit:cover}
+.guidePage .gHeroPhoto figcaption{position:absolute;bottom:0;left:0;right:0;padding:45px 24px 22px;background:linear-gradient(transparent,rgba(12,22,34,.87));color:#fff;font-size:14px}
+.guidePage .gHeroPhoto figcaption span{display:block;font-weight:800;font-size:11px;letter-spacing:.16em;color:#ffd5bb;margin-bottom:4px}
+.guidePage .gJump{background:#fff;border-bottom:1px solid #e4e6e9}
+.guidePage .gJumpInner{display:flex;gap:29px;align-items:center;flex-wrap:wrap;padding-top:20px;padding-bottom:20px}
+.guidePage .gJumpInner>span{font-size:11px;font-weight:850;letter-spacing:.11em;color:#647080;margin-right:auto}
+.guidePage .gJump a{font-size:14px;font-weight:750;white-space:nowrap}
+.guidePage main section[id]{scroll-margin-top:100px}
+.guidePage .gSection{padding:76px 0;border-bottom:1px solid #e4e6e9}
+.guidePage .gSectionHead{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:end;margin-bottom:32px}
+.guidePage .gSectionHead h2{margin-bottom:0}
+.guidePage .gSectionHead>p{max-width:500px;margin:0}
+.guidePage .gBasicsGrid{display:grid;grid-template-columns:.82fr 1.18fr;gap:80px;align-items:start}
+.guidePage .gBodyLead{font-size:20px;color:#122033}
+.guidePage .gNote{padding:18px 22px;margin:24px 0 0;background:#f3f6f8;border-left:3px solid #ff6b19;border-radius:0 12px 12px 0;font-size:15px}
+.guidePage .gNote strong{display:block;color:#122033;margin-bottom:5px}
+.guidePage .gProducts{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.guidePage .gProduct{display:grid;grid-template-columns:.85fr 1.15fr;border:1px solid #dfe4e8;border-radius:18px;overflow:hidden;background:#fff;min-width:0}
+.guidePage .gProductPhoto{display:flex;align-items:center;background:#f7f8fa;padding:10px}
+.guidePage .gProductPhoto img{width:100%;height:auto;object-fit:contain}
+.guidePage .gProductCopy{padding:23px 22px}
+.guidePage .gModelTag{font-size:10px;font-weight:850;letter-spacing:.055em;color:#925023}
+.guidePage .gProduct h3{font-size:23px;margin:10px 0 12px}
+.guidePage .gProduct p{font-size:14px;line-height:1.6;margin-bottom:16px}
+.guidePage .gProduct dl{margin:0 0 20px;font-size:13px}
+.guidePage .gProduct dl>div{padding:7px 0;border-top:1px solid #edf0f2}
+.guidePage .gProduct dt{font-weight:800;display:block;color:#122033}
+.guidePage .gProduct dd{margin:2px 0 0;color:#526071}
+.guidePage .gTextLink{font-size:14px;font-weight:800;text-decoration:underline;text-decoration-color:#ffb185;text-underline-offset:5px}
+.guidePage .gTextLink span{display:inline-block;margin-left:5px}
+.guidePage .gChoiceNote,.guidePage .gInlineNote{display:grid;grid-template-columns:180px 1fr auto;gap:20px;align-items:center;padding:23px 26px;border-radius:14px;background:#f6f7f9;margin-top:24px}
+.guidePage .gChoiceNote p,.guidePage .gInlineNote p{font-size:14px;margin:0}
+.guidePage .gSoft{background:#f6f3ed}
+.guidePage .gCareGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.guidePage .gCareCard{background:#fff;border:1px solid #e1ddd6;border-radius:18px;overflow:hidden}
+.guidePage .gCarePhoto{height:auto;aspect-ratio:1/1;overflow:hidden;background:#e8e3dd}
+.guidePage .gCarePhoto img{width:100%;height:100%;object-fit:cover;object-position:center}
+.guidePage .gCarePhoto .gCareLeft{object-position:left}
+.guidePage .gCarePhoto .gCareRight{object-position:right}
+.guidePage .gCareCopy{padding:24px}
+.guidePage .gStepNumber{display:inline-flex;width:29px;height:29px;align-items:center;justify-content:center;border-radius:50%;background:#122033;color:#fff;font-size:13px;font-weight:800}
+.guidePage .gCareCopy h3{font-size:21px;margin:13px 0 10px}
+.guidePage .gCareCopy p{font-size:15px;margin:0}
+.guidePage .gCaption{font-size:12px;margin-top:14px}
+.guidePage .gInlineNote{background:#fff;border:1px solid #e1ddd6}
+.guidePage .gHoopGrid{display:grid;grid-template-columns:.9fr 1.1fr;gap:60px;align-items:start}
+.guidePage .gHoopPhoto{padding:18px;border:1px solid #e1e5e9;border-radius:20px;background:#fafbfc}
+.guidePage .gHoopPhoto img{width:100%;height:auto;object-fit:contain;border-radius:12px}
+.guidePage .gHoopPhoto figcaption{font-size:13px;line-height:1.55;color:#526071;padding:15px 8px 3px}
+.guidePage .gMountSteps{list-style:none;margin:0;padding:0;display:grid;gap:23px}
+.guidePage .gMountSteps li{display:flex;gap:18px;border-bottom:1px solid #e4e6e9;padding-bottom:22px}
+.guidePage .gMountSteps li:last-child{border:0;padding-bottom:0}
+.guidePage .gMountSteps li>span{font-size:14px;font-weight:850;color:#b64a0c;flex:0 0 35px;height:35px;border-radius:50%;background:#fff0e5;text-align:center;line-height:35px}
+.guidePage .gMountSteps h3{font-size:21px;margin:2px 0 8px}
+.guidePage .gMountSteps p{font-size:15px;margin:0}
+.guidePage .gMountNote{background:#fff4eb;border:1px solid #f3d7c1;border-radius:14px;padding:22px 25px;margin-top:28px}
+.guidePage .gMountNote p{font-size:15px;margin:6px 0 0}
+.guidePage .gDark{background:#122033;color:#fff;border:0}
+.guidePage .gDark .gEyebrow{color:#ffb584}
+.guidePage .gDark p{color:#bfcbd8}
+.guidePage .gKeepGrid{display:grid;grid-template-columns:.82fr 1.18fr;gap:80px}
+.guidePage .gKeepList{display:grid;gap:24px}
+.guidePage .gKeepList>div{display:flex;gap:21px;border-bottom:1px solid #314052;padding-bottom:23px}
+.guidePage .gKeepList>div:last-child{border:0;padding-bottom:0}
+.guidePage .gKeepList span{font-size:13px;color:#ffb584;font-weight:800;padding-top:3px}
+.guidePage .gKeepList h3{font-size:21px;margin:0 0 8px}
+.guidePage .gKeepList p{font-size:15px;margin:0}
+.guidePage .gFaqGrid{display:grid;grid-template-columns:.82fr 1.18fr;gap:80px}
+.guidePage .gFaq details{border-bottom:1px solid #e1e5e9;padding:20px 0}
+.guidePage .gFaq details:first-child{padding-top:0}
+.guidePage .gFaq summary{font-weight:800;font-size:17px;cursor:pointer;padding-right:10px}
+.guidePage .gFaq p{font-size:15px;margin:13px 0 0;max-width:600px}
+.guidePage .gClosing{background:#f6f3ed;padding:48px 0}
+.guidePage .gClosingInner{display:grid;grid-template-columns:1fr auto;gap:35px;align-items:center}
+.guidePage .gClosing h2{font-size:32px;margin-bottom:12px}
+.guidePage .gClosing p{margin-bottom:0;max-width:700px}
+.guidePage .gClosing .actions{margin:0}
+.guidePage a:focus-visible,.guidePage summary:focus-visible{outline:3px solid #2667ff;outline-offset:5px}
+@media(max-width:1100px){.guidePage .gHeroGrid,.guidePage .gSectionHead{gap:35px}.guidePage .gProduct{grid-template-columns:1fr}.guidePage .gProductPhoto{padding:12px 24px}.guidePage .gProductPhoto img{max-height:300px}.guidePage .gProducts{gap:20px}.guidePage .gProductCopy{padding:24px}.guidePage .gProduct h3 br{display:none}.guidePage .gChoiceNote,.guidePage .gInlineNote{grid-template-columns:150px 1fr}.guidePage .gChoiceNote>a,.guidePage .gInlineNote>a{grid-column:2}.guidePage .gHoopGrid{gap:30px}.guidePage .gClosingInner{grid-template-columns:1fr}.guidePage .gBasicsGrid,.guidePage .gKeepGrid,.guidePage .gFaqGrid{gap:45px}}
+@media(max-width:760px){.guidePage .gHero{padding:38px 0}.guidePage .gHeroGrid,.guidePage .gSectionHead,.guidePage .gBasicsGrid,.guidePage .gHoopGrid,.guidePage .gKeepGrid,.guidePage .gFaqGrid{grid-template-columns:1fr;gap:26px}.guidePage .gHeroPhoto{max-width:520px}.guidePage .gHeroPhoto img{aspect-ratio:1.15/1}.guidePage .gHeroCopy .actions{margin:22px 0 3px}.guidePage .gSection{padding:48px 0}.guidePage .gJumpInner{gap:13px 24px}.guidePage .gJumpInner>span{width:100%}.guidePage .gSectionHead{margin-bottom:25px}.guidePage .gCareGrid{grid-template-columns:1fr}.guidePage .gCareCard{display:grid;grid-template-columns:.85fr 1.15fr;align-items:stretch}.guidePage .gCarePhoto{aspect-ratio:auto;min-height:245px}.guidePage .gCareCopy{padding:22px}.guidePage .gHoopPhoto{max-width:520px}.guidePage .gChoiceNote,.guidePage .gInlineNote{display:block;padding:22px}.guidePage .gChoiceNote p,.guidePage .gInlineNote p{margin:10px 0 14px}.guidePage .gMountSteps{gap:20px}.guidePage .gClosing{padding:38px 0}.guidePage main h2 br{display:none}}
+@media(max-width:520px){.guidePage .gProducts{grid-template-columns:1fr}.guidePage .gProduct{grid-template-columns:1fr}.guidePage .gProductPhoto img{max-height:320px}.guidePage .gProductCopy{padding:22px}.guidePage .gCareCard{grid-template-columns:1fr}.guidePage .gCarePhoto{aspect-ratio:1/1;min-height:0}.guidePage .gCareCopy{padding:22px}.guidePage .gHero .btn{font-size:14px;padding:12px 15px}.guidePage .nav{gap:12px}.guidePage .nav .brand{font-size:14px}.guidePage .nav .pill{font-size:12px;padding:8px 10px}.guidePage .lang select{padding:8px;max-width:67px}.guidePage .gJumpInner{gap:12px 20px}.guidePage .gClosing .actions{align-items:stretch}.guidePage .gClosing .btn{flex:1}.guidePage .whatsapp{font-size:13px;right:14px;bottom:14px}}
+@media(prefers-reduced-motion:reduce){.guidePage{scroll-behavior:auto}.guidePage *{scroll-behavior:auto}}
