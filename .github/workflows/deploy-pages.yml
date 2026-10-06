@@ -59,7 +59,12 @@ jobs:
           cat site-overrides/v20_product.css >> public/styles.css
           python site-overrides/v20_fix_product_pages.py public
 
-      - name: Release guard — preserve products, TikTok wall, guide and V21 polish
+      - name: Apply V22 confirmed real-product photo system and school audience
+        run: |
+          cat site-overrides/v22_real_products.css >> public/styles.css
+          python site-overrides/v22_real_products.py public
+
+      - name: Release guard — preserve products, TikTok wall, guide and V22 real-product data
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -109,19 +114,35 @@ jobs:
               if 'id="product-benefits"' not in text:
                   raise SystemExit(f'Product detail section missing: {page}')
               if 'id="real-product-highlights"' not in text or 'sellingPointGrid' not in text:
-                  raise SystemExit(f'V21 visual selling-point section missing: {page}')
+                  raise SystemExit(f'Product selling-point section missing: {page}')
+              if 'realPhotoGrid' not in text or 'REAL-PHOTO RULE' not in text:
+                  raise SystemExit(f'V22 confirmed real-photo section missing: {page}')
 
           first_product = Path('public/silent-basketball.html').read_text(encoding='utf-8')
           first_product_players = first_product.count('tiktok.com/player')
           if 'id="creator-videos"' not in first_product or 'creatorShowcase' not in first_product or first_product_players < 6:
-              raise SystemExit(f'V21 reliable product creator-video section missing or incomplete: {first_product_players} players')
+              raise SystemExit(f'Product creator-video section missing or incomplete: {first_product_players} players')
+
+          weighted = Path('public/weighted-flocked-basketball.html').read_text(encoding='utf-8')
+          soccer = Path('public/silent-soccer.html').read_text(encoding='utf-8')
+          fabric = Path('public/fabric-silent-basketball.html').read_text(encoding='utf-8')
+          if 'Orange / Blue / Green / Yellow' not in first_product:
+              raise SystemExit('V22 first-product color master data missing.')
+          if 'Orange / Green' not in fabric or 'No. 3 / No. 5 / No. 7' not in fabric:
+              raise SystemExit('V22 fabric product master data missing.')
+          if 'No. 3 / No. 4 / No. 6 / No. 7' not in weighted or 'Lake Blue' not in weighted:
+              raise SystemExit('V22 weighted product master data missing.')
+          if 'No. 5 only' not in soccer or 'Yellow/Green' not in soccer or 'Black/Gold' not in soccer:
+              raise SystemExit('V22 soccer product master data missing.')
+          if 'id="schools-audience"' not in index:
+              raise SystemExit('V22 school audience section missing from homepage.')
 
           if 'QUIETER PLAY, EXPLAINED.' not in guide or 'SET UP THE MINI HOOP THE RIGHT WAY.' not in guide:
               raise SystemExit('Silent basketball guide is incomplete.')
-          if '@keyframes meTicker' not in styles or 'MING EAGLE V20 product highlights' not in styles:
-              raise SystemExit('V21 product highlight CSS is missing.')
+          if '@keyframes meTicker' not in styles or 'MING EAGLE V20 product highlights' not in styles or 'MING EAGLE V22' not in styles:
+              raise SystemExit('V22 CSS is missing.')
 
-          print(f'V21 guard passed: homepage TikTok={home_players}, product TikTok={first_product_players}, Video Wall TikTok={wall_players}.')
+          print(f'V22 guard passed: homepage TikTok={home_players}, product TikTok={first_product_players}, Video Wall TikTok={wall_players}.')
           PY
 
       - name: Configure Pages
