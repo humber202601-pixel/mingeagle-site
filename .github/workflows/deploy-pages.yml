@@ -64,7 +64,13 @@ jobs:
           cat site-overrides/v22_real_products.css >> public/styles.css
           python site-overrides/v22_real_products.py public
 
-      - name: Release guard — preserve products, TikTok wall, guide and V22 real-product data
+      - name: Apply V23 dedicated For Schools page and corrected Guide master data
+        run: |
+          cp site-overrides/for-schools.html public/for-schools.html
+          cat site-overrides/v23_schools.css >> public/styles.css
+          python site-overrides/v23_schools_guide.py public
+
+      - name: Release guard — preserve products, TikTok wall, guide, schools and confirmed real-product data
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -73,6 +79,7 @@ jobs:
           inquiry = Path('public/inquiry.html').read_text(encoding='utf-8')
           products_page = Path('public/products.html').read_text(encoding='utf-8')
           guide = Path('public/silent-basketball-guide.html').read_text(encoding='utf-8')
+          schools = Path('public/for-schools.html').read_text(encoding='utf-8')
           styles = Path('public/styles.css').read_text(encoding='utf-8')
 
           home_players = index.count('tiktok.com/player')
@@ -86,7 +93,7 @@ jobs:
               'Basketball Uniform', 'Soccer Uniform', 'Training Shirt',
               'Team Socks', 'Shin Guards', 'Team Packages', 'Custom Studio'
           ]
-          combined = index + '\n' + videos + '\n' + inquiry + '\n' + products_page + '\n' + guide
+          combined = index + '\n' + videos + '\n' + inquiry + '\n' + products_page + '\n' + guide + '\n' + schools
           found = [term for term in forbidden if term.lower() in combined.lower()]
           if found:
               raise SystemExit('Out-of-scope product/content detected: ' + ', '.join(found))
@@ -127,22 +134,28 @@ jobs:
           soccer = Path('public/silent-soccer.html').read_text(encoding='utf-8')
           fabric = Path('public/fabric-silent-basketball.html').read_text(encoding='utf-8')
           if 'Orange / Blue / Green / Yellow' not in first_product:
-              raise SystemExit('V22 first-product color master data missing.')
+              raise SystemExit('First-product color master data missing.')
           if 'Orange / Green' not in fabric or 'No. 3 / No. 5 / No. 7' not in fabric:
-              raise SystemExit('V22 fabric product master data missing.')
+              raise SystemExit('Fabric product master data missing.')
           if 'No. 3 / No. 4 / No. 6 / No. 7' not in weighted or 'Lake Blue' not in weighted:
-              raise SystemExit('V22 weighted product master data missing.')
+              raise SystemExit('Weighted product master data missing.')
           if 'No. 5 only' not in soccer or 'Yellow/Green' not in soccer or 'Black/Gold' not in soccer:
-              raise SystemExit('V22 soccer product master data missing.')
+              raise SystemExit('Soccer product master data missing.')
           if 'id="schools-audience"' not in index:
-              raise SystemExit('V22 school audience section missing from homepage.')
+              raise SystemExit('School audience section missing from homepage.')
 
           if 'QUIETER PLAY, EXPLAINED.' not in guide or 'SET UP THE MINI HOOP THE RIGHT WAY.' not in guide:
               raise SystemExit('Silent basketball guide is incomplete.')
-          if '@keyframes meTicker' not in styles or 'MING EAGLE V20 product highlights' not in styles or 'MING EAGLE V22' not in styles:
-              raise SystemExit('V22 CSS is missing.')
+          if 'Orange / Blue / Green / Yellow' not in guide or 'No. 3 / 4 / 6 / 7' not in guide or 'Yellow/Green' not in guide:
+              raise SystemExit('Guide product master data is stale.')
+          if 'id="guide-schools"' not in guide or 'For Schools' not in schools or 'SCHOOLS & EDUCATION' not in schools:
+              raise SystemExit('For Schools experience is incomplete.')
+          if 'for-schools.html' not in index:
+              raise SystemExit('Homepage does not link to For Schools.')
+          if '@keyframes meTicker' not in styles or 'MING EAGLE V20 product highlights' not in styles or 'MING EAGLE V22' not in styles or 'MING EAGLE V23' not in styles:
+              raise SystemExit('V23 CSS is missing.')
 
-          print(f'V22 guard passed: homepage TikTok={home_players}, product TikTok={first_product_players}, Video Wall TikTok={wall_players}.')
+          print(f'V23 guard passed: homepage TikTok={home_players}, product TikTok={first_product_players}, Video Wall TikTok={wall_players}.')
           PY
 
       - name: Configure Pages
