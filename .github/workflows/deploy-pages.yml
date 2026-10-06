@@ -32,21 +32,16 @@ jobs:
           echo "www.mingeagle.com" > public/CNAME
 
       - name: Apply V19 product education and responsive fixes
-        run: |
-          python site-overrides/patch_site.py public
+        run: python site-overrides/patch_site.py public
 
       - name: Apply V20 creator-video and visual highlight polish
-        run: |
-          python site-overrides/v20_polish.py public
+        run: python site-overrides/v20_polish.py public
 
       - name: Apply V21 reliable product videos and premium selling-point visuals
         run: |
           python - <<'PY'
           from pathlib import Path
-          pages = [
-              'silent-basketball.html', 'fabric-silent-basketball.html',
-              'weighted-flocked-basketball.html', 'silent-soccer.html'
-          ]
+          pages = ['silent-basketball.html','fabric-silent-basketball.html','weighted-flocked-basketball.html','silent-soccer.html']
           old = '<section class="section realHighlightsV20" id="real-product-highlights"><div class="wrap"><div class="eyebrow">REAL PRODUCT HIGHLIGHTS</div>'
           normalized = '<section class="section"><div class="wrap"><div class="eyebrow" data-i18n="common.gallery">REAL PRODUCT HIGHLIGHTS</div>'
           for page in pages:
@@ -71,20 +66,33 @@ jobs:
           python site-overrides/v23_schools_guide.py public
 
       - name: Apply V26 REAL PRODUCT HIGHLIGHTS copy
-        run: |
-          python site-overrides/v26_highlight_copy.py public
+        run: python site-overrides/v26_highlight_copy.py public
 
-      - name: Apply user-approved REAL PRODUCT HIGHLIGHTS artwork and final product master data
+      - name: Prepare approved artwork directory
+        run: mkdir -p public/assets
+
+      - name: Decode approved product 1 artwork
         run: |
-          mkdir -p public/assets
           base64 -d site-overrides/assets/product1-highlights.b64 > public/assets/product1-highlights-v24.webp
+          test $(stat -c%s public/assets/product1-highlights-v24.webp) -gt 50000
+
+      - name: Decode approved product 2 artwork
+        run: |
           base64 -d site-overrides/assets/product2-highlights.b64 > public/assets/product2-highlights-v24.webp
+          test $(stat -c%s public/assets/product2-highlights-v24.webp) -gt 50000
+
+      - name: Decode approved product 3 artwork
+        run: |
           base64 -d site-overrides/assets/product3-highlights.b64 > public/assets/product3-highlights-v24.webp
+          test $(stat -c%s public/assets/product3-highlights-v24.webp) -gt 50000
+
+      - name: Decode approved product 4 artwork
+        run: |
           base64 -d site-overrides/assets/product4-highlights.b64 > public/assets/product4-highlights-v24.webp
-          test -s public/assets/product1-highlights-v24.webp
-          test -s public/assets/product2-highlights-v24.webp
-          test -s public/assets/product3-highlights-v24.webp
-          test -s public/assets/product4-highlights-v24.webp
+          test $(stat -c%s public/assets/product4-highlights-v24.webp) -gt 50000
+
+      - name: Apply approved artwork and final product master data
+        run: |
           cat site-overrides/v24_highlights.css >> public/styles.css
           python site-overrides/v24_approved_highlights.py public
 
@@ -92,109 +100,42 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          index = Path('public/index.html').read_text(encoding='utf-8')
-          videos = Path('public/videos.html').read_text(encoding='utf-8')
-          inquiry = Path('public/inquiry.html').read_text(encoding='utf-8')
-          products_page = Path('public/products.html').read_text(encoding='utf-8')
-          guide = Path('public/silent-basketball-guide.html').read_text(encoding='utf-8')
-          schools = Path('public/for-schools.html').read_text(encoding='utf-8')
-          styles = Path('public/styles.css').read_text(encoding='utf-8')
-          site_js = Path('public/site.js').read_text(encoding='utf-8')
-
-          home_players = index.count('tiktok.com/player')
-          wall_players = videos.count('tiktok.com/player')
-          if home_players < 6:
-              raise SystemExit(f'Homepage TikTok regression: expected at least 6 players, found {home_players}.')
-          if wall_players < 16:
-              raise SystemExit(f'Video Wall regression: expected at least 16 players, found {wall_players}.')
-
-          forbidden = [
-              'Basketball Uniform', 'Soccer Uniform', 'Training Shirt',
-              'Team Socks', 'Shin Guards', 'Team Packages', 'Custom Studio'
-          ]
-          combined = index + '\n' + videos + '\n' + inquiry + '\n' + products_page + '\n' + guide + '\n' + schools
-          found = [term for term in forbidden if term.lower() in combined.lower()]
-          if found:
-              raise SystemExit('Out-of-scope product/content detected: ' + ', '.join(found))
-
-          expected_bridge = 'https://ming-eagle-sports.floot.app/_api/inquiry'
-          if expected_bridge not in inquiry:
-              raise SystemExit('Published Floot inquiry bridge is missing.')
-
-          required_products = [
-              'Flocked Silent Basketball Set',
-              'Fabric-Cover Silent Basketball Set',
-              'Weighted Flocked Silent Basketball',
-              'Flocked Silent Soccer Ball',
-          ]
-          missing = [p for p in required_products if p not in products_page]
-          if missing:
-              raise SystemExit('Current product regression: ' + ', '.join(missing))
-
-          product_pages = [
-              'silent-basketball.html', 'fabric-silent-basketball.html',
-              'weighted-flocked-basketball.html', 'silent-soccer.html'
-          ]
+          index=Path('public/index.html').read_text(encoding='utf-8'); videos=Path('public/videos.html').read_text(encoding='utf-8'); inquiry=Path('public/inquiry.html').read_text(encoding='utf-8'); products_page=Path('public/products.html').read_text(encoding='utf-8'); guide=Path('public/silent-basketball-guide.html').read_text(encoding='utf-8'); schools=Path('public/for-schools.html').read_text(encoding='utf-8'); styles=Path('public/styles.css').read_text(encoding='utf-8'); site_js=Path('public/site.js').read_text(encoding='utf-8')
+          home_players=index.count('tiktok.com/player'); wall_players=videos.count('tiktok.com/player')
+          if home_players<6: raise SystemExit(f'Homepage TikTok regression: {home_players}')
+          if wall_players<16: raise SystemExit(f'Video Wall regression: {wall_players}')
+          forbidden=['Basketball Uniform','Soccer Uniform','Training Shirt','Team Socks','Shin Guards','Team Packages','Custom Studio']
+          combined='\n'.join([index,videos,inquiry,products_page,guide,schools]); found=[x for x in forbidden if x.lower() in combined.lower()]
+          if found: raise SystemExit('Out-of-scope product/content detected: '+', '.join(found))
+          if 'https://ming-eagle-sports.floot.app/_api/inquiry' not in inquiry: raise SystemExit('Published Floot inquiry bridge is missing.')
+          required=['Flocked Silent Basketball Set','Fabric-Cover Silent Basketball Set','Weighted Flocked Silent Basketball','Flocked Silent Soccer Ball']; missing=[x for x in required if x not in products_page]
+          if missing: raise SystemExit('Current product regression: '+', '.join(missing))
+          product_pages=['silent-basketball.html','fabric-silent-basketball.html','weighted-flocked-basketball.html','silent-soccer.html']
           for page in product_pages:
-              text = Path('public', page).read_text(encoding='utf-8')
-              if 'id="product-benefits"' not in text:
-                  raise SystemExit(f'Product detail section missing: {page}')
-              if 'id="real-product-highlights"' not in text or 'sellingPointGrid' not in text:
-                  raise SystemExit(f'Product selling-point section missing: {page}')
-              if 'approvedHighlightImage' not in text or 'REAL-PHOTO RULE' not in text:
-                  raise SystemExit(f'Approved REAL PRODUCT HIGHLIGHTS artwork missing: {page}')
-              if 'realPhotoGrid' in text:
-                  raise SystemExit(f'Old raw-photo gallery still present: {page}')
-
-          for asset in [
-              'product1-highlights-v24.webp', 'product2-highlights-v24.webp',
-              'product3-highlights-v24.webp', 'product4-highlights-v24.webp'
-          ]:
-              p = Path('public/assets', asset)
-              if not p.exists() or p.stat().st_size < 50000:
-                  raise SystemExit(f'Approved highlight asset missing or invalid: {asset}')
-
-          first_product = Path('public/silent-basketball.html').read_text(encoding='utf-8')
-          first_product_players = first_product.count('tiktok.com/player')
-          if 'id="creator-videos"' not in first_product or 'creatorShowcase' not in first_product or first_product_players < 6:
-              raise SystemExit(f'Product creator-video section missing or incomplete: {first_product_players} players')
-
-          weighted = Path('public/weighted-flocked-basketball.html').read_text(encoding='utf-8')
-          soccer = Path('public/silent-soccer.html').read_text(encoding='utf-8')
-          fabric = Path('public/fabric-silent-basketball.html').read_text(encoding='utf-8')
-          if 'Orange / Blue / Green / Yellow' not in first_product:
-              raise SystemExit('First-product color master data missing.')
-          if 'Orange / Green' not in fabric or 'No. 3 / No. 5 / No. 7' not in fabric:
-              raise SystemExit('Fabric product master data missing.')
-          if 'No. 3 / No. 4 / No. 6 / No. 7' not in weighted or 'Lake Blue' not in weighted:
-              raise SystemExit('Weighted product master data missing.')
-          if 'No. 5 only' not in soccer or 'Yellow/Green' not in soccer or 'Black/Gold' not in soccer:
-              raise SystemExit('Soccer product master data missing.')
-
-          stale = [
-              '"p1.tags.2": "Orange / Blue"',
-              '"p3.tags.1": "Sizes 3 / 5 / 7"',
-              '"p3.tags.2": "Orange / Brown / Black"',
-              '"p4.tags.2": "4 colorways"',
-          ]
-          bad = [s for s in stale if s in site_js]
-          if bad:
-              raise SystemExit('Stale i18n product data remains: ' + ', '.join(bad))
-
-          if 'id="schools-audience"' not in index:
-              raise SystemExit('School audience section missing from homepage.')
-          if 'QUIETER PLAY, EXPLAINED.' not in guide or 'SET UP THE MINI HOOP THE RIGHT WAY.' not in guide:
-              raise SystemExit('Silent basketball guide is incomplete.')
-          if 'Orange / Blue / Green / Yellow' not in guide or 'No. 3 / 4 / 6 / 7' not in guide or 'Yellow/Green' not in guide:
-              raise SystemExit('Guide product master data is stale.')
-          if 'id="guide-schools"' not in guide or 'For Schools' not in schools or 'SCHOOLS & EDUCATION' not in schools:
-              raise SystemExit('For Schools experience is incomplete.')
-          if 'for-schools.html' not in index:
-              raise SystemExit('Homepage does not link to For Schools.')
-          if '@keyframes meTicker' not in styles or 'MING EAGLE V20 product highlights' not in styles or 'MING EAGLE V22' not in styles or 'MING EAGLE V23' not in styles or 'MING EAGLE V24' not in styles:
-              raise SystemExit('Required CSS release markers are missing.')
-
-          print(f'Final guard passed: homepage TikTok={home_players}, product TikTok={first_product_players}, Video Wall TikTok={wall_players}; four approved product highlight images present.')
+              text=Path('public',page).read_text(encoding='utf-8')
+              if 'id="product-benefits"' not in text: raise SystemExit(f'Product detail section missing: {page}')
+              if 'id="real-product-highlights"' not in text or 'sellingPointGrid' not in text: raise SystemExit(f'Product selling-point section missing: {page}')
+              if 'approvedHighlightImage' not in text or 'REAL-PHOTO RULE' not in text: raise SystemExit(f'Approved artwork missing: {page}')
+              if 'realPhotoGrid' in text: raise SystemExit(f'Old raw-photo gallery remains: {page}')
+          for asset in ['product1-highlights-v24.webp','product2-highlights-v24.webp','product3-highlights-v24.webp','product4-highlights-v24.webp']:
+              p=Path('public/assets',asset)
+              if not p.exists() or p.stat().st_size<50000: raise SystemExit(f'Approved asset invalid: {asset}')
+          first=Path('public/silent-basketball.html').read_text(encoding='utf-8'); weighted=Path('public/weighted-flocked-basketball.html').read_text(encoding='utf-8'); fabric=Path('public/fabric-silent-basketball.html').read_text(encoding='utf-8'); soccer=Path('public/silent-soccer.html').read_text(encoding='utf-8')
+          first_players=first.count('tiktok.com/player')
+          if 'id="creator-videos"' not in first or 'creatorShowcase' not in first or first_players<6: raise SystemExit(f'Product creator-video regression: {first_players}')
+          if 'Orange / Blue / Green / Yellow' not in first: raise SystemExit('P1 master data missing')
+          if 'Orange / Green' not in fabric or 'No. 3 / No. 5 / No. 7' not in fabric: raise SystemExit('P2 master data missing')
+          if 'No. 3 / No. 4 / No. 6 / No. 7' not in weighted or 'Lake Blue' not in weighted: raise SystemExit('P3 master data missing')
+          if 'No. 5 only' not in soccer or 'Yellow/Green' not in soccer or 'Black/Gold' not in soccer: raise SystemExit('P4 master data missing')
+          stale=['"p1.tags.2": "Orange / Blue"','"p3.tags.1": "Sizes 3 / 5 / 7"','"p3.tags.2": "Orange / Brown / Black"','"p4.tags.2": "4 colorways"']; bad=[s for s in stale if s in site_js]
+          if bad: raise SystemExit('Stale i18n data remains: '+', '.join(bad))
+          if 'id="schools-audience"' not in index: raise SystemExit('School audience section missing')
+          if 'QUIETER PLAY, EXPLAINED.' not in guide or 'SET UP THE MINI HOOP THE RIGHT WAY.' not in guide: raise SystemExit('Guide incomplete')
+          if 'Orange / Blue / Green / Yellow' not in guide or 'No. 3 / 4 / 6 / 7' not in guide or 'Yellow/Green' not in guide: raise SystemExit('Guide master data stale')
+          if 'id="guide-schools"' not in guide or 'For Schools' not in schools or 'SCHOOLS & EDUCATION' not in schools: raise SystemExit('For Schools incomplete')
+          if 'for-schools.html' not in index: raise SystemExit('Homepage For Schools link missing')
+          if '@keyframes meTicker' not in styles or 'MING EAGLE V20 product highlights' not in styles or 'MING EAGLE V22' not in styles or 'MING EAGLE V23' not in styles or 'MING EAGLE V24' not in styles: raise SystemExit('Required CSS release markers missing')
+          print(f'Final guard passed: home TikTok={home_players}, product TikTok={first_players}, wall TikTok={wall_players}, approved images=4')
           PY
 
       - name: Configure Pages
