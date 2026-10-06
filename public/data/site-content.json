@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "1.0",
+  "brand": {
+    "name": "MING EAGLE",
+    "company": "MING EAGLE COMMERCE LLC",
+    "email": "mingeaglecommerce@gmail.com",
+    "whatsapp": "+8613851585237",
+    "domain": "https://www.mingeagle.com"
+  },
+  "products": [
+    {
+      "id": "ME-P1",
+      "slug": "silent-basketball",
+      "page": "silent-basketball.html",
+      "name": "Flocked Silent Basketball Set",
+      "short": "A flocked silent basketball paired with an adhesive mini hoop for quieter indoor parent-child play.",
+      "sizes": ["No. 3", "No. 5", "No. 7"],
+      "colors": ["Orange", "Blue", "Green", "Yellow"],
+      "tags": ["Adhesive hoop", "Soft flocked feel"],
+      "bestFor": "Family indoor play, schools, mini-hoop activities",
+      "heroImage": "assets/silent-set.jpg",
+      "highlightImage": "",
+      "status": "published",
+      "sort": 1
+    },
+    {
+      "id": "ME-P2",
+      "slug": "fabric-silent-basketball",
+      "page": "fabric-silent-basketball.html",
+      "name": "Fabric-Cover Silent Basketball Set",
+      "short": "A fabric-cover silent basketball set with the same compact hoop, made for indoor fun and family interaction.",
+      "sizes": ["No. 3", "No. 5", "No. 7"],
+      "colors": ["Orange", "Green"],
+      "tags": ["Fabric cover", "Ball + hoop set"],
+      "bestFor": "Younger users, family play, school activity rooms",
+      "heroImage": "assets/fabric-ball.jpg",
+      "highlightImage": "",
+      "status": "published",
+      "sort": 2
+    },
+    {
+      "id": "ME-P3",
+      "slug": "weighted-flocked-basketball",
+      "page": "weighted-flocked-basketball.html",
+      "name": "Weighted Flocked Silent Basketball",
+      "short": "A weighted flocked silent basketball for training-style drills and a hand feel closer to a real basketball.",
+      "sizes": ["No. 3", "No. 4", "No. 6", "No. 7"],
+      "colors": ["Orange", "Coffee Brown", "Black", "Lake Blue"],
+      "tags": ["Weighted feel", "Training use"],
+      "bestFor": "Indoor practice, skill work, more realistic basketball feel",
+      "heroImage": "assets/flocked-ball.jpg",
+      "highlightImage": "",
+      "status": "published",
+      "sort": 3
+    },
+    {
+      "id": "ME-P4",
+      "slug": "silent-soccer",
+      "page": "silent-soccer.html",
+      "name": "Flocked Silent Indoor Soccer Ball",
+      "short": "A size 5 flocked silent soccer ball for indoor kids and teen play, home footwork and low-noise fun.",
+      "sizes": ["No. 5"],
+      "colors": ["Black/White", "Black/Green", "Black/Red", "Yellow/Green", "Black/Gold"],
+      "tags": ["Indoor play", "Soft flocked surface"],
+      "bestFor": "Children's indoor football, parent-child play, schools",
+      "heroImage": "assets/flocked-soccer.jpg",
+      "highlightImage": "",
+      "status": "published",
+      "sort": 4
+    }
+  ],
+  "homepage": {
+    "heroEyebrow": "MING EAGLE",
+    "heroTitle": "MORE PLAY. EVERY DAY.",
+    "featuredProductIds": ["ME-P1", "ME-P2", "ME-P3", "ME-P4"],
+    "sections": {"products": true, "schools": true, "videos": true, "wholesale": true}
+  },
+  "faq": [
+    {"q": "Do you support wholesale orders?", "a": "Yes. Send product, quantity and destination details for a quote."},
+    {"q": "Can I request samples?", "a": "Yes. Use the inquiry page and select the sample request option."},
+    {"q": "Can products or packaging be customized?", "a": "Customization can be discussed based on product, quantity and delivery requirements."}
+  ],
+  "settings": {"currency": "USD", "defaultLanguage": "en", "updatedAt": "2026-10-06"}
+}
