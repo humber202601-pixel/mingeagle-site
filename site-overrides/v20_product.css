@@ -1,0 +1,18 @@
+/* MING EAGLE V20 product highlights */
+.visualHighlights{background:linear-gradient(180deg,#fffdf9,#fff7ec)}
+.sellingHero{margin-top:30px;border:1px solid var(--line);border-radius:30px;overflow:hidden;background:#fff;box-shadow:0 16px 46px rgba(18,32,51,.08)}
+.sellingHero img{display:block;width:100%;height:auto;object-fit:cover}
+.sellingPointGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:22px}
+.sellingPointCard{position:relative;background:#fff;border:1px solid var(--line);border-radius:22px;padding:24px 20px 20px;min-height:180px;box-shadow:0 8px 26px rgba(18,32,51,.05)}
+.sellingPointNum{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--orange);color:#fff;font-weight:1000;margin-bottom:14px}
+.sellingPointCard h3{margin:0 0 9px;font-size:20px;line-height:1.05}
+.sellingPointCard p{margin:0;color:var(--muted);font-size:14px}
+.sellingProof{display:grid;grid-template-columns:.78fr 1.22fr;gap:26px;align-items:center;margin-top:24px;background:#fff;border:1px solid var(--line);border-radius:24px;padding:18px}
+.sellingProof img{width:100%;aspect-ratio:1/1;object-fit:contain;border-radius:18px;background:#f7f5f0;padding:8px}
+.sellingProof h3{font-size:30px;line-height:1;margin:8px 0 10px}
+.sellingProof p{color:var(--muted);margin:0 0 16px}
+.creatorShowcase.creatorProductReliable .creatorRail{grid-auto-columns:minmax(260px,290px)}
+.creatorShowcase .tiktokFrame{overflow:hidden}
+.creatorShowcase .tiktokFrame iframe{width:100%!important;min-width:0!important;max-width:100%!important;overflow:hidden!important}
+@media(max-width:980px){.sellingPointGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.sellingProof{grid-template-columns:1fr}.sellingHero{border-radius:22px}}
+@media(max-width:620px){.sellingPointGrid{grid-template-columns:1fr}.sellingPointCard{min-height:0}.sellingProof h3{font-size:25px}}
