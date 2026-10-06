@@ -24,8 +24,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Apply canonical product specifications and hero images
-        run: python scripts/apply-product-specs.py
+      - name: Build final product assets and synchronize all specifications
+        run: python scripts/deploy-finalize.py
 
       - name: Verify self-contained production files
         run: |
@@ -48,6 +48,9 @@ jobs:
           grep -q "Orange / Brown / Black / Aqua Blue" public/product-master.json
           grep -q "Black/Red" public/product-master.json
           grep -q "Yellow/Green" public/product-master.json
+          if grep -RniF "Coffee Brown" public; then echo "Legacy Coffee Brown remains"; exit 1; fi
+          if grep -RniF "Lake Blue" public; then echo "Legacy Lake Blue remains"; exit 1; fi
+          if grep -RniF "Black/Orange" public; then echo "Legacy Black/Orange remains"; exit 1; fi
           if grep -RniE "floot\\.app|ming-eagle-sports\\.floot" public; then
             echo "Floot runtime dependency detected"
             exit 1
