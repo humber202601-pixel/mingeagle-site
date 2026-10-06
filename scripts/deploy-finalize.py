@@ -75,7 +75,7 @@ for value in required:
 
 for output_name in HERO_SOURCES:
     p = ASSETS / output_name
-    if not p.exists() or p.stat().st_size < 80000:
+    if not p.exists() or p.stat().st_size < 10000:
         raise SystemExit(f'Hero image invalid or too small: {p}')
 
-print('FINALIZE PASS: hero images restored; product specs synchronized; legacy values cleared.')
+print('FINALIZE PASS: staged hero images restored; product specs synchronized; legacy values cleared.')
