@@ -1,0 +1,4 @@
+/* MING EAGLE V24 — user-approved REAL PRODUCT HIGHLIGHTS */
+.approvedHighlightImage{max-width:1040px;margin:24px auto 30px;border-radius:22px;overflow:hidden;background:#fff;box-shadow:0 18px 48px rgba(16,40,72,.12);border:1px solid rgba(16,40,72,.08)}
+.approvedHighlightImage img{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:contain;background:#fff}
+@media(max-width:720px){.approvedHighlightImage{margin:18px auto 22px;border-radius:16px;box-shadow:0 12px 30px rgba(16,40,72,.10)}}
