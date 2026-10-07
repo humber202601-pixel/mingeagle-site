@@ -31,3 +31,7 @@ Failures retain entered text, reference and permission selections and show email
 Tracking supports form/Enter submission, validates basic number format, measures available width and provides a visible 17TRACK fallback link. Embedded results do not prove that an order was shipped or delivered. Site language initialization tolerates blocked browser storage. Pages include canonical URLs, a keyboard skip link and a main landmark; receipts and the custom 404 page are excluded from search indexing. The sitemap contains public content pages only.
 
 After changing the receiving form, verify one clearly labeled QA inquiry from the public site and compare the confirmation reference, contact properties and form submission count. Do not delete existing customer records or trigger external customer emails as part of testing.
+
+## Avoid duplicate community capture
+
+The public story/video QA revealed two conversion events per accepted submission: the native API receiver plus a legacy non-HubSpot automatic capture event. These two pages no longer load the HubSpot tracking collector; their direct API submissions and explicit metadata remain intact. This also prevents failed validation clicks from being counted as submissions. Page-view analytics from the legacy collector are unavailable on these two pages; other pages and portal settings are unchanged. Verify the native receiver event name and a one-event increment after any future tracking change.
