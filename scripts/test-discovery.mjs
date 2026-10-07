@@ -10,6 +10,12 @@ const originalFetch=globalThis.fetch;
 try{
   await build({entryPoints:['shared/discovery.ts'],outfile:join(folder,'catalog.mjs'),bundle:true,platform:'node',format:'esm',logLevel:'silent'});
   await build({entryPoints:['discovery','discovery-search-v2','discovery-web-v6','discovery-geoapify-v1','discovery-school-v1','discovery-enrich-v2','discovery-website-v1'].map(x=>'functions/api/admin/'+x+'.ts'),outdir:folder,bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},entryNames:'[name]',logLevel:'silent'});
+  await build({entryPoints:['lib/public-contacts.ts'],outfile:join(folder,'contacts.mjs'),bundle:true,platform:'node',format:'esm',logLevel:'silent'});
+  const contacts=await import(pathToFileURL(join(folder,'contacts.mjs')));
+  assert.equal(contacts.publicPhone('6850185202'),'');assert.equal(contacts.publicPhone('tel:4696050633'),'4696050633');
+  assert.deepEqual(contacts.publicPhones('', 'image_abc6850185202xyz 6850185202 4696050633'),[]);
+  assert.deepEqual(contacts.publicPhones('', 'Phone: 469-605-0633'),['469-605-0633']);
+  assert.equal(contacts.organizationName('Dallas Hoopers 469-605-0633'),'Dallas Hoopers');
   const catalog=await import(pathToFileURL(join(folder,'catalog.mjs')));
   const handlers={};
   for(const name of ['discovery','discovery-search-v2','discovery-web-v6','discovery-geoapify-v1','discovery-school-v1','discovery-enrich-v2','discovery-website-v1'])handlers[name]=await import(pathToFileURL(join(folder,name+'.mjs')));
@@ -23,7 +29,7 @@ try{
     });return statement()}
   }
   const db=new D1(),env={MINGEAGLE_DB:db,GEOAPIFY_API_KEY:'test-fixture-only'};
-  let failedGeo=false,failedWeb=false,schoolMode=false,badGeoMode=false;
+  let failedGeo=false,failedWeb=false,schoolMode=false,badGeoMode=false,noPhoneMode=false;
   const orgHtml=(school=false)=>`<html><head><title>${school?'Northstar Elementary School':'Northstar Basketball Academy'}</title><script type="application/ld+json">{"@type":"Organization","name":"${school?'Northstar Elementary School':'Northstar Basketball Academy'}"}</script></head><body><h1>${school?'Northstar Elementary School':'Northstar Basketball Academy'}</h1><p>Dallas, Texas. Basketball training academy, private basketball coach lessons, youth basketball club, AAU tryouts, indoor basketball gym, recreation community YMCA programs, basketball summer camp, sporting goods wholesale distributor and physical education school equipment supplier. Register for training classes. Contact us.</p><p>Alex Morgan - Head Coach. School athletics and purchasing procurement department.</p><a href="/contact">Contact</a><a href="mailto:hello@${school?'school':'academy'}.example">hello@${school?'school':'academy'}.example</a><a href="tel:2145550186">214-555-0186</a></body></html>`;
   async function mockFetch(input,init={}){
     const url=new URL(String(input));
@@ -49,7 +55,7 @@ try{
     }
     if(url.hostname==='austin.example')return new Response(orgHtml().replaceAll('Dallas','Austin'),{headers:{'content-type':'text/html'}});
     if(url.hostname==='redirect.example')return new Response('',{status:302,headers:{location:'http://169.254.169.254/latest/meta-data'}});
-    if(['academy.example','center.example','school.example'].includes(url.hostname))return new Response(orgHtml(url.hostname==='school.example'),{headers:{'content-type':'text/html'}});
+    if(['academy.example','center.example','school.example'].includes(url.hostname))return new Response(noPhoneMode?orgHtml().replace(/<a href="tel:[^"]+">[^<]+<\/a>/,''):orgHtml(url.hostname==='school.example'),{headers:{'content-type':'text/html'}});
     throw new Error('Unexpected network request: '+url.hostname+url.pathname);
   }
   globalThis.fetch=mockFetch;
@@ -88,7 +94,13 @@ try{
   assert.equal(result.status,200);assert.equal(result.body.found,1);assert.equal(result.body.added,0);assert.equal(result.body.updated,1);
   assert.equal(result.body.results.filter(x=>x.status==='REJECTED').length,4);
   assert.equal(result.body.results.filter(x=>x.status==='DUPLICATE').length,1);
+  db.sqlite.exec("UPDATE discovery_candidates SET phone='6850185202' WHERE source_key='web:academy.example'");
+  await post('discovery-website-v1',{...search,websiteUrls:['https://academy.example']});
+  assert.notEqual(db.sqlite.prepare("SELECT phone FROM discovery_candidates WHERE source_key='web:academy.example'").get().phone,'6850185202');
   assert.equal(db.sqlite.prepare("SELECT source_provider FROM discovery_candidates WHERE source_key='web:academy.example'").get().source_provider,'OFFICIAL_WEBSITE_IMPORT_V1');
+  noPhoneMode=true;db.sqlite.exec("UPDATE discovery_candidates SET phone='6850185202' WHERE source_key='web:academy.example'");
+  await post('discovery-website-v1',{...search,websiteUrls:['https://academy.example']});
+  assert.equal(db.sqlite.prepare("SELECT phone FROM discovery_candidates WHERE source_key='web:academy.example'").get().phone,null);noPhoneMode=false;
   assert.equal((await post('discovery-website-v1',{...search,websiteUrls:Array(11).fill('https://academy.example')})).status,400);
   const academyId=db.sqlite.prepare("SELECT id FROM discovery_candidates WHERE source_key='web:academy.example'").get().id;
   assert.equal((await post('discovery',{action:'IGNORE',candidateId:academyId})).body.ok,true);

@@ -1,3 +1,4 @@
+import { publicPhone, publicPhones } from '../../../lib/public-contacts';
 import { fetchPublicText } from '../../../lib/public-web';
 import { parseSearch, queryPlan, COMMERCIAL_TYPES, METROS as ALL_METROS, STATE_NAMES as ALL_STATE_NAMES } from '../../../shared/discovery';
 import { ensureRuns, recordResult } from '../../../lib/discovery';
@@ -46,7 +47,7 @@ function normalizeWebsite(v: string) { const s = clean(v, 1000); if (!s) return 
 function sameHost(a: string, b: string) { try { return new URL(a).hostname.replace(/^www\./,'').toLowerCase() === new URL(b).hostname.replace(/^www\./,'').toLowerCase(); } catch { return false; } }
 function validEmail(v: string) { const e = clean(v, 320).toLowerCase().replace(/^mailto:/,'').split('?')[0]; return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(e) ? e : ''; }
 function emailFrom(text: string) { for (const raw of text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || []) { const e = validEmail(raw); if (e && !/example\.|sentry\.|cloudflare\.|wixpress\./i.test(e)) return e; } return ''; }
-function phoneFrom(text: string) { return (text.match(/(?:\+?1[\s.\-()]*)?(?:\(?\d{3}\)?[\s.\-]*)\d{3}[\s.\-]*\d{4}/g) || [])[0] || ''; }
+function phoneFrom(text:string){return publicPhones('',text)[0]||''}
 function strip(html: string) { return html.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<svg[\s\S]*?<\/svg>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/gi,' ').replace(/&amp;/gi,'&').replace(/&#39;|&apos;/gi,"'").replace(/\s+/g,' ').trim(); }
 function grade(score: number) { return score >= 80 ? 'A' : score >= 60 ? 'B' : 'C'; }
 
@@ -169,7 +170,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const rs = await Promise.allSettled(batch.map(async x => {
         detailsChecked++; const props = await detailsGeo(env.GEOAPIFY_API_KEY!,clean(x.r.place_id,300)); const geo = extractGeoContact(props);
         const name = clean(asString(props.name,180) || x.r.name || x.r.formatted,180); const city = clean(asString(props.city,100) || x.r.city,100); const address = clean(asString(props.formatted,320) || x.r.formatted,320);if(parsed.city&&city.toLowerCase()!==parsed.city.toLowerCase())return null;if(props.state_code&&String(props.state_code).toUpperCase()!==state)return null;
-        let email = geo.email, phone = geo.phone, contactName = '', contactTitle = '', contactUrl = '', verified = false, score = 48;
+        let email = geo.email, phone = publicPhone(geo.phone), contactName = '', contactTitle = '', contactUrl = '', verified = false, score = 48;
         const cues: string[] = []; const sourceUrls: string[] = []; if (strongName(name,type)) { score += 10; cues.push('name matches customer type'); }
         if (geo.website) {
           score += 8; websiteChecked++;
