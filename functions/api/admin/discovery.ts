@@ -1,3 +1,4 @@
+import { allowedWebsite } from './discovery-web-v6';
 import { onRequestPost as searchV2 } from './discovery-search-v2';
 import { TYPE_OPTIONS, STATE_NAMES } from '../../../shared/discovery';
 interface Env {
@@ -7,7 +8,7 @@ interface Env {
 
 type CandidateRow = Record<string, unknown>;
 type Input = {
-  action?: 'SEARCH' | 'ADD_TO_CRM' | 'IGNORE' | 'RESTORE';
+  action?: 'SEARCH' | 'ADD_TO_CRM' | 'IGNORE' | 'RESTORE' | 'CLEANUP_INVALID';
   stateCode?: string;
   customerType?: string;
   targetCount?: number | string;
@@ -455,6 +456,24 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (action === 'SEARCH') {
       return searchV2({request:new Request(request.url,{method:'POST',headers:request.headers,body:JSON.stringify(input)}),env} as Parameters<typeof searchV2>[0]);
+    }
+
+    if(action==='CLEANUP_INVALID') {
+      const candidates=await db.prepare(`SELECT id,website,status,crm_lead_id FROM discovery_candidates WHERE status<>'IGNORED' AND NULLIF(website,'') IS NOT NULL ORDER BY updated_at DESC LIMIT 1000`).all<{id:string;website:string;status:string;crm_lead_id:string|null}>();
+      let ignored=0,crmExcluded=0,reviewRequired=0;
+      for(const candidate of candidates.results) {
+        if(allowedWebsite(candidate.website))continue;
+        if(candidate.crm_lead_id) {
+          const lead=await db.prepare(`SELECT source,status FROM leads WHERE id=?`).bind(candidate.crm_lead_id).first<{source:string;status:string}>();
+          const history=await db.prepare(`SELECT (SELECT COUNT(*) FROM inquiries WHERE lead_id=?)+(SELECT COUNT(*) FROM quotes WHERE lead_id=?)+(SELECT COUNT(*) FROM orders WHERE lead_id=?)+(SELECT COUNT(*) FROM sample_requests WHERE lead_id=?)+(SELECT COUNT(*) FROM messages WHERE lead_id=?) AS n`).bind(candidate.crm_lead_id,candidate.crm_lead_id,candidate.crm_lead_id,candidate.crm_lead_id,candidate.crm_lead_id).first<{n:number}>();
+          if(!lead||lead.source!=='DISCOVERY'||!['DISCOVERED','ANALYZED','QUALIFIED','ENRICHING','READY_TO_CONTACT','NOT_FIT'].includes(lead.status)||Number(history?.n||0)>0){reviewRequired++;continue;}
+          const updated=await db.prepare(`UPDATE leads SET status='NOT_FIT',lead_score=0,potential_value=0,opportunity_score=0,next_action_at=NULL,next_best_action='Excluded from buyer discovery: encyclopedia/news/social/directory website; review historical source evidence',updated_at=CURRENT_TIMESTAMP WHERE id=? AND source='DISCOVERY' AND status IN ('DISCOVERED','ANALYZED','QUALIFIED','ENRICHING','READY_TO_CONTACT','NOT_FIT') AND NOT EXISTS(SELECT 1 FROM inquiries WHERE lead_id=leads.id) AND NOT EXISTS(SELECT 1 FROM quotes WHERE lead_id=leads.id) AND NOT EXISTS(SELECT 1 FROM orders WHERE lead_id=leads.id) AND NOT EXISTS(SELECT 1 FROM sample_requests WHERE lead_id=leads.id) AND NOT EXISTS(SELECT 1 FROM messages WHERE lead_id=leads.id) RETURNING id`).bind(candidate.crm_lead_id).first<{id:string}>();if(!updated){reviewRequired++;continue;}
+          await db.prepare(`INSERT INTO activities(id,entity_type,entity_id,activity_type,title,description,metadata_json) VALUES (?,'LEAD',?,'DISCOVERY_NOT_FIT','Invalid historical discovery excluded','Public encyclopedia/news/social/directory website does not identify a target buying institution',?)`).bind(crypto.randomUUID(),candidate.crm_lead_id,JSON.stringify({candidateId:candidate.id,previousStatus:lead.status,website:candidate.website})).run();
+          crmExcluded++;
+        }
+        await db.prepare(`UPDATE discovery_candidates SET status='IGNORED',lead_score=0,grade='C',source_evidence=substr(COALESCE(source_evidence,'')||' · Excluded: public platform is not a target buyer',1,1500),updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(candidate.id).run();ignored++;
+      }
+      return Response.json({ok:true,ignored,crmExcluded,reviewRequired,checked:candidates.results.length,limit:1000});
     }
 
     const candidateId = clean(input.candidateId, 120);

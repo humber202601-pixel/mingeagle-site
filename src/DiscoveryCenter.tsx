@@ -66,6 +66,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
   const [searchCity,setSearchCity]=useState('');
   const [websiteUrls,setWebsiteUrls]=useState('');
   const [importing,setImporting]=useState(false);
+  const [cleaning,setCleaning]=useState(false);
   const [websiteResults,setWebsiteResults]=useState<Array<{url:string;status:string;name?:string;reason?:string}>>([]);
 
 
@@ -132,6 +133,16 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
       setWebsiteResults(body.results||[]);setMessage(`官网核验完成：通过业务和地区核验 ${body.verified||0} 个，新增 ${body.added||0} 个，更新已有 ${body.updated||0} 个。已忽略的客户保持原状态。`);
       await load();
     }catch(err){setError(err instanceof Error?err.message:'官网核验失败。')}finally{setImporting(false)}
+  }
+
+  async function cleanupInvalid() {
+    setCleaning(true);setError('');setMessage('');
+    try {
+      const response=await fetch('/api/admin/discovery',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':accessKey},body:JSON.stringify({action:'CLEANUP_INVALID'})});
+      const body=await response.json() as {ok?:boolean;error?:string;ignored?:number;crmExcluded?:number;reviewRequired?:number;checked?:number;limit?:number};
+      if(!response.ok||!body.ok)throw new Error(body.error||'历史候选清理失败。');
+      setMessage(`历史来源核对完成：检查 ${body.checked||0} 条，忽略无效候选 ${body.ignored||0} 条，CRM 标记不匹配 ${body.crmExcluded||0} 条，需人工复查 ${body.reviewRequired||0} 条。${body.checked===body.limit?'本次最多检查 1000 条；更早记录仍需单独复查。':''}`);await load();onChanged();
+    }catch(err){setError(err instanceof Error?err.message:'历史候选清理失败。')}finally{setCleaning(false)}
   }
 
   async function syncCandidateToCrm(candidateId: string) {
@@ -367,6 +378,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
           <select aria-label="按州筛选" value={stateFilter} onChange={e=>{setStateFilter(e.target.value);setPage(1)}}><option value="">全部州</option>{STATES.map(([code,name])=><option key={code} value={code}>{name}</option>)}</select>
           <select aria-label="按客户类型筛选" value={typeFilter} onChange={e=>{setTypeFilter(e.target.value);setPage(1)}}><option value="">全部客户类型</option>{TYPE_OPTIONS.map(([code,label])=><option key={code} value={code}>{label}</option>)}</select>
           <select aria-label="按联系完整度筛选" value={readiness} onChange={e=>{setReadiness(e.target.value);setPage(1)}}><option value="ALL">全部联系完整度</option><option value="PRIORITY">优先跟进 · A 级且可联系</option><option value="CONTACTABLE">有公开联系方式</option><option value="INCOMPLETE">待补全联系方式</option></select>
+          <button className="button secondary small" disabled={cleaning||searching||importing} onClick={()=>void cleanupInvalid()}>{cleaning?'正在核对历史来源…':'排除百科 / 新闻类历史候选'}</button>
           <button className="button secondary small" disabled={!visible.length||loading} onClick={exportVisible}><Download size={14}/>导出本页 CSV</button>
           <select aria-label="按评分筛选" value={gradeFilter} onChange={e => {setGradeFilter(e.target.value);setPage(1)}}><option value="ALL">全部评分</option><option value="A">A级</option><option value="B">B级</option><option value="C">C级</option></select>
           <select aria-label="按状态筛选" value={statusFilter} onChange={e => {setStatusFilter(e.target.value);setPage(1)}}><option value="NEW">待开发</option><option value="CRM">已入CRM</option><option value="IGNORED">已忽略</option><option value="ALL">全部状态</option></select>

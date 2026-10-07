@@ -127,10 +127,23 @@ try{
   list=await get('type=INDEPENDENT_COACH&readiness=PRIORITY');assert.equal(list.body.pagination.total,69);
   const added=await post('discovery',{action:'ADD_TO_CRM',candidateId:'p1'});assert.equal(added.body.ok,true);
   const again=await post('discovery',{action:'ADD_TO_CRM',candidateId:'p1'});assert.equal(again.body.alreadyAdded,true);
+  db.sqlite.prepare("INSERT INTO discovery_candidates(id,source_key,name,customer_type,state_region,lead_score,grade,status,source_url,website,email) VALUES('publisher','web:wikihow.com','wikiHow','BASKETBALL_TRAINING','TX',100,'A','NEW','https://wikihow.com','https://wikihow.com','public@wikihow.com')").run();
+  const publisher=await post('discovery',{action:'ADD_TO_CRM',candidateId:'publisher'});assert.equal(publisher.body.ok,true);
+  const cleanup=await post('discovery',{action:'CLEANUP_INVALID'});assert.equal(cleanup.body.ignored,1);assert.equal(cleanup.body.crmExcluded,1);
+  assert.equal(db.sqlite.prepare('SELECT status FROM leads WHERE id=?').get(publisher.body.leadId).status,'NOT_FIT');
+  assert.equal(db.sqlite.prepare('SELECT status FROM leads WHERE id=?').get(added.body.leadId).status,'READY_TO_CONTACT','legitimate CRM leads must be preserved');
+  assert.equal((await post('discovery',{action:'CLEANUP_INVALID'})).body.ignored,0,'cleanup must be idempotent');
   assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM messages').get().n,0,'discovery/import must not send or queue communications');
   const tables=db.sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%email%'").all();
   assert.equal(tables.length,0);
-  console.log('PASS: catalog/50 states, rotating city queries, five new buyer types, cross-source dedupe, fresh/update counts, ignored/restore protection, empty contact repair, rejected wrong-city and facility POIs, verified website intake, invalid/private/redirect URL rejection, school insert, partial/total source failures, literal search, pagination, readiness filters, CRM idempotence, CSV safety, no communications.');
+  await post('discovery',{action:'RESTORE',candidateId:'publisher'});
+  assert.equal(db.sqlite.prepare("SELECT status FROM discovery_candidates WHERE id='publisher'").get().status,'CRM','restoring linked candidates must preserve CRM association');
+  db.sqlite.prepare("UPDATE leads SET status='READY_TO_CONTACT' WHERE id=?").run(publisher.body.leadId);
+  db.sqlite.prepare("INSERT INTO messages(id,lead_id,channel,direction,body) VALUES('historical-inbound',?,'EMAIL','INBOUND','Existing customer conversation fixture')").run(publisher.body.leadId);
+  const guarded=await post('discovery',{action:'CLEANUP_INVALID'});assert.equal(guarded.body.reviewRequired,1);assert.equal(guarded.body.ignored,0);
+  assert.equal(db.sqlite.prepare('SELECT status FROM leads WHERE id=?').get(publisher.body.leadId).status,'READY_TO_CONTACT','business history requires manual review');
+  assert.equal(db.sqlite.prepare("SELECT COUNT(*) AS n FROM messages WHERE direction='OUTBOUND'").get().n,0);
+  console.log('PASS: catalog/50 states, rotating city queries, five new buyer types, cross-source dedupe, fresh/update counts, ignored/restore protection, empty contact repair, rejected wrong-city and facility POIs, verified website intake, invalid/private/redirect URL rejection, school insert, partial/total source failures, literal search, pagination, readiness filters, CRM idempotence, CSV safety, historical CRM cleanup and history guard, no communications.');
   db.sqlite.close();
 }finally{globalThis.fetch=originalFetch;rmSync(folder,{recursive:true,force:true})}
 
