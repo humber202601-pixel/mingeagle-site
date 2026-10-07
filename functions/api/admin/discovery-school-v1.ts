@@ -2,6 +2,7 @@ import { publicPhone, publicPhones } from '../../../lib/public-contacts';
 import { fetchPublicText } from '../../../lib/public-web';
 import { parseSearch, queryPlan, COMMERCIAL_TYPES, METROS as ALL_METROS, STATE_NAMES as ALL_STATE_NAMES } from '../../../shared/discovery';
 import { ensureRuns, recordResult } from '../../../lib/discovery';
+import { allowedWebsite, resolveEntity } from './discovery-web-v6';
 interface Env { MINGEAGLE_DB: D1Database; GEOAPIFY_API_KEY?: string }
 
 type Input = { stateCode?: string; customerType?: string; targetCount?: number | string; city?: string; round?: number; runId?: string };
@@ -103,6 +104,28 @@ async function fetchJson(url: string, timeout = 7000) {
   finally { clearTimeout(t); }
 }
 const fetchHtml=fetchPublicText;
+
+export async function verifySchoolWebsite(url:string,type:string,state:string,city:string) {
+  if(!SCHOOL_TYPES.has(type)||!allowedWebsite(url))return null;
+  try {
+    const html=await fetchHtml(url,5500),entity=resolveEntity(html,'',url);
+    if(!entity.name||entity.score<24)return null;
+    if(type==='ELEMENTARY_SCHOOL'&&!/elementary|primary|grade school/i.test(entity.name))return null;
+    if(type==='MIDDLE_HIGH_SCHOOL'&&!/middle|high school|secondary|junior high/i.test(entity.name))return null;
+    const urls=[url],pages=[html];
+    const extra=extractUsefulLinks(url,html).filter(link=>link!==url).slice(0,3);
+    const results=await Promise.allSettled(extra.map(link=>fetchHtml(link,3800)));
+    results.forEach((result,index)=>{if(result.status==='fulfilled'){pages.push(result.value);urls.push(extra[index]);}});
+    const body=pages.map(strip).join(' ').slice(0,300000);
+    if(!pageMatches(body,type))return null;
+    const location=city||ALL_STATE_NAMES[state];
+    if(!new RegExp('\\b'+location.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','i').test(body))return null;
+    const email=emailFrom(pages.join('\n')),phone=publicPhones(pages.join('\n'),body)[0]||'',person=contactFrom(body);
+    const purchasing=/purchas|procurement|vendor|bid|business office/i.test(body),athletics=/athletic|physical education|sports program/i.test(body);
+    const score=Math.min(email||phone?95:79,70+(email?8:0)+(phone?4:0)+(purchasing?8:0)+(athletics?5:0));
+    return {title:entity.name,url,snippet:'',query:'public source official website verification',city,fitScore:score,cues:['官网学校业务核验','官网地区匹配',...(purchasing?['采购页面证据']:[]),...(athletics?['体育或 PE 页面证据']:[])],orgName:entity.name,entityScore:entity.score,entitySource:entity.source,email,phone,whatsapp:'',instagram:'',facebook:'',linkedin:'',contactName:person.name,contactTitle:person.title,contactUrl:urls.find(link=>/contact|staff|directory|purchas/i.test(link))||url,sourceUrls:urls};
+  }catch{return null;}
+}
 
 async function searchGeo(apiKey: string, query: string, state: string) {
   const u = new URL('https://api.geoapify.com/v1/geocode/search');

@@ -1,6 +1,7 @@
 import { TYPE_OPTIONS, COMMERCIAL_TYPES, csvCell } from '../shared/discovery';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { ExternalLink, LoaderCircle, MapPin, RefreshCcw, Search, UserPlus, X, Download } from 'lucide-react';
+import DiscoverySources from './DiscoverySources';
 
 type Row = Record<string, unknown>;
 
@@ -31,6 +32,8 @@ const gradeClass = (grade: unknown) => `discovery-grade grade-${String(grade || 
 const sourceLabel = (provider: unknown) => {
   const value = String(provider || '').toUpperCase();
   if (value.startsWith('OFFICIAL_WEBSITE_IMPORT')) return '官网导入核验';
+  if (value.startsWith('PUBLIC_SOURCE_VERIFIED')) return '公开来源官网核验';
+  if (value.startsWith('PUBLIC_SOURCE_CLUES')) return '扩展来源线索';
   if (value.startsWith('GEOAPIFY_SCHOOL')) return '学校/采购验证';
   if (value.startsWith('GEOAPIFY')) return 'Geoapify地点';
   if (value.startsWith('WEB_SEARCH') || value.startsWith('WEB_EXPANSION')) return 'Web验证';
@@ -428,6 +431,8 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
       </tbody></table></div>
       <div className="discovery-pagination"><span>共 {pagination.total} 个 · 每页 {pagination.pageSize} 个 · 第 {page} / {Math.max(1,pagination.totalPages)} 页</span><div><button className="button secondary small" disabled={page<=1||loading} onClick={()=>setPage(p=>p-1)}>上一页</button><button className="button secondary small" disabled={page>=pagination.totalPages||loading} onClick={()=>setPage(p=>p+1)}>下一页</button></div></div>
     </section>
+
+    <DiscoverySources accessKey={accessKey} stateCode={searchState} customerType={searchType} city={searchCity} onChanged={()=>{setReloadVersion(value=>value+1);onChanged();}}/>
 
     {jobs.length > 0 && <section className="panel">
       <div className="panel-head"><h2>最近发现任务</h2><span>保留最近 20 次运行记录</span></div>

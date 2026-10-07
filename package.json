@@ -11,7 +11,7 @@
     "cf:deploy:scheduler": "wrangler deploy --config wrangler.scheduler.toml",
     "db:migrate:local": "wrangler d1 migrations apply MINGEAGLE_DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply MINGEAGLE_DB --remote",
-    "test:discovery": "node scripts/test-discovery.mjs"
+    "test:discovery": "node scripts/test-discovery.mjs && node scripts/test-discovery-sources.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
