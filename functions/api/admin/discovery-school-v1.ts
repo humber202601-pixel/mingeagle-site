@@ -1,6 +1,8 @@
+import { parseSearch, queryPlan, COMMERCIAL_TYPES, METROS as ALL_METROS, STATE_NAMES as ALL_STATE_NAMES } from '../../../shared/discovery';
+import { ensureRuns, recordResult } from '../../../lib/discovery';
 interface Env { MINGEAGLE_DB: D1Database; GEOAPIFY_API_KEY?: string }
 
-type Input = { stateCode?: string; customerType?: string; targetCount?: number | string };
+type Input = { stateCode?: string; customerType?: string; targetCount?: number | string; city?: string; round?: number; runId?: string };
 type GeoResult = {
   name?: string; formatted?: string; city?: string; state?: string; state_code?: string; country_code?: string;
   lat?: number; lon?: number; place_id?: string;
@@ -122,7 +124,7 @@ function extractGeoContact(props: Record<string,unknown>) {
   return { website, email, phone };
 }
 
-async function ensureTables(db: D1Database) {
+async function ensureTables(db: D1Database) {await ensureRuns(db);
   await db.prepare(`CREATE TABLE IF NOT EXISTS discovery_jobs (id TEXT PRIMARY KEY,country TEXT NOT NULL DEFAULT 'US',state_region TEXT NOT NULL,customer_type TEXT NOT NULL,target_count INTEGER NOT NULL DEFAULT 20,source_provider TEXT NOT NULL DEFAULT 'SCHOOL_GEOAPIFY',status TEXT NOT NULL DEFAULT 'RUNNING',result_count INTEGER NOT NULL DEFAULT 0,error TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,completed_at TEXT)`).run();
   await db.prepare(`CREATE TABLE IF NOT EXISTS discovery_candidates (id TEXT PRIMARY KEY,source_key TEXT NOT NULL UNIQUE,source_provider TEXT NOT NULL DEFAULT 'SCHOOL_GEOAPIFY',name TEXT NOT NULL,customer_type TEXT NOT NULL,country TEXT NOT NULL DEFAULT 'US',state_region TEXT,city TEXT,address TEXT,website TEXT,email TEXT,phone TEXT,whatsapp TEXT,instagram_url TEXT,facebook_url TEXT,latitude REAL,longitude REAL,lead_score INTEGER NOT NULL DEFAULT 0,grade TEXT NOT NULL DEFAULT 'C',status TEXT NOT NULL DEFAULT 'NEW',source_url TEXT NOT NULL,source_evidence TEXT,raw_json TEXT,crm_lead_id TEXT,discovered_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
   const info = await db.prepare(`PRAGMA table_info(discovery_candidates)`).all<{name:string}>(); const names = new Set(info.results.map(r => r.name));
@@ -130,18 +132,18 @@ async function ensureTables(db: D1Database) {
   for (const [name, definition] of columns) if (!names.has(name)) { try { await db.prepare(`ALTER TABLE discovery_candidates ADD COLUMN ${name} ${definition}`).run(); } catch {} }
 }
 
-async function save(db: D1Database, items: Candidate[], state: string, type: string, target: number) {
+async function save(db: D1Database, items: Candidate[], state: string, type: string, target: number,runId?:string) {
   let saved = 0; const seen = new Set<string>();
   for (const c of items.sort((a,b) => b.score - a.score)) {
     if (saved >= target) break;
     const key = `schoolgeo:${c.placeId}`; if (seen.has(key)) continue; seen.add(key);
     const evidence = `School Discovery V1 · ${c.cues.join(' · ')} · query=${c.sourceQuery}`.slice(0, 1500);
     const sourceUrl = c.website || `https://www.openstreetmap.org/search?query=${encodeURIComponent(c.name + ' ' + c.city)}`;
-    await db.prepare(`INSERT INTO discovery_candidates (id,source_key,source_provider,name,customer_type,state_region,city,address,website,email,phone,latitude,longitude,lead_score,grade,status,source_url,source_evidence,raw_json,contact_person_name,contact_person_title,website_contact_url,enrichment_status,enrichment_source_urls,enriched_at) VALUES (?,?, 'GEOAPIFY_SCHOOL_V1',?,?,?,?,?,?,?,?,?,?,?,?, 'NEW',?,?,?,?,?,?,?,'COMPLETED',?,CURRENT_TIMESTAMP) ON CONFLICT(source_key) DO UPDATE SET customer_type=excluded.customer_type,state_region=excluded.state_region,city=COALESCE(excluded.city,discovery_candidates.city),address=COALESCE(excluded.address,discovery_candidates.address),website=COALESCE(excluded.website,discovery_candidates.website),email=COALESCE(excluded.email,discovery_candidates.email),phone=COALESCE(excluded.phone,discovery_candidates.phone),latitude=COALESCE(excluded.latitude,discovery_candidates.latitude),longitude=COALESCE(excluded.longitude,discovery_candidates.longitude),lead_score=MAX(discovery_candidates.lead_score,excluded.lead_score),grade=CASE WHEN MAX(discovery_candidates.lead_score,excluded.lead_score)>=80 THEN 'A' WHEN MAX(discovery_candidates.lead_score,excluded.lead_score)>=60 THEN 'B' ELSE 'C' END,contact_person_name=COALESCE(excluded.contact_person_name,discovery_candidates.contact_person_name),contact_person_title=COALESCE(excluded.contact_person_title,discovery_candidates.contact_person_title),website_contact_url=COALESCE(excluded.website_contact_url,discovery_candidates.website_contact_url),source_evidence=excluded.source_evidence,enrichment_status='COMPLETED',enrichment_source_urls=excluded.enrichment_source_urls,enriched_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP`).bind(
-      crypto.randomUUID(), key, c.name, type, state, c.city || null, c.address || null, c.website || null, c.email || null, c.phone || null, c.lat, c.lon, c.score, grade(c.score), sourceUrl, evidence,
+    const newId=crypto.randomUUID(); const row=await db.prepare(`INSERT INTO discovery_candidates (id,source_key,source_provider,name,customer_type,state_region,city,address,website,email,phone,latitude,longitude,lead_score,grade,status,source_url,source_evidence,raw_json,contact_person_name,contact_person_title,website_contact_url,enrichment_status,enrichment_source_urls,enriched_at) VALUES (?,?, 'GEOAPIFY_SCHOOL_V1',?,?,?,?,?,?,?,?,?,?,?,?, 'NEW',?,?,?,?,?,?,'COMPLETED',?,CURRENT_TIMESTAMP) ON CONFLICT(source_key) DO UPDATE SET customer_type=excluded.customer_type,state_region=excluded.state_region,city=COALESCE(excluded.city,discovery_candidates.city),address=COALESCE(excluded.address,discovery_candidates.address),website=COALESCE(excluded.website,discovery_candidates.website),email=COALESCE(excluded.email,discovery_candidates.email),phone=COALESCE(excluded.phone,discovery_candidates.phone),latitude=COALESCE(excluded.latitude,discovery_candidates.latitude),longitude=COALESCE(excluded.longitude,discovery_candidates.longitude),lead_score=MAX(discovery_candidates.lead_score,excluded.lead_score),grade=CASE WHEN MAX(discovery_candidates.lead_score,excluded.lead_score)>=80 THEN 'A' WHEN MAX(discovery_candidates.lead_score,excluded.lead_score)>=60 THEN 'B' ELSE 'C' END,contact_person_name=COALESCE(excluded.contact_person_name,discovery_candidates.contact_person_name),contact_person_title=COALESCE(excluded.contact_person_title,discovery_candidates.contact_person_title),website_contact_url=COALESCE(excluded.website_contact_url,discovery_candidates.website_contact_url),source_evidence=excluded.source_evidence,enrichment_status='COMPLETED',enrichment_source_urls=excluded.enrichment_source_urls,enriched_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE discovery_candidates.status<>'IGNORED' RETURNING id`).bind(
+      newId, key, c.name, type, state, c.city || null, c.address || null, c.website || null, c.email || null, c.phone || null, c.lat, c.lon, c.score, grade(c.score), sourceUrl, evidence,
       JSON.stringify({ placeId:c.placeId, sourceQuery:c.sourceQuery, verified:c.verified, cues:c.cues }), c.contactName || null, c.contactTitle || null, c.contactUrl || null, JSON.stringify(c.sourceUrls)
-    ).run();
-    saved++;
+    ).first<{id:string}>();
+    if(row){await recordResult(db,runId,row,newId);saved++;}
   }
   return saved;
 }
@@ -155,11 +157,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!allowedState.test(state)) return Response.json({ ok:false, error:'请选择有效的美国州。', release:RELEASE }, { status:400 });
     if (!SCHOOL_TYPES.has(type)) return Response.json({ ok:false, error:'不支持的学校/教育客户类型。', release:RELEASE }, { status:400 });
 
-    const cities = (CITY_MAP[state] || []).slice(0,5); const locations = cities.length ? cities : [state]; const terms = (TERMS[type] || ['school']).slice(0,3);
-    const queries = locations.flatMap(city => terms.map(term => `${term} ${city} ${state} USA`)).slice(0,12);
+    let parsed;try{parsed=parseSearch(input)}catch(e){return Response.json({ok:false,error:(e as Error).message},{status:400})}const cities = parsed.city?[parsed.city]:(ALL_METROS[state] || []); const locations = cities.length ? cities : [state]; const terms = TERMS[type] || ['school'];
+    const allQueries=terms.flatMap(term=>locations.map(city=>`${term} ${city} ${ALL_STATE_NAMES[state]} USA`));const offset=(parsed.round*8)%allQueries.length;const queries=Array.from({length:Math.min(8,allQueries.length)},(_,i)=>allQueries[(offset+i)%allQueries.length]);
     jobId = crypto.randomUUID(); await db.prepare(`INSERT INTO discovery_jobs (id,state_region,customer_type,target_count,source_provider) VALUES (?,?,?,?,'GEOAPIFY_SCHOOL_V1')`).bind(jobId,state,type,target).run();
     const started = Date.now(); const searchRs = await Promise.allSettled(queries.map(q => searchGeo(env.GEOAPIFY_API_KEY!,q,state).then(results => ({ q, results }))));
-    const raw: Array<{q:string;r:GeoResult}> = []; for (const s of searchRs) if (s.status === 'fulfilled') for (const r of s.value.results) raw.push({ q:s.value.q, r });
+    if(searchRs.every(r=>r.status==='rejected'))throw new Error('学校地点查询全部失败，请稍后重试。');const raw: Array<{q:string;r:GeoResult}> = []; for (const s of searchRs) if (s.status === 'fulfilled') for (const r of s.value.results) raw.push({ q:s.value.q, r });
     const byPlace = new Map<string,{q:string;r:GeoResult}>(); for (const x of raw) { const id = clean(x.r.place_id,300); const name = clean(x.r.name || x.r.formatted,180); if (!id || !name || !strongName(name,type)) continue; if (!byPlace.has(id)) byPlace.set(id,x); }
     const shortlist = [...byPlace.values()].slice(0,Math.min(28,target + 12)); const candidates: Candidate[] = []; let detailsChecked = 0; let websiteChecked = 0;
 
@@ -196,7 +198,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       candidates.push(...rs.flatMap(r => r.status === 'fulfilled' && r.value ? [r.value] : [])); if (candidates.length >= target) break;
     }
 
-    const found = await save(db,candidates,state,type,target); await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(found,jobId).run();
+    const found = await save(db,candidates,state,type,target,input.runId); await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(found,jobId).run();
     return Response.json({ ok:true, release:RELEASE, found, checked:detailsChecked, verified:candidates.filter(c=>c.verified).length, rawCount:raw.length, uniquePlaces:byPlace.size, websiteChecked, elapsedMs:Date.now()-started, provider:'GEOAPIFY_SCHOOL_V1', mode:'SCHOOL_PROCUREMENT_V1', note:`学校/教育客户发现完成：搜索 ${queries.length} 个地点关键词，优先识别学校官网、PE/体育部门、采购/Procurement/Vendor 页面和公开联系人。` });
   } catch (error) {
     console.error('school_discovery_failed', error); if (jobId) { try { await db.prepare(`UPDATE discovery_jobs SET status='FAILED',error=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(error instanceof Error ? error.message : String(error),jobId).run(); } catch {} }

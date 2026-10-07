@@ -2,9 +2,9 @@ name: Validate MING EAGLE V2
 
 on:
   push:
-    branches: ["v2-cloudflare"]
+    branches: ["v2-cloudflare", "discovery-v13-*"]
   pull_request:
-    branches: ["main"]
+    branches: ["main", "v2-cloudflare"]
 
 permissions:
   contents: read
@@ -22,7 +22,13 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Typecheck and build
         run: npm run build
+
+      - name: Test discovery and CRM integration
+        run: npm run test:discovery
+
+      - name: Bundle Cloudflare Functions
+        run: npx wrangler pages functions build --outdir /tmp/mingeagle-functions

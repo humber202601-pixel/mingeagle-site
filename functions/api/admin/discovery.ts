@@ -1,3 +1,4 @@
+import { TYPE_OPTIONS, STATE_NAMES } from '../../../shared/discovery';
 interface Env {
   MINGEAGLE_DB: D1Database;
 }
@@ -67,6 +68,14 @@ async function ensureTables(db: D1Database) {
     discovered_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`).run();
+  const info=await db.prepare(`PRAGMA table_info(discovery_candidates)`).all<{name:string}>();
+  const names=new Set(info.results.map(row=>row.name));
+  for(const [name,definition] of [['linkedin_url','TEXT'],['contact_person_name','TEXT'],['contact_person_title','TEXT'],['website_contact_url','TEXT'],['enrichment_status',"TEXT NOT NULL DEFAULT 'NOT_STARTED'"],['enrichment_source_urls','TEXT'],['enrichment_error','TEXT'],['enriched_at','TEXT']]){
+    if(!names.has(name)){try{await db.prepare(`ALTER TABLE discovery_candidates ADD COLUMN ${name} ${definition}`).run()}catch(error){
+      const current=await db.prepare(`PRAGMA table_info(discovery_candidates)`).all<{name:string}>();
+      if(!current.results.some(row=>row.name===name))throw error;
+    }}
+  }
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_discovery_candidates_status ON discovery_candidates(status, discovered_at DESC)`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_discovery_candidates_score ON discovery_candidates(lead_score DESC)`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_discovery_candidates_location ON discovery_candidates(state_region, city)`).run();
@@ -212,6 +221,10 @@ function grade(score: number) {
 
 function customerTypeForCompany(type: string) {
   if (type === 'SPORTS_STORE') return 'SPORTS_RETAILER';
+  if (type === 'SPORTS_DISTRIBUTOR' || type === 'EDUCATION_SUPPLIER') return 'DISTRIBUTOR';
+  if (type === 'RECREATION_CENTER') return 'SPORTS_FACILITY';
+  if (type === 'INDEPENDENT_COACH') return 'COACH';
+  if (/SCHOOL|PRESCHOOL/.test(type)) return 'SCHOOL';
   if (type === 'YOUTH_CLUB') return 'YOUTH_SPORTS_CLUB';
   if (type === 'BASKETBALL_GYM') return 'SPORTS_FACILITY';
   return 'TRAINING_ACADEMY';
@@ -307,6 +320,7 @@ async function searchCandidates(db: D1Database, stateCode: string, customerType:
 async function addToCrm(db: D1Database, candidateId: string) {
   const candidate = await db.prepare(`SELECT * FROM discovery_candidates WHERE id=? LIMIT 1`).bind(candidateId).first<CandidateRow>();
   if (!candidate) throw new Error('Candidate not found.');
+  if(candidate.status==='IGNORED') throw new Error('已忽略的客户不能加入 CRM。');
   if (clean(candidate.crm_lead_id, 120)) return { leadId: clean(candidate.crm_lead_id, 120), alreadyAdded: true };
 
   const name = clean(candidate.name, 300);
@@ -395,21 +409,38 @@ async function addToCrm(db: D1Database, candidateId: string) {
   return { leadId, companyId, contactId, alreadyAdded: Boolean(existingLead) };
 }
 
-export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
+export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.MINGEAGLE_DB) return Response.json({ ok: false, error: 'Database is not configured.' }, { status: 503 });
   try {
-    const db = env.MINGEAGLE_DB;
-    await ensureTables(db);
-    const candidates = await db.prepare(`SELECT * FROM discovery_candidates ORDER BY
-      CASE status WHEN 'NEW' THEN 0 WHEN 'CRM' THEN 1 ELSE 2 END,
-      lead_score DESC, discovered_at DESC LIMIT 500`).all();
-    const jobs = await db.prepare(`SELECT * FROM discovery_jobs ORDER BY created_at DESC LIMIT 20`).all();
-    const counts = await db.prepare(`SELECT status, COUNT(*) AS count FROM discovery_candidates GROUP BY status`).all();
-    return Response.json({ ok: true, candidates: candidates.results, jobs: jobs.results, counts: counts.results });
-  } catch (error) {
-    console.error('discovery_load_failed', error);
-    return Response.json({ ok: false, error: 'Unable to load discovery center.' }, { status: 500 });
-  }
+    const db=env.MINGEAGLE_DB;await ensureTables(db);
+    const params=new URL(request.url).searchParams;
+    const status=params.get('status')||'NEW', grade=params.get('grade')||'ALL', readiness=params.get('readiness')||'ALL';
+    const state=params.get('state')||'',type=params.get('type')||'',q=(params.get('q')||'').trim().slice(0,160);
+    const rawPage=Number(params.get('page')||1),rawSize=Number(params.get('pageSize')||50);
+    if(!['NEW','CRM','IGNORED','ALL'].includes(status)||!['A','B','C','ALL'].includes(grade)||!['ALL','PRIORITY','CONTACTABLE','INCOMPLETE'].includes(readiness)||
+      (state&&!Object.hasOwn(STATE_NAMES,state))||(type&&!TYPE_OPTIONS.some(([key])=>key===type))||!Number.isFinite(rawPage)||!Number.isFinite(rawSize)){
+      return Response.json({ok:false,error:'筛选参数无效。'},{status:400});
+    }
+    const page=Math.min(100000,Math.max(1,Math.floor(rawPage))),pageSize=Math.min(100,Math.max(10,Math.floor(rawSize)));
+    const clauses:string[]=[],values:(string|number)[]=[];
+    if(status!=='ALL'){clauses.push('status=?');values.push(status)}
+    if(grade!=='ALL'){clauses.push('grade=?');values.push(grade)}
+    if(state){clauses.push('state_region=?');values.push(state)}
+    if(type){clauses.push('customer_type=?');values.push(type)}
+    const contact="(NULLIF(email,'') IS NOT NULL OR NULLIF(phone,'') IS NOT NULL OR NULLIF(whatsapp,'') IS NOT NULL)";
+    if(readiness==='CONTACTABLE')clauses.push(contact);
+    if(readiness==='PRIORITY')clauses.push(contact+" AND lead_score>=80 AND status='NEW'");
+    if(readiness==='INCOMPLETE')clauses.push('NOT '+contact);
+    if(q){clauses.push("instr(lower(COALESCE(name,'')||' '||COALESCE(city,'')||' '||COALESCE(website,'')||' '||COALESCE(email,'')||' '||COALESCE(phone,'')||' '||COALESCE(contact_person_name,'')||' '||COALESCE(contact_person_title,'')),lower(?))>0");values.push(q)}
+    const where=clauses.length?' WHERE '+clauses.map(x=>'('+x+')').join(' AND '):'';
+    const total=await db.prepare('SELECT COUNT(*) AS count FROM discovery_candidates'+where).bind(...values).first<{count:number}>();
+    const candidates=await db.prepare(`SELECT * FROM discovery_candidates ${where} ORDER BY lead_score DESC,updated_at DESC,id LIMIT ? OFFSET ?`).bind(...values,pageSize,(page-1)*pageSize).all();
+    const jobs=await db.prepare(`SELECT * FROM discovery_jobs ORDER BY created_at DESC LIMIT 20`).all();
+    const counts=await db.prepare(`SELECT status,COUNT(*) AS count FROM discovery_candidates GROUP BY status`).all();
+    const priority=await db.prepare(`SELECT COUNT(*) AS count FROM discovery_candidates WHERE status='NEW' AND lead_score>=80 AND ${contact}`).first<{count:number}>();
+    return Response.json({ok:true,candidates:candidates.results,jobs:jobs.results,counts:counts.results,priority:priority?.count||0,
+      pagination:{page,pageSize,total:total?.count||0,totalPages:Math.ceil((total?.count||0)/pageSize)}},{headers:{'cache-control':'no-store'}});
+  }catch(error){console.error('discovery_load_failed',error);return Response.json({ok:false,error:'Unable to load discovery center.'},{status:500})}
 };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -445,6 +476,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   } catch (error) {
     console.error('discovery_action_failed', error);
     const message = error instanceof Error ? error.message : 'Discovery action failed.';
+    if(message==='已忽略的客户不能加入 CRM。')return Response.json({ok:false,error:message},{status:409});
     if (message === 'PUBLIC_SOURCE_BUSY') {
       return Response.json({ ok: false, error: '公共地图数据源目前较忙。系统已经自动尝试多个备用节点，请等待约 30 秒后再试一次。' }, { status: 503 });
     }
