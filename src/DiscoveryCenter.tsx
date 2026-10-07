@@ -385,7 +385,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
           <select aria-label="按状态筛选" value={statusFilter} onChange={e => {setStatusFilter(e.target.value);setPage(1)}}><option value="NEW">待开发</option><option value="CRM">已入CRM</option><option value="IGNORED">已忽略</option><option value="ALL">全部状态</option></select>
         </div>
       </div>
-      <div className="table-wrap"><table><thead><tr><th>客户</th><th>类型 / 地区</th><th>公开联系人 / 联系方式</th><th>评分</th><th>来源</th><th>操作</th></tr></thead><tbody>
+      <div className="table-wrap discovery-table-wrap"><table><thead><tr><th>客户</th><th>类型 / 地区</th><th>公开联系人 / 联系方式</th><th>评分</th><th>来源</th><th>操作</th></tr></thead><tbody>
         {visible.length === 0 && <tr><td colSpan={6}>暂无符合条件的客户。先从上方选择州和客户类型开始搜索。</td></tr>}
         {visible.map((row, index) => {
           const id = text(row.id, String(index));
