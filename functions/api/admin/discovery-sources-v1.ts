@@ -2,7 +2,7 @@ import { parseSearch, COMMERCIAL_TYPES } from '../../../shared/discovery';
 import { EXPANSION_SOURCES, collectSource, ensureClues, type ExpansionSource } from '../../../lib/discovery-sources';
 import { allowedWebsite, ensureTables, verifyHit, save } from './discovery-web-v6';
 import { verifySchoolWebsite } from './discovery-school-v1';
-interface Env { MINGEAGLE_DB:D1Database }
+interface Env { MINGEAGLE_DB:D1Database; GEOAPIFY_API_KEY?:string }
 const response=(body:Record<string,unknown>,status=200)=>Response.json(body,{status,headers:{'cache-control':'no-store'}});
 const clean=(v:unknown,max=1000)=>String(v??'').trim().replace(/\s+/g,' ').slice(0,max);
 export function clueMatches(name:string,title:string){
@@ -36,7 +36,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       const sources=[...new Set(input.sources)] as ExpansionSource[];
       await ensureTables(db);jobId=crypto.randomUUID();
       await db.prepare(`INSERT INTO discovery_jobs(id,state_region,customer_type,target_count,source_provider) VALUES(?,?,?,?, 'PUBLIC_SOURCE_CLUES_V1')`).bind(jobId,parsed.stateCode,parsed.customerType,parsed.targetCount).run();
-      const results=await Promise.allSettled(sources.map(source=>collectSource(parsed,source)));
+      const results=await Promise.allSettled(sources.map(source=>collectSource(parsed,source,env.GEOAPIFY_API_KEY)));
       const states:Record<string,{ok:boolean;found:number;added:number;partial?:boolean;note?:string;error?:string}>={};let added=0,updated=0;
       for(let i=0;i<results.length;i++){
         const result=results[i],source=sources[i];if(result.status==='rejected'){states[source]={ok:false,found:0,added:0,error:result.reason instanceof Error?result.reason.message:String(result.reason)};continue;}

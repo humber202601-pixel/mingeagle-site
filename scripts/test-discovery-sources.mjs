@@ -22,7 +22,8 @@ try{
       return new Response(`<rss><channel><item><title>Northstar Basketball Academy</title><link>${social}</link><description>Dallas Texas basketball training programs.</description></item><item><title>Unrelated Austin Academy</title><link>https://www.facebook.com/austin/</link><description>Austin basketball academy.</description></item></channel></rss>`);
     }
     if(u.hostname==='nces.ed.gov'||u.hostname==='services1.arcgis.com')return Response.json({features:[{attributes:{NCESSCH:'480000100001',LEAID:'4800001',NAME:schoolTitle,CITY:'DALLAS',STATE:'TX',STREET:'1 Public Street',SCHOOLYEAR:'2024-2025'}},{attributes:{NCESSCH:'480000100002',LEAID:'4800002',NAME:'Austin Elementary',CITY:'AUSTIN',STATE:'TX'}}]});
-    if(u.hostname==='overpass-api.de')return Response.json({elements:[{type:'node',id:123,tags:{name:'Northstar Basketball Academy','addr:city':'Dallas',website:'https://northstar.example'}},{type:'node',id:124,tags:{name:'Basketball Court','addr:city':'Dallas'}},{type:'node',id:125,tags:{name:'Wrong City Academy','addr:city':'Austin'}}]});
+    if(u.hostname==='api.geoapify.com')return Response.json({results:[{state_code:'TX',country_code:'us',bbox:{lat1:32.5,lon1:-97,lat2:33,lon2:-96}}]});
+    if(u.hostname==='overpass-api.de'||u.hostname==='overpass.private.coffee')return Response.json({elements:[{type:'node',id:123,tags:{name:'Northstar Basketball Academy','addr:city':'Dallas',website:'https://northstar.example'}},{type:'node',id:124,tags:{name:'Basketball Court','addr:city':'Dallas'}},{type:'node',id:125,tags:{name:'Wrong City Academy','addr:city':'Austin'}}]});
     if(u.hostname==='northstar.example')return new Response(html(u.pathname.includes('elementary')?'Northstar Elementary School':u.pathname.includes('middle')?'Northstar Middle School':u.pathname.includes('wrong')?'Different Business Academy':'Northstar Basketball Academy'),{headers:{'content-type':'text/html'}});
     throw new Error('Unexpected endpoint '+u.hostname);
   };
@@ -31,6 +32,8 @@ try{
   assert.equal(sources.sourceUrl('http://127.0.0.1/','SOCIAL'),'');assert.equal(sources.sourceUrl('https://www.instagram.com/p/123/','SOCIAL'),'');assert.equal(sources.sourceUrl('https://www.linkedin.com/in/person/','SOCIAL'),'');assert.equal(sources.sourceUrl('https://www.instagram.com/northstar/?utm=123#x','SOCIAL'),'https://www.instagram.com/northstar/');
   const query=sources.ncesQuery({...input,customerType:'SCHOOL_DISTRICT',city:"O'Fallon"});assert.ok(new URL(query.url).searchParams.get('where').includes("O''FALLON"));assert.throws(()=>sources.osmQuery({...input,city:''}));assert.ok(sources.osmQuery(input).includes('US-TX'));
   assert.equal(handler.clueMatches('Northstar Basketball Academy','Northstar Basketball Academy | Facebook'),true);assert.equal(handler.clueMatches('Different Business Academy','Northstar Basketball Academy'),false);
+  assert.ok(sources.osmQuery(input,[32.5,-97,33,-96]).includes('(32.5,-97,33,-96)'));assert.throws(()=>sources.osmQuery(input,[33,-97,32.5,-96]));
+  assert.equal((await sources.osmClues(input,'test-fixture-only')).clues.length,1,'city bounding boxes must preserve facility and city filtering');
   let result=await post({...input,action:'SEARCH',sources:['SOCIAL','DIRECTORY','OSM']});assert.equal(result.status,200);assert.equal(result.body.added,6);assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM discovery_candidates').get().n,0,'unverified clues must not become buyers');
   result=await post({...input,action:'SEARCH',sources:['SOCIAL','DIRECTORY','OSM']});assert.equal(result.body.added,0);assert.equal(result.body.updated,6);
   const clue=sqlite.prepare("SELECT * FROM discovery_clues WHERE source_provider='SOCIAL' LIMIT 1").get();
