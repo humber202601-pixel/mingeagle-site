@@ -59,6 +59,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
   const [allCounts,setAllCounts]=useState<Row[]>([]);
   const [priority,setPriority]=useState(0);
   const [searchBatch,setSearchBatch]=useState({key:'',round:0});
+  const [reloadVersion,setReloadVersion]=useState(0);
   const [sourceState,setSourceState]=useState<Record<string,boolean>>({});
   const [sourceErrors,setSourceErrors]=useState<Record<string,string>>({});
   const [searchState,setSearchState]=useState('TX');
@@ -89,7 +90,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
     }
   }
 
-  useEffect(()=>{const controller=new AbortController();const timer=setTimeout(()=>void load(controller.signal),250);return()=>{clearTimeout(timer);controller.abort()}},[accessKey,statusFilter,gradeFilter,stateFilter,typeFilter,readiness,query,page]);
+  useEffect(()=>{const controller=new AbortController();const timer=setTimeout(()=>void load(controller.signal),250);return()=>{clearTimeout(timer);controller.abort()}},[accessKey,statusFilter,gradeFilter,stateFilter,typeFilter,readiness,query,page,reloadVersion]);
 
   async function runSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -114,7 +115,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
       if (!response.ok || !body.ok) throw new Error(body.error || '搜索失败。');
       setSearchBatch({key:batchKey,round:body.nextRound??round+1});
       setMessage(`第 ${round+1} 批完成：去重后 ${body.found||0} 个，本次新增 ${body.added||0} 个，更新已有 ${body.updated||0} 个，优先跟进 ${body.ready||0} 个。${body.note||''}`);
-      await load();
+      setReloadVersion(value=>value+1);
     } catch (err) {
       setError(err instanceof Error ? err.message : '搜索失败。');
     } finally {
@@ -131,7 +132,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
       const body=await response.json() as {ok?:boolean;error?:string;found?:number;added?:number;updated?:number;verified?:number;results?:Array<{url:string;status:string;name?:string;reason?:string}>};
       if(!response.ok||!body.ok)throw new Error(body.error||'官网核验失败。');
       setWebsiteResults(body.results||[]);setMessage(`官网核验完成：通过业务和地区核验 ${body.verified||0} 个，新增 ${body.added||0} 个，更新已有 ${body.updated||0} 个。已忽略的客户保持原状态。`);
-      await load();
+      setReloadVersion(value=>value+1);
     }catch(err){setError(err instanceof Error?err.message:'官网核验失败。')}finally{setImporting(false)}
   }
 
@@ -141,7 +142,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
       const response=await fetch('/api/admin/discovery',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':accessKey},body:JSON.stringify({action:'CLEANUP_INVALID'})});
       const body=await response.json() as {ok?:boolean;error?:string;ignored?:number;crmExcluded?:number;reviewRequired?:number;checked?:number;limit?:number};
       if(!response.ok||!body.ok)throw new Error(body.error||'历史候选清理失败。');
-      setMessage(`历史来源核对完成：检查 ${body.checked||0} 条，忽略无效候选 ${body.ignored||0} 条，CRM 标记不匹配 ${body.crmExcluded||0} 条，需人工复查 ${body.reviewRequired||0} 条。${body.checked===body.limit?'本次最多检查 1000 条；更早记录仍需单独复查。':''}`);await load();onChanged();
+      setMessage(`历史来源核对完成：检查 ${body.checked||0} 条，忽略无效候选 ${body.ignored||0} 条，CRM 标记不匹配 ${body.crmExcluded||0} 条，需人工复查 ${body.reviewRequired||0} 条。${body.checked===body.limit?'本次最多检查 1000 条；更早记录仍需单独复查。':''}`);setReloadVersion(value=>value+1);onChanged();
     }catch(err){setError(err instanceof Error?err.message:'历史候选清理失败。')}finally{setCleaning(false)}
   }
 
@@ -184,7 +185,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
         if (!response.ok || !body.ok) throw new Error(body.error || '操作失败。');
         setMessage(action==='RESTORE'?'已恢复该候选客户。':'已忽略该候选客户，可在“已忽略”中恢复。');
       }
-      await load();
+      setReloadVersion(value=>value+1);
       if (action === 'ADD_TO_CRM') onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : '操作失败。');
@@ -219,11 +220,11 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
       const body = await callEnrichment(candidateId);
       const foundCount = Object.values(body.found || {}).filter(Boolean).length;
       setMessage(`官网补全完成：检查 ${body.pagesChecked || 1} 个页面，新识别 ${foundCount} 类公开信息，评分更新为 ${body.grade || '—'} · ${body.score || 0}/100。`);
-      await load();
+      setReloadVersion(value=>value+1);
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : '官网补全失败。');
-      await load();
+      setReloadVersion(value=>value+1);
     } finally {
       setBusyId('');
     }
@@ -256,7 +257,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
     const failed = results.length - success;
     setMessage(`批量官网补全完成：成功 ${success} 个${failed ? `，失败 ${failed} 个` : ''}。`);
     if (failed) setError('部分官网可能有反爬、超时、非 HTML 页面或无法访问；可以稍后单独重试。');
-    await load();
+    setReloadVersion(value=>value+1);
     onChanged();
     setBatching(false);
   }
@@ -306,7 +307,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
     }
     setMessage(`销售准备完成：处理 ${targets.length} 个，官网补全 ${enriched} 个，加入 CRM ${added} 个${noDirectContact ? `，${noDirectContact} 个暂缺邮箱/电话/WhatsApp` : ''}${failed ? `，失败 ${failed} 个` : ''}。`);
     if (noDirectContact) setError('暂缺直接联系方式的客户会继续保留在候选库，不会自动发送任何消息；可后续再次补全或人工核对官网联系表单。');
-    await load();
+    setReloadVersion(value=>value+1);
     onChanged();
     setPreparing(false);
   }
