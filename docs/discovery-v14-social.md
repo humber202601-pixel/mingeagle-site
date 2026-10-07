@@ -36,3 +36,14 @@ https://developers.tiktok.com/docs/en/display-api-overview
 新增集成测试使用模拟公开索引与 SQLite，验证四个平台分别检索、TikTok 去重、Facebook id、主页规范化、跨平台 / 私人 URL / 内容页面拒绝、手工录入仅作线索、忽略和已转换状态保留、按平台分页、旧数据兼容及既有候选关联。
 
 运行 npm run build、npm run test:discovery 及 Cloudflare Functions 打包；正式发布后通过后台验收实际索引覆盖和公开账号录入。
+
+
+## 2026-10-07 正式环境验收
+
+- 正式环境构建、Cloudflare Pages 和 Worker scheduler 部署检查通过。
+- Dallas / 篮球训练机构 / Facebook 与 TikTok：两个平台各 2/2 个公开索引查询完成，本批自动新增均为 0。界面明确说明平台、城市及业务过滤和索引覆盖边界。
+- 从 Dallas Elite 的机构公开资料中取得 TikTok @dallaselite_basketball 链接，从 Dallas Elite Athletics 官网取得 Facebook /dallaseliteathletics/ 链接，通过后台补录两个真实账号；不是自动索引返回的客户。
+- TikTok 同一主页带跟踪参数重复录入：保留原线索，本平台仍为 1 条。
+- Facebook 线索通过官网核验新增 Dallas Elite Athletics 候选；TikTok 线索通过同一官网核验并关联已有候选。两个账号只形成一个机构候选，有效候选从 4 增至 5，优先联系候选从 1 增至 2；CRM 仍为 1。
+- 两条社交线索已转入候选库，保留最初人工描述与公开原始链接。历史 40 条学校线索保留。
+- 官网明确显示临时关闭的 D1 Training Dallas 未录入。没有发送私信或沟通消息。
