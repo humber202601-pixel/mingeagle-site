@@ -30,7 +30,7 @@ try{
   }
   const db=new D1(),env={MINGEAGLE_DB:db,GEOAPIFY_API_KEY:'test-fixture-only'};
   let failedGeo=false,failedWeb=false,schoolMode=false,badGeoMode=false,noPhoneMode=false;
-  const orgHtml=(school=false)=>`<html><head><title>${school?'Northstar Elementary School':'Northstar Basketball Academy'}</title><script type="application/ld+json">{"@type":"Organization","name":"${school?'Northstar Elementary School':'Northstar Basketball Academy'}"}</script></head><body><h1>${school?'Northstar Elementary School':'Northstar Basketball Academy'}</h1><p>Dallas, Texas. Basketball training academy, private basketball coach lessons, youth basketball club, AAU tryouts, indoor basketball gym, recreation community YMCA programs, basketball summer camp, sporting goods wholesale distributor and physical education school equipment supplier. Register for training classes. Contact us.</p><p>Alex Morgan - Head Coach. School athletics and purchasing procurement department.</p><a href="/contact">Contact</a><a href="mailto:hello@${school?'school':'academy'}.example">hello@${school?'school':'academy'}.example</a><a href="tel:2145550186">214-555-0186</a></body></html>`;
+  const orgHtml=(school=false)=>`<html><head><title>${school?'Northstar Elementary School':'Northstar Basketball Academy - Youth Basketball Training in Dallas TX'}</title><script type="application/ld+json">{"@type":"Organization","name":"${school?'Northstar Elementary School':'Northstar Basketball Academy'}"}</script></head><body><h1>${school?'Northstar Elementary School':'Northstar Basketball Academy'}</h1><p>Dallas, Texas. Basketball training academy, private basketball coach lessons, youth basketball club, AAU tryouts, indoor basketball gym, recreation community YMCA programs, basketball summer camp, sporting goods wholesale distributor and physical education school equipment supplier. Register for training classes. Contact us.</p><p>Alex Morgan - Head Coach. School athletics and purchasing procurement department.</p><a href="/contact">Contact</a><a href="https://www.instagram.com/fixture_academy/">Instagram</a><a href="mailto:hello@${school?'school':'academy'}.example">hello@${school?'school':'academy'}.example</a><a href="tel:2145550186">214-555-0186</a></body></html>`;
   async function mockFetch(input,init={}){
     const url=new URL(String(input));
     if(url.pathname.startsWith('/api/admin/')){
@@ -107,6 +107,13 @@ try{
   assert.equal((await post('discovery-website-v1',{...search,websiteUrls:['https://academy.example']})).body.found,0,'manual intake must also preserve ignored candidates');
   assert.equal((await post('discovery',{action:'RESTORE',candidateId:academyId})).body.ok,true);
   assert.equal(db.sqlite.prepare('SELECT status FROM discovery_candidates WHERE id=?').get(academyId).status,'NEW');
+  db.sqlite.prepare("UPDATE discovery_candidates SET phone='2145550186',lead_score=60,instagram_url='https://www.instagram.com/fixture_academy/' WHERE id=?").run(academyId);
+  const beforeEnrich=db.sqlite.prepare('SELECT lead_score FROM discovery_candidates WHERE id=?').get(academyId).lead_score;
+  const enrich=await post('discovery-enrich-v2',{candidateId:academyId});assert.equal(enrich.body.ok,true);
+  assert.equal(db.sqlite.prepare('SELECT name FROM discovery_candidates WHERE id=?').get(academyId).name,'Northstar Basketball Academy');
+  const afterEnrich=db.sqlite.prepare('SELECT lead_score FROM discovery_candidates WHERE id=?').get(academyId).lead_score;
+  assert.equal(afterEnrich,beforeEnrich,'unchanged public information must not increase the score');
+  assert.equal((await post('discovery-enrich-v2',{candidateId:academyId})).body.score,afterEnrich,'repeated enrichment must preserve the score');
   for(const type of ['INDEPENDENT_COACH','MULTISPORT_ACADEMY','RECREATION_CENTER','SPORTS_DISTRIBUTOR','SUMMER_CAMP']){
     assert.equal((await post('discovery-web-v6',{...search,customerType:type})).body.found,1,'new customer type should pass its relevant service evidence');
   }

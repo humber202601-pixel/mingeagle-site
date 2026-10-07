@@ -219,7 +219,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
     try {
       const body = await callEnrichment(candidateId);
       const foundCount = Object.values(body.found || {}).filter(Boolean).length;
-      setMessage(`官网补全完成：检查 ${body.pagesChecked || 1} 个页面，新识别 ${foundCount} 类公开信息，评分更新为 ${body.grade || '—'} · ${body.score || 0}/100。`);
+      setMessage(`官网补全完成：检查 ${body.pagesChecked || 1} 个页面，确认 ${foundCount} 类公开信息，评分更新为 ${body.grade || '—'} · ${body.score || 0}/100。`);
       setReloadVersion(value=>value+1);
       onChanged();
     } catch (err) {

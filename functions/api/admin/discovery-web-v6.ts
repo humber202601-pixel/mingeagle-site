@@ -82,7 +82,7 @@ function walkJsonLd(value:unknown,out:Array<{name:string;score:number;source:str
 function jsonLdCandidates(html:string){const out:Array<{name:string;score:number;source:string}>=[];const re=/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;let m:RegExpExecArray|null;while((m=re.exec(html))){const raw=decode(m[1]).trim().replace(/^<!--|-->$/g,'');try{walkJsonLd(JSON.parse(raw),out)}catch{}}return out}
 function copyrightCandidates(text:string){const out:string[]=[];const re=/(?:©|copyright(?:\s*©)?|&copy;)\s*(?:19|20)?\d{0,4}\s*(?:by\s+)?([A-Z][A-Za-z0-9&'’.\- ]{2,80}?)(?=\s+(?:all rights reserved|privacy|terms|$)|[|•·])/gi;let m:RegExpExecArray|null;while((m=re.exec(text))){out.push(clean(m[1],100))}return out}
 function logoAltCandidates(html:string){const out:string[]=[];for(const m of html.matchAll(/<img[^>]+(?:class|id|src)=["'][^"']*logo[^"']*["'][^>]+alt=["']([^"']+)["'][^>]*>/gi))out.push(strip(m[1]));for(const m of html.matchAll(/<img[^>]+alt=["']([^"']+)["'][^>]+(?:class|id|src)=["'][^"']*logo[^"']*["'][^>]*>/gi))out.push(strip(m[1]));return out}
-function resolveEntity(html:string,searchTitle:string,url:string):EntityResolution{
+export function resolveEntity(html:string,searchTitle:string,url:string):EntityResolution{
   const domain=domainOf(url);const out:Array<{name:string;score:number;source:string}>=[];
   for(const item of jsonLdCandidates(html))addEntityCandidate(out,item.name,item.score,item.source);
   for(const key of ['og:site_name','application-name','apple-mobile-web-app-title'])addEntityCandidate(out,metaContent(html,key),45,`meta:${key}`);
