@@ -20,3 +20,11 @@
 SQLite 与模拟官网集成测试覆盖机构 sameAs、原始链接/出处保留、网址去重、个人或内容链接排除、私有地址和错误地区拒绝、已忽略机构保护、学校官网支持、不重复抓取官网、不新增候选/CRM/消息，以及既有公开来源搜索回归。
 
 执行 npm run build、npm run test:discovery 及 Cloudflare Pages Functions 打包。生产环境验收另行记录。
+
+## 2026-10-07 生产验收
+
+- 正式代码版本 d71e13299eb637c4ab28d7ef4de96d095217f99f：构建、Cloudflare Pages 与 Worker scheduler 检查通过。
+- Dallas / TX / 篮球训练机构：读取 https://dallaseliteathletics.com/，自动发现 Instagram /dallaseliteathletics/ 和 Facebook /dallaseliteathletics/ 两个主页。
+- 首次新增一条 Instagram 待核验线索；保留 Facebook 已转入候选库的原记录。TikTok 旧记录未改动；官网未发现 TikTok 链接，不凭空添加。
+- 重复运行同一官网：发现两个账号，新增零条，保留已有两条；Instagram 来源筛选显示一条待核验记录，官网出处和原始主页链接均已保存。
+- 总公开线索从 42 增至 43；有效候选仍为 5、待开发 4、优先跟进 2、CRM 1。没有向客户发送消息。
