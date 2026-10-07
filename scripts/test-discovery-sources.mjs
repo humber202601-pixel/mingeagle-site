@@ -18,7 +18,7 @@ try{
     const u=new URL(String(value));
     if(u.hostname==='www.bing.com'){
       if(failIndex)return new Response('Failure',{status:503});
-      const social=u.searchParams.get('q').includes('site:facebook')?'https://www.facebook.com/northstar/':u.searchParams.get('q').includes('site:instagram')?'https://www.instagram.com/northstar/':u.searchParams.get('q').includes('site:linkedin')?'https://www.linkedin.com/company/northstar/':u.searchParams.get('q').includes('site:.gov')?'https://parks.example.gov/northstar':'https://www.chamberofcommerce.com/business/northstar';
+      const social=u.searchParams.get('q').includes('site:facebook')?'https://www.facebook.com/northstar/':u.searchParams.get('q').includes('site:tiktok')?'https://www.tiktok.com/@northstar/':u.searchParams.get('q').includes('site:instagram')?'https://www.instagram.com/northstar/':u.searchParams.get('q').includes('site:linkedin')?'https://www.linkedin.com/company/northstar/':u.searchParams.get('q').includes('site:.gov')?'https://parks.example.gov/northstar':'https://www.chamberofcommerce.com/business/northstar';
       return new Response(`<rss><channel><item><title>Northstar Basketball Academy</title><link>${social}</link><description>Dallas Texas basketball training programs.</description></item><item><title>Unrelated Austin Academy</title><link>https://www.facebook.com/austin/</link><description>Austin basketball academy.</description></item></channel></rss>`);
     }
     if(u.hostname==='nces.ed.gov'||u.hostname==='services1.arcgis.com')return Response.json({features:[{attributes:{NCESSCH:'480000100001',LEAID:'4800001',NAME:schoolTitle,CITY:'DALLAS',STATE:'TX',STREET:'1 Public Street',SCHOOLYEAR:'2024-2025'}},{attributes:{NCESSCH:'480000100002',LEAID:'4800002',NAME:'Austin Elementary',CITY:'AUSTIN',STATE:'TX'}}]});
@@ -51,6 +51,41 @@ try{
   sqlite.prepare("INSERT INTO discovery_clues(id,source_key,title,source_provider,source_url,customer_type,state_region,city) VALUES('middle','nces:school:middle','Northstar Middle School','NCES','https://nces.ed.gov/','MIDDLE_HIGH_SCHOOL','TX','Dallas')").run();assert.equal((await post({action:'VERIFY',clueId:'middle',website:'https://northstar.example/middle'})).body.ok,true);assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM discovery_candidates').get().n,3,'distinct school pages on one district domain must stay separate');
   assert.equal((await get('status=PENDING&page=Infinity')).status,400);assert.equal((await get('status=BAD')).status,400);assert.equal((await get('status=CONVERTED')).body.clues.length,4);
   failIndex=true;assert.equal((await post({...input,action:'SEARCH',sources:['SOCIAL','DIRECTORY']})).status,502);result=await post({...input,customerType:'SCHOOL_DISTRICT',action:'SEARCH',sources:['SOCIAL','NCES']});assert.equal(result.status,200);assert.equal(result.body.sources.SOCIAL.ok,false);assert.equal(result.body.sources.NCES.ok,true);
+  assert.equal(sources.socialProvider('https://www.tiktok.com/@northstar'),'TIKTOK');
+  assert.equal(sources.sourceUrl('https://www.tiktok.com/@Northstar?lang=en#bio','TIKTOK'),'https://www.tiktok.com/@northstar/');
+  assert.equal(sources.sourceUrl('https://www.tiktok.com/@northstar/video/123','TIKTOK'),'');
+  assert.equal(sources.sourceUrl('https://vm.tiktok.com/abc/','TIKTOK'),'');
+  assert.equal(sources.sourceUrl('https://www.tiktok.com/tag/basketball','TIKTOK'),'');
+  assert.equal(sources.sourceUrl('https://www.facebook.com/northstar/','TIKTOK'),'');
+  assert.equal(sources.sourceUrl('https://m.facebook.com/profile.php?id=123456789&ref=search','FACEBOOK'),'https://www.facebook.com/profile.php?id=123456789');
+  assert.equal(sources.sourceUrl('https://www.facebook.com/northstar/about/?ref=search','FACEBOOK'),'https://www.facebook.com/northstar/');
+  assert.equal(sources.sourceUrl('https://www.facebook.com/groups/basketball','FACEBOOK'),'');
+  assert.equal(sources.sourceUrl('https://www.instagram.com/northstar/reels/','INSTAGRAM'),'');
+  assert.equal(sources.sourceUrl('https://www.linkedin.com/company/northstar/about/','LINKEDIN'),'https://www.linkedin.com/company/northstar/');
+  assert.equal(sources.sourceUrl('https://www.linkedin.com/in/northstar/','LINKEDIN'),'');
+  assert.equal((await get('source=BAD')).status,400);
+  failIndex=false;
+  result=await post({...input,action:'SEARCH',sources:['FACEBOOK','TIKTOK','INSTAGRAM','LINKEDIN']});assert.equal(result.status,200);assert.equal(result.body.added,1,'separate platforms must reuse existing profile clues and add the new TikTok profile only');
+  assert.equal(result.body.sources.TIKTOK.found,1,'duplicate keyword results must collapse to one profile');
+  const tiktok=sqlite.prepare("SELECT * FROM discovery_clues WHERE source_provider='TIKTOK'").get();
+  assert.equal((await get('status=PENDING&source=TIKTOK')).body.pagination.total,1);
+  assert.equal((await get('status=PENDING&source=FACEBOOK')).body.pagination.total,0,'legacy records remain identifiable without changing their source');
+  const candidateCount=sqlite.prepare('SELECT COUNT(*) AS n FROM discovery_candidates').get().n;
+  const manual={...input,action:'ADD_SOCIAL',source:'TIKTOK',title:'Northstar Basketball Academy',sourceUrl:'https://www.tiktok.com/@manualnorthstar',evidence:'Public profile says Dallas Texas basketball training academy.',website:'https://northstar.example'};
+  result=await post({...manual,sourceUrl:'http://127.0.0.1/'});assert.equal(result.status,400);
+  assert.equal((await post({...manual,source:'FACEBOOK'})).status,400);
+  assert.equal((await post({...manual,sourceUrl:'https://www.tiktok.com/@manualnorthstar/video/123'})).status,400);
+  assert.equal((await post({...manual,evidence:'short'})).status,400);
+  assert.equal((await post({...manual,city:''})).status,400);
+  assert.equal((await post({...manual,website:'https://www.facebook.com/northstar'})).status,400);
+  result=await post(manual);assert.equal(result.body.existing,false);const manualId=result.body.clueId;
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM discovery_candidates').get().n,candidateCount,'manual public profiles remain clues until official verification');
+  result=await post({...manual,sourceUrl:'https://www.tiktok.com/@ManualNorthstar/?utm_source=test'});assert.equal(result.body.existing,true);assert.equal(result.body.clueId,manualId);
+  await post({action:'IGNORE',clueId:manualId});result=await post(manual);assert.equal(result.body.clueStatus,'IGNORED','manual import must not restore ignored profiles');
+  await post({action:'RESTORE',clueId:manualId});result=await post({action:'VERIFY',clueId:manualId,website:'https://northstar.example'});assert.equal(result.body.existing,true);
+  result=await post(manual);assert.equal(result.body.clueStatus,'CONVERTED','manual import must preserve converted profiles');
+  assert.equal((await get('status=CONVERTED&source=TIKTOK')).body.pagination.total,1);
+  assert.equal((await post({...manual,sourceUrl:tiktok.source_url})).body.existing,true);
   assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM messages').get().n,0);sqlite.close();
-  console.log('PASS: public social and directory filtering, wrong-city rejection, NCES escaping and original years, OSM facility exclusion, source failures, clue-only storage, ignore/restore, verified promotion, identity/private-URL rejection, domain and school-page deduplication, CRM safeguards, pagination and no communications.');
+  console.log('PASS: Facebook/TikTok/Instagram/LinkedIn profile filtering, canonical URLs, manual public-profile storage and duplicate/status preservation, platform pagination, directory/city filtering, NCES escaping and years, OSM facilities, source failures, clue-only storage, verified promotion, identity/private-URL rejection, domain/school deduplication, CRM safeguards and no communications.');
 }finally{globalThis.fetch=original;rmSync(dir,{recursive:true,force:true});}

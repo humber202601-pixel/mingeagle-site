@@ -1,5 +1,5 @@
 import { parseSearch, COMMERCIAL_TYPES } from '../../../shared/discovery';
-import { EXPANSION_SOURCES, collectSource, ensureClues, type ExpansionSource } from '../../../lib/discovery-sources';
+import { EXPANSION_SOURCES, SOCIAL_SOURCES, sourceUrl, collectSource, ensureClues, type ExpansionSource, type SocialSource } from '../../../lib/discovery-sources';
 import { allowedWebsite, ensureTables, verifyHit, save } from './discovery-web-v6';
 import { verifySchoolWebsite } from './discovery-school-v1';
 interface Env { MINGEAGLE_DB:D1Database; GEOAPIFY_API_KEY?:string }
@@ -8,18 +8,22 @@ const clean=(v:unknown,max=1000)=>String(v??'').trim().replace(/\s+/g,' ').slice
 export function clueMatches(name:string,title:string){
   const norm=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]/g,'');const n=norm(name),t=norm(title);
   if(n.length>=8&&(t.includes(n)||n.includes(t)&&t.length>=8))return true;
-  const generic=new Set(['school','elementary','primary','middle','high','district','independent','academy','basketball','sports','training','center','centre','coach','club','facebook','instagram','linkedin','directory','dallas','texas','el','ms','hs','isd','the','of','and']);
+  const generic=new Set(['school','elementary','primary','middle','high','district','independent','academy','basketball','sports','training','center','centre','coach','club','facebook','tiktok','instagram','linkedin','directory','dallas','texas','el','ms','hs','isd','the','of','and']);
   const tokens=(s:string)=>s.toLowerCase().split(/[^a-z0-9]+/).filter(x=>x.length>=3&&!generic.has(x));const a=tokens(name),b=new Set(tokens(title));
   const matches=a.filter(x=>b.has(x));return matches.length>=2||matches.length===1&&matches[0].length>=7;
 }
 export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
   if(!env.MINGEAGLE_DB)return response({ok:false,error:'Database is not configured.'},503);
   const db=env.MINGEAGLE_DB;await ensureClues(db);
-  const params=new URL(request.url).searchParams,status=params.get('status')||'PENDING';
+  const params=new URL(request.url).searchParams,status=params.get('status')||'PENDING',source=params.get('source')||'ALL';
   if(!['PENDING','CONVERTED','IGNORED','ALL'].includes(status))return response({ok:false,error:'线索状态无效。'},400);
+  if(source!=='ALL'&&!EXPANSION_SOURCES.includes(source as ExpansionSource))return response({ok:false,error:'线索来源无效。'},400);
   const rawPage=Number(params.get('page')||1);
   if(!Number.isFinite(rawPage))return response({ok:false,error:'线索页码无效。'},400);
-  const page=Math.max(1,Math.min(10000,Math.floor(rawPage))),conditions=status==='ALL'?'1=1':'status=?',args=status==='ALL'?[]:[status];
+  const page=Math.max(1,Math.min(10000,Math.floor(rawPage))),filters:string[]=[],args:string[]=[];
+  if(status!=='ALL'){filters.push('status=?');args.push(status);}
+  if(source!=='ALL'){filters.push('source_provider=?');args.push(source);}
+  const conditions=filters.length?filters.join(' AND '):'1=1';
   const count=await db.prepare(`SELECT COUNT(*) AS total FROM discovery_clues WHERE ${conditions}`).bind(...args).first<{total:number}>();
   const rows=await db.prepare(`SELECT * FROM discovery_clues WHERE ${conditions} ORDER BY updated_at DESC,id LIMIT 20 OFFSET ?`).bind(...args,(Math.floor(page)-1)*20).all();
   const counts=await db.prepare(`SELECT status,COUNT(*) AS count FROM discovery_clues GROUP BY status`).all();
@@ -30,9 +34,22 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   const db=env.MINGEAGLE_DB;await ensureClues(db);let jobId='';
   try{
     const input=await request.json() as Record<string,unknown>;
+    if(input.action==='ADD_SOCIAL'){
+      let parsed;try{parsed=parseSearch(input);}catch(e){return response({ok:false,error:(e as Error).message},400);}
+      const source=clean(input.source,20) as SocialSource;
+      if(!SOCIAL_SOURCES.includes(source))return response({ok:false,error:'请选择 Facebook、TikTok、Instagram 或 LinkedIn 公司页。'},400);
+      const url=sourceUrl(clean(input.sourceUrl),source),title=clean(input.title,200),evidence=clean(input.evidence,1000),website=clean(input.website);
+      if(!url)return response({ok:false,error:'请填写与所选平台一致的完整公开账号主页链接；帖子、视频、群组和短链不作为账号主页。'},400);
+      if(title.length<3||evidence.length<20||!parsed.city)return response({ok:false,error:'请填写英文城市、机构或教练业务名称，以及至少 20 个字符的公开业务描述和地区依据。'},400);
+      if(website&&!allowedWebsite(website))return response({ok:false,error:'官网请填写完整公开机构网址；也可以暂时留空。'},400);
+      const id=crypto.randomUUID(),row=await db.prepare(`INSERT INTO discovery_clues(id,source_key,title,source_provider,source_url,source_evidence,customer_type,state_region,city,website) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(source_key) DO NOTHING RETURNING id`).bind(id,url,title,source,url,'人工录入的公开业务描述（待核实）：'+evidence,parsed.customerType,parsed.stateCode,parsed.city,website||null).first<{id:string}>();
+      const existing=row?null:await db.prepare(`SELECT id,status FROM discovery_clues WHERE source_key=?`).bind(url).first<{id:string;status:string}>();
+      if(!row&&!existing)throw new Error('公开账号线索未保存，请重试。');
+      return response({ok:true,clueId:row?.id||existing?.id,existing:Boolean(existing),clueStatus:existing?.status||'PENDING',name:title});
+    }
     if(input.action==='SEARCH'){
       let parsed;try{parsed=parseSearch(input);}catch(e){return response({ok:false,error:(e as Error).message},400);}
-      if(!Array.isArray(input.sources)||!input.sources.length||input.sources.length>4||input.sources.some(s=>!EXPANSION_SOURCES.includes(s as ExpansionSource)))return response({ok:false,error:'请选择有效的扩展来源。'},400);
+      if(!Array.isArray(input.sources)||!input.sources.length||input.sources.length>EXPANSION_SOURCES.length||input.sources.some(s=>!EXPANSION_SOURCES.includes(s as ExpansionSource)))return response({ok:false,error:'请选择有效的扩展来源。'},400);
       const sources=[...new Set(input.sources)] as ExpansionSource[];
       await ensureTables(db);jobId=crypto.randomUUID();
       await db.prepare(`INSERT INTO discovery_jobs(id,state_region,customer_type,target_count,source_provider) VALUES(?,?,?,?, 'PUBLIC_SOURCE_CLUES_V1')`).bind(jobId,parsed.stateCode,parsed.customerType,parsed.targetCount).run();

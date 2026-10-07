@@ -1,7 +1,9 @@
 import { STATE_NAMES, METROS, TERMS, COMMERCIAL_TYPES } from '../shared/discovery';
 import { publicUrl, fetchPublicText } from './public-web';
 
-export const EXPANSION_SOURCES = ['SOCIAL','DIRECTORY','NCES','OSM'] as const;
+export const SOCIAL_SOURCES = ['FACEBOOK','TIKTOK','INSTAGRAM','LINKEDIN'] as const;
+export type SocialSource = typeof SOCIAL_SOURCES[number];
+export const EXPANSION_SOURCES = ['SOCIAL',...SOCIAL_SOURCES,'DIRECTORY','NCES','OSM'] as const;
 export type ExpansionSource = typeof EXPANSION_SOURCES[number];
 export type Clue = {key:string;title:string;source:string;url:string;snippet:string;city:string;website:string};
 export type SourceInput = {stateCode:string;customerType:string;city:string;round:number;targetCount:number};
@@ -10,17 +12,45 @@ const clean=(v:unknown,max=1500)=>String(v??'').trim().replace(/\s+/g,' ').slice
 const decode=(v:string)=>v.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,'$1').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;|&apos;/g,"'");
 const strip=(v:string)=>decode(v.replace(/<[^>]*>/g,' ')).replace(/\s+/g,' ').trim();
 const xml=(v:string,key:string)=>strip(v.match(new RegExp(`<${key}[^>]*>([\\s\\S]*?)<\\/${key}>`,'i'))?.[1]||'');
-const socialHosts=['facebook.com','instagram.com','linkedin.com'];
+const socialSites:Record<SocialSource,string>={FACEBOOK:'facebook.com',TIKTOK:'tiktok.com',INSTAGRAM:'instagram.com',LINKEDIN:'linkedin.com/company'};
+const socialHosts=['facebook.com','fb.com','instagram.com','linkedin.com','tiktok.com'];
 const directoryHosts=['chamberofcommerce.com','yellowpages.com','bbb.org','manta.com'];
 const hostIn=(host:string,list:string[])=>list.some(x=>host===x||host.endsWith('.'+x));
+export function socialProvider(value:string):SocialSource|undefined{
+  if(!publicUrl(value))return;
+  const host=new URL(value).hostname.toLowerCase();
+  if(hostIn(host,['facebook.com','fb.com']))return 'FACEBOOK';
+  if(hostIn(host,['tiktok.com']))return 'TIKTOK';
+  if(hostIn(host,['instagram.com']))return 'INSTAGRAM';
+  if(hostIn(host,['linkedin.com']))return 'LINKEDIN';
+}
 export function sourceUrl(value:string,source:ExpansionSource){
   if(!publicUrl(value))return '';
   try{const u=new URL(value),host=u.hostname.toLowerCase().replace(/^www\./,'');u.hash='';
-    if(source==='SOCIAL'){
+    if(source==='SOCIAL'||SOCIAL_SOURCES.includes(source as SocialSource)){
       if(!hostIn(host,socialHosts)||/^\/(?:p|reel|reels|explore|stories|groups|posts|watch|login|accounts|share|search|help|privacy)(?:\/|$)/i.test(u.pathname))return '';
-      if(hostIn(host,['linkedin.com'])&&!/^\/company\//i.test(u.pathname))return '';
-      if(u.pathname==='/'||/\/posts\/|\/videos\/|\/photos\/|\/status\//i.test(u.pathname))return '';
-      u.search='';
+      const provider=socialProvider(value);if(!provider||(source!=='SOCIAL'&&provider!==source))return '';
+      const path=u.pathname.replace(/\/+$/,'');
+      let profile='';
+      if(provider==='TIKTOK'){
+        if(!/^\/@[a-z0-9_][a-z0-9_.]{1,23}$/i.test(path))return '';
+        profile=path.toLowerCase();
+      }else if(provider==='INSTAGRAM'){
+        if(!/^\/[a-z0-9_.]{1,30}$/i.test(path)||/^\/(?:about|developer|developers|direct|legal|challenge)$/i.test(path))return '';
+        profile=path.toLowerCase();
+      }else if(provider==='LINKEDIN'){
+        const match=path.match(/^\/company\/([a-z0-9_-]+)(?:\/about)?$/i);if(!match)return '';
+        profile='/company/'+match[1].toLowerCase();
+      }else{
+        if(/^\/profile\.php$/i.test(path)){
+          const id=u.searchParams.get('id');if(!id||!/^\d{5,30}$/.test(id))return '';
+          return 'https://www.facebook.com/profile.php?id='+id;
+        }
+        const match=path.match(/^\/([a-z0-9._-]+)(?:\/(?:about|contact))?$/i)||path.match(/^\/(?:people|pages)\/[a-z0-9._-]+\/(\d{5,30})$/i);
+        if(!match||/^(?:home\.php|index\.php|marketplace|events|gaming|business|ads|policies|settings|recover|logout|friends|notifications|messages|people|pages|developers|about)$/i.test(match[1]))return '';
+        profile='/'+match[1].toLowerCase();
+      }
+      u.protocol='https:';u.hostname='www.'+(provider==='LINKEDIN'?'linkedin.com':provider==='FACEBOOK'?'facebook.com':provider==='TIKTOK'?'tiktok.com':'instagram.com');u.port='';u.pathname=profile+'/';u.search='';
     }else if(source==='DIRECTORY'&&!hostIn(host,directoryHosts)&&!host.endsWith('.gov')&&!host.endsWith('.edu'))return '';
     return u.toString();
   }catch{return ''}
@@ -39,21 +69,23 @@ async function json(url:string,init:RequestInit={},timeout=12000){
   const c=new AbortController(),t=setTimeout(()=>c.abort(),timeout);
   try{const r=await fetch(url,{...init,signal:c.signal,headers:{accept:'application/json','user-agent':'MING-EAGLE-Public-Discovery/14.0 (+https://mingeagle.com)',...init.headers}});if(!r.ok)throw new Error(`公开来源 HTTP ${r.status}`);const text=await r.text();if(text.length>1500000)throw new Error('公开来源返回内容过大。');const d=JSON.parse(text);if(d.error)throw new Error(clean(d.error.message||d.error,180));if(d.remark)throw new Error(clean(d.remark,180));return d;}catch(e){if(e instanceof Error&&e.name==='AbortError')throw new Error('公开数据源请求超时，请稍后重试。');throw e;}finally{clearTimeout(t)}
 }
-export async function indexedClues(input:SourceInput,source:'SOCIAL'|'DIRECTORY'){
+export async function indexedClues(input:SourceInput,source:'SOCIAL'|'DIRECTORY'|SocialSource){
   const cities=input.city?[input.city]:METROS[input.stateCode]||[STATE_NAMES[input.stateCode]];
   const city=cities[input.round%cities.length];
   const terms=TERMS[input.customerType]||[schoolTerms[input.customerType]||'school'];
   const term=terms[Math.floor(input.round/cities.length)%terms.length];
-  const sites=source==='SOCIAL'?['facebook.com','instagram.com','linkedin.com/company']:['chamberofcommerce.com','yellowpages.com','.gov'];
-  const results=await Promise.allSettled(sites.map(async site=>{
-    const query=`site:${site} ${term} "${city}" ${STATE_NAMES[input.stateCode]}`;
+  const sites=source==='SOCIAL'?['facebook.com','instagram.com','linkedin.com/company']:source==='DIRECTORY'?['chamberofcommerce.com','yellowpages.com','.gov']:[socialSites[source],socialSites[source]];
+  const results=await Promise.allSettled(sites.map(async (site,index)=>{
+    const keyword=source==='SOCIAL'||source==='DIRECTORY'?term:terms[(Math.floor(input.round/cities.length)*2+index)%terms.length];
+    const query=`site:${site} ${keyword} "${city}" ${STATE_NAMES[input.stateCode]}`;
     const rss=await fetchPublicText(`https://www.bing.com/search?q=${encodeURIComponent(query)}&format=rss&mkt=en-US&setlang=en-US`,6500);
     if(!/<rss\b|<channel\b/i.test(rss))throw new Error('公开搜索未返回可读取索引。');
     return parseRssClues(rss,source,query,city,input.customerType);
   }));
   if(results.every(x=>x.status==='rejected'))throw new Error('公开网页索引本次不可用。');
   const failed=results.filter(x=>x.status==='rejected').length;
-  return {clues:results.flatMap(x=>x.status==='fulfilled'?x.value:[]).slice(0,30),note:`${sites.length-failed}/${sites.length} 个公开索引查询完成；仅包含搜索引擎可见页面，尚未核验机构身份。`,partial:failed>0};
+  const clues=[...new Map(results.flatMap(x=>x.status==='fulfilled'?x.value:[]).map(clue=>[clue.key,clue])).values()].slice(0,30);
+  return {clues,note:`${sites.length-failed}/${sites.length} 个公开索引查询完成；${clues.length?'账号身份、地区和业务需官网核验。':'未找到同时符合平台、城市和业务条件的页面。'}仅覆盖搜索引擎可见页面；可补录公开业务账号。`,partial:failed>0};
 }
 export const NCES_SCHOOL='https://nces.ed.gov/opengis/rest/services/K12_School_Locations/EDGE_GEOCODE_PUBLICSCH_2425/MapServer/0';
 export const NCES_DISTRICT='https://services1.arcgis.com/Ua5sjt3LWTPigjyD/ArcGIS/rest/services/School_District_Office_Locations_Current/FeatureServer/0';
