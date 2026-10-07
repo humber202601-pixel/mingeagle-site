@@ -208,7 +208,7 @@ for path in ROOT.glob('*.html'):
         page = page.replace('Size 5 · Five colorways', 'Size 5 · Black/White · Black/Green · Black/Red · Yellow/Green · Black/Gold')
     # Avoid duplicate CSS links when the script runs again during deployment.
     page = re.sub(r'(?:<link href="product-grid-2x2\.css(?:\?[^"]*)?" rel="stylesheet"/>)+', '<link href="product-grid-2x2.css?v=20261007-1" rel="stylesheet"/>', page)
-    page = re.sub(r'src="site\.js(?:\?[^"]*)?"', 'src="site.js?v=20261007-5"', page)
+    page = re.sub(r'src="site\.js(?:\?[^"]*)?"', 'src="site.js?v=20261007-6"', page)
     for hero in images.values():
         page = re.sub(r'src="' + re.escape(hero) + r'(?:\?[^"]*)?"', 'src="' + hero + '?v=20261007-1"', page)
     path.write_text(page, encoding='utf-8')

@@ -12,6 +12,22 @@ The website treats only HTTP 200 from the receiver as accepted. Rejected request
 
 If the receiver is replaced, create the same property definitions, add them to a published form, and replace `formId`. To temporarily switch to direct contact, set `enabled:false`. This prepares a readable request with explicit email/WhatsApp sending instructions and never claims it was submitted.
 
-Product source data is `public/product-master.json`; the deploy finalizer applies canonical specs. Customer copy corrections in `admin/inquiry-copy.json` prevent deployment from restoring editorial wording. Site and inquiry script version is `20261007-5`.
+Product source data is `public/product-master.json`; the deploy finalizer applies canonical specs. Customer copy corrections in `admin/inquiry-copy.json` prevent deployment from restoring editorial wording. Site and inquiry script version is `20261007-6`.
+
+## Community submissions
+
+Stories and video links use the same published HubSpot receiver through `forms-core.js` and `community.js`. Request types are `Story submission` and `Video submission`; `message` stores the full story or video caption, media URL, rating/platform and permission choice. `me_inquiry_details` stores the URL and permission metadata together with the source page and campaign. Privacy consent is required for both. Story feature permission stays optional and explicitly records `Not granted; do not publish` when unchecked. Video rights confirmation remains required. Website submission does not publish any content automatically.
+
+The latest contact fields are a snapshot, not the complete case history. Open the contact's form submission events to inspect each earlier reference and submission. Match emails to the existing contact; do not create manual duplicate records for separate submissions. Notification settings remain those of the existing form; actual inbox delivery is a separate check.
+
+Success pages identify inquiry, story or video using an accepted session receipt, never a URL flag alone. Support requests use support steps; community submissions use editorial review steps. Invalid, future-dated or expired receipt data does not render a success claim. Empty inquiry messages and customer categories explicitly identify missing data for the latest request instead of inheriting an earlier submission.
+
+Failures retain entered text, reference and permission selections and show email/WhatsApp options with explicit manual sending. There is no automatic retry after ambiguous delivery. Buttons start disabled until the form handler loads; direct contact remains available without JavaScript.
+
+`public/assets/qa-test-video.mp4` is a three-second synthetic TEST ONLY slate made for delivery verification. It is not customer media, an advertisement or a testimonial. Do not publish it on the creator wall.
+
+## Other page behavior
+
+Tracking supports form/Enter submission, validates basic number format, measures available width and provides a visible 17TRACK fallback link. Embedded results do not prove that an order was shipped or delivered. Site language initialization tolerates blocked browser storage. Pages include canonical URLs, a keyboard skip link and a main landmark; receipts and the custom 404 page are excluded from search indexing. The sitemap contains public content pages only.
 
 After changing the receiving form, verify one clearly labeled QA inquiry from the public site and compare the confirmation reference, contact properties and form submission count. Do not delete existing customer records or trigger external customer emails as part of testing.

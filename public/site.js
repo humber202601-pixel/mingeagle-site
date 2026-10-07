@@ -10,10 +10,10 @@ function applyLang(lang){
 }
 function bootI18n(){
   const sel=document.querySelector('#langSelect');
-  const saved=localStorage.getItem('mingeagle_lang')||'en';
+  let saved='en';try{const value=localStorage.getItem('mingeagle_lang');if(I18N[value])saved=value}catch(e){}
   if(sel){
     sel.value=saved;
-    sel.addEventListener('change',()=>{const v=sel.value;localStorage.setItem('mingeagle_lang',v);applyLang(v)});
+    sel.addEventListener('change',()=>{const v=sel.value;try{localStorage.setItem('mingeagle_lang',v)}catch(e){}applyLang(v)});
   }
   applyLang(saved);
 }
@@ -51,11 +51,15 @@ function bootThankReference(){
   const target=document.querySelector('#thankReference');if(!target)return;
   let receipt=null;try{receipt=JSON.parse(sessionStorage.getItem('mingeagle_receipt')||'null')}catch(e){}
   const query=new URLSearchParams(location.search).get('ref');
-  if(!receipt||!query||receipt.reference!==query||Date.now()-receipt.acceptedAt>24*60*60*1000)return;
+  if(!window.MingEagleForms||!window.MingEagleForms.validReceipt(receipt,query))return;
   target.textContent=receipt.reference;
   document.querySelector('#receiptEyebrow').textContent='REQUEST RECEIVED';
   document.querySelector('#receiptTitle').textContent='THANK YOU. WE HAVE YOUR REQUEST.';
   document.querySelector('#receiptDescription').textContent='Your inquiry was accepted. Keep this reference when contacting MING EAGLE about your request.';
+  const kind=receipt.kind||'inquiry',type=receipt.requestType||'';
+  const types={story:['STORY RECEIVED','THANK YOU FOR YOUR STORY.','Your story was accepted for review. It is not a published testimonial. We will follow the permission you selected.',[['We review your story','Your experience, product and any media link.'],['We respect your permission','A submission is not permission to publish personal media.'],['We contact you if needed','Any publication remains subject to review and confirmation.']]],video:['VIDEO RECEIVED','YOUR VIDEO LINK IS WITH US.','Your video submission was accepted for review. It has not been automatically published.',[['We review the video link','The link, caption, product and rights confirmation.'],['We confirm anything needed','We may ask about access or featuring permissions.'],['Publication follows review','Submitting a link does not publish it on this website.']]]};
+  if(types[kind]){const copy=types[kind];document.querySelector('#receiptEyebrow').textContent=copy[0];document.querySelector('#receiptTitle').textContent=copy[1];document.querySelector('#receiptDescription').textContent=copy[2];document.querySelectorAll('.nextSteps>div').forEach((el,i)=>{el.querySelector('b').textContent=copy[3][i][0];el.querySelector('p').textContent=copy[3][i][1]})}
+  else if(['General product question','Order support'].includes(type)){document.querySelector('#receiptDescription').textContent='Your '+(type==='Order support'?'support request':'question')+' was accepted. Keep this reference for follow-up.';const steps=[['We review your message','Your question and any product or order reference.'],['We check the details','We may ask for information needed to answer or help.'],['We respond to your request','Submitting this form does not place an order.']];document.querySelectorAll('.nextSteps>div').forEach((el,i)=>{el.querySelector('b').textContent=steps[i][0];el.querySelector('p').textContent=steps[i][1]})}
   const messageLink=document.querySelector('#receiptWhatsApp');
   if(messageLink){messageLink.href='https://wa.me/8613851585237?text='+encodeURIComponent('Hello MING EAGLE, I just submitted a website request. My reference is: '+receipt.reference);messageLink.textContent='Add a WhatsApp message'}
 }

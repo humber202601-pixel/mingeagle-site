@@ -21,3 +21,4 @@ print('Approved hero images and product specifications ready for deployment.')
 
 # Guard request routing and server-confirmed success behavior before deployment.
 subprocess.run(['node', 'scripts/check-inquiry.cjs'], check=True)
+subprocess.run(['node', 'scripts/check-submissions.cjs'], check=True)
