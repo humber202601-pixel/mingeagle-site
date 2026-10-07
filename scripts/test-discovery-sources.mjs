@@ -13,7 +13,7 @@ try{
   const db={prepare(sql){const statement=(args=[])=>({bind(...values){return statement(values)},async first(){return sqlite.prepare(sql).get(...args)||null},async all(){return {results:sqlite.prepare(sql).all(...args)}},async run(){return {meta:sqlite.prepare(sql).run(...args)}}});return statement()}};
   const input={stateCode:'TX',customerType:'BASKETBALL_TRAINING',city:'Dallas',targetCount:20,round:0};
   const html=(name='Northstar Basketball Academy')=>`<html><title>${name}</title><script type="application/ld+json">{"@type":"Organization","name":"${name}"}</script><h1>${name}</h1><p>Dallas Texas basketball training academy private lessons register youth programs. Contact us. Elementary school district purchasing procurement physical education department.</p><a href="mailto:hello@northstar.example">hello@northstar.example</a><a href="tel:2145550186">214-555-0186</a></html>`;
-  let failIndex=false,schoolTitle='Northstar Elementary School';
+  let failIndex=false,schoolTitle='Northstar Elementary School',websiteLinks='',websiteWrongRegion=false,websiteRequests=0;
   globalThis.fetch=async(value,init)=>{
     const u=new URL(String(value));
     if(u.hostname==='www.bing.com'){
@@ -24,7 +24,11 @@ try{
     if(u.hostname==='nces.ed.gov'||u.hostname==='services1.arcgis.com')return Response.json({features:[{attributes:{NCESSCH:'480000100001',LEAID:'4800001',NAME:schoolTitle,CITY:'DALLAS',STATE:'TX',STREET:'1 Public Street',SCHOOLYEAR:'2024-2025'}},{attributes:{NCESSCH:'480000100002',LEAID:'4800002',NAME:'Austin Elementary',CITY:'AUSTIN',STATE:'TX'}}]});
     if(u.hostname==='api.geoapify.com')return Response.json({results:[{state_code:'TX',country_code:'us',bbox:{lat1:32.5,lon1:-97,lat2:33,lon2:-96}}]});
     if(u.hostname==='overpass-api.de'||u.hostname==='overpass.private.coffee')return Response.json({elements:[{type:'node',id:123,tags:{name:'Northstar Basketball Academy','addr:city':'Dallas',website:'https://northstar.example'}},{type:'node',id:124,tags:{name:'Basketball Court','addr:city':'Dallas'}},{type:'node',id:125,tags:{name:'Wrong City Academy','addr:city':'Austin'}}]});
-    if(u.hostname==='northstar.example')return new Response(html(u.pathname.includes('elementary')?'Northstar Elementary School':u.pathname.includes('middle')?'Northstar Middle School':u.pathname.includes('wrong')?'Different Business Academy':'Northstar Basketball Academy'),{headers:{'content-type':'text/html'}});
+    if(u.hostname==='northstar.example'){
+      websiteRequests++;
+      const page=html(u.pathname.includes('elementary')?'Northstar Elementary School':u.pathname.includes('middle')?'Northstar Middle School':u.pathname.includes('wrong')?'Different Business Academy':'Northstar Basketball Academy');
+      return new Response((websiteWrongRegion?page.replace('Dallas Texas','Austin Texas'):page)+websiteLinks,{headers:{'content-type':'text/html'}});
+    }
     throw new Error('Unexpected endpoint '+u.hostname);
   };
   const post=async body=>{const r=await handler.onRequestPost({request:new Request('https://test.example/api/admin/discovery-sources-v1',{method:'POST',body:JSON.stringify(body)}),env:{MINGEAGLE_DB:db}});return {status:r.status,body:await r.json()};};
@@ -86,6 +90,31 @@ try{
   result=await post(manual);assert.equal(result.body.clueStatus,'CONVERTED','manual import must preserve converted profiles');
   assert.equal((await get('status=CONVERTED&source=TIKTOK')).body.pagination.total,1);
   assert.equal((await post({...manual,sourceUrl:tiktok.source_url})).body.existing,true);
+  const websiteFixture=`<a href="https://www.facebook.com/northstar/?ref=site">Facebook</a><a href='//www.tiktok.com/@Northstar/?utm=site'>TikTok</a><a href="https://www.tiktok.com/@northstar/video/123">Video</a><a href="https://www.facebook.com/groups/northstar/">Group</a><a href="https://www.instagram.com/northstar/p/123">Post</a><a href="https://www.linkedin.com/in/coach/">Person</a><a data-href="https://www.instagram.com/fake/">Not a link</a><a href="http://127.0.0.1/">Private</a><!-- <a href="https://www.instagram.com/commented/">hidden</a> --><template><a href="https://www.instagram.com/template/">template</a></template><script>const hidden='<a href="https://www.instagram.com/scripted/">script</a>'</script><a href="https://m.facebook.com/profile.php?id=123456789&amp;ref=website">Numeric FB</a><script type="application/ld+json">{"@graph":[{"@type":"SportsOrganization","sameAs":["https://www.instagram.com/northstarsports/?ref=site","https://www.linkedin.com/company/northstarsports/"]},{"@type":"Person","sameAs":"https://www.instagram.com/privatecoach/"}]}</script>`;
+  const parsedProfiles=sources.websiteSocialProfiles([{url:'https://northstar.example/contact',html:websiteFixture},{url:'https://northstar.example',html:'<a href="https://www.tiktok.com/@northstar/">Duplicate</a>'}]);
+  assert.equal(parsedProfiles.length,5,'direct business profiles and institutional sameAs only');
+  assert.ok(parsedProfiles.every(p=>p.pageUrl==='https://northstar.example/contact'));
+  assert.equal(parsedProfiles.find(p=>p.url.includes('profile.php')).url,'https://www.facebook.com/profile.php?id=123456789');
+  assert.ok(parsedProfiles.find(p=>p.source==='TIKTOK').originalUrl.includes('utm=site'),'keep original public link as evidence');
+  assert.equal(sources.websiteSocialProfiles([{url:'http://10.0.0.1',html:websiteFixture}]).length,0);
+  websiteLinks=websiteFixture;
+  const discover={...input,action:'DISCOVER_SOCIAL',website:'https://northstar.example'};
+  const countsBefore={candidates:sqlite.prepare('SELECT COUNT(*) AS n FROM discovery_candidates').get().n,leads:sqlite.prepare('SELECT COUNT(*) AS n FROM leads').get().n};
+  assert.equal((await post({...discover,website:'http://10.0.0.1'})).status,400);
+  assert.equal((await post({...discover,website:'https://www.facebook.com/northstar'})).status,400);
+  assert.equal((await post({...discover,city:''})).status,400);
+  websiteWrongRegion=true;assert.equal((await post(discover)).status,422,'reject website lacking selected city evidence');websiteWrongRegion=false;
+  const existingFacebook=sqlite.prepare("SELECT * FROM discovery_clues WHERE source_key='https://www.facebook.com/northstar/'").get();
+  websiteRequests=0;result=await post(discover);assert.equal(result.body.ok,true);assert.equal(result.body.found,5);assert.equal(result.body.added,3);assert.equal(result.body.existing,2);assert.equal(websiteRequests,1,'reuse verified HTML, do not refetch website for extraction');
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM discovery_candidates').get().n,countsBefore.candidates);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM leads').get().n,countsBefore.leads,'website discovery does not import CRM leads');
+  const auto=sqlite.prepare("SELECT * FROM discovery_clues WHERE source_provider='INSTAGRAM'").get();
+  assert.ok(auto.source_evidence.includes('机构官网公开链接'));assert.ok(auto.source_evidence.includes('https://northstar.example'));assert.equal(auto.status,'PENDING');
+  assert.equal(sqlite.prepare('SELECT status FROM discovery_clues WHERE id=?').get(existingFacebook.id).status,existingFacebook.status);
+  await post({action:'IGNORE',clueId:auto.id});result=await post(discover);assert.equal(result.body.added,0);assert.equal(result.body.existing,5);assert.equal(sqlite.prepare('SELECT status FROM discovery_clues WHERE id=?').get(auto.id).status,'IGNORED');
+  sqlite.prepare("UPDATE discovery_candidates SET status='IGNORED' WHERE website='https://northstar.example'").run();assert.equal((await post(discover)).status,409);sqlite.prepare("UPDATE discovery_candidates SET status='NEW' WHERE website='https://northstar.example'").run();
+  result=await post({...discover,customerType:'ELEMENTARY_SCHOOL',website:'https://northstar.example/elementary'});assert.equal(result.body.name,'Northstar Elementary School');assert.equal(result.body.added,0,'school profile discovery preserves shared existing profiles');
+  websiteLinks='';result=await post(discover);assert.equal(result.body.found,0);assert.equal(result.body.added,0);assert.ok(result.body.note.includes('未找到'));
   assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM messages').get().n,0);sqlite.close();
-  console.log('PASS: Facebook/TikTok/Instagram/LinkedIn profile filtering, canonical URLs, manual public-profile storage and duplicate/status preservation, platform pagination, directory/city filtering, NCES escaping and years, OSM facilities, source failures, clue-only storage, verified promotion, identity/private-URL rejection, domain/school deduplication, CRM safeguards and no communications.');
+  console.log('PASS: verified website social discovery, page/raw-link evidence, institutional sameAs, excluded content/private/person links, no-refetch extraction, duplicate/ignored/converted preservation, school support, zero-result reporting, clue-only storage and no CRM or messages; existing public-source searches and verification.');
 }finally{globalThis.fetch=original;rmSync(dir,{recursive:true,force:true});}

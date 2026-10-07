@@ -1,5 +1,6 @@
 import { publicPhone, publicPhones, organizationName } from '../../../lib/public-contacts';
 import { fetchPublicText, publicUrl } from '../../../lib/public-web';
+import { websiteSocialProfiles, type WebsiteSocialProfile } from '../../../lib/discovery-sources';
 import { parseSearch, queryPlan, COMMERCIAL_TYPES, METROS as ALL_METROS, STATE_NAMES as ALL_STATE_NAMES } from '../../../shared/discovery';
 import { ensureRuns, recordResult } from '../../../lib/discovery';
 interface Env { MINGEAGLE_DB: D1Database }
@@ -11,6 +12,7 @@ type VerifiedHit = SearchHit & {
   fitScore:number; cues:string[]; orgName:string; entityScore:number; entitySource:string;
   email:string; phone:string; whatsapp:string; instagram:string; facebook:string; linkedin:string;
   contactName:string; contactTitle:string; contactUrl:string; sourceUrls:string[];
+  socialProfiles?:WebsiteSocialProfile[];
 };
 
 const clean=(v:unknown,max=1000)=>typeof v==='string'?v.trim().replace(/\s+/g,' ').slice(0,max):'';
@@ -133,7 +135,8 @@ export async function verifyHit(hit:SearchHit,type:string,stateCode:string):Prom
     const pageUrls=[hit.url];const pages:string[]=[homeHtml];const extraUrls=sameOriginPreferred(homeHtml,hit.url).filter(url=>url!==hit.url).slice(0,3);const extras=await Promise.allSettled(extraUrls.map(url=>fetchText(url,3800)));for(let i=0;i<extras.length;i++){const result=extras[i];if(result.status==='fulfilled'){pages.push(result.value);pageUrls.push(extraUrls[i])}}
     const combinedHtml=pages.join('\n');const body=pages.map(strip).join(' ').slice(0,300000);const f=scoreBusiness(hit,body,type,stateCode,entity);if(f.score<70)return null;
     const allLinks=pages.flatMap((html,index)=>hrefs(html,pageUrls[index]||hit.url));const host=domainOf(hit.url);const email=chooseEmail(emailsOf(combinedHtml),host);const phone=phonesOf(combinedHtml,body)[0]||'';const whatsapp=whatsappOf(allLinks);const instagram=firstSocial(allLinks,['instagram.com']);const facebook=firstSocial(allLinks,['facebook.com','fb.com']);const linkedin=firstSocial(allLinks,['linkedin.com']);const person=extractPerson(body);const contactUrl=pageUrls.find(url=>/contact/i.test(url))||pageUrls.find(url=>/(team|staff|coach|about|leadership)/i.test(url))||pageUrls[1]||hit.url;
-    const buyer=body.match(/(?:wholesale|bulk order|school equipment|physical education|youth program|private lesson|court rental|basketball camp|basketball classes)/gi)||[];if(buyer.length)f.cues.push('buyer-use:'+Array.from(new Set(buyer.map(x=>x.toLowerCase()))).slice(0,3).join('/'));return {...hit,city:f.cues.includes('national-supplier')?'':hit.city,fitScore:f.score,cues:f.cues,orgName:entity.name,entityScore:entity.score,entitySource:entity.source,email,phone,whatsapp,instagram,facebook,linkedin,contactName:person.name,contactTitle:person.title,contactUrl,sourceUrls:pageUrls.slice(0,pages.length)};
+    const socialProfiles=websiteSocialProfiles(pages.map((html,index)=>({html,url:pageUrls[index]})));
+    const buyer=body.match(/(?:wholesale|bulk order|school equipment|physical education|youth program|private lesson|court rental|basketball camp|basketball classes)/gi)||[];if(buyer.length)f.cues.push('buyer-use:'+Array.from(new Set(buyer.map(x=>x.toLowerCase()))).slice(0,3).join('/'));return {...hit,city:f.cues.includes('national-supplier')?'':hit.city,fitScore:f.score,cues:f.cues,orgName:entity.name,entityScore:entity.score,entitySource:entity.source,email,phone,whatsapp,instagram,facebook,linkedin,contactName:person.name,contactTitle:person.title,contactUrl,sourceUrls:pageUrls.slice(0,pages.length),socialProfiles};
   }catch{return null}
 }
 

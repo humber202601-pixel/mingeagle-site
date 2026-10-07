@@ -7,6 +7,7 @@ export const EXPANSION_SOURCES = ['SOCIAL',...SOCIAL_SOURCES,'DIRECTORY','NCES',
 export type ExpansionSource = typeof EXPANSION_SOURCES[number];
 export type Clue = {key:string;title:string;source:string;url:string;snippet:string;city:string;website:string};
 export type SourceInput = {stateCode:string;customerType:string;city:string;round:number;targetCount:number};
+export type WebsiteSocialProfile = {source:SocialSource;url:string;pageUrl:string;originalUrl:string;label:string};
 const schoolTerms:Record<string,string>={PRESCHOOL_KINDERGARTEN:'preschool kindergarten',ELEMENTARY_SCHOOL:'elementary school',MIDDLE_HIGH_SCHOOL:'middle high school',PRIVATE_CHARTER_SCHOOL:'private charter school',SCHOOL_DISTRICT:'school district purchasing',AFTER_SCHOOL_PROGRAM:'after school youth program',EDUCATION_SUPPLIER:'school physical education equipment supplier'};
 const clean=(v:unknown,max=1500)=>String(v??'').trim().replace(/\s+/g,' ').slice(0,max);
 const decode=(v:string)=>v.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,'$1').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;|&apos;/g,"'");
@@ -54,6 +55,45 @@ export function sourceUrl(value:string,source:ExpansionSource){
     }else if(source==='DIRECTORY'&&!hostIn(host,directoryHosts)&&!host.endsWith('.gov')&&!host.endsWith('.edu'))return '';
     return u.toString();
   }catch{return ''}
+}
+export function websiteSocialProfiles(pages:Array<{url:string;html:string}>):WebsiteSocialProfile[]{
+  const found=new Map<string,WebsiteSocialProfile>();
+  const entities=(value:string)=>decode(value).replace(/&#(x[0-9a-f]+|\d+);/gi,(_,n)=>{
+    const code=n[0].toLowerCase()==='x'?parseInt(n.slice(1),16):Number(n);
+    return code>0&&code<=0x10ffff?String.fromCodePoint(code):'';
+  });
+  for(const page of pages){
+    if(!publicUrl(page.url))continue;
+    const add=(raw:string,label:string)=>{
+      if(found.size>=20||raw.length>2000)return;
+      try{
+        const originalUrl=new URL(entities(raw).trim(),page.url).toString(),source=socialProvider(originalUrl);
+        if(!source)return;const url=sourceUrl(originalUrl,source);
+        if(url&&!found.has(url))found.set(url,{source,url,pageUrl:page.url,originalUrl,label:clean(strip(label),160)});
+      }catch{}
+    };
+    const visible=page.html.replace(/<!--[\s\S]*?-->/g,'').replace(/<(script|style|template)\b[\s\S]*?<\/\1>/gi,'');
+    for(const match of visible.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)){
+      const href=match[1].match(/(?:^|\s)href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i);
+      if(href)add(href[1]??href[2]??href[3],match[2]);
+    }
+    for(const script of page.html.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)){
+      try{
+        const walk=(node:unknown,depth=0)=>{
+          if(!node||typeof node!=='object'||depth>12)return;
+          if(Array.isArray(node)){node.slice(0,100).forEach(value=>walk(value,depth+1));return;}
+          const item=node as Record<string,unknown>,types=Array.isArray(item['@type'])?item['@type']:[item['@type']];
+          if(types.some(type=>typeof type==='string'&&/^(?:[a-z]*Organization|LocalBusiness|School|Preschool|HighSchool|ElementarySchool|SportingGoodsStore|SportsActivityLocation)$/i.test(type))){
+            const links=Array.isArray(item.sameAs)?item.sameAs:[item.sameAs];
+            for(const link of links.slice(0,30))if(typeof link==='string')add(link,'机构结构化资料 sameAs');
+          }
+          if(item['@graph'])walk(item['@graph'],depth+1);
+        };
+        walk(JSON.parse(script[1]));
+      }catch{}
+    }
+  }
+  return [...found.values()];
 }
 export function parseRssClues(rss:string,source:ExpansionSource,query:string,city:string,type:string):Clue[]{
   const out:Clue[]=[],seen=new Set<string>();

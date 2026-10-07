@@ -1,5 +1,6 @@
 import { publicPhone, publicPhones } from '../../../lib/public-contacts';
 import { fetchPublicText } from '../../../lib/public-web';
+import { websiteSocialProfiles } from '../../../lib/discovery-sources';
 import { parseSearch, queryPlan, COMMERCIAL_TYPES, METROS as ALL_METROS, STATE_NAMES as ALL_STATE_NAMES } from '../../../shared/discovery';
 import { ensureRuns, recordResult } from '../../../lib/discovery';
 import { allowedWebsite, resolveEntity } from './discovery-web-v6';
@@ -123,7 +124,8 @@ export async function verifySchoolWebsite(url:string,type:string,state:string,ci
     const email=emailFrom(pages.join('\n')),phone=publicPhones(pages.join('\n'),body)[0]||'',person=contactFrom(body);
     const purchasing=/purchas|procurement|vendor|bid|business office/i.test(body),athletics=/athletic|physical education|sports program/i.test(body);
     const score=Math.min(email||phone?95:79,70+(email?8:0)+(phone?4:0)+(purchasing?8:0)+(athletics?5:0));
-    return {title:entity.name,url,snippet:'',query:'public source official website verification',city,fitScore:score,cues:['官网学校业务核验','官网地区匹配',...(purchasing?['采购页面证据']:[]),...(athletics?['体育或 PE 页面证据']:[])],orgName:entity.name,entityScore:entity.score,entitySource:entity.source,email,phone,whatsapp:'',instagram:'',facebook:'',linkedin:'',contactName:person.name,contactTitle:person.title,contactUrl:urls.find(link=>/contact|staff|directory|purchas/i.test(link))||url,sourceUrls:urls};
+    const socialProfiles=websiteSocialProfiles(pages.map((html,index)=>({html,url:urls[index]})));
+    return {title:entity.name,url,snippet:'',query:'public source official website verification',city,fitScore:score,cues:['官网学校业务核验','官网地区匹配',...(purchasing?['采购页面证据']:[]),...(athletics?['体育或 PE 页面证据']:[])],orgName:entity.name,entityScore:entity.score,entitySource:entity.source,email,phone,whatsapp:'',instagram:'',facebook:'',linkedin:'',contactName:person.name,contactTitle:person.title,contactUrl:urls.find(link=>/contact|staff|directory|purchas/i.test(link))||url,sourceUrls:urls,socialProfiles};
   }catch{return null;}
 }
 

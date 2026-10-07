@@ -34,6 +34,27 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   const db=env.MINGEAGLE_DB;await ensureClues(db);let jobId='';
   try{
     const input=await request.json() as Record<string,unknown>;
+    if(input.action==='DISCOVER_SOCIAL'){
+      let parsed;try{parsed=parseSearch(input);}catch(e){return response({ok:false,error:(e as Error).message},400);}
+      const website=clean(input.website);
+      if(!parsed.city||!allowedWebsite(website))return response({ok:false,error:'请填写上方的英文城市和完整公开机构官网网址。'},400);
+      const hit=COMMERCIAL_TYPES.has(parsed.customerType)?await verifyHit({title:'',url:website,snippet:'',query:'official website social discovery',city:parsed.city},parsed.customerType,parsed.stateCode):await verifySchoolWebsite(website,parsed.customerType,parsed.stateCode,parsed.city);
+      if(!hit)return response({ok:false,error:'官网无法读取，或机构名称、业务、地区证据不足。没有保存社交线索。'},422);
+      await ensureTables(db);
+      const websiteUrl=new URL(website),domain=websiteUrl.hostname.toLowerCase().replace(/^www\./,''),key=COMMERCIAL_TYPES.has(parsed.customerType)?'web:'+domain:'schoolweb:'+domain+(websiteUrl.pathname.replace(/\/+$/,'')||'/');
+      const ignored=await db.prepare(`SELECT name FROM discovery_candidates WHERE status='IGNORED' AND (source_key=? OR website=? OR website=?) LIMIT 20`).bind(key,website,website.endsWith('/')?website.slice(0,-1):website+'/').all<{name:string}>();
+      if(ignored.results.some(row=>clueMatches(row.name,hit.orgName)))return response({ok:false,error:'该官网已有已忽略候选，请先在候选库决定是否恢复。'},409);
+      const profiles=hit.socialProfiles||[];let added=0;const saved=[];
+      for(const profile of profiles){
+        const evidence=clean(`机构官网公开链接 · 机构：${hit.orgName} · 发现页面：${profile.pageUrl} · 原始链接：${profile.originalUrl} · 链接文字：${profile.label||'未提供'}。仅证明官网引用了此链接；账号归属、当前业务及联系信息仍需核实。`,1500);
+        const id=crypto.randomUUID(),row=await db.prepare(`INSERT INTO discovery_clues(id,source_key,title,source_provider,source_url,source_evidence,customer_type,state_region,city,website) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(source_key) DO NOTHING RETURNING id`).bind(id,profile.url,hit.orgName,profile.source,profile.url,evidence,parsed.customerType,parsed.stateCode,hit.city,website).first<{id:string}>();
+        const existing=row?null:await db.prepare(`SELECT id,status FROM discovery_clues WHERE source_key=?`).bind(profile.url).first<{id:string;status:string}>();
+        if(!row&&!existing)throw new Error('官网社交线索未保存，请重试。');
+        if(row)added++;
+        saved.push({source:profile.source,url:profile.url,pageUrl:profile.pageUrl,clueId:row?.id||existing?.id,status:existing?.status||'PENDING',existing:Boolean(existing)});
+      }
+      return response({ok:true,name:hit.orgName,added,found:profiles.length,existing:profiles.length-added,profiles:saved,note:profiles.length?'已保留官网出处；新增账号仅进入待核验线索。':'已读取机构官网，未找到可识别的社交账号主页链接。动态内容、帖子及短链不会作为账号主页保存。'});
+    }
     if(input.action==='ADD_SOCIAL'){
       let parsed;try{parsed=parseSearch(input);}catch(e){return response({ok:false,error:(e as Error).message},400);}
       const source=clean(input.source,20) as SocialSource;
