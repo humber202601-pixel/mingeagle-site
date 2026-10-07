@@ -1,11 +1,13 @@
+import { onRequestPost as searchV2 } from './discovery-search-v2';
 import { TYPE_OPTIONS, STATE_NAMES } from '../../../shared/discovery';
 interface Env {
   MINGEAGLE_DB: D1Database;
+  GEOAPIFY_API_KEY?: string;
 }
 
 type CandidateRow = Record<string, unknown>;
 type Input = {
-  action?: 'SEARCH' | 'ADD_TO_CRM' | 'IGNORE';
+  action?: 'SEARCH' | 'ADD_TO_CRM' | 'IGNORE' | 'RESTORE';
   stateCode?: string;
   customerType?: string;
   targetCount?: number | string;
@@ -452,13 +454,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const action = input.action || 'SEARCH';
 
     if (action === 'SEARCH') {
-      const stateCode = clean(input.stateCode, 2).toUpperCase();
-      const customerType = clean(input.customerType, 80).toUpperCase();
-      const targetCount = Math.min(100, Math.max(10, Math.round(Number(input.targetCount || 20))));
-      if (!allowedState.test(stateCode)) return Response.json({ ok: false, error: 'Please select a valid U.S. state.' }, { status: 400 });
-      if (!allowedTypes.has(customerType)) return Response.json({ ok: false, error: 'Unsupported customer type.' }, { status: 400 });
-      const result = await searchCandidates(db, stateCode, customerType, targetCount);
-      return Response.json({ ok: true, ...result });
+      return searchV2({request:new Request(request.url,{method:'POST',headers:request.headers,body:JSON.stringify(input)}),env} as Parameters<typeof searchV2>[0]);
     }
 
     const candidateId = clean(input.candidateId, 120);
@@ -468,8 +464,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const result = await addToCrm(db, candidateId);
       return Response.json({ ok: true, ...result });
     }
-    if (action === 'IGNORE') {
-      await db.prepare(`UPDATE discovery_candidates SET status='IGNORED', updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(candidateId).run();
+    if (action === 'IGNORE' || action === 'RESTORE') {
+      const row=await db.prepare(`SELECT status,crm_lead_id FROM discovery_candidates WHERE id=?`).bind(candidateId).first<{status:string;crm_lead_id:string|null}>();
+      if(!row)return Response.json({ok:false,error:'Candidate not found.'},{status:404});
+      const status=action==='IGNORE'?'IGNORED':row.crm_lead_id?'CRM':'NEW';
+      await db.prepare(`UPDATE discovery_candidates SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(status,candidateId).run();
       return Response.json({ ok: true });
     }
     return Response.json({ ok: false, error: 'Unsupported action.' }, { status: 400 });

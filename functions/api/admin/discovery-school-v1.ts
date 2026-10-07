@@ -1,3 +1,4 @@
+import { fetchPublicText } from '../../../lib/public-web';
 import { parseSearch, queryPlan, COMMERCIAL_TYPES, METROS as ALL_METROS, STATE_NAMES as ALL_STATE_NAMES } from '../../../shared/discovery';
 import { ensureRuns, recordResult } from '../../../lib/discovery';
 interface Env { MINGEAGLE_DB: D1Database; GEOAPIFY_API_KEY?: string }
@@ -100,11 +101,8 @@ async function fetchJson(url: string, timeout = 7000) {
   try { const r = await fetch(url, { headers: { accept:'application/json', 'user-agent':'MING-EAGLE-School-Discovery/1.0 (+https://mingeagle.com)' }, signal:c.signal }); if (!r.ok) throw new Error(`HTTP ${r.status}`); return await r.json() as Record<string,unknown>; }
   finally { clearTimeout(t); }
 }
-async function fetchHtml(url: string, timeout = 5000) {
-  const c = new AbortController(); const t = setTimeout(() => c.abort(), timeout);
-  try { const r = await fetch(url, { headers: { accept:'text/html,application/xhtml+xml', 'accept-language':'en-US,en;q=0.9', 'user-agent':'Mozilla/5.0 (compatible; MING-EAGLE-School-Discovery/1.0; +https://mingeagle.com)' }, redirect:'follow', signal:c.signal }); if (!r.ok) throw new Error(`HTTP ${r.status}`); return (await r.text()).slice(0, 600000); }
-  finally { clearTimeout(t); }
-}
+const fetchHtml=fetchPublicText;
+
 async function searchGeo(apiKey: string, query: string, state: string) {
   const u = new URL('https://api.geoapify.com/v1/geocode/search');
   u.searchParams.set('text', query); u.searchParams.set('format','json'); u.searchParams.set('filter','countrycode:us'); u.searchParams.set('lang','en'); u.searchParams.set('limit','8'); u.searchParams.set('apiKey', apiKey);
@@ -162,7 +160,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     jobId = crypto.randomUUID(); await db.prepare(`INSERT INTO discovery_jobs (id,state_region,customer_type,target_count,source_provider) VALUES (?,?,?,?,'GEOAPIFY_SCHOOL_V1')`).bind(jobId,state,type,target).run();
     const started = Date.now(); const searchRs = await Promise.allSettled(queries.map(q => searchGeo(env.GEOAPIFY_API_KEY!,q,state).then(results => ({ q, results }))));
     if(searchRs.every(r=>r.status==='rejected'))throw new Error('学校地点查询全部失败，请稍后重试。');const raw: Array<{q:string;r:GeoResult}> = []; for (const s of searchRs) if (s.status === 'fulfilled') for (const r of s.value.results) raw.push({ q:s.value.q, r });
-    const byPlace = new Map<string,{q:string;r:GeoResult}>(); for (const x of raw) { const id = clean(x.r.place_id,300); const name = clean(x.r.name || x.r.formatted,180); if (!id || !name || !strongName(name,type)) continue; if (!byPlace.has(id)) byPlace.set(id,x); }
+    const byPlace = new Map<string,{q:string;r:GeoResult}>(); for (const x of raw) { if(parsed.city&&clean(x.r.city,100).toLowerCase()!==parsed.city.toLowerCase())continue; const id = clean(x.r.place_id,300); const name = clean(x.r.name || x.r.formatted,180); if (!id || !name || !strongName(name,type)) continue; if (!byPlace.has(id)) byPlace.set(id,x); }
     const shortlist = [...byPlace.values()].slice(0,Math.min(28,target + 12)); const candidates: Candidate[] = []; let detailsChecked = 0; let websiteChecked = 0;
 
     for (let i=0;i<shortlist.length;i+=3) {
@@ -170,14 +168,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const batch = shortlist.slice(i,i+3);
       const rs = await Promise.allSettled(batch.map(async x => {
         detailsChecked++; const props = await detailsGeo(env.GEOAPIFY_API_KEY!,clean(x.r.place_id,300)); const geo = extractGeoContact(props);
-        const name = clean(asString(props.name,180) || x.r.name || x.r.formatted,180); const city = clean(asString(props.city,100) || x.r.city,100); const address = clean(asString(props.formatted,320) || x.r.formatted,320);
+        const name = clean(asString(props.name,180) || x.r.name || x.r.formatted,180); const city = clean(asString(props.city,100) || x.r.city,100); const address = clean(asString(props.formatted,320) || x.r.formatted,320);if(parsed.city&&city.toLowerCase()!==parsed.city.toLowerCase())return null;if(props.state_code&&String(props.state_code).toUpperCase()!==state)return null;
         let email = geo.email, phone = geo.phone, contactName = '', contactTitle = '', contactUrl = '', verified = false, score = 48;
         const cues: string[] = []; const sourceUrls: string[] = []; if (strongName(name,type)) { score += 10; cues.push('name matches customer type'); }
         if (geo.website) {
           score += 8; websiteChecked++;
           try {
             const homeHtml = await fetchHtml(geo.website); sourceUrls.push(geo.website); const homeText = strip(homeHtml).slice(0,240000);
-            if (pageMatches(`${name} ${homeText}`,type)) { verified = true; score += 10; cues.push('official website verified'); }
+            if (pageMatches(homeText,type)) { verified = true; score += 10; cues.push('official website verified'); }
             if (!email) email = emailFrom(homeHtml); if (!phone) phone = phoneFrom(homeText);
             const links = extractUsefulLinks(geo.website, homeHtml).slice(0,4);
             for (const url of links) {
@@ -193,7 +191,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         }
         if (email) { score += 8; cues.push('public email found'); } if (phone) { score += 4; cues.push('public phone found'); }
         if (!verified && !strongName(name,type)) return null;
-        return { placeId:clean(x.r.place_id,300), name, city, state, address, lat:Number(x.r.lat)||null, lon:Number(x.r.lon)||null, website:geo.website, email, phone, score:Math.min(98,score), sourceQuery:x.q, verified, contactName, contactTitle, contactUrl, cues:[...new Set(cues)], sourceUrls:[...new Set(sourceUrls)] } as Candidate;
+        return { placeId:clean(x.r.place_id,300), name, city, state, address, lat:Number(x.r.lat)||null, lon:Number(x.r.lon)||null, website:geo.website, email, phone, score:Math.min(verified&&(email||phone)?98:79,score), sourceQuery:x.q, verified, contactName, contactTitle, contactUrl, cues:[...new Set(cues)], sourceUrls:[...new Set(sourceUrls)] } as Candidate;
       }));
       candidates.push(...rs.flatMap(r => r.status === 'fulfilled' && r.value ? [r.value] : [])); if (candidates.length >= target) break;
     }

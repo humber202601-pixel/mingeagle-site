@@ -1,4 +1,4 @@
-import { TYPE_OPTIONS, csvCell } from '../shared/discovery';
+import { TYPE_OPTIONS, COMMERCIAL_TYPES, csvCell } from '../shared/discovery';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { ExternalLink, LoaderCircle, MapPin, RefreshCcw, Search, UserPlus, X, Download } from 'lucide-react';
 
@@ -30,6 +30,7 @@ const statusLabel = (value: unknown) => value === 'CRM' ? '已加入 CRM' : valu
 const gradeClass = (grade: unknown) => `discovery-grade grade-${String(grade || 'C').toLowerCase()}`;
 const sourceLabel = (provider: unknown) => {
   const value = String(provider || '').toUpperCase();
+  if (value.startsWith('OFFICIAL_WEBSITE_IMPORT')) return '官网导入核验';
   if (value.startsWith('GEOAPIFY_SCHOOL')) return '学校/采购验证';
   if (value.startsWith('GEOAPIFY')) return 'Geoapify地点';
   if (value.startsWith('WEB_SEARCH') || value.startsWith('WEB_EXPANSION')) return 'Web验证';
@@ -60,6 +61,12 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
   const [searchBatch,setSearchBatch]=useState({key:'',round:0});
   const [sourceState,setSourceState]=useState<Record<string,boolean>>({});
   const [sourceErrors,setSourceErrors]=useState<Record<string,string>>({});
+  const [searchState,setSearchState]=useState('TX');
+  const [searchType,setSearchType]=useState('BASKETBALL_TRAINING');
+  const [searchCity,setSearchCity]=useState('');
+  const [websiteUrls,setWebsiteUrls]=useState('');
+  const [importing,setImporting]=useState(false);
+  const [websiteResults,setWebsiteResults]=useState<Array<{url:string;status:string;name?:string;reason?:string}>>([]);
 
 
   async function load(signal?:AbortSignal) {
@@ -114,6 +121,19 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
     }
   }
 
+  async function importWebsites(event:FormEvent<HTMLFormElement>) {
+    event.preventDefault();setImporting(true);setError('');setMessage('');setWebsiteResults([]);
+    try {
+      const urls=websiteUrls.split(/\r?\n/).map(url=>url.trim()).filter(Boolean);
+      if(!urls.length||urls.length>10)throw new Error('请输入 1–10 个官网网址，每行一个。');
+      const response=await fetch('/api/admin/discovery-website-v1',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':accessKey},body:JSON.stringify({stateCode:searchState,customerType:searchType,city:searchCity,websiteUrls:urls})});
+      const body=await response.json() as {ok?:boolean;error?:string;found?:number;added?:number;updated?:number;verified?:number;results?:Array<{url:string;status:string;name?:string;reason?:string}>};
+      if(!response.ok||!body.ok)throw new Error(body.error||'官网核验失败。');
+      setWebsiteResults(body.results||[]);setMessage(`官网核验完成：通过业务和地区核验 ${body.verified||0} 个，新增 ${body.added||0} 个，更新已有 ${body.updated||0} 个。已忽略的客户保持原状态。`);
+      await load();
+    }catch(err){setError(err instanceof Error?err.message:'官网核验失败。')}finally{setImporting(false)}
+  }
+
   async function syncCandidateToCrm(candidateId: string) {
     const response=await fetch('/api/admin/discovery-enrich', {
       method: 'POST',
@@ -135,7 +155,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
     return {...body,syncWarning};
   }
 
-  async function candidateAction(candidateId: string, action: 'ADD_TO_CRM' | 'IGNORE') {
+  async function candidateAction(candidateId: string, action: 'ADD_TO_CRM' | 'IGNORE' | 'RESTORE') {
     setBusyId(candidateId);
     setError('');
     setMessage('');
@@ -151,7 +171,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
         });
         const body = await response.json() as { ok?: boolean; error?: string };
         if (!response.ok || !body.ok) throw new Error(body.error || '操作失败。');
-        setMessage('已忽略该候选客户。');
+        setMessage(action==='RESTORE'?'已恢复该候选客户。':'已忽略该候选客户，可在“已忽略”中恢复。');
       }
       await load();
       if (action === 'ADD_TO_CRM') onChanged();
@@ -304,21 +324,31 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
           <input value="United States" readOnly />
         </label>
         <label>州
-          <select name="stateCode" defaultValue="TX">
+          <select name="stateCode" value={searchState} onChange={e=>{setSearchState(e.target.value);setSearchBatch({key:'',round:0})}}>
             {STATES.map(([code,name]) => <option key={code} value={code}>{name} ({code})</option>)}
           </select>
         </label>
         <label>客户类型
-          <select name="customerType" defaultValue="BASKETBALL_TRAINING">
+          <select name="customerType" value={searchType} onChange={e=>{setSearchType(e.target.value);setSearchBatch({key:'',round:0})}}>
             {TYPE_OPTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
-        <label>城市（可选）<input name="city" placeholder="例如 Dallas；留空覆盖主要城市" maxLength={80}/></label>
+        <label>城市（可选）<input name="city" value={searchCity} onChange={e=>{setSearchCity(e.target.value);setSearchBatch({key:'',round:0})}} placeholder="例如 Dallas；留空覆盖主要城市" maxLength={80}/></label>
         <label>每批目标数量
           <select name="targetCount" defaultValue="20"><option value="20">20</option><option value="50">50</option><option value="100">100</option></select>
         </label>
-        <button className="button discovery-search-button" disabled={searching}>{searching ? <><LoaderCircle size={16} className="spin"/> 正在搜索…</> : <><Search size={16}/> {searchBatch.round?'继续发现下一批':'开始发现客户'}</>}</button>
+        <button className="button discovery-search-button" disabled={searching||importing}>{searching ? <><LoaderCircle size={16} className="spin"/> 正在搜索…</> : <><Search size={16}/> {searchBatch.round?'继续发现下一批':'开始发现客户'}</>}</button>
       </form>
+      <details className="discovery-website-import">
+        <summary>官网批量核验 · 补充搜索、展会和行业目录中的潜在客户</summary>
+        <p>使用上方的州、客户类型和城市条件。填写公开官网完整网址，每行一个，最多 10 个；系统核验机构、业务及地区，再提取公开联系方式并去重。城市仅表示官网提及的服务范围，不代表已核实的注册地址。</p>
+        {COMMERCIAL_TYPES.has(searchType)?<form onSubmit={importWebsites}>
+          <label htmlFor="discovery-websites">待核验官网</label>
+          <textarea id="discovery-websites" value={websiteUrls} onChange={e=>setWebsiteUrls(e.target.value)} rows={4} maxLength={11000} placeholder="https://www.example.com" required/>
+          <button className="button secondary" disabled={importing||searching}>{importing?'正在核验官网…':'核验并加入候选库'}</button>
+        </form>:<p>学校类别请使用上方学校专用发现。</p>}
+        {!!websiteResults.length&&<ul className="discovery-website-results" aria-live="polite">{websiteResults.map((result,index)=><li key={index}><strong>{result.status==='VERIFIED'?'已核验':result.status==='DUPLICATE'?'本批重复':result.status==='IGNORED'?'保持忽略':'未通过'}</strong><span>{result.name||result.url}</span>{result.reason&&<small>{result.reason}</small>}</li>)}</ul>}
+      </details>
       <div className="discovery-enrich-bar">
         <div className="discovery-note">新增独立教练、多项目训练、社区体育中心、批发商和夏令营。连续搜索会轮换城市及关键词；每批数量是目标，实际入库取决于可核验结果。先筛选“优先跟进”，再补全官网公开联系人。</div>
         <button type="button" className="button secondary small" disabled={batching || preparing} onClick={() => void batchEnrich()}>{batching ? <><LoaderCircle size={14} className="spin"/> 正在批量补全…</> : <><RefreshCcw size={14}/> 批量补全前 5 个</>}</button>
@@ -378,7 +408,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
               {status === 'NEW' && <button className="table-action" disabled={busyId === id} onClick={() => void candidateAction(id,'ADD_TO_CRM')}><UserPlus size={13}/>{busyId === id ? '处理中…' : '加入CRM'}</button>}
               {status === 'NEW' && <button className="table-action" disabled={busyId === id} onClick={() => void candidateAction(id,'IGNORE')}><X size={13}/>忽略</button>}
               {status === 'CRM' && <span>已进入销售流程</span>}
-              {status === 'IGNORED' && <span>已忽略</span>}
+              {status === 'IGNORED' && <button className="table-action" disabled={busyId===id} onClick={()=>void candidateAction(id,'RESTORE')}>恢复候选</button>}
             </div></td>
           </tr>;
         })}

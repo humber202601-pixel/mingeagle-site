@@ -3,7 +3,7 @@ import { ensureRuns } from '../../../lib/discovery';
 
 interface Env { MINGEAGLE_DB:D1Database; GEOAPIFY_API_KEY?:string }
 type Result={ok?:boolean;found?:number;error?:string;checked?:number;verified?:number;note?:string;rawCount?:number;websiteChecked?:number};
-const RELEASE='DISCOVERY_V13_BUYER_DISCOVERY_2026-10-07';
+const RELEASE='DISCOVERY_V13_1_QUALIFIED_BUYERS_2026-10-07';
 const response=(body:Record<string,unknown>,status=200)=>Response.json({...body,release:RELEASE},{status,headers:{'cache-control':'no-store'}});
 async function callSource(request:Request,path:string,body:Record<string,unknown>,timeout:number):Promise<Result>{
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeout);
