@@ -1,3 +1,5 @@
+import { assertAutoLease,saveAutoClues } from '../../../lib/discovery-auto-support';
+import { ensureClues } from '../../../lib/discovery-sources';
 import { publicPhone, publicPhones } from '../../../lib/public-contacts';
 import { fetchPublicText } from '../../../lib/public-web';
 import { websiteSocialProfiles } from '../../../lib/discovery-sources';
@@ -6,7 +8,7 @@ import { ensureRuns, recordResult } from '../../../lib/discovery';
 import { allowedWebsite, resolveEntity } from './discovery-web-v6';
 interface Env { MINGEAGLE_DB: D1Database; GEOAPIFY_API_KEY?: string }
 
-type Input = { stateCode?: string; customerType?: string; targetCount?: number | string; city?: string; round?: number; runId?: string };
+type Input = { stateCode?: string; customerType?: string; targetCount?: number | string; city?: string; round?: number; runId?: string; autoSourceOnly?:boolean; autoRunId?:string; autoToken?:string };
 type GeoResult = {
   name?: string; formatted?: string; city?: string; state?: string; state_code?: string; country_code?: string;
   lat?: number; lon?: number; place_id?: string;
@@ -56,6 +58,8 @@ function grade(score: number) { return score >= 80 ? 'A' : score >= 60 ? 'B' : '
 
 function strongName(name: string, type: string) {
   const n = name.toLowerCase();
+  if(/police department|bus depot|bus barn|transportation|warehouse|school district library/.test(n))return false;
+  if(type==='PRIVATE_CHARTER_SCHOOL'&&/school district|public schools/.test(n)&&!/charter/.test(n))return false;
   if (type === 'PRESCHOOL_KINDERGARTEN') return /preschool|pre-school|kindergarten|montessori|early childhood|learning center/.test(n);
   if (type === 'ELEMENTARY_SCHOOL') return /elementary|grade school|primary school|academy|school/.test(n);
   if (type === 'MIDDLE_HIGH_SCHOOL') return /middle school|junior high|high school|secondary school|academy/.test(n);
@@ -112,6 +116,7 @@ export async function verifySchoolWebsite(url:string,type:string,state:string,ci
   try {
     const html=await fetchHtml(url,5500),entity=resolveEntity(html,'',url);
     if(!entity.name||entity.score<24)return null;
+    if(type==='PRIVATE_CHARTER_SCHOOL'&&/school district|public schools/i.test(entity.name)&&!/charter/i.test(entity.name))return null;
     if(type==='ELEMENTARY_SCHOOL'&&!/elementary|primary|grade school/i.test(entity.name))return null;
     if(type==='MIDDLE_HIGH_SCHOOL'&&!/middle|high school|secondary|junior high/i.test(entity.name))return null;
     const urls=[url],pages=[html];
@@ -136,12 +141,12 @@ async function searchGeo(apiKey: string, query: string, state: string) {
   const data = await fetchJson(u.toString(), 6500); const results = Array.isArray(data.results) ? data.results as GeoResult[] : [];
   return results.filter(r => String(r.country_code || '').toLowerCase() === 'us' && (!r.state_code || String(r.state_code).toUpperCase() === state));
 }
-async function detailsGeo(apiKey: string, id: string) {
+export async function detailsGeo(apiKey: string, id: string) {
   const u = new URL('https://api.geoapify.com/v2/place-details'); u.searchParams.set('id',id); u.searchParams.set('features','details'); u.searchParams.set('lang','en'); u.searchParams.set('apiKey',apiKey);
   const data = await fetchJson(u.toString(),6500); const features = Array.isArray(data.features) ? data.features as Array<Record<string,unknown>> : [];
   const f = features.find(x => nested(x,['properties','feature_type']) === 'details') || features[0]; return f ? ((f.properties || {}) as Record<string,unknown>) : {};
 }
-function extractGeoContact(props: Record<string,unknown>) {
+export function extractGeoContact(props: Record<string,unknown>) {
   const raw = (nested(props,['datasource','raw']) || {}) as Record<string,unknown>; const contact = (props.contact || {}) as Record<string,unknown>;
   const website = normalizeWebsite(asString(props.website) || asString(contact.website) || asString(raw.website) || asString(raw['contact:website']) || asString(raw.url));
   const email = validEmail(asString(contact.email) || asString(props.email) || asString(raw.email) || asString(raw['contact:email']));
@@ -188,6 +193,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const started = Date.now(); const searchRs = await Promise.allSettled(queries.map(q => searchGeo(env.GEOAPIFY_API_KEY!,q,state).then(results => ({ q, results }))));
     if(searchRs.every(r=>r.status==='rejected'))throw new Error('学校地点查询全部失败，请稍后重试。');const raw: Array<{q:string;r:GeoResult}> = []; for (const s of searchRs) if (s.status === 'fulfilled') for (const r of s.value.results) raw.push({ q:s.value.q, r });
     const byPlace = new Map<string,{q:string;r:GeoResult}>(); for (const x of raw) { if(parsed.city&&clean(x.r.city,100).toLowerCase()!==parsed.city.toLowerCase())continue; const id = clean(x.r.place_id,300); const name = clean(x.r.name || x.r.formatted,180); if (!id || !name || !strongName(name,type)) continue; if (!byPlace.has(id)) byPlace.set(id,x); }
+    if(input.autoSourceOnly){
+      await ensureClues(db);await assertAutoLease(db,input);
+      const seeds=[...byPlace.values()].slice(0,target).map(({q,r})=>({key:'school-map:'+r.place_id,title:clean(r.name||r.formatted,180),source:'SCHOOL_GEOAPIFY',url:'https://www.openstreetmap.org/search?query='+encodeURIComponent(clean(r.name,180)+' '+clean(r.city,80)),evidence:q+' · 地图信息待官网核验',city:clean(r.city,80),address:clean(r.formatted,500),raw:{placeId:clean(r.place_id,300)}}));
+      const foundIds=await saveAutoClues(db,{...input,customerType:type},seeds);
+      await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(foundIds.length,jobId).run();
+      return Response.json({ok:true,found:foundIds.length,foundIds,note:'学校地图线索已保存，地点详情和官网核验将分步继续。'});
+    }
     const shortlist = [...byPlace.values()].slice(0,Math.min(28,target + 12)); const candidates: Candidate[] = []; let detailsChecked = 0; let websiteChecked = 0;
 
     for (let i=0;i<shortlist.length;i+=3) {

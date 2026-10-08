@@ -1,8 +1,8 @@
 type Row=Record<string,unknown>;
 type Selection={table:string;where:string;values:string[];rows:Row[]};
-const ALL_TABLES=['discovery_clue_sources','discovery_run_candidates','discovery_auto_items','discovery_auto_cursors','discovery_auto_runs','discovery_jobs','discovery_clues','discovery_candidates','discovery_public_source_cache'];
+const ALL_TABLES=['discovery_clue_sources','discovery_run_clues','discovery_run_candidates','discovery_auto_items','discovery_auto_cursors','discovery_auto_runs','discovery_jobs','discovery_clues','discovery_candidates','discovery_public_source_cache'];
 const CRM_TABLES=['activities','automation_runs','email_queue','messages','tasks','lead_evidence','leads','contacts','companies'];
-const RESTORE_ORDER=['companies','contacts','leads','lead_evidence','tasks','messages','email_queue','automation_runs','activities','discovery_candidates','discovery_clues','discovery_jobs','discovery_auto_runs','discovery_auto_cursors','discovery_auto_items','discovery_run_candidates','discovery_clue_sources','discovery_public_source_cache'];
+const RESTORE_ORDER=['companies','contacts','leads','lead_evidence','tasks','messages','email_queue','automation_runs','activities','discovery_candidates','discovery_clues','discovery_jobs','discovery_auto_runs','discovery_auto_cursors','discovery_auto_items','discovery_run_clues','discovery_run_candidates','discovery_clue_sources','discovery_public_source_cache'];
 const quoteId=(value:string)=>"'"+value.replaceAll("'","''")+"'";
 const inIds=(column:string,ids:string[])=>({where:ids.length?`${column} IN (${ids.map(quoteId).join(',')})`:'0',values:[] as string[]});
 
@@ -67,7 +67,7 @@ export async function clearHistory(db:D1Database){
     statements.push(db.prepare(`INSERT INTO discovery_history_archive_rows(archive_id,table_name,row_json) SELECT ?,?,json_object(${fields}) FROM ${item.table} WHERE ${item.where}`).bind(id,item.table,...item.values));
   }
   // Child rows first; archived rows and deletion commit in one atomic D1 batch.
-  const deletionOrder=['discovery_clue_sources','discovery_run_candidates','discovery_auto_items','discovery_auto_cursors','discovery_auto_runs','discovery_jobs','discovery_clues','discovery_candidates','discovery_public_source_cache',...CRM_TABLES];
+  const deletionOrder=['discovery_clue_sources','discovery_run_clues','discovery_run_candidates','discovery_auto_items','discovery_auto_cursors','discovery_auto_runs','discovery_jobs','discovery_clues','discovery_candidates','discovery_public_source_cache',...CRM_TABLES];
   for(const name of deletionOrder){const item=items.find(i=>i.table===name);if(item)statements.push(db.prepare(`DELETE FROM ${item.table} WHERE ${item.where}`).bind(...item.values));}
   await db.batch(statements);
   return {archiveId:id,counts,protectedLeads};
@@ -86,7 +86,7 @@ export async function restoreHistory(db:D1Database,id:string){
     const columns=await db.prepare(`PRAGMA table_info(${table})`).all<{name:string}>();
     const allowed=new Set(columns.results.map(c=>c.name));
     for(const item of rows){
-      const row=JSON.parse(item.row_json) as Row;if(table==='discovery_auto_runs'){if(row.status==='RUNNING')row.status='PAUSED';row.lease_token=null;row.lease_until=null;}const keys=Object.keys(row).filter(k=>allowed.has(k)&&/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(k));
+      const row=JSON.parse(item.row_json) as Row;if(table==='discovery_auto_items'&&row.status==='PROCESSING'){row.status='PENDING';row.claim_token=null;row.started_at=null;}if(table==='discovery_auto_runs'){if(row.status==='RUNNING')row.status='PAUSED';row.lease_token=null;row.lease_until=null;}const keys=Object.keys(row).filter(k=>allowed.has(k)&&/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(k));
       statements.push(db.prepare(`INSERT INTO ${table}(${keys.map(k=>'"'+k+'"').join(',')}) VALUES(${keys.map(()=>'?').join(',')})`).bind(...keys.map(k=>row[k]??null)));
     }
   }

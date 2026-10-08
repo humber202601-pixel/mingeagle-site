@@ -1,3 +1,4 @@
+import { assertAutoLease } from '../../../lib/discovery-auto-support';
 import { parseSearch, COMMERCIAL_TYPES, STATE_NAMES, TYPE_OPTIONS } from '../../../shared/discovery';
 import { EXPANSION_SOURCES, SOCIAL_SOURCES, sourceUrl, collectSource, ensureClues, websiteSocialProfiles, type Clue, type SourceInput, type ExpansionSource, type SocialSource } from '../../../lib/discovery-sources';
 import { fetchPublicText } from '../../../lib/public-web';
@@ -102,6 +103,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
         const result=results[i],source=sources[i];if(result.status==='rejected'){states[source]={ok:false,found:0,added:0,error:result.reason instanceof Error?result.reason.message:String(result.reason)};continue;}
         let sourceAdded=0,sourceUpdated=0;const clues=[...new Map(result.value.clues.map(clue=>[clue.key,clue])).values()].slice(0,Math.min(50,parsed.targetCount));
         for(let start=0;start<clues.length;start+=5){
+          await assertAutoLease(db,input);
           const saved=await Promise.all(clues.slice(start,start+5).map(async clue=>{
             const id=crypto.randomUUID(),provider=source==='WEBSITE_SOCIAL'?clue.source:source;
             for(const alias of clue.aliasKeys||[]){
@@ -109,6 +111,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
             }
             const row=await db.prepare(`INSERT INTO discovery_clues(id,source_key,title,source_provider,source_url,source_evidence,customer_type,state_region,city,website) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(source_key) DO UPDATE SET title=excluded.title,source_evidence=excluded.source_evidence,customer_type=excluded.customer_type,website=COALESCE(NULLIF(excluded.website,''),discovery_clues.website),updated_at=CURRENT_TIMESTAMP WHERE discovery_clues.status='PENDING' RETURNING id`).bind(id,clue.key,clue.title,provider,clue.url,clue.snippet,clue.customerType||parsed.customerType,parsed.stateCode,clue.city,clue.website||null).first<{id:string}>();
             const savedId=row?.id||(await db.prepare(`SELECT id FROM discovery_clues WHERE source_key=?`).bind(clue.key).first<{id:string}>())?.id;
+            if(savedId&&input.runId)await db.prepare(`INSERT OR IGNORE INTO discovery_run_clues(run_id,clue_id) VALUES(?,?)`).bind(String(input.runId),savedId).run();
             if(savedId&&clue.address)await db.prepare(`UPDATE discovery_clues SET address=? WHERE id=?`).bind(clue.address,savedId).run();
             if(savedId)await db.prepare(`INSERT INTO discovery_clue_sources(clue_id,source_provider,source_url,evidence) VALUES(?,?,?,?) ON CONFLICT(clue_id,source_provider) DO UPDATE SET source_url=excluded.source_url,evidence=excluded.evidence,last_seen_at=CURRENT_TIMESTAMP`).bind(savedId,source,clue.url,clue.snippet).run();
             return {kind:row?row.id===id?'added':'updated':'retained',id:savedId};
@@ -135,7 +138,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     const website=clean(input.website||clue.website,1000);if(!allowedWebsite(website))return response({ok:false,error:'请输入完整公开官网网址；社交主页及目录页保留为线索来源。'},400);
     const hit=COMMERCIAL_TYPES.has(clue.customer_type)?await verifyHit({title:clue.title,url:website,snippet:'',query:'public source verification',city:clue.city||''},clue.customer_type,clue.state_region):await verifySchoolWebsite(website,clue.customer_type,clue.state_region,clue.city||'');
     if(!hit||!clueMatches(hit.orgName,clue.title))return response({ok:false,error:'官网无法读取，或机构名称、业务、地区证据不足。线索保留待核验，未加入候选库。'},422);
-    await ensureTables(db);const websiteUrl=new URL(website),domain=websiteUrl.hostname.toLowerCase().replace(/^www\./,''),school=!COMMERCIAL_TYPES.has(clue.customer_type);
+    await assertAutoLease(db,input);await ensureTables(db);const websiteUrl=new URL(website),domain=websiteUrl.hostname.toLowerCase().replace(/^www\./,''),school=!COMMERCIAL_TYPES.has(clue.customer_type);
     const key=school?'schoolweb:'+domain+(websiteUrl.pathname.replace(/\/+$/,'')||'/'):'web:'+domain;
     const possible=await db.prepare(`SELECT id,status,name,website,source_key FROM discovery_candidates WHERE source_key=? OR website=? OR website=? LIMIT 20`).bind(key,website,website.endsWith('/')?website.slice(0,-1):website+'/').all<{id:string;status:string;name:string;website:string;source_key:string}>();
     const matches=(row:{source_key:string;name:string})=>row.source_key===key||clueMatches(row.name,hit.orgName);

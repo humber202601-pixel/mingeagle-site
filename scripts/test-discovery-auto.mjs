@@ -9,23 +9,24 @@ const temp=mkdtempSync(join(tmpdir(),'mingeagle-auto-')),originalFetch=globalThi
 class D1{
   constructor(){this.sqlite=new DatabaseSync(':memory:');this.sqlite.exec(readFileSync('migrations/0001_core.sql','utf8'));this.failBatch=false;}
   prepare(sql){const db=this.sqlite;const statement=(values=[])=>({sql,values,bind(...v){return statement(v);},async run(){const r=db.prepare(sql).run(...values);return {success:true,meta:{changes:Number(r.changes)}};},async first(){return db.prepare(sql).get(...values)||null;},async all(){return {success:true,results:db.prepare(sql).all(...values)};}});return statement();}
-  async batch(statements){this.sqlite.exec('BEGIN');try{const out=[];for(let i=0;i<statements.length;i++){if(this.failBatch&&i===3)throw new Error('fixture atomic failure');out.push(await statements[i].run());}this.sqlite.exec('COMMIT');return out;}catch(e){this.sqlite.exec('ROLLBACK');throw e;}}
+  async batch(statements){this.sqlite.exec('BEGIN');try{const out=[];for(let i=0;i<statements.length;i++){if(this.failBatch&&i===3)throw new Error('fixture atomic failure');const changed=this.sqlite.prepare(statements[i].sql).run(...statements[i].values);out.push({success:true,meta:{changes:Number(changed.changes)}});}this.sqlite.exec('COMMIT');return out;}catch(e){this.sqlite.exec('ROLLBACK');throw e;}}
 }
 try{
-  const names=['discovery-auto-v1','discovery-history-v1','discovery-web-v6','discovery-school-v1','discovery-sources-v1','discovery-enrich-v2','discovery-enrich'];
+  const names=['discovery-auto-v1','discovery-history-v1','discovery-web-v6','discovery-school-v1','discovery-sources-v1','discovery-enrich-v2','discovery-enrich','discovery-auto-step-v1'];
   await build({entryPoints:names.map(n=>'functions/api/admin/'+n+'.ts'),outdir:temp,bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},logLevel:'silent'});
   await build({entryPoints:['lib/discovery-auto.ts'],outfile:join(temp,'auto.mjs'),bundle:true,platform:'node',format:'esm',logLevel:'silent'});
   const auto=await import(pathToFileURL(join(temp,'auto.mjs'))),handlers={};
   for(const name of names)handlers[name]=await import(pathToFileURL(join(temp,name+'.mjs')));
   const db=new D1(),env={MINGEAGLE_DB:db,GEOAPIFY_API_KEY:'fixture'},headers={'content-type':'application/json','x-admin-key':'fixture'};
   const base='https://app.example/api/admin/';
-  const post=async(name,body)=>{const r=await handlers[name].onRequestPost({request:new Request(base+name,{method:'POST',headers,body:JSON.stringify(body)}),env});return {status:r.status,body:await r.json()};};
+  const post=async(name,body)=>{const r=await handlers[name].onRequestPost({request:new Request(base+name,{method:'POST',headers,body:JSON.stringify(body)}),env});const bodyResult=await r.json();return {status:r.status,body:bodyResult};};
   const get=async(name)=>{const r=await handlers[name].onRequestGet({request:new Request(base+name,{headers}),env});return await r.json();};
   const scalar=(sql)=>db.sqlite.prepare(sql).get().n;
-  let failContact=false,missingContacts=false,failSources=false,websiteCalls=[];
+  let failContact=false,failEnrich=false,missingContacts=false,failSources=false,websiteCalls=[];
   const html=()=>`<html><head><title>Northstar Basketball Academy — Dallas Texas Basketball Training</title><meta property="og:site_name" content="Northstar Basketball Academy"/><script type="application/ld+json">{"@type":"Organization","name":"Northstar Basketball Academy"}</script></head><body><h1>Northstar Basketball Academy</h1><p>Dallas Texas basketball academy private lessons youth club AAU training basketball summer camp and recreation programs. Register for training classes. Membership. Contact us.</p><a href="/contact">Contact</a><a href="/staff">Staff</a><a href="/coaches">Coaches</a><a href="/procurement">Procurement</a><p>Alex Morgan - Head Coach.</p>${missingContacts?'':'<a href="mailto:hello@academy.example">hello@academy.example</a><a href="tel:2145550186">214-555-0186</a>'}<a href="https://www.facebook.com/northstaracademy/">Facebook</a><a href="https://www.instagram.com/northstaracademy/">Instagram</a><a href="https://www.tiktok.com/@northstaracademy">TikTok</a><a href="https://www.linkedin.com/company/northstaracademy/">LinkedIn</a></body></html>`;
   globalThis.fetch=async(input,init={})=>{
     const url=new URL(String(input));
+    if(url.pathname.endsWith('/discovery-enrich-v2')&&failEnrich)return Response.json({ok:false,error:'Fixture temporary enrichment service failure'},{status:503});
     if(url.pathname.startsWith('/api/admin/'))return handlers[url.pathname.split('/').pop()].onRequestPost({request:new Request(url,init),env});
     if(url.hostname==='www.bing.com'){
       if(failSources)return new Response('Unavailable',{status:503});
@@ -76,7 +77,7 @@ try{
   db.failBatch=true;assert.equal((await post('discovery-history-v1',{action:'CLEAR'})).status,409);db.failBatch=false;
   assert.equal(scalar('SELECT COUNT(*) AS n FROM leads'),2,'archive/delete rollback preserves all records on failure');assert.equal(scalar('SELECT COUNT(*) AS n FROM discovery_history_archives'),0);
   const cleared=await post('discovery-history-v1',{action:'CLEAR'});assert.equal(cleared.body.ok,true);assert(cleared.body.archiveId);
-  for(const table of ['discovery_candidates','discovery_clues','discovery_jobs','discovery_auto_runs','messages','tasks'])assert.equal(scalar('SELECT COUNT(*) AS n FROM '+table),0,table+' cleared');
+  for(const table of ['discovery_candidates','discovery_clues','discovery_run_clues','discovery_jobs','discovery_auto_runs','messages','tasks'])assert.equal(scalar('SELECT COUNT(*) AS n FROM '+table),0,table+' cleared');
   assert.equal(scalar('SELECT COUNT(*) AS n FROM leads'),1);assert.equal(scalar('SELECT COUNT(*) AS n FROM quotes'),1);assert.equal(scalar('SELECT COUNT(*) AS n FROM companies'),1,'business-linked company remains intact');
   db.sqlite.exec("INSERT INTO companies(id,name,domain) VALUES('new-conflict','New profile','academy.example')");
   assert.equal((await post('discovery-history-v1',{action:'RESTORE',archiveId:cleared.body.archiveId})).status,409,'restore conflict must rollback, without overwriting new profiles');
@@ -98,10 +99,10 @@ try{
   result=await post('discovery-auto-v1',{action:'START',...search});const retryId=result.body.run.id;
   // A real persistent failure is reported; retry recovers only failed records.
   for(let tick=0;tick<3;tick++)await post('discovery-auto-v1',{action:'ADVANCE',runId:retryId});
-  failContact=true;
+  failEnrich=true;
   for(let tick=0;tick<40;tick++){result=await post('discovery-auto-v1',{action:'ADVANCE',runId:retryId});if(result.body.run.status!=='RUNNING')break;}
   assert.equal(result.body.run.status,'PARTIAL');assert.equal(scalar("SELECT COUNT(*) AS n FROM discovery_auto_items WHERE status='FAILED' AND attempts=2")>0,true);
-  failContact=false;await post('discovery-auto-v1',{action:'RETRY',runId:retryId});
+  failEnrich=false;await post('discovery-auto-v1',{action:'RETRY',runId:retryId});
   for(let tick=0;tick<40;tick++){result=await post('discovery-auto-v1',{action:'ADVANCE',runId:retryId});if(result.body.run.status!=='RUNNING')break;}
   assert.equal(result.body.run.status,'COMPLETED');assert.equal(scalar('SELECT COUNT(*) AS n FROM leads'),2,'retry imports once');
   // A lease prevents browser and scheduler from executing the same step simultaneously.
@@ -127,7 +128,54 @@ try{
   for(let tick=0;tick<15;tick++){result=await post('discovery-auto-v1',{action:'ADVANCE',runId:schoolId});if(result.body.run.status!=='RUNNING')break;}
   assert.equal(result.body.run.status,'PARTIAL');
   const goodSchool=result.body.results.find(row=>row.item_key==='school-good');assert.equal(goodSchool.status,'DONE',JSON.stringify(goodSchool));assert(goodSchool.crm_lead_id);assert.equal(goodSchool.website,'https://school.example/');assert.equal(goodSchool.email,'office@school.example');
-  for(const id of ['school-wrong','school-missing']){const row=result.body.results.find(row=>row.item_key===id);assert.equal(row.status,'FAILED');assert.equal(row.crm_lead_id,null,'unverified schools cannot enter CRM');}
+  for(const id of ['school-wrong','school-missing']){const row=result.body.results.find(row=>row.item_key===id);assert.equal(row.status,'REVIEW');assert.equal(row.crm_lead_id,null,'unverified schools cannot enter CRM');}
   assert.equal(scalar('SELECT COUNT(*) AS n FROM leads'),2,'only the verified school and protected business record remain');
+  // An old enrichment failure cannot replace a newer completed customer status.
+  result=await post('discovery-auto-v1',{action:'START',...search});const staleId=result.body.run.id;
+  db.sqlite.prepare('DELETE FROM discovery_auto_items WHERE run_id=?').run(staleId);
+  db.sqlite.prepare("INSERT INTO discovery_auto_items(run_id,kind,item_key,payload_json) VALUES(?,'CANDIDATE','school-good','{\"stage\":\"ENRICH\"}')").run(staleId);
+  const staleWork=await auto.claimAuto(db,staleId),beforeStaleFetch=globalThis.fetch;let releaseOldEnrichment;
+  globalThis.fetch=async(input,init)=>new URL(String(input)).hostname==='school.example'?new Promise(resolve=>{releaseOldEnrichment=resolve;}):beforeStaleFetch(input,init);
+  const oldEnrichment=post('discovery-enrich-v2',{candidateId:'school-good',autoRunId:staleId,autoToken:staleWork.token,skipSync:true});
+  for(let i=0;i<30&&!releaseOldEnrichment;i++)await Promise.resolve();assert(releaseOldEnrichment);
+  await post('discovery-auto-v1',{action:'FINISH',runId:staleId});
+  db.sqlite.prepare("UPDATE discovery_candidates SET enrichment_status='COMPLETED',enrichment_error=NULL WHERE id='school-good'").run();
+  releaseOldEnrichment(new Response('Old website failure',{status:503}));assert.equal((await oldEnrichment).status,409);
+  assert.equal(db.sqlite.prepare("SELECT enrichment_status FROM discovery_candidates WHERE id='school-good'").get().enrichment_status,'COMPLETED','late enrichment cannot overwrite a newer status');globalThis.fetch=beforeStaleFetch;
+  // New job execution responds immediately, persists individual work, and recovers bounded failures.
+  await post('discovery-history-v1',{action:'CLEAR'});
+  result=await post('discovery-auto-v1',{action:'START',...search});let faultId=result.body.run.id;
+  db.sqlite.prepare("DELETE FROM discovery_auto_items WHERE run_id=? AND item_key<>'CORE:0'").run(faultId);
+  const realFixtureFetch=globalThis.fetch;let holds=[];
+  globalThis.fetch=async(input,init)=>{if(new URL(String(input)).pathname.endsWith('/discovery-auto-step-v1'))return new Promise(resolve=>holds.push(resolve));return realFixtureFetch(input,init);};
+  let background;const kicked=await handlers['discovery-auto-v1'].onRequestPost({request:new Request(base+'discovery-auto-v1',{method:'POST',headers,body:JSON.stringify({action:'KICK',runId:faultId})}),env,waitUntil(p){background=p;}});
+  const accepted=await kicked.json();assert.equal(accepted.accepted,true);assert.equal(accepted.workerBusy,true);assert.equal(accepted.current.length,1);assert.equal(scalar("SELECT COUNT(*) AS n FROM discovery_auto_items WHERE status='PROCESSING'"),1,'kickoff returns before long work finishes');
+  const stopped=await post('discovery-auto-v1',{action:'FINISH',runId:faultId});assert.equal(stopped.body.run.status,'PARTIAL');
+  holds.shift()(Response.json({ok:true,continue:true,payload:{stage:'VERIFY'}}));await background;
+  assert.equal(db.sqlite.prepare('SELECT status FROM discovery_auto_items WHERE run_id=?').get(faultId).status,'REVIEW','late worker cannot overwrite a manual finish');assert.equal((await get('discovery-auto-v1')).workerBusy,false);
+  globalThis.fetch=realFixtureFetch;
+  // Finished items become visible immediately even while another source still waits.
+  await post('discovery-history-v1',{action:'CLEAR'});result=await post('discovery-auto-v1',{action:'START',...search});faultId=result.body.run.id;holds=[];
+  globalThis.fetch=async(input,init)=>{if(new URL(String(input)).pathname.endsWith('/discovery-auto-step-v1')&&JSON.parse(init.body).itemKey==='CORE:0')return new Promise(resolve=>holds.push(resolve));return realFixtureFetch(input,init);};
+  const concurrentKick=await handlers['discovery-auto-v1'].onRequestPost({request:new Request(base+'discovery-auto-v1',{method:'POST',headers,body:JSON.stringify({action:'KICK',runId:faultId})}),env,waitUntil(p){background=p;}});await concurrentKick.json();
+  for(let wait=0;wait<25&&scalar("SELECT COUNT(*) AS n FROM discovery_auto_items WHERE status='DONE'")<2;wait++)await new Promise(resolve=>setTimeout(resolve,10));
+  const duringWork=await auto.autoSummary(db,faultId);assert(duringWork.progress.processed>=2,'per-item progress is readable before the slowest source completes');assert.equal(duringWork.current.length,1);
+  holds.shift()(Response.json({ok:true,found:0}));await background;globalThis.fetch=realFixtureFetch;
+  // Interrupted work is recovered only after the lease expires; bounded attempts avoid infinite loops.
+  await post('discovery-history-v1',{action:'CLEAR'});result=await post('discovery-auto-v1',{action:'START',...search});faultId=result.body.run.id;
+  db.sqlite.prepare("DELETE FROM discovery_auto_items WHERE run_id=? AND item_key<>'CORE:0'").run(faultId);
+  let work=await auto.claimAuto(db,faultId);assert(work);
+  db.sqlite.prepare("UPDATE discovery_auto_runs SET lease_until=datetime('now','-1 second') WHERE id=?").run(faultId);
+  work=await auto.claimAuto(db,faultId);assert(work);assert.equal(scalar('SELECT MAX(attempts) AS n FROM discovery_auto_items'),2,'interrupted execution consumes a bounded attempt');
+  globalThis.fetch=async(input,init)=>{if(new URL(String(input)).pathname.endsWith('/discovery-auto-step-v1'))return new Promise(()=>{});return realFixtureFetch(input,init);};
+  const begin=performance.now();await auto.executeAuto(env,base,'fixture',work,20);assert(performance.now()-begin<300,'hung step cannot exceed its hard deadline');
+  let faultSummary=await auto.autoSummary(db,faultId);assert.equal(faultSummary.run.status,'PARTIAL');assert.equal(faultSummary.workerBusy,false);assert.equal(faultSummary.exceptions.length,1);
+  // Non-JSON gateway responses are retried once, then finish with a useful exception.
+  globalThis.fetch=realFixtureFetch;await post('discovery-history-v1',{action:'CLEAR'});result=await post('discovery-auto-v1',{action:'START',...search});faultId=result.body.run.id;
+  db.sqlite.prepare("DELETE FROM discovery_auto_items WHERE run_id=? AND item_key<>'CORE:0'").run(faultId);
+  let htmlCalls=0;globalThis.fetch=async(input,init)=>{if(new URL(String(input)).pathname.endsWith('/discovery-auto-step-v1')){htmlCalls++;return new Response('<!DOCTYPE html>Gateway failure',{status:502});}return realFixtureFetch(input,init);};
+  await auto.advanceAuto(env,base,'fixture',faultId);faultSummary=await auto.advanceAuto(env,base,'fixture',faultId);
+  assert.equal(htmlCalls,2);assert.equal(faultSummary.run.status,'PARTIAL');assert(faultSummary.exceptions[0].error.includes('非 JSON'));assert.equal(faultSummary.workerBusy,false);
+  globalThis.fetch=realFixtureFetch;
   console.log('PASS: one-click source search → automatic official-site matching → verification → deeper enrichment → CRM; social/contact evidence; dedupe and repeated-click protection; pause/resume; explicit unavailable fields; automatic retry and exception recovery; lease lock; atomic recoverable cleanup/restore; protected commercial records; no outreach or queue.');
 }finally{globalThis.fetch=originalFetch;rmSync(temp,{recursive:true,force:true});}

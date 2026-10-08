@@ -1,3 +1,5 @@
+import { assertAutoLease,saveAutoClues } from '../../../lib/discovery-auto-support';
+import { ensureClues } from '../../../lib/discovery-sources';
 import { publicPersonName } from '../../../lib/public-contacts';
 import { publicPhone, publicPhones, organizationName } from '../../../lib/public-contacts';
 import { fetchPublicText, publicUrl } from '../../../lib/public-web';
@@ -6,7 +8,7 @@ import { parseSearch, queryPlan, COMMERCIAL_TYPES, METROS as ALL_METROS, STATE_N
 import { ensureRuns, recordResult } from '../../../lib/discovery';
 interface Env { MINGEAGLE_DB: D1Database }
 
-type Input = { stateCode?: string; customerType?: string; targetCount?: number | string; city?: string; round?: number; runId?: string };
+type Input = { stateCode?: string; customerType?: string; targetCount?: number | string; city?: string; round?: number; runId?: string; autoSourceOnly?:boolean; autoRunId?:string; autoToken?:string };
 type SearchHit = { title:string; url:string; snippet:string; query:string; city:string };
 type EntityResolution = { name:string; score:number; source:string; candidates:Array<{name:string;score:number;source:string}> };
 type VerifiedHit = SearchHit & {
@@ -113,7 +115,7 @@ function chooseEmail(emails:string[],host:string){const domain=host.toLowerCase(
 const validPersonName=publicPersonName;
 function extractPerson(text:string){const roles='Owner|Founder|Co-Founder|Executive Director|Program Director|Basketball Director|Training Director|Head Coach|General Manager|Operations Director|Purchasing Manager|Procurement Manager|Athletic Director|Director|Coach|Manager|President|CEO';const name="([A-Z][A-Za-z'’-]{1,30}(?:\\s+[A-Z][A-Za-z'’-]{1,30}){1,2})";const patterns=[new RegExp(`${name}\\s*(?:[-–—|,:]|\\bis\\s+(?:the\\s+)?)\\s*(${roles})`),new RegExp(`(${roles})\\s*(?:[-–—|,:])?\\s*${name}`)];for(let i=0;i<patterns.length;i++){for(const m of text.matchAll(new RegExp(patterns[i].source,'g'))){const person=i===0?m[1]:m[2];const title=i===0?m[2]:m[1];const candidates=[person,...(person.split(/\s+/).length===3?[person.split(/\s+/).slice(1).join(' ')]:[])];for(const candidate of candidates)if(validPersonName(candidate))return {name:clean(candidate,120),title:clean(title,120)}}}return {name:'',title:''}}
 
-export async function bing(query:string,city:string){const q=`${query} -Formula1 -racing -livescore -stats -standings -betting -games -news`;const data=await fetchText(`https://www.bing.com/search?q=${encodeURIComponent(q)}&format=rss&mkt=en-US&setlang=en-US`,7000);const items=data.match(/<item\b[\s\S]*?<\/item>/gi)||[];const out:SearchHit[]=[];const seen=new Set<string>();for(const item of items){const title=xml(item,'title'),url=decode(xml(item,'link')),snippet=xml(item,'description');const d=domainOf(url);if(!title||!url||!d||seen.has(d)||!allowedWebsite(url))continue;if(HARD_NEGATIVE.test(`${title} ${snippet}`))continue;seen.add(d);out.push({title,url,snippet,query,city});if(out.length>=12)break}return out}
+export async function bing(query:string,city:string){const q=`${query} -Formula1 -racing -livescore -stats -standings -betting -games -news`;const data=await fetchText(`https://www.bing.com/search?q=${encodeURIComponent(q)}&format=rss&mkt=en-US&setlang=en-US`,7000);if(!/<rss\b|<channel\b/i.test(data))throw new Error('公开搜索本次未返回可读取索引。');const items=data.match(/<item\b[\s\S]*?<\/item>/gi)||[];const out:SearchHit[]=[];const seen=new Set<string>();for(const item of items){const title=xml(item,'title'),url=decode(xml(item,'link')),snippet=xml(item,'description');const d=domainOf(url);if(!title||!url||!d||seen.has(d)||!allowedWebsite(url))continue;if(HARD_NEGATIVE.test(`${title} ${snippet}`))continue;seen.add(d);out.push({title,url,snippet,query,city});if(out.length>=12)break}return out}
 function sameOriginPreferred(html:string,baseUrl:string){const out:string[]=[];let base:URL;try{base=new URL(baseUrl)}catch{return out}for(const link of hrefs(html,baseUrl)){try{const u=new URL(link);if(u.origin!==base.origin)continue;if(!/(about|contact|program|training|coach|team|staff|basketball|skills|clinic|camp|facility|court|shop|store|membership|lesson|leadership|director|our-story)/i.test(u.pathname))continue;u.hash='';if(u.toString()===new URL(baseUrl).toString()||out.includes(u.toString()))continue;out.push(u.toString());if(out.length>=6)break}catch{}}return [...new Set(out)]}
 function isPublisherLike(body:string){const neg=(body.match(new RegExp(PUBLISHER_NEGATIVE.source,'gi'))||[]).length;const positive=(body.match(new RegExp(COMMERCE_OR_SERVICE.source,'gi'))||[]).length;return neg>=3&&positive===0}
 function scoreBusiness(hit:SearchHit,body:string,type:string,stateCode:string,entity:EntityResolution){
@@ -160,6 +162,13 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     jobId=crypto.randomUUID();await db.prepare(`INSERT INTO discovery_jobs (id,state_region,customer_type,target_count,source_provider) VALUES (?,?,?,?, 'WEB_SEARCH_VERIFIED_V6')`).bind(jobId,stateCode,type,target).run();
     const queries=queryPlan(stateCode,type,city,round,8);const started=Date.now();
     const searched=await Promise.allSettled(queries.map(q=>bing(q.query,q.city)));if(searched.every(r=>r.status==='rejected'))throw new Error('Web公开搜索全部失败，请稍后重试。');const raw=searched.flatMap(r=>r.status==='fulfilled'?r.value:[]);const unique:SearchHit[]=[];const domains=new Set<string>();for(const h of raw){const d=domainOf(h.url);if(!d||domains.has(d))continue;domains.add(d);unique.push(h);if(unique.length>=Math.max(28,target*4))break}
+    if(input.autoSourceOnly){
+      await ensureClues(db);await assertAutoLease(db,input);
+      const seeds=unique.slice(0,target).map(hit=>({key:'web-index:'+hit.url,title:hit.title,source:'WEB_INDEX',url:hit.url,website:hit.url,evidence:hit.snippet+' · '+hit.query,city:hit.city}));
+      const foundIds=await saveAutoClues(db,{...input,customerType:type},seeds);
+      await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(foundIds.length,jobId).run();
+      return Response.json({ok:true,found:foundIds.length,foundIds,note:'公开官网线索已保存，随后逐个核验和补全。'});
+    }
     if(!unique.length){await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=0,completed_at=CURRENT_TIMESTAMP,error='No public website candidates returned' WHERE id=?`).bind(jobId).run();return Response.json({ok:true,found:0,mode:'WEB_VERIFIED_V6',checked:0,verified:0,note:'公开搜索本次未返回可验证官网候选。'})}
     const verified:VerifiedHit[]=[];for(let i=0;i<unique.length;i+=4){if(Date.now()-started>23000)break;const batch=unique.slice(i,i+4);const result=await Promise.allSettled(batch.map(h=>verifyHit(h,type,stateCode)));verified.push(...result.flatMap(x=>x.status==='fulfilled'&&x.value?[x.value]:[]));if(verified.length>=target)break}
     const found=await save(db,verified.sort((a,b)=>b.fitScore-a.fitScore||b.entityScore-a.entityScore),stateCode,type,target,input.runId);await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(found,jobId).run();
