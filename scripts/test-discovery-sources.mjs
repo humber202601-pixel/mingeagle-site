@@ -13,7 +13,7 @@ try{
   const db={prepare(sql){const statement=(args=[])=>({bind(...values){return statement(values)},async first(){return sqlite.prepare(sql).get(...args)||null},async all(){return {results:sqlite.prepare(sql).all(...args)}},async run(){return {meta:sqlite.prepare(sql).run(...args)}}});return statement()}};
   const input={stateCode:'TX',customerType:'BASKETBALL_TRAINING',city:'Dallas',targetCount:20,round:0};
   const html=(name='Northstar Basketball Academy')=>`<html><title>${name}</title><script type="application/ld+json">{"@type":"Organization","name":"${name}"}</script><h1>${name}</h1><p>Dallas Texas basketball training academy private lessons register youth programs. Contact us. Elementary school district purchasing procurement physical education department.</p><a href="mailto:hello@northstar.example">hello@northstar.example</a><a href="tel:2145550186">214-555-0186</a></html>`;
-  let looseMap=false,mapRequests=[];
+  let looseMap=false,mapRequests=[],failOverpass=false;
   let failIndex=false,schoolTitle='Northstar Elementary School',websiteLinks='',websiteWrongRegion=false,websiteRequests=0;
   globalThis.fetch=async(value,init)=>{
     const u=new URL(String(value));
@@ -25,9 +25,10 @@ try{
     if(u.hostname==='nces.ed.gov'||u.hostname==='services1.arcgis.com')return Response.json({features:[{attributes:{NCESSCH:'480000100001',PPIN:'00000001',LEAID:'4800001',NAME:schoolTitle,CITY:'DALLAS',STATE:'TX',STREET:'1 Public Street',SCHOOLYEAR:'2024-2025'}},{attributes:{NCESSCH:'480000100002',LEAID:'4800002',NAME:'Austin Elementary',CITY:'AUSTIN',STATE:'TX'}}]});
     if(u.hostname==='api.geoapify.com'){
       mapRequests.push(u);
-      if(u.pathname==='/v2/places')return Response.json({features:[{properties:{name:'Northstar Sports Center',place_id:'sports-place-1',city:'Dallas',country_code:'us',state_code:'TX',categories:['sport.sports_centre'],website:'https://northstar.example',datasource:{raw:{osm_type:'node',osm_id:123}}}},{properties:{name:'Wrong City Center',place_id:'sports-place-2',city:'Austin',country_code:'us',state_code:'TX'}}]});
+      if(u.pathname==='/v2/places')return Response.json({features:[{properties:{name:'Northstar Sports Center',place_id:'sports-place-1',city:'Dallas',country_code:'us',state_code:'TX',categories:['sport.sports_centre'],website:'https://northstar.example',datasource:{raw:{osm_type:'n',osm_id:123}}}},{properties:{name:'Wrong City Center',place_id:'sports-place-2',city:'Austin',country_code:'us',state_code:'TX'}}]});
       return Response.json({results:[{place_id:'city-place-1',state_code:'TX',country_code:'us',bbox:{lat1:32.5,lon1:-97,lat2:33,lon2:-96}}]});
     }
+    if((u.hostname==='overpass-api.de'||u.hostname==='overpass.private.coffee')&&failOverpass)return new Response('Public source temporary failure',{status:500});
     if(u.hostname==='overpass-api.de'||u.hostname==='overpass.private.coffee')return Response.json({elements:[{type:'node',id:123,tags:{name:'Northstar Basketball Academy','addr:city':'Dallas',website:'https://northstar.example'}},{type:'node',id:124,tags:{name:'Basketball Court','addr:city':'Dallas'}},{type:'node',id:125,tags:{name:'Wrong City Academy','addr:city':'Austin'}},...(looseMap?[{type:'node',id:126,tags:{name:'Within City Boundary Academy'}}]:[])]});
     if(u.hostname==='northstar.example'){
       websiteRequests++;
@@ -133,6 +134,12 @@ try{
   looseMap=true;const withBounds=await sources.osmClues({...input,city:''},'fixture-only');assert.equal(withBounds.clues.length,2);assert.ok(withBounds.clues.find(c=>c.key==='osm:node:126').snippet.includes('城市归属待核实'));
   assert.equal((await sources.osmClues({...input,city:''})).clues.length,1,'missing-city tags require a verified bounding box');
   mapRequests=[];const places=await sources.geoapifyClues({...input,city:'',round:10},'fixture-only');assert.equal(places.clues.length,1);assert.equal(places.clues[0].key,'osm:node:123','map providers share stable OSM keys');assert.equal(mapRequests.find(u=>u.pathname==='/v2/places').searchParams.get('offset'),'20');assert.ok(!places.clues[0].url.includes('fixture-only'),'never store API credentials in sources');
+  assert.equal(sources.mapBuyerMatch('Emler Swim School','BASKETBALL_TRAINING'),false);assert.equal(sources.mapBuyerMatch('Climbing Club','BASKETBALL_GYM'),false);assert.equal(sources.mapBuyerMatch('Aquatic Sports Center','BASKETBALL_GYM','basketball'),true);
+  failOverpass=true;mapRequests=[];const fallback=await sources.collectSource(input,'OSM','fixture-only',db);assert.equal(fallback.clues.length,1);assert.equal(fallback.clues[0].url,'https://www.openstreetmap.org/node/123');assert.ok(fallback.note.includes('备用接口'));assert.equal(fallback.clues[0].source,'OSM');
+  const beforeCache=mapRequests.length;await sources.collectSource(input,'GEOAPIFY','fixture-only',db);assert.equal(mapRequests.length,beforeCache,'OSM fallback and Geoapify share successful public map cache');failOverpass=false;
+  sqlite.prepare("INSERT INTO discovery_clues(id,source_key,title,source_provider,source_url,customer_type,state_region,city,status) VALUES('alias','geoapify:sports-place-1','Northstar','GEOAPIFY','https://www.openstreetmap.org/','BASKETBALL_TRAINING','TX','Dallas','IGNORED')").run();
+  await post({action:'IGNORE',clueId:sqlite.prepare("SELECT id FROM discovery_clues WHERE source_key='osm:node:123'").get().id});sqlite.prepare("UPDATE discovery_clues SET source_key='old-osm-fixture' WHERE source_key='osm:node:123'").run();
+  const aliasResponse=await handler.onRequestPost({request:new Request('https://test.example/api/admin/discovery-sources-v1',{method:'POST',body:JSON.stringify({...input,action:'SEARCH',sources:['GEOAPIFY']})}),env:{MINGEAGLE_DB:db,GEOAPIFY_API_KEY:'fixture-only'}});const aliasResult=await aliasResponse.json();assert.equal(aliasResult.sources.GEOAPIFY.retained,1);assert.equal(sqlite.prepare("SELECT status FROM discovery_clues WHERE source_key='osm:node:123'").get().status,'IGNORED','OSM shorthand aliases preserve old ignored records');
   assert.equal((await post({...input,action:'SEARCH',sources:['GEOAPIFY']})).status,502,'missing API configuration is reported, not shown as zero results');
   assert.equal((await get('status=ALL&state=TX&type=PRIVATE_CHARTER_SCHOOL')).body.pagination.total,1);assert.equal((await get('state=XX')).status,400);assert.equal((await get('status=ALL&q=100%25')).body.pagination.total,0,'keyword SQL wildcards are literal');
   assert.ok((await get('status=ALL&state=TX&city=Dallas&q=Northstar')).body.clues.length>0);assert.equal((await get('status=ALL&city=Austin')).body.pagination.total,0);

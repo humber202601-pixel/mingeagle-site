@@ -6,7 +6,7 @@ import { verifySchoolWebsite } from './discovery-school-v1';
 interface Env { MINGEAGLE_DB:D1Database; GEOAPIFY_API_KEY?:string }
 const response=(body:Record<string,unknown>,status=200)=>Response.json(body,{status,headers:{'cache-control':'no-store'}});
 const clean=(v:unknown,max=1000)=>String(v??'').trim().replace(/\s+/g,' ').slice(0,max);
-async function collectWebsiteSocial(db:D1Database,input:SourceInput){
+async function collectWebsiteSocial(db:D1Database,input:SourceInput):Promise<{clues:Clue[];partial:boolean;note:string}>{
   const conditions=["status<>'IGNORED'","website IS NOT NULL","website<>''","enrichment_status='COMPLETED'",'state_region=?','customer_type=?'],args=[input.stateCode,input.customerType];
   if(input.city){conditions.push('LOWER(city)=LOWER(?)');args.push(input.city);}
   const records=await db.prepare(`SELECT name,website,city,customer_type FROM discovery_candidates WHERE ${conditions.join(' AND ')} ORDER BY id LIMIT 5 OFFSET ?`).bind(...args,input.round*5).all<{name:string;website:string;city:string;customer_type:string}>();
@@ -96,7 +96,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       const sources=[...new Set(input.sources)] as ExpansionSource[];
       await ensureTables(db);jobId=crypto.randomUUID();
       await db.prepare(`INSERT INTO discovery_jobs(id,state_region,customer_type,target_count,source_provider) VALUES(?,?,?,?, 'PUBLIC_SOURCE_CLUES_V1')`).bind(jobId,parsed.stateCode,parsed.customerType,parsed.targetCount).run();
-      const results=await Promise.allSettled(sources.map(source=>source==='WEBSITE_SOCIAL'?collectWebsiteSocial(db,parsed):collectSource(parsed,source,env.GEOAPIFY_API_KEY)));
+      const results=await Promise.allSettled(sources.map(source=>source==='WEBSITE_SOCIAL'?collectWebsiteSocial(db,parsed):collectSource(parsed,source,env.GEOAPIFY_API_KEY,db)));
       const states:Record<string,{ok:boolean;found:number;added:number;updated?:number;retained?:number;partial?:boolean;note?:string;error?:string}>={};let added=0,updated=0;
       for(let i=0;i<results.length;i++){
         const result=results[i],source=sources[i];if(result.status==='rejected'){states[source]={ok:false,found:0,added:0,error:result.reason instanceof Error?result.reason.message:String(result.reason)};continue;}
@@ -104,6 +104,9 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
         for(let start=0;start<clues.length;start+=5){
           const saved=await Promise.all(clues.slice(start,start+5).map(async clue=>{
             const id=crypto.randomUUID(),provider=source==='WEBSITE_SOCIAL'?clue.source:source;
+            for(const alias of clue.aliasKeys||[]){
+              await db.prepare(`UPDATE discovery_clues SET source_key=? WHERE source_key=? AND NOT EXISTS(SELECT 1 FROM discovery_clues WHERE source_key=?)`).bind(clue.key,alias,clue.key).run();
+            }
             const row=await db.prepare(`INSERT INTO discovery_clues(id,source_key,title,source_provider,source_url,source_evidence,customer_type,state_region,city,website) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(source_key) DO UPDATE SET title=excluded.title,source_evidence=excluded.source_evidence,customer_type=excluded.customer_type,website=COALESCE(NULLIF(excluded.website,''),discovery_clues.website),updated_at=CURRENT_TIMESTAMP WHERE discovery_clues.status='PENDING' RETURNING id`).bind(id,clue.key,clue.title,provider,clue.url,clue.snippet,clue.customerType||parsed.customerType,parsed.stateCode,clue.city,clue.website||null).first<{id:string}>();
             return row?row.id===id?'added':'updated':'retained';
           }));

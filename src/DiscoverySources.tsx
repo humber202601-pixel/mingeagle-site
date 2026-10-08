@@ -41,21 +41,23 @@ export default function DiscoverySources({accessKey,stateCode,customerType,city,
   async function search(keys=active,retry=false){
     if(!keys.length||!begin())return;stop.current=false;setSearching(true);setError('');setMessage('');setProgress('正在安排所选来源…');
     const initial=Object.fromEntries(keys.map(s=>[s,{ok:false,found:0,added:0,queued:true} as SourceResult]));setResults(previous=>retry?{...previous,...initial}:initial);
-    const count=retry?1:batchCount,scope=[stateCode,customerType,city.trim().toLowerCase(),targetCount].join('|');let added=0,updated=0,completed=0,failures=0;
+    const started=Date.now(),count=retry?1:batchCount,scope=[stateCode,customerType,city.trim().toLowerCase(),targetCount].join('|');let added=0,updated=0,completed=0,failures=0;
     try{
       for(let batch=0;batch<count&&!stop.current;batch++){
-        for(let start=0;start<keys.length&&!stop.current;start+=3){
-          await Promise.all(keys.slice(start,start+3).map(async source=>{
+        let next=0;
+        await Promise.all(Array.from({length:Math.min(3,keys.length)},async()=>{
+          while(next<keys.length&&!stop.current){
+            const source=keys[next++];
             const cursor=scope+'|'+source,round=rounds.current[cursor]||0;
             setResults(previous=>({...previous,[source]:{ok:false,found:0,added:0,running:true,note:`第 ${round+1} 批`}}));
             try{const data=await request({action:'SEARCH',stateCode,customerType,city,targetCount,round,sources:[source]});const result=data.sources?.[source]||{ok:true,found:0,added:0};if(!result.partial)rounds.current[cursor]=Math.min(10000,data.nextRound??round+1);try{localStorage.setItem('mingeagle-discovery-rounds-v15',JSON.stringify(rounds.current));}catch{}added+=data.added||0;updated+=data.updated||0;setResults(previous=>({...previous,[source]:result}));}
             catch(e){failures++;setResults(previous=>({...previous,[source]:{ok:false,found:0,added:0,error:e instanceof Error?e.message:'该来源搜索失败。'}}));}
             finally{completed++;setProgress(`已完成 ${completed} / ${keys.length*count} 项来源检索`);setReload(n=>n+1);}
-          }));
-        }
+          }
+        }));
       }
       setResults(previous=>Object.fromEntries(Object.entries(previous).map(([key,value])=>[key,value.queued?{...value,queued:false,error:'尚未执行；可继续搜索。'}:value])));
-      setMessage(`${stop.current?'已停止后续排队任务':'扩展检索完成'}：新增 ${added} 条，更新 ${updated} 条${failures?`，${failures} 项来源请求未完成，可单独重试`:''}。已忽略和已转入候选库的线索保留原状态。`);onChanged();
+      setMessage(`${stop.current?'已停止后续排队任务':'扩展检索完成'}：新增 ${added} 条，更新 ${updated} 条${failures?`，${failures} 项来源请求未完成，可单独重试`:''}。用时 ${(Date.now()-started)/1000<1?'少于 1':Math.round((Date.now()-started)/1000)} 秒；已忽略和已转入候选库的线索保留原状态。`);onChanged();
     }finally{setSearching(false);finish();}
   }
   async function action(row:Clue,action:string,website?:string){
@@ -107,6 +109,6 @@ export default function DiscoverySources({accessKey,stateCode,customerType,city,
     <div className="discovery-clue-tools"><strong>线索 · {pagination.total} 条</strong><div><select aria-label="按公开线索地区筛选" value={regionFilter} onChange={e=>{setRegionFilter(e.target.value);setPage(1);}}><option value="ALL">全部地区</option><option value="CURRENT">{city.trim()||STATE_NAMES[stateCode]} · 当前地区</option></select><select aria-label="按公开线索客户类型筛选" value={typeFilter} onChange={e=>{setTypeFilter(e.target.value);setPage(1);}}><option value="ALL">全部客户类型</option><option value="CURRENT">当前客户类型</option></select><form onSubmit={e=>{e.preventDefault();setQuery(keyword.trim());setPage(1);}}><input aria-label="搜索公开线索" value={keyword} maxLength={160} placeholder="名称、官网或证据关键词" onChange={e=>setKeyword(e.target.value)}/><button type="submit" className="button secondary small" disabled={loading}>筛选</button>{query&&<button type="button" className="button secondary small" onClick={()=>{setKeyword('');setQuery('');setPage(1);}}>重置关键词</button>}</form><select aria-label="按公开线索来源筛选" value={sourceFilter} onChange={e=>{setSourceFilter(e.target.value);setPage(1);}}><option value="ALL">全部来源</option>{Object.entries(labels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select><select aria-label="按公开线索状态筛选" value={status} onChange={e=>{setStatus(e.target.value);setPage(1);}}><option value="PENDING">待核验</option><option value="CONVERTED">已转入候选库</option><option value="IGNORED">已忽略</option><option value="ALL">全部线索</option></select><button type="button" className="button secondary small" disabled={loading||!rows.length} onClick={exportRows}><Download size={14}/>导出本页线索</button></div></div>
     {loading?<p className="discovery-source-intro">正在读取线索…</p>:!rows.length?<p className="discovery-source-intro">暂无此状态的线索。选择渠道后开始扩展搜索。</p>:<div className="discovery-clue-list">{rows.map(row=><article key={row.id} className="discovery-clue-row"><div><strong>{row.title}</strong><p>{labels[row.source_provider]||row.source_provider} · {row.city||'未指定城市'}, {row.state_region} · {TYPE_OPTIONS.find(([type])=>type===row.customer_type)?.[1]||row.customer_type} · {states[row.status]}</p><a href={row.source_url} target="_blank" rel="noreferrer">查看原始来源 <ExternalLink size={12}/></a><a href={'https://www.bing.com/search?q='+encodeURIComponent(`${row.title} ${row.city||''} ${row.state_region} official website`)} target="_blank" rel="noreferrer">查找机构官网 <ExternalLink size={12}/></a><small>{row.source_evidence}</small></div><div className="discovery-clue-actions">{row.status==='PENDING'?<><form onSubmit={event=>verify(event,row)}><label htmlFor={'clue-website-'+row.id}>机构官网</label><input id={'clue-website-'+row.id} name="website" type="url" defaultValue={row.website||''} placeholder="https://机构官网" required maxLength={1000}/><button className="table-action primary" disabled={busyAny}>{busy===row.id?'正在核验…':'核验并转入候选库'}</button></form><button className="table-action" disabled={busyAny} onClick={()=>void action(row,'IGNORE')}>忽略线索</button></>:row.status==='IGNORED'?<button className="table-action" disabled={busyAny} onClick={()=>void action(row,'RESTORE')}>恢复线索</button>:<span>已关联客户候选；可在客户候选库中管理。</span>}</div></article>)}</div>}
     <div className="discovery-pagination"><span>第 {page} / {Math.max(1,pagination.totalPages)} 页 · 每页 20 条</span><div><button className="button secondary small" disabled={page<=1||loading} onClick={()=>setPage(n=>n-1)}>上一页线索</button><button className="button secondary small" disabled={page>=pagination.totalPages||loading} onClick={()=>setPage(n=>n+1)}>下一页线索</button></div></div>
-    <p className="discovery-source-intro">社交来源仅覆盖公开可检索业务账号；搜索结果为零时可补录公开主页，不代表当地没有客户。账号归属、当前业务和联系信息需核验。学校公示数据保留学年，公示城市需核实。NCES 公立学校 2024–25 学年、私立学校 2023–24 学年，目录不等于当前采购意向。地图与索引未填城市时轮换重点城市，未覆盖全州所有地点。机构线索不会自动发送消息，也不计入已核验客户数量。地图数据 © OpenStreetMap contributors，ODbL。</p>
+    <p className="discovery-source-intro">社交来源仅覆盖公开可检索业务账号；搜索结果为零时可补录公开主页，不代表当地没有客户。账号归属、当前业务和联系信息需核验。学校公示数据保留学年，公示城市需核实。NCES 公立学校 2024–25 学年、私立学校 2023–24 学年，目录不等于当前采购意向。地图与索引未填城市时轮换重点城市，未覆盖全州所有地点。机构线索不会自动发送消息，也不计入已核验客户数量。地图数据 © Geoapify / OpenStreetMap contributors，ODbL。OSM 公共接口不可用时，优先通过备用接口读取带原始 OSM 编号的记录。</p>
   </section>;
 }
