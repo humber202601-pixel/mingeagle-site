@@ -1,7 +1,7 @@
 export const statusLabel = (value: unknown) => {
   const key = String(value ?? '').trim().toUpperCase();
   const labels: Record<string, string> = {
-    NEW: '新建', REVIEWING: '审核中', RESPONDED: '已回复', QUALIFIED: '已筛选合格',
+    NEW: '新建', QUOTED: '已报价', REVIEWING: '审核中', RESPONDED: '已回复', QUALIFIED: '已筛选合格',
     DISCOVERED: '已发现', ANALYZED: '已分析', ENRICHING: '信息补全中', READY_TO_CONTACT: '待联系',
     CONTACTED: '已联系', REPLIED: '已回复', INTERESTED: '有兴趣', SAMPLE: '样品阶段', QUOTE: '报价阶段',
     NEGOTIATION: '洽谈中', WON: '已成交', LOST: '已流失', NOT_FIT: '不匹配', NO_RESPONSE: '暂无回复',
@@ -32,7 +32,7 @@ export const requestTypeLabel = (value: unknown) => {
 export const customerTypeLabel = (value: unknown) => {
   const key = String(value ?? '').trim().toLowerCase();
   const labels: Record<string, string> = {
-    academy: '培训机构 / 学院', 'coach / trainer': '教练 / 训练师', retailer: '零售商',
+    academy: '培训机构 / 学院', training_academy: '培训机构 / 学院', 'basketball academy': '篮球训练机构', basketball_training: '篮球训练机构', basketball_gym: '篮球馆 / 体育中心', youth_club: '青少年篮球俱乐部', public_school: '公立学校', elementary_school: '小学', middle_high_school: '初高中', school_district: '学区', private_charter_school: '私立 / Charter School', 'coach / trainer': '教练 / 训练师', retailer: '零售商',
     'camp / program': '训练营 / 项目机构', distributor: '经销商', 'family / consumer': '家庭 / 个人消费者',
   };
   return labels[key] || (String(value ?? '').trim() || '—');

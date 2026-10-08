@@ -13,6 +13,7 @@ try{
   const db={prepare(sql){const statement=(args=[])=>({bind(...values){return statement(values)},async first(){return sqlite.prepare(sql).get(...args)||null},async all(){return {results:sqlite.prepare(sql).all(...args)}},async run(){return {meta:sqlite.prepare(sql).run(...args)}}});return statement()}};
   const input={stateCode:'TX',customerType:'BASKETBALL_TRAINING',city:'Dallas',targetCount:20,round:0};
   const html=(name='Northstar Basketball Academy')=>`<html><title>${name}</title><script type="application/ld+json">{"@type":"Organization","name":"${name}"}</script><h1>${name}</h1><p>Dallas Texas basketball training academy private lessons register youth programs. Contact us. Elementary school district purchasing procurement physical education department.</p><a href="mailto:hello@northstar.example">hello@northstar.example</a><a href="tel:2145550186">214-555-0186</a></html>`;
+  let looseMap=false,mapRequests=[];
   let failIndex=false,schoolTitle='Northstar Elementary School',websiteLinks='',websiteWrongRegion=false,websiteRequests=0;
   globalThis.fetch=async(value,init)=>{
     const u=new URL(String(value));
@@ -21,9 +22,13 @@ try{
       const social=u.searchParams.get('q').includes('site:facebook')?'https://www.facebook.com/northstar/':u.searchParams.get('q').includes('site:tiktok')?'https://www.tiktok.com/@northstar/':u.searchParams.get('q').includes('site:instagram')?'https://www.instagram.com/northstar/':u.searchParams.get('q').includes('site:linkedin')?'https://www.linkedin.com/company/northstar/':u.searchParams.get('q').includes('site:.gov')?'https://parks.example.gov/northstar':'https://www.chamberofcommerce.com/business/northstar';
       return new Response(`<rss><channel><item><title>Northstar Basketball Academy</title><link>${social}</link><description>Dallas Texas basketball training programs.</description></item><item><title>Unrelated Austin Academy</title><link>https://www.facebook.com/austin/</link><description>Austin basketball academy.</description></item></channel></rss>`);
     }
-    if(u.hostname==='nces.ed.gov'||u.hostname==='services1.arcgis.com')return Response.json({features:[{attributes:{NCESSCH:'480000100001',LEAID:'4800001',NAME:schoolTitle,CITY:'DALLAS',STATE:'TX',STREET:'1 Public Street',SCHOOLYEAR:'2024-2025'}},{attributes:{NCESSCH:'480000100002',LEAID:'4800002',NAME:'Austin Elementary',CITY:'AUSTIN',STATE:'TX'}}]});
-    if(u.hostname==='api.geoapify.com')return Response.json({results:[{state_code:'TX',country_code:'us',bbox:{lat1:32.5,lon1:-97,lat2:33,lon2:-96}}]});
-    if(u.hostname==='overpass-api.de'||u.hostname==='overpass.private.coffee')return Response.json({elements:[{type:'node',id:123,tags:{name:'Northstar Basketball Academy','addr:city':'Dallas',website:'https://northstar.example'}},{type:'node',id:124,tags:{name:'Basketball Court','addr:city':'Dallas'}},{type:'node',id:125,tags:{name:'Wrong City Academy','addr:city':'Austin'}}]});
+    if(u.hostname==='nces.ed.gov'||u.hostname==='services1.arcgis.com')return Response.json({features:[{attributes:{NCESSCH:'480000100001',PPIN:'00000001',LEAID:'4800001',NAME:schoolTitle,CITY:'DALLAS',STATE:'TX',STREET:'1 Public Street',SCHOOLYEAR:'2024-2025'}},{attributes:{NCESSCH:'480000100002',LEAID:'4800002',NAME:'Austin Elementary',CITY:'AUSTIN',STATE:'TX'}}]});
+    if(u.hostname==='api.geoapify.com'){
+      mapRequests.push(u);
+      if(u.pathname==='/v2/places')return Response.json({features:[{properties:{name:'Northstar Sports Center',place_id:'sports-place-1',city:'Dallas',country_code:'us',state_code:'TX',categories:['sport.sports_centre'],website:'https://northstar.example',datasource:{raw:{osm_type:'node',osm_id:123}}}},{properties:{name:'Wrong City Center',place_id:'sports-place-2',city:'Austin',country_code:'us',state_code:'TX'}}]});
+      return Response.json({results:[{place_id:'city-place-1',state_code:'TX',country_code:'us',bbox:{lat1:32.5,lon1:-97,lat2:33,lon2:-96}}]});
+    }
+    if(u.hostname==='overpass-api.de'||u.hostname==='overpass.private.coffee')return Response.json({elements:[{type:'node',id:123,tags:{name:'Northstar Basketball Academy','addr:city':'Dallas',website:'https://northstar.example'}},{type:'node',id:124,tags:{name:'Basketball Court','addr:city':'Dallas'}},{type:'node',id:125,tags:{name:'Wrong City Academy','addr:city':'Austin'}},...(looseMap?[{type:'node',id:126,tags:{name:'Within City Boundary Academy'}}]:[])]});
     if(u.hostname==='northstar.example'){
       websiteRequests++;
       const page=html(u.pathname.includes('elementary')?'Northstar Elementary School':u.pathname.includes('middle')?'Northstar Middle School':u.pathname.includes('wrong')?'Different Business Academy':'Northstar Basketball Academy');
@@ -115,6 +120,27 @@ try{
   sqlite.prepare("UPDATE discovery_candidates SET status='IGNORED' WHERE website='https://northstar.example'").run();assert.equal((await post(discover)).status,409);sqlite.prepare("UPDATE discovery_candidates SET status='NEW' WHERE website='https://northstar.example'").run();
   result=await post({...discover,customerType:'ELEMENTARY_SCHOOL',website:'https://northstar.example/elementary'});assert.equal(result.body.name,'Northstar Elementary School');assert.equal(result.body.added,0,'school profile discovery preserves shared existing profiles');
   websiteLinks='';result=await post(discover);assert.equal(result.body.found,0);assert.equal(result.body.added,0);assert.ok(result.body.note.includes('未找到'));
+
+  // New coverage must execute, preserve real classifications and expose honest counts.
+  assert.equal(sources.sourceCity({...input,city:'',round:1}).city,'Houston');
+  assert.equal(sources.sourceCity({...input,city:'',round:10}).page,1);
+  const independent=sources.ncesQuery(input);assert.equal(independent.district,false);assert.ok(!new URL(independent.url).searchParams.get('where').includes('LIKE'),'commercial filters must not disable public school catalogs');
+  schoolTitle='Northstar Learning School';result=await post({...input,round:9,action:'SEARCH',sources:['NCES']});assert.equal(result.body.sources.NCES.ok,true);
+  assert.equal(result.body.sources.NCES.found,1,'found must include retained converted source records');assert.equal(result.body.sources.NCES.retained,1);assert.equal(result.body.sources.NCES.added,0);
+  result=await post({...input,action:'SEARCH',sources:['NCES_PRIVATE','NCES_DISTRICTS']});assert.equal(result.status,200);assert.equal(result.body.added,1,'existing district is deduplicated and new private-school ID saved');
+  const privateSchool=sqlite.prepare("SELECT * FROM discovery_clues WHERE source_provider='NCES_PRIVATE'").get();assert.equal(privateSchool.customer_type,'PRIVATE_CHARTER_SCHOOL');assert.ok(privateSchool.source_url.includes('PPIN'));
+  const districtRecord=sqlite.prepare("SELECT * FROM discovery_clues WHERE source_key='nces:district:4800001'").get();assert.equal(districtRecord.customer_type,'SCHOOL_DISTRICT','catalog type must override commercial search intent');
+  looseMap=true;const withBounds=await sources.osmClues({...input,city:''},'fixture-only');assert.equal(withBounds.clues.length,2);assert.ok(withBounds.clues.find(c=>c.key==='osm:node:126').snippet.includes('城市归属待核实'));
+  assert.equal((await sources.osmClues({...input,city:''})).clues.length,1,'missing-city tags require a verified bounding box');
+  mapRequests=[];const places=await sources.geoapifyClues({...input,city:'',round:10},'fixture-only');assert.equal(places.clues.length,1);assert.equal(places.clues[0].key,'osm:node:123','map providers share stable OSM keys');assert.equal(mapRequests.find(u=>u.pathname==='/v2/places').searchParams.get('offset'),'20');assert.ok(!places.clues[0].url.includes('fixture-only'),'never store API credentials in sources');
+  assert.equal((await post({...input,action:'SEARCH',sources:['GEOAPIFY']})).status,502,'missing API configuration is reported, not shown as zero results');
+  assert.equal((await get('status=ALL&state=TX&type=PRIVATE_CHARTER_SCHOOL')).body.pagination.total,1);assert.equal((await get('state=XX')).status,400);assert.equal((await get('status=ALL&q=100%25')).body.pagination.total,0,'keyword SQL wildcards are literal');
+  assert.ok((await get('status=ALL&state=TX&city=Dallas&q=Northstar')).body.clues.length>0);assert.equal((await get('status=ALL&city=Austin')).body.pagination.total,0);
+  websiteLinks='<a href="https://www.instagram.com/batchonly/">Instagram</a>';websiteRequests=0;
+  result=await post({...input,action:'SEARCH',sources:['WEBSITE_SOCIAL']});assert.equal(result.status,200);assert.equal(result.body.sources.WEBSITE_SOCIAL.found,1);assert.equal(result.body.added,1);assert.equal(websiteRequests,1,'batch socials reads each eligible candidate website once');
+  assert.equal((await get('status=PENDING&source=WEBSITE_SOCIAL')).body.pagination.total,1);assert.equal((await get('status=PENDING&source=INSTAGRAM')).body.clues.some(c=>c.source_url.includes('batchonly')),true);
+  result=await post({...input,round:1,action:'SEARCH',sources:['WEBSITE_SOCIAL']});assert.equal(result.body.sources.WEBSITE_SOCIAL.found,0);assert.ok(result.body.sources.WEBSITE_SOCIAL.note.includes('暂无下一批'));
+
   assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM messages').get().n,0);sqlite.close();
-  console.log('PASS: verified website social discovery, page/raw-link evidence, institutional sameAs, excluded content/private/person links, no-refetch extraction, duplicate/ignored/converted preservation, school support, zero-result reporting, clue-only storage and no CRM or messages; existing public-source searches and verification.');
+  console.log('PASS: V15 independent public/private/district catalogs, city rotation and map pagination, bounding-box POIs, cross-map deduplication, true found/retained counts, literal region/type/name filters, batch website social discovery, credential-free source links, no CRM/messages; verified website social discovery, page/raw-link evidence, institutional sameAs, excluded content/private/person links, no-refetch extraction, duplicate/ignored/converted preservation, school support, zero-result reporting, clue-only storage and no CRM or messages; existing public-source searches and verification.');
 }finally{globalThis.fetch=original;rmSync(dir,{recursive:true,force:true});}

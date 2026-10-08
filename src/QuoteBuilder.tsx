@@ -67,6 +67,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   const [error, setError] = useState('');
   const [result, setResult] = useState<QuoteResult | null>(null);
   const [quotes, setQuotes] = useState<Row[]>([]);
+  const [quotesLoading,setQuotesLoading]=useState(true),[quotesError,setQuotesError]=useState('');
   const [customerLink, setCustomerLink] = useState<{ reference: string; url: string; emailed?: boolean; to?: string } | null>(null);
   const [quoteDeliveryMessage, setQuoteDeliveryMessage] = useState('');
   const [editDetail, setEditDetail] = useState<EditDetail | null>(null);
@@ -90,13 +91,15 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   }, [selectedReference]);
 
   async function loadQuotes() {
+    setQuotesLoading(true);setQuotesError('');
     try {
       const response = await fetch('/api/admin/data', { headers: { 'x-admin-key': accessKey } });
-      const body = await response.json() as { ok?: boolean; quotes?: Row[] };
-      if (response.ok && body.ok) setQuotes(body.quotes || []);
-    } catch {
-      // 主工作台会显示连接错误，这里的二次刷新失败可静默处理。
-    }
+      const body = await response.json() as { ok?: boolean; quotes?: Row[];error?:string };
+      if(!response.ok||!body.ok)throw new Error(body.error||'无法加载报价列表。');
+      setQuotes(body.quotes || []);
+    } catch(err) {
+      setQuotesError(err instanceof Error?err.message:'无法加载报价列表。');
+    }finally{setQuotesLoading(false);}
   }
 
   useEffect(() => { void loadQuotes(); }, [accessKey]);
@@ -427,9 +430,10 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     {quoteDeliveryMessage && <div className="form-status success"><strong>报价交付完成</strong><p>{quoteDeliveryMessage}</p></div>}
 
     <section className="panel table-panel">
-      <div className="table-tools"><strong>共 {quotes.length} 张报价单</strong><span>草稿 → 审核修改 → Gmail / 安全链接 → 客户查看 → 修订 → 接受 → 自动生成订单</span></div>
+      {quotesError&&<div className="form-status error" role="alert"><p>{quotesError}</p></div>}
+      <div className="table-tools"><strong>{quotesLoading?'正在加载报价单…':`共 ${quotes.length} 张报价单`}</strong><button type="button" className="button secondary small" disabled={quotesLoading} onClick={()=>void loadQuotes()}>刷新报价列表</button><span>草稿 → 审核修改 → Gmail / 安全链接 → 客户查看 → 修订 → 接受 → 自动生成订单</span></div>
       <div className="table-wrap"><table><thead><tr><th>报价单</th><th>客户</th><th>总金额</th><th>状态</th><th>有效期至</th><th>操作</th></tr></thead><tbody>
-        {quotes.length === 0 && <tr><td colSpan={6}>暂无报价单。</td></tr>}
+        {quotes.length === 0 && <tr><td colSpan={6}>{quotesLoading?'正在加载报价列表…':quotesError?'报价未能加载，请刷新重试。':'暂无报价单。'}</td></tr>}
         {quotes.map((quote, i) => {
           const id = text(quote.id, String(i));
           const status = text(quote.status);

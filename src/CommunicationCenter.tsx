@@ -130,9 +130,10 @@ export default function CommunicationCenter({ accessKey, onChanged }: { accessKe
   const [resultText, setResultText] = useState('');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  const [loading,setLoading]=useState(true);
 
   async function load() {
-    setError('');
+    setLoading(true);setError('');
     try {
       const response = await fetch('/api/admin/communications', { headers: { 'x-admin-key': accessKey } });
       const json = await response.json() as ApiData;
@@ -141,7 +142,7 @@ export default function CommunicationCenter({ accessKey, onChanged }: { accessKe
       if (!selectedId && json.targets?.length) setSelectedId(text(json.targets[0].lead_id));
     } catch (err) {
       setError(err instanceof Error ? err.message : '无法加载沟通中心。');
-    }
+    }finally{setLoading(false);}
   }
 
   useEffect(() => { void load(); }, [accessKey]);
@@ -253,7 +254,7 @@ export default function CommunicationCenter({ accessKey, onChanged }: { accessKe
       <div className="panel-head"><h2>客户队列</h2><button className="icon-action" onClick={() => void load()} title="刷新"><RefreshCcw size={16}/></button></div>
       <input className="communication-search" value={query} onChange={e => setQuery(e.target.value)} placeholder="搜索公司、联系人、邮箱、MEQ/MES…" />
       <div className="target-list">
-        {!visibleTargets.length && <div className="empty-row">暂无客户。</div>}
+        {!visibleTargets.length && <div className="empty-row">{loading?'正在加载客户…':error?'客户未能加载，请刷新重试。':'暂无此条件的客户。'}</div>}
         {visibleTargets.map(target => <button key={text(target.lead_id)} className={`target-item ${selectedId === text(target.lead_id) ? 'active' : ''}`} onClick={() => setSelectedId(text(target.lead_id))}>
           <strong>{text(target.company, '个人客户')}</strong><span>{text(target.contact, '未知联系人')}</span><small>{statusLabel(target.lead_status)} · 评分 {text(target.lead_score, '0')}</small>
           {Number(target.do_not_contact || 0) === 1 && <em>禁止联系</em>}

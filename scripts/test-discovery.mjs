@@ -12,6 +12,7 @@ try{
   await build({entryPoints:['discovery','discovery-search-v2','discovery-web-v6','discovery-geoapify-v1','discovery-school-v1','discovery-enrich-v2','discovery-website-v1'].map(x=>'functions/api/admin/'+x+'.ts'),outdir:folder,bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},entryNames:'[name]',logLevel:'silent'});
   await build({entryPoints:['lib/public-contacts.ts'],outfile:join(folder,'contacts.mjs'),bundle:true,platform:'node',format:'esm',logLevel:'silent'});
   const contacts=await import(pathToFileURL(join(folder,'contacts.mjs')));
+  assert.equal(contacts.publicPersonName('Clarissa Playing Career'),false);assert.equal(contacts.publicPersonName('Expert Interview If'),false);assert.equal(contacts.publicPersonName('Justin Dentmon'),true);
   assert.equal(contacts.publicPhone('6850185202'),'');assert.equal(contacts.publicPhone('tel:4696050633'),'4696050633');
   assert.deepEqual(contacts.publicPhones('', 'image_abc6850185202xyz 6850185202 4696050633'),[]);
   assert.deepEqual(contacts.publicPhones('', 'Phone: 469-605-0633'),['469-605-0633']);
@@ -64,7 +65,7 @@ try{
     return {status:r.status,body:await r.json()};
   };
   const get=async(params='')=>{const r=await handlers.discovery.onRequestGet({request:new Request('https://test.example/api/admin/discovery?'+params),env});return {status:r.status,body:await r.json()}};
-  assert.equal(catalog.TYPE_OPTIONS.length,16);
+  assert.equal(catalog.TYPE_OPTIONS.length,17);
   for(const state of Object.keys(catalog.STATE_NAMES))for(const type of catalog.COMMERCIAL_TYPES)assert.ok(catalog.queryPlan(state,type).length>0);
   assert.notDeepEqual(catalog.queryPlan('TX','BASKETBALL_TRAINING','',0,8),catalog.queryPlan('TX','BASKETBALL_TRAINING','',1,8));
   for(const input of [{stateCode:'ZZ',customerType:'SPORTS_STORE'},{stateCode:'TX',customerType:'UNKNOWN'},{stateCode:'TX',customerType:'SPORTS_STORE',targetCount:'NaN'},{stateCode:'TX',customerType:'SPORTS_STORE',round:-1}]){

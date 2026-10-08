@@ -1,3 +1,4 @@
+import { publicPersonName } from '../../../lib/public-contacts';
 import { resolveEntity } from './discovery-web-v6';
 import { publicPhone, publicPhones, organizationName } from '../../../lib/public-contacts';
 interface Env { MINGEAGLE_DB: D1Database }
@@ -27,12 +28,12 @@ function whatsappOf(links:string[]){const link=firstSocial(links,['wa.me','whats
 function chooseEmail(emails:string[],host:string){const domain=host.toLowerCase().replace(/^www\./,'');return emails.find(e=>e.endsWith(`@${domain}`))||emails.find(e=>/^(sales|info|contact|hello|office|admin|coach|training|orders)@/i.test(e))||emails[0]||''}
 
 const BAD_NAME_WORDS=new Set(['at','the','new','our','your','basketball','academy','training','program','programs','team','teams','contact','about','director','coach','manager','owner','founder','staff','membership','sports','adult','youth']);
-function validPersonName(value:string){const v=clean(value,120).replace(/\s+/g,' ');const parts=v.split(' ');if(parts.length<2||parts.length>3)return false;if(parts.some(p=>BAD_NAME_WORDS.has(p.toLowerCase())))return false;return parts.every(p=>/^[A-Z][A-Za-z'’-]{1,30}$/.test(p))}
+const validPersonName=publicPersonName;
 function extractPerson(text:string){
   const roles='Owner|Founder|Co-Founder|Executive Director|Program Director|Basketball Director|Training Director|Head Coach|General Manager|Operations Director|Athletic Director|Director of Athletics|PE Teacher|Physical Education Teacher|Physical Education Director|Sports Coordinator|Athletic Coordinator|Activities Director|Recreation Director|Purchasing Manager|Procurement Manager|Procurement Officer|Purchasing Director|Buyer|Operations Manager|School Administrator|Business Manager|Principal|Vice Principal|Head of School|Director|Coach|Manager|President|CEO';
   const name="([A-Z][A-Za-z'’-]{1,30}(?:\\s+[A-Z][A-Za-z'’-]{1,30}){1,2})";
   const patterns=[new RegExp(`${name}\\s*(?:[-–—|,:]|\\bis\\s+(?:the\\s+)?)\\s*(${roles})`),new RegExp(`(${roles})\\s*(?:[-–—|,:])?\\s*${name}`)];
-  for(let i=0;i<patterns.length;i++){const m=text.match(patterns[i]);if(!m)continue;const person=i===0?m[1]:m[2];const title=i===0?m[2]:m[1];if(validPersonName(person))return {name:clean(person,120),title:clean(title,120)}}return {name:'',title:''}
+  for(let i=0;i<patterns.length;i++){for(const m of text.matchAll(new RegExp(patterns[i].source,'g'))){const person=i===0?m[1]:m[2];const title=i===0?m[2]:m[1];if(validPersonName(person))return {name:clean(person,120),title:clean(title,120)}}}return {name:'',title:''}
 }
 function genericOrgName(value:string){const v=clean(value,120);return !v||/^(home|basketball|adult basketball|youth basketball|basketball training|basketball academy|training|academy|programs?|sports|athletics|contact|about|team|coaches?)$/i.test(v)}
 function metaContent(html:string,key:string){const esc=key.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');for(const p of [new RegExp(`<meta[^>]+(?:property|name)=["']${esc}["'][^>]+content=["']([^"']+)["']`,'i'),new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${esc}["']`,'i')]){const m=html.match(p);if(m)return textOf(m[1])}return ''}

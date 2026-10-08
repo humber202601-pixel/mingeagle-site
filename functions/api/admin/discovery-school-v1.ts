@@ -22,7 +22,7 @@ const clean = (v: unknown, max = 1000) => typeof v === 'string' ? v.trim().repla
 const allowedState = /^[A-Z]{2}$/;
 const SCHOOL_TYPES = new Set([
   'PRESCHOOL_KINDERGARTEN','ELEMENTARY_SCHOOL','MIDDLE_HIGH_SCHOOL','PRIVATE_CHARTER_SCHOOL',
-  'SCHOOL_DISTRICT','AFTER_SCHOOL_PROGRAM','EDUCATION_SUPPLIER'
+  'SCHOOL_DISTRICT','AFTER_SCHOOL_PROGRAM','EDUCATION_SUPPLIER','PUBLIC_SCHOOL'
 ]);
 
 const CITY_MAP: Record<string,string[]> = {
@@ -37,6 +37,7 @@ const TERMS: Record<string,string[]> = {
   SCHOOL_DISTRICT:['school district','public schools district','unified school district'],
   AFTER_SCHOOL_PROGRAM:['after school program','youth activity center','school enrichment program'],
   EDUCATION_SUPPLIER:['school sports equipment supplier','physical education equipment supplier','school sporting goods supplier']
+  ,PUBLIC_SCHOOL:['public school','school athletics','public school purchasing']
 };
 
 const ROLE_PATTERN = '(?:Athletic Director|Director of Athletics|PE Teacher|Physical Education Teacher|Physical Education Director|Sports Coordinator|Athletic Coordinator|Activities Director|Recreation Director|Purchasing Manager|Procurement Manager|Procurement Officer|Purchasing Director|Buyer|Operations Manager|School Administrator|Business Manager|Principal|Vice Principal|Head of School|Program Director)';

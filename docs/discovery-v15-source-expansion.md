@@ -1,0 +1,26 @@
+# Customer discovery V15 — source expansion and frontend/backend review
+
+## Result
+
+All source cards are independently selectable. NCES no longer depends on selecting an elementary/high-school buyer type. OSM can run with an empty city and rotates through major cities in the selected state. Government school data is stored with its real school/district type rather than the current commercial search type.
+
+Added official private-school and independent district catalogs, Geoapify category-based place clues, and five-website batches that extract institutional Facebook/TikTok/Instagram/LinkedIn profiles from verified candidate websites. Directory queries now cover chamber directories, Yellow Pages, BBB, Manta, government and education sites. Major-city lists for TX/CA/FL/NY have expanded.
+
+## Efficiency and controls
+
+- Up to three sources run concurrently, with separate progress, independent successful cursors and one to three consecutive batches.
+- Successful cursors persist across refreshes; failed/partial sources can be retried alone without advancing past failures. Stop ends subsequent queued tasks while current requests finish.
+- Per-source clue limits follow the selected target, capped at 50 per request. Candidate website batches remain capped at five.
+- Exact region/type filters, literal keyword searches, source/status filters, pagination and current-page CSV export.
+- True found/new/updated/retained counts. Ignored and converted clues preserve their state. Stable OSM keys deduplicate across map providers.
+- City-boundary POIs can be retained when city tags are absent, with explicit uncertain-city evidence; explicit wrong-city records are rejected. If boundary geocoding is unavailable, OSM uses only explicit city tags within the selected state.
+
+## Other fixes
+
+Prevent page headings such as “Clarissa Playing Career” and “Expert Interview If” from becoming contact names. Complete quoted-status and buyer-type display labels. Show loading/failure states for communications and quote lists instead of reporting an empty list while loading or after failure.
+
+## Validation
+
+`npm run build`, `npm run test:discovery`, and `npx wrangler pages functions build` pass. SQLite integration fixtures cover new catalogs, true types/counts, literal filters, map pagination and boundary handling, shared map keys, website batches, credential-free source evidence, and ignored/converted protection. No tests send messages or record payments.
+
+Production acceptance is recorded after deployment. Sources cover US states; indexed social search covers publicly indexed profiles, while official-website discovery provides a complementary route. Official data retains public 2024–25/private 2023–24 school vintages and requires current business/website verification. Search clues are not automatically classified as buyers or added to CRM.

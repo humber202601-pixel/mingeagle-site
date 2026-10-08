@@ -24,3 +24,10 @@ export function publicPhones(html: string, text: string) {
 export function organizationName(value: string) {
   return value.replace(/\s+(?:\+?1[\s.\-]*)?(?:\(?\d{3}\)?[\s.\-]*)\d{3}[\s.\-]*\d{4}(?:\s.*)?$/, '').trim();
 }
+
+// Page headings and navigation text must never become a buyer's name.
+export function publicPersonName(value:string){
+  const parts=value.trim().replace(/\s+/g,' ').split(' ');
+  const nonNames=/^(?:at|the|new|our|your|basketball|academy|training|programs?|teams?|contact|about|director|coach|manager|owner|founder|staff|membership|sports|adult|youth|playing|career|experience|biography|profile|learn|more|read|meet|welcome|services?|schedule|register|registration|home|school|athletics|performance|leadership|principal|purchasing|procurement|gallery|news|privacy|policy|expert|interview|if)$/i;
+  return parts.length>=2&&parts.length<=3&&parts.every(p=>/^[A-Z][A-Za-z'’-]{1,30}$/.test(p)&&!nonNames.test(p));
+}
