@@ -22,3 +22,5 @@ The primary discovery screen now asks for location, buyer type and search depth,
 ## Validation
 
 `npm run build`, all three discovery regression suites and Cloudflare Pages Functions compilation passed. New tests cover complete automatic intake, public-contact and source evidence, cross-source deduplication, late address convergence, noninvented missing fields, pause/resume, error recovery, lease locking, atomic cleanup/restore, restoration conflicts, 200+ record cleanup and protected commercial archives. No outreach was sent during testing.
+
+School map candidates without an official site automatically search for one. Existing school websites are rechecked for institution name, school business and location before CRM intake; unknown or mismatched institutions remain reviewable exceptions. The interface calls all pending records candidates rather than verified institutions.

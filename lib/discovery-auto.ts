@@ -1,9 +1,10 @@
 import { parseSearch, COMMERCIAL_TYPES, STATE_NAMES } from '../shared/discovery';
-import { ensureTables, allowedWebsite, bing } from '../functions/api/admin/discovery-web-v6';
+import { ensureTables, allowedWebsite, bing, verifyHit } from '../functions/api/admin/discovery-web-v6';
 import { ensureClues } from './discovery-sources';
 import { clueMatches } from '../functions/api/admin/discovery-sources-v1';
 import { addToCrm } from '../functions/api/admin/discovery';
 import { syncCrm } from '../functions/api/admin/discovery-enrich';
+import { verifySchoolWebsite } from '../functions/api/admin/discovery-school-v1';
 
 export interface AutoEnv { MINGEAGLE_DB:D1Database; GEOAPIFY_API_KEY?:string }
 type Row=Record<string,unknown>;
@@ -123,7 +124,23 @@ async function importCandidate(env:AutoEnv,base:string,key:string,item:Item){
   const row=await db.prepare(`SELECT * FROM discovery_candidates WHERE id=?`).bind(item.item_key).first<Row>();
   if(!row)throw new Error('候选记录已不存在。');
   if(row.status==='IGNORED')return {skipped:true,reason:'已忽略候选保持原状态'};
-  if(!allowedWebsite(clean(row.website)))throw new Error('官网尚未核验，已保留待核验记录。');
+  const school=!COMMERCIAL_TYPES.has(clean(row.customer_type));
+  if(school||!allowedWebsite(clean(row.website))){
+    const websites:string[]=[];
+    if(allowedWebsite(clean(row.website)))websites.push(clean(row.website));
+    if(!websites.length){
+      const hits=await bing(`"${clean(row.name,200)}" ${clean(row.city,80)} ${STATE_NAMES[clean(row.state_region)]||clean(row.state_region,30)} official website`,clean(row.city,80));
+      for(const hit of hits)if(clueMatches(hit.title,clean(row.name,200)))websites.push(hit.url);
+    }
+    let matched='';
+    for(const website of [...new Set(websites)].slice(0,2)){
+      const verified=school?await verifySchoolWebsite(website,clean(row.customer_type),clean(row.state_region),clean(row.city,80)):await verifyHit({title:clean(row.name),url:website,snippet:'',query:'automatic official website match',city:clean(row.city,80)},clean(row.customer_type),clean(row.state_region));
+      if(verified&&clueMatches(verified.orgName,clean(row.name,200))){matched=website;break;}
+    }
+    if(!matched)throw new Error('未找到名称、业务和地区均可核验的官网，记录保留待核验。');
+    await db.prepare(`UPDATE discovery_candidates SET website=?,source_evidence=COALESCE(source_evidence,'') || ' · Automatic official website identity and location verified',updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(matched,item.item_key).run();
+    row.website=matched;
+  }
   const domain=new URL(clean(row.website)).hostname.toLowerCase().replace(/^www\./,'');
   const exclusion=await db.prepare(`SELECT l.id FROM leads l JOIN companies c ON c.id=l.company_id
     LEFT JOIN contacts ct ON ct.id=l.primary_contact_id WHERE c.domain=?

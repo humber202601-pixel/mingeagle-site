@@ -30,12 +30,14 @@ try{
     if(url.hostname==='www.bing.com'){
       if(failSources)return new Response('Unavailable',{status:503});
       const query=url.searchParams.get('q')||'';let link='https://academy.example';
+      if(query.includes('Northstar Independent School'))return new Response('<rss><channel><item><title>Northstar Independent School Dallas Texas</title><link>https://school.example</link><description>Private school education in Dallas Texas.</description></item></channel></rss>');
       if(/site:facebook/.test(query))link='https://www.facebook.com/northstaracademy/';
       else if(/site:tiktok/.test(query))link='https://www.tiktok.com/@northstaracademy';
       else if(/site:instagram/.test(query))link='https://www.instagram.com/northstaracademy/';
       else if(/site:linkedin/.test(query))link='https://www.linkedin.com/company/northstaracademy/';
       return new Response(`<rss><channel><item><title>Northstar Basketball Academy Dallas Texas</title><link>${link}</link><description>Basketball training academy, private coach lessons and registration in Dallas Texas.</description></item></channel></rss>`);
     }
+    if(url.hostname==='school.example')return new Response('<html><head><title>Northstar Independent School</title><meta property="og:site_name" content="Northstar Independent School"/><script type="application/ld+json">{"@type":"Organization","name":"Northstar Independent School"}</script></head><body><h1>Northstar Independent School</h1><p>Dallas Texas private school education, students, athletics and physical education. Contact our school office.</p><a href="mailto:office@school.example">office@school.example</a><a href="tel:2145550102">214-555-0102</a></body></html>',{headers:{'content-type':'text/html'}});
     if(url.hostname==='academy.example'){
       websiteCalls.push(url.pathname);
       if(failContact&&url.pathname==='/')return new Response('Temporary error',{status:503});
@@ -114,5 +116,18 @@ try{
   for(let n=0;n<205;n++){db.sqlite.prepare("INSERT INTO companies(id,name) VALUES(?,?)").run('mass-company-'+n,'Historical '+n);db.sqlite.prepare("INSERT INTO leads(id,company_id,source) VALUES(?,?,'DISCOVERY')").run('mass-lead-'+n,'mass-company-'+n);}
   const mass=await post('discovery-history-v1',{action:'CLEAR'});assert.equal(mass.body.ok,true);assert.equal(scalar('SELECT COUNT(*) AS n FROM leads'),1,'large cleanup exceeds 100 IDs without exceeding D1 binding limits');
   const restoredMass=await post('discovery-history-v1',{action:'RESTORE',archiveId:mass.body.archiveId});assert.equal(restoredMass.body.ok,true);assert(scalar('SELECT COUNT(*) AS n FROM leads')>=206);
+  // Legacy school map candidates must find and verify an official site before automatic CRM intake.
+  await post('discovery-history-v1',{action:'CLEAR'});
+  result=await post('discovery-auto-v1',{action:'START',...search,customerType:'PRIVATE_CHARTER_SCHOOL'});const schoolId=result.body.run.id;
+  db.sqlite.prepare('DELETE FROM discovery_auto_items WHERE run_id=?').run(schoolId);
+  for(const [id,name,website] of [['school-good','Northstar Independent School',null],['school-wrong','Wrong School','https://academy.example'],['school-missing','Unindexed School',null]]){
+    db.sqlite.prepare("INSERT INTO discovery_candidates(id,source_key,source_provider,name,customer_type,state_region,city,website,source_url) VALUES(?,?,'GEOAPIFY_SCHOOL_V1',?,'PRIVATE_CHARTER_SCHOOL','TX','Dallas',?,'https://map.example')").run(id,id,name,website);
+    db.sqlite.prepare("INSERT INTO discovery_auto_items(run_id,kind,item_key) VALUES(?,'CANDIDATE',?)").run(schoolId,id);
+  }
+  for(let tick=0;tick<15;tick++){result=await post('discovery-auto-v1',{action:'ADVANCE',runId:schoolId});if(result.body.run.status!=='RUNNING')break;}
+  assert.equal(result.body.run.status,'PARTIAL');
+  const goodSchool=result.body.results.find(row=>row.item_key==='school-good');assert.equal(goodSchool.status,'DONE',JSON.stringify(goodSchool));assert(goodSchool.crm_lead_id);assert.equal(goodSchool.website,'https://school.example/');assert.equal(goodSchool.email,'office@school.example');
+  for(const id of ['school-wrong','school-missing']){const row=result.body.results.find(row=>row.item_key===id);assert.equal(row.status,'FAILED');assert.equal(row.crm_lead_id,null,'unverified schools cannot enter CRM');}
+  assert.equal(scalar('SELECT COUNT(*) AS n FROM leads'),2,'only the verified school and protected business record remain');
   console.log('PASS: one-click source search → automatic official-site matching → verification → deeper enrichment → CRM; social/contact evidence; dedupe and repeated-click protection; pause/resume; explicit unavailable fields; automatic retry and exception recovery; lease lock; atomic recoverable cleanup/restore; protected commercial records; no outreach or queue.');
 }finally{globalThis.fetch=originalFetch;rmSync(temp,{recursive:true,force:true});}
