@@ -37,8 +37,8 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
   if(!Number.isFinite(rawPage))return response({ok:false,error:'线索页码无效。'},400);
   const page=Math.max(1,Math.min(10000,Math.floor(rawPage))),filters:string[]=[],args:string[]=[];
   if(status!=='ALL'){filters.push('status=?');args.push(status);}
-  if(source!=='ALL'){filters.push('source_provider=?');args.push(source);}
-  if(source==='WEBSITE_SOCIAL'){filters.pop();args.pop();filters.push("source_evidence LIKE '官网批量发现%'");}
+  if(source!=='ALL'){filters.push('(source_provider=? OR id IN(SELECT clue_id FROM discovery_clue_sources WHERE source_provider=?))');args.push(source,source);}
+  if(source==='WEBSITE_SOCIAL'){filters.pop();args.pop();args.pop();filters.push("(source_evidence LIKE '官网批量发现%' OR id IN(SELECT clue_id FROM discovery_clue_sources WHERE source_provider='WEBSITE_SOCIAL'))");}
   const state=params.get('state')||'',type=params.get('type')||'',city=clean(params.get('city'),80),q=clean(params.get('q'),160);
   if(state&&!Object.hasOwn(STATE_NAMES,state)||type&&!TYPE_OPTIONS.some(([key])=>key===type))return response({ok:false,error:'线索地区或客户类型无效。'},400);
   if(state){filters.push('state_region=?');args.push(state);}
@@ -47,7 +47,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
   if(q){filters.push("(title LIKE ? ESCAPE '\\' OR website LIKE ? ESCAPE '\\' OR source_evidence LIKE ? ESCAPE '\\')");const match='%'+q.replace(/[\\%_]/g,'\\$&')+'%';args.push(match,match,match);}
   const conditions=filters.length?filters.join(' AND '):'1=1';
   const count=await db.prepare(`SELECT COUNT(*) AS total FROM discovery_clues WHERE ${conditions}`).bind(...args).first<{total:number}>();
-  const rows=await db.prepare(`SELECT * FROM discovery_clues WHERE ${conditions} ORDER BY updated_at DESC,id LIMIT 20 OFFSET ?`).bind(...args,(Math.floor(page)-1)*20).all();
+  const rows=await db.prepare(`SELECT discovery_clues.*,(SELECT group_concat(source_provider,',') FROM discovery_clue_sources WHERE clue_id=discovery_clues.id) AS observed_sources FROM discovery_clues WHERE ${conditions} ORDER BY updated_at DESC,id LIMIT 20 OFFSET ?`).bind(...args,(Math.floor(page)-1)*20).all();
   const counts=await db.prepare(`SELECT status,COUNT(*) AS count FROM discovery_clues GROUP BY status`).all();
   return response({ok:true,clues:rows.results,counts:counts.results,pagination:{page:Math.floor(page),total:count?.total||0,totalPages:Math.ceil((count?.total||0)/20)}});
 };
@@ -97,7 +97,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       await ensureTables(db);jobId=crypto.randomUUID();
       await db.prepare(`INSERT INTO discovery_jobs(id,state_region,customer_type,target_count,source_provider) VALUES(?,?,?,?, 'PUBLIC_SOURCE_CLUES_V1')`).bind(jobId,parsed.stateCode,parsed.customerType,parsed.targetCount).run();
       const results=await Promise.allSettled(sources.map(source=>source==='WEBSITE_SOCIAL'?collectWebsiteSocial(db,parsed):collectSource(parsed,source,env.GEOAPIFY_API_KEY,db)));
-      const states:Record<string,{ok:boolean;found:number;added:number;updated?:number;retained?:number;partial?:boolean;note?:string;error?:string}>={};let added=0,updated=0;
+      const states:Record<string,{ok:boolean;found:number;added:number;updated?:number;retained?:number;partial?:boolean;note?:string;error?:string}>={};let added=0,updated=0;const addedIds:string[]=[],updatedIds:string[]=[];
       for(let i=0;i<results.length;i++){
         const result=results[i],source=sources[i];if(result.status==='rejected'){states[source]={ok:false,found:0,added:0,error:result.reason instanceof Error?result.reason.message:String(result.reason)};continue;}
         let sourceAdded=0,sourceUpdated=0;const clues=[...new Map(result.value.clues.map(clue=>[clue.key,clue])).values()].slice(0,Math.min(50,parsed.targetCount));
@@ -108,16 +108,19 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
               await db.prepare(`UPDATE discovery_clues SET source_key=? WHERE source_key=? AND NOT EXISTS(SELECT 1 FROM discovery_clues WHERE source_key=?)`).bind(clue.key,alias,clue.key).run();
             }
             const row=await db.prepare(`INSERT INTO discovery_clues(id,source_key,title,source_provider,source_url,source_evidence,customer_type,state_region,city,website) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(source_key) DO UPDATE SET title=excluded.title,source_evidence=excluded.source_evidence,customer_type=excluded.customer_type,website=COALESCE(NULLIF(excluded.website,''),discovery_clues.website),updated_at=CURRENT_TIMESTAMP WHERE discovery_clues.status='PENDING' RETURNING id`).bind(id,clue.key,clue.title,provider,clue.url,clue.snippet,clue.customerType||parsed.customerType,parsed.stateCode,clue.city,clue.website||null).first<{id:string}>();
-            return row?row.id===id?'added':'updated':'retained';
+            const savedId=row?.id||(await db.prepare(`SELECT id FROM discovery_clues WHERE source_key=?`).bind(clue.key).first<{id:string}>())?.id;
+            if(savedId)await db.prepare(`INSERT INTO discovery_clue_sources(clue_id,source_provider,source_url,evidence) VALUES(?,?,?,?) ON CONFLICT(clue_id,source_provider) DO UPDATE SET source_url=excluded.source_url,evidence=excluded.evidence,last_seen_at=CURRENT_TIMESTAMP`).bind(savedId,source,clue.url,clue.snippet).run();
+            return {kind:row?row.id===id?'added':'updated':'retained',id:savedId};
           }));
-          sourceAdded+=saved.filter(s=>s==='added').length;sourceUpdated+=saved.filter(s=>s==='updated').length;
+          sourceAdded+=saved.filter(s=>s.kind==='added').length;sourceUpdated+=saved.filter(s=>s.kind==='updated').length;
+          for(const item of saved){if(item.id&&item.kind==='added')addedIds.push(item.id);if(item.id&&item.kind==='updated')updatedIds.push(item.id);}
         }
         added+=sourceAdded;updated+=sourceUpdated;
         states[source]={ok:true,found:clues.length,added:sourceAdded,updated:sourceUpdated,retained:clues.length-sourceAdded-sourceUpdated,partial:result.value.partial,note:result.value.note};
       }
       const ok=Object.values(states).some(s=>s.ok);
       await db.prepare(`UPDATE discovery_jobs SET status=?,result_count=?,error=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(ok?'COMPLETED':'FAILED',added,Object.values(states).filter(s=>!s.ok).map(s=>s.error).join(' · ')||null,jobId).run();
-      return response({ok,added,updated,sources:states,nextRound:parsed.round+1,...(ok?{}:{error:'本次扩展来源均未完成，请查看各来源的具体原因。'})},ok?200:502);
+      return response({ok,added,updated,addedIds,updatedIds,sources:states,nextRound:parsed.round+1,...(ok?{}:{error:'本次扩展来源均未完成，请查看各来源的具体原因。'})},ok?200:502);
     }
     const id=clean(input.clueId,80),clue=await db.prepare(`SELECT * FROM discovery_clues WHERE id=?`).bind(id).first<Record<string,string>>();
     if(!clue)return response({ok:false,error:'线索不存在。'},404);

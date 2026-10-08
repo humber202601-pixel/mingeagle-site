@@ -30,3 +30,9 @@ Production acceptance is recorded after deployment. Sources cover US states; ind
 The first live all-source batch produced 84 new clues, including 60 official school/district records, 19 map records and 5 new website-linked social profiles. Overpass returned HTTP 500, so the revised map adapter falls back to original-ID OSM records delivered by Geoapify and explicitly identifies this route. Shorthand OSM n/w/r identifiers are normalized; pre-existing Geoapify IDs migrate without restoring ignored/converted clues. Successful map responses share a five-minute public-data cache. Source workers immediately claim the next queued source rather than waiting for a whole group.
 
 Live map results also exposed irrelevant swimming, cheerleading and climbing venues. These are now excluded for basketball-focused searches; recreation centers retain their correct buyer type, and identical-name/address map records merge within a response.
+
+## Source provenance and final acceptance
+
+A deduplicated clue can be discovered through several channels. A separate discovery_clue_sources table now retains each observed source and its evidence, so selecting OSM or Geoapify still finds shared records. Overall batch updates count distinct clue IDs rather than double-counting cross-source updates.
+
+Production V15.1 completed Dallas map + website-social discovery in approximately five seconds: OSM fallback 8 / Geoapify 8 / website social 7, with no new duplicates. Ten explicitly unrelated basketball-search venues were moved to the reversible ignored list. Public pages reviewed: home/products/product imagery, GUIDE FAQ, CUSTOM LOGO English/Spanish switch, inquiry request-type validation. Backend dashboard, leads, inquiries, companies, contacts, communications, automation, quotes, orders and tasks rendered. No live messages or payment actions were performed.

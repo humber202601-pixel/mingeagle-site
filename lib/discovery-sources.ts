@@ -235,6 +235,8 @@ export async function collectSource(input:SourceInput,source:ExpansionSource,geo
 export async function ensureClues(db:D1Database){
   await db.prepare(`CREATE TABLE IF NOT EXISTS discovery_clues (id TEXT PRIMARY KEY,source_key TEXT NOT NULL UNIQUE,title TEXT NOT NULL,source_provider TEXT NOT NULL,source_url TEXT NOT NULL,source_evidence TEXT,customer_type TEXT NOT NULL,state_region TEXT NOT NULL,city TEXT,website TEXT,status TEXT NOT NULL DEFAULT 'PENDING',candidate_id TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_discovery_clues_status ON discovery_clues(status,updated_at DESC)`).run();
+  await db.prepare(`CREATE TABLE IF NOT EXISTS discovery_clue_sources (clue_id TEXT NOT NULL,source_provider TEXT NOT NULL,source_url TEXT NOT NULL,evidence TEXT,last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(clue_id,source_provider))`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_discovery_clue_sources_provider ON discovery_clue_sources(source_provider,clue_id)`).run();
   await db.prepare(`CREATE TABLE IF NOT EXISTS discovery_public_source_cache (cache_key TEXT PRIMARY KEY,payload TEXT NOT NULL,expires_at TEXT NOT NULL)`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_discovery_public_cache_expiry ON discovery_public_source_cache(expires_at)`).run();
   await db.prepare(`DELETE FROM discovery_public_source_cache WHERE expires_at<=CURRENT_TIMESTAMP`).run();
