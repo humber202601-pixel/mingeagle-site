@@ -125,7 +125,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ ok: true, type, record: inquiry, lead, score: lead ? buildScoreExplanation(lead, inquiry) : null, quotes: quotes.results, orders: orders.results, tasks: tasks.results, messages: messages.results, timeline: timeline.results });
     }
 
-    const lead = await db.prepare(`SELECT l.*, c.name AS company_name, c.customer_type, c.country,
+    const lead = await db.prepare(`SELECT l.*, c.name AS company_name, c.customer_type, c.country, c.city, c.state_region, c.address, c.website, ct.title AS contact_title, ct.linkedin_url, ct.instagram_url,
       ct.full_name AS contact_name, ct.email AS contact_email, ct.phone AS contact_phone, ct.whatsapp AS contact_whatsapp
       FROM leads l
       LEFT JOIN companies c ON c.id=l.company_id

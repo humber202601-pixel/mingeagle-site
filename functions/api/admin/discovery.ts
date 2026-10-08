@@ -320,7 +320,7 @@ async function searchCandidates(db: D1Database, stateCode: string, customerType:
   }
 }
 
-async function addToCrm(db: D1Database, candidateId: string) {
+export async function addToCrm(db: D1Database, candidateId: string) {
   const candidate = await db.prepare(`SELECT * FROM discovery_candidates WHERE id=? LIMIT 1`).bind(candidateId).first<CandidateRow>();
   if (!candidate) throw new Error('Candidate not found.');
   if(candidate.status==='IGNORED') throw new Error('已忽略的客户不能加入 CRM。');

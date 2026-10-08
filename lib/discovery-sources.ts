@@ -5,7 +5,7 @@ export const SOCIAL_SOURCES = ['FACEBOOK','TIKTOK','INSTAGRAM','LINKEDIN'] as co
 export type SocialSource = typeof SOCIAL_SOURCES[number];
 export const EXPANSION_SOURCES = ['SOCIAL',...SOCIAL_SOURCES,'DIRECTORY','NCES','NCES_PRIVATE','NCES_DISTRICTS','OSM','GEOAPIFY','WEBSITE_SOCIAL'] as const;
 export type ExpansionSource = typeof EXPANSION_SOURCES[number];
-export type Clue = {key:string;title:string;source:string;url:string;snippet:string;city:string;website:string;customerType?:string;aliasKeys?:string[]};
+export type Clue = {key:string;title:string;source:string;url:string;snippet:string;city:string;website:string;customerType?:string;aliasKeys?:string[];address?:string};
 export type SourceInput = {stateCode:string;customerType:string;city:string;round:number;targetCount:number};
 export function sourceCity(input:SourceInput){const cities=input.city?[input.city]:METROS[input.stateCode]||[STATE_NAMES[input.stateCode]];return {city:cities[input.round%cities.length],page:Math.floor(input.round/cities.length)};}
 export function mapBuyerMatch(title:string,type:string,context=''){
@@ -154,7 +154,7 @@ export async function ncesClues(input:SourceInput,source:'NCES'|'NCES_PRIVATE'|'
     if(!title||!id||clean(a.STATE).toUpperCase()!==input.stateCode||(input.city&&city.toLowerCase()!==input.city.toLowerCase()))continue;
     const sourceUrl=new URL(base+'/query');for(const [k,v]of Object.entries({where:`${district?'LEAID':privateSchool?'PPIN':'NCESSCH'}='${id.replace(/'/g,"''")}'`,outFields:'*',returnGeometry:'false',f:'pjson'}))sourceUrl.searchParams.set(k,v);
     const customerType=district?'SCHOOL_DISTRICT':privateSchool?'PRIVATE_CHARTER_SCHOOL':/elementary|primary|\b(?:el|elem)$/i.test(title)?'ELEMENTARY_SCHOOL':/middle|high|secondary|\b(?:ms|hs|jh)$/i.test(title)?'MIDDLE_HIGH_SCHOOL':'PUBLIC_SCHOOL';
-    clues.push({key:`nces:${district?'district':privateSchool?'private':'school'}:${id}`,title,source,customerType,url:sourceUrl.toString(),city,website:'',snippet:clean(`美国 NCES 官方${district?'学区':privateSchool?'私立学校':'公立学校'}名录 · 编号 ${id} · 学年 ${a.SCHOOLYEAR||(privateSchool?'2023–24':'2024–25')} · 地址 ${a.STREET||''}, ${city}, ${input.stateCode} ${a.ZIP||''}。需补充官网、核实当前运营及采购联系信息。`)});
+    clues.push({key:`nces:${district?'district':privateSchool?'private':'school'}:${id}`,title,source,customerType,url:sourceUrl.toString(),city,address:clean([a.STREET,city,input.stateCode,a.ZIP].filter(Boolean).join(', '),500),website:'',snippet:clean(`美国 NCES 官方${district?'学区':privateSchool?'私立学校':'公立学校'}名录 · 编号 ${id} · 学年 ${a.SCHOOLYEAR||(privateSchool?'2023–24':'2024–25')} · 地址 ${a.STREET||''}, ${city}, ${input.stateCode} ${a.ZIP||''}。需补充官网、核实当前运营及采购联系信息。`)});
   }return {clues,note:`${input.city||STATE_NAMES[input.stateCode]} · NCES 官方${district?'学区':privateSchool?'私立学校':'公立学校'}名录第 ${input.round+1} 页，返回 ${clues.length} 条。学校和学区按真实类型保存；此来源独立于商业客户类型。`,partial:false};
 }
 export function osmQuery(input:SourceInput,bounds?:[number,number,number,number]){
@@ -191,7 +191,7 @@ export async function osmClues(input:SourceInput,geoapifyKey?:string,db?:D1Datab
     if(!title||(explicitCity&&city.toLowerCase()!==input.city.toLowerCase())||(!explicitCity&&!bounds)||!['node','way','relation'].includes(e.type)||!Number.isSafeInteger(e.id)||/drinking fountain|basketball hoop|basketball court$/i.test(title)||!mapBuyerMatch(title,input.customerType,String(t.sport||'')))continue;
     let website=clean(t.website||t['contact:website'],1000).split(';')[0];if(website&&!/^https?:\/\//i.test(website))website='https://'+website;if(!publicUrl(website))website='';
     const customerType=t.amenity==='kindergarten'?'PRESCHOOL_KINDERGARTEN':t.amenity==='school'?'PUBLIC_SCHOOL':input.customerType;
-    clues.push({key:`osm:${e.type}:${e.id}`,title,source:'OSM',customerType,url:`https://www.openstreetmap.org/${e.type}/${e.id}`,city,website,snippet:clean(`OpenStreetMap 地点资料 · ${t['addr:street']||''} ${t['addr:housenumber']||''}, ${city} · ${explicitCity?'地图明确标注城市':'位于搜索城市边界；城市归属待核实'} · ${t.shop||t.leisure||t.club||t.amenity||t.office||''}。地图分类仅提供机构线索，业务及联系信息需官网核验。`)});
+    clues.push({key:`osm:${e.type}:${e.id}`,title,source:'OSM',customerType,url:`https://www.openstreetmap.org/${e.type}/${e.id}`,city,website,address:clean([t['addr:housenumber'],t['addr:street'],city,input.stateCode,t['addr:postcode']].filter(Boolean).join(' '),500),snippet:clean(`OpenStreetMap 地点资料 · ${t['addr:street']||''} ${t['addr:housenumber']||''}, ${city} · ${explicitCity?'地图明确标注城市':'位于搜索城市边界；城市归属待核实'} · ${t.shop||t.leisure||t.club||t.amenity||t.office||''}。地图分类仅提供机构线索，业务及联系信息需官网核验。`)});
   }return {clues,note:`${input.city} · OSM 地图返回 ${clues.length} 条具名机构线索；${boundsNote}未填城市时轮换所选州的主要城市。普通球场、篮球架和饮水点不入库。`,partial:false};
 }
 export async function geoapifyClues(input:SourceInput,apiKey?:string){
@@ -212,7 +212,7 @@ export async function geoapifyClues(input:SourceInput,apiKey?:string){
     const rawType=String(raw.osm_type||p.datasource?.osm_type||'').toLowerCase(),osmType=({n:'node',w:'way',r:'relation'} as Record<string,string>)[rawType]||rawType,osmId=String(raw.osm_id||p.datasource?.osm_id||'');
     const osm=['node','way','relation'].includes(osmType)&&/^\d+$/.test(osmId),sourceUrl=osm?`https://www.openstreetmap.org/${osmType}/${osmId}`:`https://www.openstreetmap.org/search?query=${encodeURIComponent(title+' '+city+' '+input.stateCode)}`;
     const customerType=categories.startsWith('education')?(p.categories?.includes('education.kindergarten')?'PRESCHOOL_KINDERGARTEN':'PUBLIC_SCHOOL'):/recreation|recreational|ymca|community cent(?:er|re)/i.test(title)?'RECREATION_CENTER':input.customerType;
-    clues.push({key:osm?`osm:${osmType}:${osmId}`:`geoapify:${id}`,aliasKeys:osm?[`geoapify:${id}`]:[],source:'GEOAPIFY',title,customerType,url:sourceUrl,website,city:explicitCity||city,snippet:clean(`Geoapify 公开地点目录 · ${p.formatted||title+' '+city} · 分类 ${(p.categories||[]).join(', ')} · ${explicitCity?'来源标注城市':'城市搜索范围，具体归属待核实'}。地图分类不等于采购意向，官网和业务需核验。`)});
+    clues.push({key:osm?`osm:${osmType}:${osmId}`:`geoapify:${id}`,aliasKeys:osm?[`geoapify:${id}`]:[],source:'GEOAPIFY',title,customerType,url:sourceUrl,website,city:explicitCity||city,address:clean(p.formatted,500),snippet:clean(`Geoapify 公开地点目录 · ${p.formatted||title+' '+city} · 分类 ${(p.categories||[]).join(', ')} · ${explicitCity?'来源标注城市':'城市搜索范围，具体归属待核实'}。地图分类不等于采购意向，官网和业务需核验。`)});
   }
   const unique=[...new Map(clues.map(c=>[c.title.toLowerCase()+'|'+c.snippet.split(' · 分类 ')[0].toLowerCase(),c])).values()];
   return {clues:unique,note:`${city} · 地图机构第 ${page+1} 页，返回 ${unique.length} 条；已排除明显无关的专项运动地点，并合并同名同地址记录。业务和采购意向需官网核验。`,partial:false};
@@ -234,6 +234,8 @@ export async function collectSource(input:SourceInput,source:ExpansionSource,geo
 }
 export async function ensureClues(db:D1Database){
   await db.prepare(`CREATE TABLE IF NOT EXISTS discovery_clues (id TEXT PRIMARY KEY,source_key TEXT NOT NULL UNIQUE,title TEXT NOT NULL,source_provider TEXT NOT NULL,source_url TEXT NOT NULL,source_evidence TEXT,customer_type TEXT NOT NULL,state_region TEXT NOT NULL,city TEXT,website TEXT,status TEXT NOT NULL DEFAULT 'PENDING',candidate_id TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
+  const columns=await db.prepare(`PRAGMA table_info(discovery_clues)`).all<{name:string}>();
+  if(!columns.results.some(c=>c.name==='address')){try{await db.prepare(`ALTER TABLE discovery_clues ADD COLUMN address TEXT`).run();}catch(e){const now=await db.prepare(`PRAGMA table_info(discovery_clues)`).all<{name:string}>();if(!now.results.some(c=>c.name==='address'))throw e;}}
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_discovery_clues_status ON discovery_clues(status,updated_at DESC)`).run();
   await db.prepare(`CREATE TABLE IF NOT EXISTS discovery_clue_sources (clue_id TEXT NOT NULL,source_provider TEXT NOT NULL,source_url TEXT NOT NULL,evidence TEXT,last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(clue_id,source_provider))`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_discovery_clue_sources_provider ON discovery_clue_sources(source_provider,clue_id)`).run();

@@ -269,7 +269,7 @@ function contactQuality(row: Row) {
   return Math.min(100, score);
 }
 
-async function syncCrm(db: D1Database, candidateId: string) {
+export async function syncCrm(db: D1Database, candidateId: string) {
   const candidate = await db.prepare(`SELECT * FROM discovery_candidates WHERE id=? LIMIT 1`).bind(candidateId).first<Row>();
   if (!candidate) throw new Error('Candidate not found.');
   const leadId = clean(candidate.crm_lead_id, 120);

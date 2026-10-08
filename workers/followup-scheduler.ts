@@ -283,7 +283,8 @@ async function runSweep(env: Env) {
 
 export default {
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(runSweep(env));
+    if (_event.cron === '0 13 * * *') ctx.waitUntil(runSweep(env));
+    else ctx.waitUntil(continueDiscovery(env));
   },
   async fetch() {
     return Response.json({
@@ -294,3 +295,14 @@ export default {
     });
   },
 };
+
+// Continue only existing discovery jobs; this route never queues or sends outreach.
+async function continueDiscovery(env:Env){
+  if(!env.ADMIN_ACCESS_KEY)return;
+  for(let step=0;step<8;step++){
+    const r=await fetch('https://app.mingeagle.com/api/admin/discovery-auto-v1',{
+      method:'POST',headers:{'content-type':'application/json','x-admin-key':env.ADMIN_ACCESS_KEY},body:JSON.stringify({action:'TICK'}),signal:AbortSignal.timeout(70000)});
+    const data=await r.json() as {ok?:boolean;idle?:boolean;run?:{status:string}};
+    if(!r.ok||!data.ok||data.idle||data.run?.status!=='RUNNING')break;
+  }
+}

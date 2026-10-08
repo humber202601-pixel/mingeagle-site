@@ -97,7 +97,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       await ensureTables(db);jobId=crypto.randomUUID();
       await db.prepare(`INSERT INTO discovery_jobs(id,state_region,customer_type,target_count,source_provider) VALUES(?,?,?,?, 'PUBLIC_SOURCE_CLUES_V1')`).bind(jobId,parsed.stateCode,parsed.customerType,parsed.targetCount).run();
       const results=await Promise.allSettled(sources.map(source=>source==='WEBSITE_SOCIAL'?collectWebsiteSocial(db,parsed):collectSource(parsed,source,env.GEOAPIFY_API_KEY,db)));
-      const states:Record<string,{ok:boolean;found:number;added:number;updated?:number;retained?:number;partial?:boolean;note?:string;error?:string}>={};let added=0,updated=0;const addedIds:string[]=[],updatedIds:string[]=[];
+      const states:Record<string,{ok:boolean;found:number;added:number;updated?:number;retained?:number;partial?:boolean;note?:string;error?:string}>={};let added=0,updated=0;const addedIds:string[]=[],updatedIds:string[]=[],foundIds:string[]=[];
       for(let i=0;i<results.length;i++){
         const result=results[i],source=sources[i];if(result.status==='rejected'){states[source]={ok:false,found:0,added:0,error:result.reason instanceof Error?result.reason.message:String(result.reason)};continue;}
         let sourceAdded=0,sourceUpdated=0;const clues=[...new Map(result.value.clues.map(clue=>[clue.key,clue])).values()].slice(0,Math.min(50,parsed.targetCount));
@@ -109,18 +109,19 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
             }
             const row=await db.prepare(`INSERT INTO discovery_clues(id,source_key,title,source_provider,source_url,source_evidence,customer_type,state_region,city,website) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(source_key) DO UPDATE SET title=excluded.title,source_evidence=excluded.source_evidence,customer_type=excluded.customer_type,website=COALESCE(NULLIF(excluded.website,''),discovery_clues.website),updated_at=CURRENT_TIMESTAMP WHERE discovery_clues.status='PENDING' RETURNING id`).bind(id,clue.key,clue.title,provider,clue.url,clue.snippet,clue.customerType||parsed.customerType,parsed.stateCode,clue.city,clue.website||null).first<{id:string}>();
             const savedId=row?.id||(await db.prepare(`SELECT id FROM discovery_clues WHERE source_key=?`).bind(clue.key).first<{id:string}>())?.id;
+            if(savedId&&clue.address)await db.prepare(`UPDATE discovery_clues SET address=? WHERE id=?`).bind(clue.address,savedId).run();
             if(savedId)await db.prepare(`INSERT INTO discovery_clue_sources(clue_id,source_provider,source_url,evidence) VALUES(?,?,?,?) ON CONFLICT(clue_id,source_provider) DO UPDATE SET source_url=excluded.source_url,evidence=excluded.evidence,last_seen_at=CURRENT_TIMESTAMP`).bind(savedId,source,clue.url,clue.snippet).run();
             return {kind:row?row.id===id?'added':'updated':'retained',id:savedId};
           }));
           sourceAdded+=saved.filter(s=>s.kind==='added').length;sourceUpdated+=saved.filter(s=>s.kind==='updated').length;
-          for(const item of saved){if(item.id&&item.kind==='added')addedIds.push(item.id);if(item.id&&item.kind==='updated')updatedIds.push(item.id);}
+          for(const item of saved){if(item.id)foundIds.push(item.id);if(item.id&&item.kind==='added')addedIds.push(item.id);if(item.id&&item.kind==='updated')updatedIds.push(item.id);}
         }
         added+=sourceAdded;updated+=sourceUpdated;
         states[source]={ok:true,found:clues.length,added:sourceAdded,updated:sourceUpdated,retained:clues.length-sourceAdded-sourceUpdated,partial:result.value.partial,note:result.value.note};
       }
       const ok=Object.values(states).some(s=>s.ok);
       await db.prepare(`UPDATE discovery_jobs SET status=?,result_count=?,error=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(ok?'COMPLETED':'FAILED',added,Object.values(states).filter(s=>!s.ok).map(s=>s.error).join(' · ')||null,jobId).run();
-      return response({ok,added,updated,addedIds,updatedIds,sources:states,nextRound:parsed.round+1,...(ok?{}:{error:'本次扩展来源均未完成，请查看各来源的具体原因。'})},ok?200:502);
+      return response({ok,added,updated,addedIds,updatedIds,foundIds:[...new Set(foundIds)],sources:states,nextRound:parsed.round+1,...(ok?{}:{error:'本次扩展来源均未完成，请查看各来源的具体原因。'})},ok?200:502);
     }
     const id=clean(input.clueId,80),clue=await db.prepare(`SELECT * FROM discovery_clues WHERE id=?`).bind(id).first<Record<string,string>>();
     if(!clue)return response({ok:false,error:'线索不存在。'},404);
@@ -144,6 +145,10 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     if(!existing){await save(db,[hit],clue.state_region,clue.customer_type,1,undefined,'PUBLIC_SOURCE_VERIFIED_V1',key);}
     const candidate=existing||await db.prepare(`SELECT id,status FROM discovery_candidates WHERE source_key=?`).bind(key).first<{id:string;status:string}>();
     if(!candidate)return response({ok:false,error:'官网核验完成，但候选未保存，请重试。'},409);
+    if(clue.address){
+      await db.prepare(`UPDATE discovery_candidates SET address=COALESCE(NULLIF(address,''),?) WHERE id=?`).bind(clue.address,candidate.id).run();
+      await db.prepare(`UPDATE companies SET address=COALESCE(NULLIF(address,''),?) WHERE id=(SELECT l.company_id FROM leads l JOIN discovery_candidates c ON c.crm_lead_id=l.id WHERE c.id=?)`).bind(clue.address,candidate.id).run();
+    }
     await db.prepare(`UPDATE discovery_clues SET status='CONVERTED',candidate_id=?,website=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='PENDING'`).bind(candidate.id,website,id).run();
     return response({ok:true,candidateId:candidate.id,name:hit.orgName,existing:Boolean(existing)});
   }catch(e){const error=e instanceof Error?e.message:'公开来源搜索失败。';if(jobId)await db.prepare(`UPDATE discovery_jobs SET status='FAILED',error=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(error.slice(0,1000),jobId).run();return response({ok:false,error},502);}

@@ -206,7 +206,7 @@ export default function AdminApp() {
   let content: React.ReactNode;
   if (page === 'dashboard') content = <Dashboard data={data}/>;
   else if (page === 'discovery') content = <>
-    <Top title="客户发现" description="从公开商业数据中自动发现美国潜在客户，评分、保留来源证据，并一键加入 CRM。"/>
+    <Top title="客户发现" description="选择地区和客户类型，一键完成搜索、官网核验、公开信息补全和待开发客户入库。"/>
     <DiscoveryCenter accessKey={key} onChanged={() => void load()} />
   </>;
   else if (page === 'leads' && detailId) content = <AdminDetail type="lead" id={detailId} accessKey={key}/>;

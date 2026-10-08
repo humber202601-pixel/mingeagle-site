@@ -117,10 +117,16 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
 
     {type === 'lead' && <>
       <Section title="潜客概况"><div className="detail-grid">
-        <div><small>公司 / 机构</small><strong>{text(r.company_name)}</strong></div><div><small>联系人</small><strong>{text(r.contact_name)}</strong></div><div><small>邮箱</small><strong>{text(r.contact_email)}</strong></div><div><small>来源</small><strong>{text(r.source)}</strong></div><div><small>产品兴趣</small><strong>{text(r.product_interest)}</strong></div><div><small>下一步行动</small><strong>{systemText(r.next_best_action)}</strong></div>
+        <div><small>公司 / 机构</small><strong>{text(r.company_name)}</strong></div><div><small>联系人</small><strong>{text(r.contact_name,'未公开')}</strong></div><div><small>职务</small><strong>{text(r.contact_title,'未公开')}</strong></div><div><small>邮箱</small><strong>{text(r.contact_email,'未公开')}</strong></div><div><small>电话</small><strong>{text(r.contact_phone,'未公开')}</strong></div><div><small>WhatsApp</small><strong>{text(r.contact_whatsapp,'未公开')}</strong></div><div><small>城市 / 州</small><strong>{[r.city,r.state_region].filter(Boolean).join(', ')||'未公开'}</strong></div><div><small>地址</small><strong>{text(r.address,'未公开')}</strong></div><div><small>官网</small>{r.website?<a href={text(r.website)} target="_blank" rel="noreferrer">{text(r.website)}</a>:<strong>未公开</strong>}</div><div><small>来源</small><strong>{text(r.source)}</strong></div><div><small>产品兴趣</small><strong>{text(r.product_interest)}</strong></div><div><small>下一步行动</small><strong>{systemText(r.next_best_action)}</strong></div>
       </div></Section>
       {data.score && <ScoreCard score={data.score}/>} 
     </>}
+
+    {type==='lead'&&Boolean(data.evidence?.length)&&<Section title="公开来源与补全信息"><MiniTable rows={data.evidence||[]} columns={[
+      {key:'field_name',label:'信息类型',format:x=>({website:'官网',email:'邮箱',phone:'电话',whatsapp:'WhatsApp',source:'原始来源',website_email:'官网邮箱',website_phone:'官网电话',website_whatsapp:'官网 WhatsApp',contact_person:'联系人 / 职务',linkedin:'LinkedIn',instagram:'Instagram',facebook:'Facebook',tiktok:'TikTok'} as Record<string,string>)[text(x.field_name)]||text(x.field_name)},
+      {key:'value',label:'公开信息',format:x=>/^https?:\/\//i.test(text(x.value,''))?<a href={text(x.value)} target="_blank" rel="noreferrer">{text(x.value)}</a>:text(x.value)},
+      {key:'source_url',label:'出处',format:x=>x.source_url?<a href={text(x.source_url)} target="_blank" rel="noreferrer">查看来源</a>:'—'}
+    ]}/></Section>}
 
     <Section title="询盘记录"><MiniTable rows={data.inquiries || (type==='inquiry'?[r]:[])} columns={[
       {key:'reference',label:'询盘编号'},{key:'request_type',label:'类型',format:x=>requestTypeLabel(x.request_type)},{key:'estimated_quantity',label:'数量'},{key:'status',label:'状态',format:x=>statusLabel(x.status)},{key:'created_at',label:'创建时间',format:x=>zhDate(x.created_at)},{key:'id',label:'详情',format:x=>x.id ? <Link to={`/app/inquiries/${text(x.id)}`}>查看</Link> : '—'}

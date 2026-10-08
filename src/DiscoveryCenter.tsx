@@ -2,6 +2,7 @@ import { TYPE_OPTIONS, COMMERCIAL_TYPES, csvCell } from '../shared/discovery';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { ExternalLink, LoaderCircle, MapPin, RefreshCcw, Search, UserPlus, X, Download } from 'lucide-react';
 import DiscoverySources from './DiscoverySources';
+import AutoDiscovery from './AutoDiscovery';
 
 type Row = Record<string, unknown>;
 
@@ -46,6 +47,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
   const [jobs, setJobs] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [autoBusy,setAutoBusy]=useState(false),[historyVersion,setHistoryVersion]=useState(0);
   const [expandedBusy,setExpandedBusy]=useState(false),[targetCount,setTargetCount]=useState(20);
   const [batching, setBatching] = useState(false);
   const [preparing, setPreparing] = useState(false);
@@ -322,6 +324,8 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
   },[allCounts,priority]);
 
   return <>
+    <AutoDiscovery accessKey={accessKey} externalBusy={expandedBusy||searching||importing||cleaning||batching||preparing||Boolean(busyId)} onBusyChange={setAutoBusy} onChanged={()=>{setReloadVersion(v=>v+1);onChanged();}} onCleared={()=>{setHistoryVersion(v=>v+1);setSearchBatch({key:'',round:0});setCandidates([]);setJobs([]);setAllCounts([]);setMessage('');setError('');}}/>
+    <details className="discovery-advanced"><summary>高级工具 · 手动搜索、核验与候选记录</summary>
     <section className="metric-grid discovery-metrics">
       <div className="metric"><span>候选客户库</span><strong>{counts.total}</strong><small>有效候选</small></div>
       <div className="metric"><span>待开发</span><strong>{counts.fresh}</strong><small>尚未加入 CRM</small></div>
@@ -340,20 +344,20 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
           <input value="United States" readOnly />
         </label>
         <label>州
-          <select disabled={expandedBusy||searching||importing} name="stateCode" value={searchState} onChange={e=>{setSearchState(e.target.value);setSearchBatch({key:'',round:0})}}>
+          <select disabled={autoBusy||expandedBusy||searching||importing} name="stateCode" value={searchState} onChange={e=>{setSearchState(e.target.value);setSearchBatch({key:'',round:0})}}>
             {STATES.map(([code,name]) => <option key={code} value={code}>{name} ({code})</option>)}
           </select>
         </label>
         <label>客户类型
-          <select disabled={expandedBusy||searching||importing} name="customerType" value={searchType} onChange={e=>{setSearchType(e.target.value);setSearchBatch({key:'',round:0})}}>
+          <select disabled={autoBusy||expandedBusy||searching||importing} name="customerType" value={searchType} onChange={e=>{setSearchType(e.target.value);setSearchBatch({key:'',round:0})}}>
             {TYPE_OPTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
-        <label>城市（可选）<input disabled={expandedBusy||searching||importing} name="city" value={searchCity} onChange={e=>{setSearchCity(e.target.value);setSearchBatch({key:'',round:0})}} placeholder="例如 Dallas；留空覆盖主要城市" maxLength={80}/></label>
+        <label>城市（可选）<input disabled={autoBusy||expandedBusy||searching||importing} name="city" value={searchCity} onChange={e=>{setSearchCity(e.target.value);setSearchBatch({key:'',round:0})}} placeholder="例如 Dallas；留空覆盖主要城市" maxLength={80}/></label>
         <label>每批目标数量
-          <select disabled={expandedBusy||searching||importing} name="targetCount" value={targetCount} onChange={e=>setTargetCount(Number(e.target.value))}><option value="20">20</option><option value="50">50</option><option value="100">100</option></select>
+          <select disabled={autoBusy||expandedBusy||searching||importing} name="targetCount" value={targetCount} onChange={e=>setTargetCount(Number(e.target.value))}><option value="20">20</option><option value="50">50</option><option value="100">100</option></select>
         </label>
-        <button className="button discovery-search-button" disabled={expandedBusy||(searching||importing)}>{searching ? <><LoaderCircle size={16} className="spin"/> 正在搜索…</> : <><Search size={16}/> {searchBatch.round?'继续发现下一批':'开始发现客户'}</>}</button>
+        <button className="button discovery-search-button" disabled={autoBusy||expandedBusy||(searching||importing)}>{searching ? <><LoaderCircle size={16} className="spin"/> 正在搜索…</> : <><Search size={16}/> {searchBatch.round?'继续发现下一批':'开始发现客户'}</>}</button>
       </form>
       <details className="discovery-website-import">
         <summary>官网批量核验 · 补充搜索、展会和行业目录中的潜在客户</summary>
@@ -361,14 +365,14 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
         {COMMERCIAL_TYPES.has(searchType)?<form onSubmit={importWebsites}>
           <label htmlFor="discovery-websites">待核验官网</label>
           <textarea id="discovery-websites" value={websiteUrls} onChange={e=>setWebsiteUrls(e.target.value)} rows={4} maxLength={11000} placeholder="https://www.example.com" required/>
-          <button className="button secondary" disabled={expandedBusy||(importing||searching)}>{importing?'正在核验官网…':'核验并加入候选库'}</button>
+          <button className="button secondary" disabled={autoBusy||expandedBusy||(importing||searching)}>{importing?'正在核验官网…':'核验并加入候选库'}</button>
         </form>:<p>学校类别请使用上方学校专用发现。</p>}
         {!!websiteResults.length&&<ul className="discovery-website-results" aria-live="polite">{websiteResults.map((result,index)=><li key={index}><strong>{result.status==='VERIFIED'?'已核验':result.status==='DUPLICATE'?'本批重复':result.status==='IGNORED'?'保持忽略':'未通过'}</strong><span>{result.name||result.url}</span>{result.reason&&<small>{result.reason}</small>}</li>)}</ul>}
       </details>
       <div className="discovery-enrich-bar">
         <div className="discovery-note">新增独立教练、多项目训练、社区体育中心、批发商和夏令营。连续搜索会轮换城市及关键词；每批数量是目标，实际入库取决于可核验结果。先筛选“优先跟进”，再补全官网公开联系人。</div>
-        <button type="button" className="button secondary small" disabled={expandedBusy||(batching || preparing)} onClick={() => void batchEnrich()}>{batching ? <><LoaderCircle size={14} className="spin"/> 正在批量补全…</> : <><RefreshCcw size={14}/> 批量补全前 5 个</>}</button>
-        <button type="button" className="button small" disabled={expandedBusy||(preparing || batching)} onClick={() => void prepareSalesBatch()}>{preparing ? <><LoaderCircle size={14} className="spin"/> 正在准备销售…</> : <><UserPlus size={14}/> 一键准备销售前 5 个</>}</button>
+        <button type="button" className="button secondary small" disabled={autoBusy||expandedBusy||(batching || preparing)} onClick={() => void batchEnrich()}>{batching ? <><LoaderCircle size={14} className="spin"/> 正在批量补全…</> : <><RefreshCcw size={14}/> 批量补全前 5 个</>}</button>
+        <button type="button" className="button small" disabled={autoBusy||expandedBusy||(preparing || batching)} onClick={() => void prepareSalesBatch()}>{preparing ? <><LoaderCircle size={14} className="spin"/> 正在准备销售…</> : <><UserPlus size={14}/> 一键准备销售前 5 个</>}</button>
       </div>
       {Object.keys(sourceState).length>0&&<div className="discovery-source-status" aria-live="polite">{Object.entries(sourceState).map(([key,ok])=><span key={key} className={ok?'source-ok':'source-failed'}>{key==='web'?'Web 官网验证':key==='school'?'学校 / 采购验证':'Geoapify 地点'}：{ok?'已完成':'暂未完成'}{sourceErrors[key]?` · ${sourceErrors[key]}`:''}</span>)}</div>}
       {message && <div className="form-status success"><strong>操作成功</strong><p>{message}</p></div>}
@@ -383,8 +387,8 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
           <select aria-label="按州筛选" value={stateFilter} onChange={e=>{setStateFilter(e.target.value);setPage(1)}}><option value="">全部州</option>{STATES.map(([code,name])=><option key={code} value={code}>{name}</option>)}</select>
           <select aria-label="按客户类型筛选" value={typeFilter} onChange={e=>{setTypeFilter(e.target.value);setPage(1)}}><option value="">全部客户类型</option>{TYPE_OPTIONS.map(([code,label])=><option key={code} value={code}>{label}</option>)}</select>
           <select aria-label="按联系完整度筛选" value={readiness} onChange={e=>{setReadiness(e.target.value);setPage(1)}}><option value="ALL">全部联系完整度</option><option value="PRIORITY">优先跟进 · A 级且可联系</option><option value="CONTACTABLE">有公开联系方式</option><option value="INCOMPLETE">待补全联系方式</option></select>
-          <button className="button secondary small" disabled={expandedBusy||(cleaning||searching||importing)} onClick={()=>void cleanupInvalid()}>{cleaning?'正在核对历史来源…':'排除百科 / 新闻类历史候选'}</button>
-          <button className="button secondary small" disabled={expandedBusy||(!visible.length||loading)} onClick={exportVisible}><Download size={14}/>导出本页 CSV</button>
+          <button className="button secondary small" disabled={autoBusy||expandedBusy||(cleaning||searching||importing)} onClick={()=>void cleanupInvalid()}>{cleaning?'正在核对历史来源…':'排除百科 / 新闻类历史候选'}</button>
+          <button className="button secondary small" disabled={autoBusy||expandedBusy||(!visible.length||loading)} onClick={exportVisible}><Download size={14}/>导出本页 CSV</button>
           <select aria-label="按评分筛选" value={gradeFilter} onChange={e => {setGradeFilter(e.target.value);setPage(1)}}><option value="ALL">全部评分</option><option value="A">A级</option><option value="B">B级</option><option value="C">C级</option></select>
           <select aria-label="按状态筛选" value={statusFilter} onChange={e => {setStatusFilter(e.target.value);setPage(1)}}><option value="NEW">待开发</option><option value="CRM">已入CRM</option><option value="IGNORED">已忽略</option><option value="ALL">全部状态</option></select>
         </div>
@@ -421,19 +425,19 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
             <td><div className="discovery-score"><span className={gradeClass(row.grade)}>{text(row.grade)}</span><strong>{text(row.lead_score, '0')}</strong><small>/100</small></div></td>
             <td><a className="discovery-source" href={text(row.source_url,'#')} target="_blank" rel="noreferrer">{sourceLabel(row.source_provider)} <ExternalLink size={12}/></a>{text(row.website_contact_url,'') && <a className="discovery-source" href={text(row.website_contact_url,'')} target="_blank" rel="noreferrer">官网证据 <ExternalLink size={12}/></a>}<small>{text(row.source_evidence,'')}</small></td>
             <td><div className="secure-link-actions">
-              {website && status !== 'IGNORED' && <button className="table-action" disabled={expandedBusy||(busyId === id)} onClick={() => void enrichOne(id)}><RefreshCcw size={13}/>{busyId === id ? '补全中…' : enrichment === 'COMPLETED' ? '重新补全' : '官网补全'}</button>}
-              {status === 'NEW' && <button className="table-action" disabled={expandedBusy||(busyId === id)} onClick={() => void candidateAction(id,'ADD_TO_CRM')}><UserPlus size={13}/>{busyId === id ? '处理中…' : '加入CRM'}</button>}
-              {status === 'NEW' && <button className="table-action" disabled={expandedBusy||(busyId === id)} onClick={() => void candidateAction(id,'IGNORE')}><X size={13}/>忽略</button>}
+              {website && status !== 'IGNORED' && <button className="table-action" disabled={autoBusy||expandedBusy||(busyId === id)} onClick={() => void enrichOne(id)}><RefreshCcw size={13}/>{busyId === id ? '补全中…' : enrichment === 'COMPLETED' ? '重新补全' : '官网补全'}</button>}
+              {status === 'NEW' && <button className="table-action" disabled={autoBusy||expandedBusy||(busyId === id)} onClick={() => void candidateAction(id,'ADD_TO_CRM')}><UserPlus size={13}/>{busyId === id ? '处理中…' : '加入CRM'}</button>}
+              {status === 'NEW' && <button className="table-action" disabled={autoBusy||expandedBusy||(busyId === id)} onClick={() => void candidateAction(id,'IGNORE')}><X size={13}/>忽略</button>}
               {status === 'CRM' && <span>已进入销售流程</span>}
-              {status === 'IGNORED' && <button className="table-action" disabled={expandedBusy||(busyId===id)} onClick={()=>void candidateAction(id,'RESTORE')}>恢复候选</button>}
+              {status === 'IGNORED' && <button className="table-action" disabled={autoBusy||expandedBusy||(busyId===id)} onClick={()=>void candidateAction(id,'RESTORE')}>恢复候选</button>}
             </div></td>
           </tr>;
         })}
       </tbody></table></div>
-      <div className="discovery-pagination"><span>共 {pagination.total} 个 · 每页 {pagination.pageSize} 个 · 第 {page} / {Math.max(1,pagination.totalPages)} 页</span><div><button className="button secondary small" disabled={expandedBusy||(page<=1||loading)} onClick={()=>setPage(p=>p-1)}>上一页</button><button className="button secondary small" disabled={expandedBusy||(page>=pagination.totalPages||loading)} onClick={()=>setPage(p=>p+1)}>下一页</button></div></div>
+      <div className="discovery-pagination"><span>共 {pagination.total} 个 · 每页 {pagination.pageSize} 个 · 第 {page} / {Math.max(1,pagination.totalPages)} 页</span><div><button className="button secondary small" disabled={autoBusy||expandedBusy||(page<=1||loading)} onClick={()=>setPage(p=>p-1)}>上一页</button><button className="button secondary small" disabled={autoBusy||expandedBusy||(page>=pagination.totalPages||loading)} onClick={()=>setPage(p=>p+1)}>下一页</button></div></div>
     </section>
 
-    <DiscoverySources accessKey={accessKey} stateCode={searchState} customerType={searchType} city={searchCity} targetCount={targetCount} externalBusy={searching||importing||cleaning||batching||preparing||Boolean(busyId)} onBusyChange={setExpandedBusy} onChanged={()=>{setReloadVersion(value=>value+1);onChanged();}}/>
+    <DiscoverySources key={historyVersion} accessKey={accessKey} stateCode={searchState} customerType={searchType} city={searchCity} targetCount={targetCount} externalBusy={autoBusy||searching||importing||cleaning||batching||preparing||Boolean(busyId)} onBusyChange={setExpandedBusy} onChanged={()=>{setReloadVersion(value=>value+1);onChanged();}}/>
 
     {jobs.length > 0 && <section className="panel">
       <div className="panel-head"><h2>最近发现任务</h2><span>保留最近 20 次运行记录</span></div>
@@ -441,5 +445,6 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
     </section>}
 
     <div className="discovery-attribution">公开数据源仅用于发现公开商业信息；官网补全仅访问公开网页并保留来源证据。</div>
+  </details>
   </>;
 }
