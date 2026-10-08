@@ -11,6 +11,21 @@ const form=document.querySelector('#quoteForm');if(!form)return;
 const $=id=>document.getElementById(id),c=root.MINGEAGLE_INQUIRY_CONFIG||{enabled:false},q=new URLSearchParams(location.search);
 const type=TYPE_MAP[(q.get('type')||'').toLowerCase()];if(type)$('request_type').value=type;
 form.querySelectorAll('[name="products[]"]').forEach(cb=>{if(cb.value===q.get('product'))cb.checked=true});
+
+try{
+ const raw=q.get('logo_design');
+ if(raw&&raw.length<=3000){
+  const d=JSON.parse(raw),options={p1:{sizes:['3','5','7'],colors:['Orange','Blue','Green','Yellow']},p3:{sizes:['3','4','6','7'],colors:['Orange','Brown','Black','Aqua Blue']}};
+  if(options[d.product]&&/^ME-LOGO-[A-Z0-9-]{1,80}$/.test(d.id||'')&&options[d.product].sizes.includes(String(d.size))&&options[d.product].colors.includes(d.color)&&['text','image'].includes(d.kind)&&Number.isFinite(d.width)&&Number.isFinite(d.height)&&d.width>0&&d.width<=180&&d.height>0&&d.height<=160){
+   const product=options[d.product],check=$('choose-'+d.product);if(check)check.checked=true;
+   $('size-'+d.product).value='No. '+d.size;$('color-'+d.product).value=d.color;
+   const detail=['Custom logo design: '+d.id,'Logo type: '+d.kind,d.kind==='text'?'Text: '+String(d.text||'').slice(0,40):'Image file: '+String(d.file||'').slice(0,200),d.font?'Font: '+String(d.font).slice(0,40):'',d.layout?'Layout: '+String(d.layout).slice(0,20):'','Preview logo size: '+d.width+' x '+d.height+' mm','Curve: '+Number(d.curve||0)+'%','Final print details: please confirm with the quote'].filter(Boolean).join('\n');
+   $('customization').value='Logo';
+   $('message').value='I would like a quote for this custom logo design.\n'+detail+'\nArtwork can be provided for review.';
+  }
+ }
+}catch(e){}
+
 const customers={coach:'Coach / trainer',academy:'Training academy',retailer:'Retail store',distributor:'Distributor / wholesaler',ecommerce:'E-commerce seller'};if(customers[q.get('customer')])$('customer_type').value=customers[q.get('customer')];
 let reference=null,busy=false,prepared='';
 function sync(){const r=rules($('request_type').value);$('quoteFields').hidden=!r.purchase;$('quoteFields').querySelectorAll('input,select').forEach(el=>{el.disabled=!r.purchase;el.required=r.purchase});$('orderFields').hidden=!r.order;$('order_reference').disabled=!r.order;$('order_reference').required=r.order;$('message').required=r.message;$('messageRequired').hidden=!r.message;$('productHelp').textContent=r.purchase?'Select at least one product. Size and color choices appear below each selection.':'Select a product if relevant, or describe your question below.';form.querySelectorAll('.inquiryProduct').forEach(card=>{const selected=card.querySelector('[name="products[]"]').checked;card.classList.toggle('selected',selected);const opts=card.querySelector('.productOptions');opts.hidden=!selected;opts.querySelectorAll('select').forEach(el=>el.disabled=!selected)});$('productError').hidden=true}

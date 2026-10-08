@@ -140,7 +140,8 @@
     "nav.schools": "For Schools",
     "nav.track": "Track order",
     "nav.quote": "Get a quote",
-    "nav.menu": "Menu"
+    "nav.menu": "Menu",
+    "nav.customLogo": "CUSTOM LOGO"
   },
   "es": {
     "nav.products": "Productos",
@@ -283,7 +284,8 @@
     "nav.schools": "Para escuelas",
     "nav.track": "Seguir pedido",
     "nav.quote": "Pedir cotización",
-    "nav.menu": "Menú"
+    "nav.menu": "Menú",
+    "nav.customLogo": "LOGO PERSONALIZADO"
   },
   "pt": {
     "nav.products": "Produtos",
@@ -426,7 +428,8 @@
     "nav.schools": "Para escolas",
     "nav.track": "Rastrear pedido",
     "nav.quote": "Pedir orçamento",
-    "nav.menu": "Menu"
+    "nav.menu": "Menu",
+    "nav.customLogo": "LOGO PERSONALIZADO"
   },
   "fr": {
     "nav.products": "Produits",
@@ -569,7 +572,8 @@
     "nav.schools": "Pour les écoles",
     "nav.track": "Suivre la commande",
     "nav.quote": "Demander un devis",
-    "nav.menu": "Menu"
+    "nav.menu": "Menu",
+    "nav.customLogo": "LOGO PERSONNALISÉ"
   },
   "de": {
     "nav.products": "Produkte",
@@ -712,7 +716,8 @@
     "nav.schools": "Für Schulen",
     "nav.track": "Sendung verfolgen",
     "nav.quote": "Angebot anfordern",
-    "nav.menu": "Menü"
+    "nav.menu": "Menü",
+    "nav.customLogo": "INDIVIDUELLES LOGO"
   },
   "it": {
     "nav.products": "Prodotti",
@@ -855,7 +860,8 @@
     "nav.schools": "Per le scuole",
     "nav.track": "Traccia ordine",
     "nav.quote": "Richiedi preventivo",
-    "nav.menu": "Menu"
+    "nav.menu": "Menu",
+    "nav.customLogo": "LOGO PERSONALIZZATO"
   },
   "nl": {
     "nav.products": "Producten",
@@ -998,7 +1004,8 @@
     "nav.schools": "Voor scholen",
     "nav.track": "Bestelling volgen",
     "nav.quote": "Offerte aanvragen",
-    "nav.menu": "Menu"
+    "nav.menu": "Menu",
+    "nav.customLogo": "EIGEN LOGO"
   },
   "pl": {
     "nav.products": "Produkty",
@@ -1141,7 +1148,8 @@
     "nav.schools": "Dla szkół",
     "nav.track": "Śledź zamówienie",
     "nav.quote": "Poproś o wycenę",
-    "nav.menu": "Menu"
+    "nav.menu": "Menu",
+    "nav.customLogo": "WŁASNE LOGO"
   },
   "ja": {
     "nav.products": "商品",
@@ -1284,6 +1292,7 @@
     "nav.schools": "学校向け",
     "nav.track": "配送状況",
     "nav.quote": "見積もり依頼",
-    "nav.menu": "メニュー"
+    "nav.menu": "メニュー",
+    "nav.customLogo": "カスタムロゴ"
   }
 }

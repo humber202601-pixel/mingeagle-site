@@ -22,3 +22,7 @@ print('Approved hero images and product specifications ready for deployment.')
 # Guard request routing and server-confirmed success behavior before deployment.
 subprocess.run(['node', 'scripts/check-inquiry.cjs'], check=True)
 subprocess.run(['node', 'scripts/check-submissions.cjs'], check=True)
+
+# Preserve the approved twin-ellipse model and customer design flow.
+subprocess.run(['node', 'scripts/check-custom-logo.cjs'], check=True)
+subprocess.run(['node', 'scripts/check-logo-inquiry.cjs'], check=True)
