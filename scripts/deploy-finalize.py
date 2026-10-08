@@ -26,3 +26,4 @@ subprocess.run(['node', 'scripts/check-submissions.cjs'], check=True)
 # Preserve the approved twin-ellipse model and customer design flow.
 subprocess.run(['node', 'scripts/check-custom-logo.cjs'], check=True)
 subprocess.run(['node', 'scripts/check-logo-inquiry.cjs'], check=True)
+subprocess.run(['node', 'scripts/check-logo-canvas.cjs'], check=True)

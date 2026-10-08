@@ -11,3 +11,5 @@ Supported products: flocked silent basketball set and weighted flocked silent ba
 Confirmed designs remain available during the current visit. Customers can download SVG artwork and a JSON design record, then transfer validated product and design details into the existing quote form. This release does not claim automatic CRM artwork storage or manufacturing approval. Print dimensions and placement are illustrative until confirmed with the quote.
 
 Verification runs during deployment using `scripts/deploy-finalize.py`: existing product/inquiry checks plus geometry, processing, localization, download and quote handoff checks. No live customer requests are sent by these tests.
+
+When WebGL is unavailable, the Canvas compatibility renderer uses the same sphere, opposite-ellipse seam distance, orthographic projection, decal placement and lighting equations. The WebGL shaders remain unchanged. A flat artwork preview remains the final fallback if neither renderer is available.

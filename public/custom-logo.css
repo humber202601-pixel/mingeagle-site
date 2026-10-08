@@ -34,3 +34,6 @@
 .navlinks a[aria-current=page]{color:var(--orange);font-weight:700}
 @media(max-width:850px){#mingeagle-custom-logo .ml-grid{grid-template-columns:1fr}#mingeagle-custom-logo .ml-stage{padding:1rem}}
 @media(max-width:440px){#mingeagle-custom-logo .ml-two{grid-template-columns:1fr}#mingeagle-custom-logo .ml-type{flex-wrap:wrap}#mingeagle-custom-logo .ml-type button{flex:1 1 120px}}
+
+#mingeagle-custom-logo #ml-ball-cpu{display:block;width:100%;height:370px;background:radial-gradient(ellipse 35% 4% at 50% 93%,#233d4928,transparent);touch-action:none;cursor:grab}#mingeagle-custom-logo #ml-ball-cpu:active{cursor:grabbing}
+@media(max-width:720px){#mingeagle-custom-logo #ml-ball-cpu{height:330px}}
