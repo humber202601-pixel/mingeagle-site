@@ -27,6 +27,9 @@ jobs:
       - name: Apply product images specifications and 2x2 layout
         run: python scripts/deploy-finalize.py
 
+      - name: Build search guides
+        run: python scripts/build-learning.py
+
       - name: Verify confirmation build
         run: |
           test -f public/index.html
@@ -50,7 +53,7 @@ jobs:
           fi
 
       - name: Verify inbound attribution and translations
-        run: node scripts/check-growth.cjs
+        run: node scripts/check-growth.cjs && node scripts/check-learning.cjs && node scripts/check-marketing-kit.cjs
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
