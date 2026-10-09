@@ -1,5 +1,6 @@
 import { parseSearch, SCHOOL_TYPES } from '../../../shared/discovery';
 import { ensureRuns } from '../../../lib/discovery';
+import { intakeVerifiedRun } from '../../../lib/discovery-intake';
 
 interface Env { MINGEAGLE_DB:D1Database; GEOAPIFY_API_KEY?:string }
 type Result={ok?:boolean;found?:number;error?:string;checked?:number;verified?:number;note?:string;rawCount?:number;websiteChecked?:number};
@@ -45,7 +46,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       WHERE r.run_id=? AND c.status<>'IGNORED'`).bind(runId).first<Record<string,number>>();
     const geo=results.find((_,i)=>configs[i][0]===(school?'school':'geoapify'));
     const web=results.find((_,i)=>configs[i][0]==='web');
-    return response({ok:any,runId,...summary,partial:Object.keys(errors).length>0,sources,errors,
+    const intake=await intakeVerifiedRun(db,runId);
+    return response({ok:any,runId,...summary,intake,partial:Object.keys(errors).length>0,sources,errors,
       nextRound:parsed.round+1,geoapifyConfigured:Boolean(env.GEOAPIFY_API_KEY),elapsedMs:Date.now()-started,
       geoFound:geo?.status==='fulfilled'?geo.value.found||0:0,
       webFound:web?.status==='fulfilled'?web.value.found||0:0,

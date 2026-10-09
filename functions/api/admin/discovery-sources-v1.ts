@@ -1,4 +1,5 @@
 import { assertAutoLease } from '../../../lib/discovery-auto-support';
+import { intakeVerifiedCandidates } from '../../../lib/discovery-intake';
 import { parseSearch, COMMERCIAL_TYPES, STATE_NAMES, TYPE_OPTIONS } from '../../../shared/discovery';
 import { EXPANSION_SOURCES, SOCIAL_SOURCES, sourceUrl, collectSource, ensureClues, websiteSocialProfiles, type Clue, type SourceInput, type ExpansionSource, type SocialSource } from '../../../lib/discovery-sources';
 import { fetchPublicText } from '../../../lib/public-web';
@@ -134,7 +135,10 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     }
     if(input.action!=='VERIFY')return response({ok:false,error:'不支持的线索操作。'},400);
     if(clue.status==='IGNORED')return response({ok:false,error:'已忽略线索需先恢复。'},400);
-    if(clue.status==='CONVERTED')return response({ok:true,alreadyConverted:true,candidateId:clue.candidate_id});
+    if(clue.status==='CONVERTED'){
+      const intake=input.autoRunId?undefined:await intakeVerifiedCandidates(db,[clue.candidate_id]);
+      return response({ok:true,alreadyConverted:true,candidateId:clue.candidate_id,intake});
+    }
     const website=clean(input.website||clue.website,1000);if(!allowedWebsite(website))return response({ok:false,error:'请输入完整公开官网网址；社交主页及目录页保留为线索来源。'},400);
     const hit=COMMERCIAL_TYPES.has(clue.customer_type)?await verifyHit({title:clue.title,url:website,snippet:'',query:'public source verification',city:clue.city||''},clue.customer_type,clue.state_region):await verifySchoolWebsite(website,clue.customer_type,clue.state_region,clue.city||'');
     if(!hit||!clueMatches(hit.orgName,clue.title))return response({ok:false,error:'官网无法读取，或机构名称、业务、地区证据不足。线索保留待核验，未加入候选库。'},422);
@@ -153,6 +157,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       await db.prepare(`UPDATE companies SET address=COALESCE(NULLIF(address,''),?) WHERE id=(SELECT l.company_id FROM leads l JOIN discovery_candidates c ON c.crm_lead_id=l.id WHERE c.id=?)`).bind(clue.address,candidate.id).run();
     }
     await db.prepare(`UPDATE discovery_clues SET status='CONVERTED',candidate_id=?,website=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='PENDING'`).bind(candidate.id,website,id).run();
-    return response({ok:true,candidateId:candidate.id,name:hit.orgName,existing:Boolean(existing)});
+    const intake=input.autoRunId?undefined:await intakeVerifiedCandidates(db,[candidate.id],true);
+    return response({ok:true,candidateId:candidate.id,name:hit.orgName,existing:Boolean(existing),intake});
   }catch(e){const error=e instanceof Error?e.message:'公开来源搜索失败。';if(jobId)await db.prepare(`UPDATE discovery_jobs SET status='FAILED',error=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(error.slice(0,1000),jobId).run();return response({ok:false,error},502);}
 };

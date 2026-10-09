@@ -75,10 +75,14 @@ try{
   const search={stateCode:'TX',customerType:'BASKETBALL_TRAINING',targetCount:20,city:'Dallas'};
   let result=await post('discovery-search-v2',search);
   assert.equal(result.status,200);assert.equal(result.body.added,2);assert.equal(result.body.found,2);assert.equal(result.body.updated,0);
+  assert.equal(result.body.intake.failed,0);
+  assert.equal(result.body.intake.leadIds.length,2,'verified search results must automatically link to CRM');
+  const automaticLeadCount=db.sqlite.prepare('SELECT COUNT(*) AS n FROM leads').get().n;
   assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM discovery_candidates').get().n,2);
   assert.equal(result.body.geoFound+result.body.webFound,3,'source totals overlap, run totals must deduplicate');
   result=await post('discovery-search-v2',{...search,round:1});
   assert.equal(result.body.added,0);assert.equal(result.body.updated,2);assert.equal(result.body.nextRound,2);
+  assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM leads').get().n,automaticLeadCount,'repeated search must not duplicate prospects');
   db.sqlite.exec("UPDATE discovery_candidates SET status='IGNORED' WHERE source_key='web:academy.example'");
   result=await post('discovery-search-v2',{...search,round:2});
   assert.equal(result.body.found,1);assert.equal(db.sqlite.prepare("SELECT status FROM discovery_candidates WHERE source_key='web:academy.example'").get().status,'IGNORED');
@@ -107,7 +111,7 @@ try{
   assert.equal((await post('discovery',{action:'IGNORE',candidateId:academyId})).body.ok,true);
   assert.equal((await post('discovery-website-v1',{...search,websiteUrls:['https://academy.example']})).body.found,0,'manual intake must also preserve ignored candidates');
   assert.equal((await post('discovery',{action:'RESTORE',candidateId:academyId})).body.ok,true);
-  assert.equal(db.sqlite.prepare('SELECT status FROM discovery_candidates WHERE id=?').get(academyId).status,'NEW');
+  assert.equal(db.sqlite.prepare('SELECT status FROM discovery_candidates WHERE id=?').get(academyId).status,'CRM','restoring an imported customer retains its existing CRM linkage');
   db.sqlite.prepare("UPDATE discovery_candidates SET phone='2145550186',lead_score=60,instagram_url='https://www.instagram.com/fixture_academy/' WHERE id=?").run(academyId);
   const beforeEnrich=db.sqlite.prepare('SELECT lead_score FROM discovery_candidates WHERE id=?').get(academyId).lead_score;
   const enrich=await post('discovery-enrich-v2',{candidateId:academyId});assert.equal(enrich.body.ok,true);

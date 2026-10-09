@@ -1,3 +1,5 @@
+import { ensureWebsiteIntro } from '../../../shared/outreach';
+
 interface Env {
   MINGEAGLE_DB: D1Database;
   GMAIL_CLIENT_ID?: string;
@@ -58,6 +60,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     const to = oneLine(lead.email, 320);
     if (!to || !to.includes('@')) return Response.json({ ok: false, error: 'This contact does not have a valid email address.' }, { status: 409 });
+
+    const previous = await env.MINGEAGLE_DB.prepare(`SELECT COUNT(*) AS count FROM messages WHERE lead_id=? AND direction='OUTBOUND'`).bind(leadId).first<{ count: number }>();
+    if (!previous?.count && ensureWebsiteIntro(body) !== body) {
+      return Response.json({ ok: false, error: '首次沟通请在消息中推荐官网 https://www.mingeagle.com，审核后再发送。' }, { status: 400 });
+    }
 
     const clientId = env.GMAIL_CLIENT_ID || '';
     const clientSecret = env.GMAIL_CLIENT_SECRET || '';

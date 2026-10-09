@@ -1,5 +1,6 @@
 import { parseSearch, COMMERCIAL_TYPES } from '../../../shared/discovery';
 import { allowedWebsite, ensureTables, verifyHit, save } from './discovery-web-v6';
+import { intakeVerifiedRun } from '../../../lib/discovery-intake';
 
 interface Env { MINGEAGLE_DB: D1Database }
 
@@ -48,7 +49,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (row?.status === 'IGNORED') { result.status = 'IGNORED'; result.reason = '已核验，但该官网已被忽略，保持忽略状态。'; }
     }
     const found = Number(summary?.found || 0), added = Number(summary?.added || 0);
+    const intake = await intakeVerifiedRun(db, runId);
     await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(found, runId).run();
-    return Response.json({ ok: true, found, added, updated: found - added, verified: verified.length, results });
+    return Response.json({ ok: true, found, added, updated: found - added, verified: verified.length, results, intake });
   } catch (error) { const message=error instanceof Error?error.message:'官网核验失败。';if(jobId)await env.MINGEAGLE_DB.prepare(`UPDATE discovery_jobs SET status='FAILED',error=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(message.slice(0,1000),jobId).run();return Response.json({ok:false,error:message},{status:502}); }
 };

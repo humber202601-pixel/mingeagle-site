@@ -1,6 +1,6 @@
 import { allowedWebsite } from './discovery-web-v6';
 import { onRequestPost as searchV2 } from './discovery-search-v2';
-import { TYPE_OPTIONS, STATE_NAMES } from '../../../shared/discovery';
+import { TYPE_OPTIONS, STATE_NAMES, SCHOOL_TYPES } from '../../../shared/discovery';
 interface Env {
   MINGEAGLE_DB: D1Database;
   GEOAPIFY_API_KEY?: string;
@@ -328,18 +328,29 @@ export async function addToCrm(db: D1Database, candidateId: string) {
 
   const name = clean(candidate.name, 300);
   const website = clean(candidate.website, 1000);
-  const domain = domainFromWebsite(website);
+  let domain = domainFromWebsite(website);
   const normName = normalizedName(name);
   const city = clean(candidate.city, 160);
   const sourceName = discoverySource(candidate);
 
   let company = domain
-    ? await db.prepare(`SELECT id FROM companies WHERE domain=? LIMIT 1`).bind(domain).first<{ id: string }>()
+    ? await db.prepare(`SELECT id,normalized_name FROM companies WHERE domain=? LIMIT 1`).bind(domain).first<{ id: string; normalized_name?: string }>()
     : null;
+  // Several schools may have distinct verified pages on the same district domain.
+  if (company && SCHOOL_TYPES.has(clean(candidate.customer_type, 80)) && company.normalized_name !== normName) {
+    company = null;
+    domain = '';
+  }
   if (!company) {
     company = await db.prepare(`SELECT id FROM companies WHERE normalized_name=? AND COALESCE(city,'')=? LIMIT 1`)
       .bind(normName, city).first<{ id: string }>();
   }
+
+  const email = clean(candidate.email, 320).toLowerCase();
+  const suppressedContact = email ? await db.prepare('SELECT id FROM contacts WHERE lower(email)=lower(?) AND do_not_contact=1 LIMIT 1').bind(email).first() : null;
+  const suppressedLead = company ? await db.prepare(`SELECT l.id FROM leads l LEFT JOIN contacts ct ON ct.id=l.primary_contact_id
+    WHERE l.company_id=? AND (l.status IN ('LOST','NOT_FIT','DO_NOT_CONTACT','NOT_INTERESTED') OR ct.do_not_contact=1) LIMIT 1`).bind(company.id).first() : null;
+  if (suppressedContact || suppressedLead) throw new Error('该机构或联系人已停止开发，保留原状态，不重新建立潜在客户。');
 
   const companyId = company?.id || crypto.randomUUID();
   if (!company) {
@@ -354,7 +365,6 @@ export async function addToCrm(db: D1Database, candidateId: string) {
       ).run();
   }
 
-  const email = clean(candidate.email, 320).toLowerCase();
   const phone = clean(candidate.phone, 160);
   const whatsapp = clean(candidate.whatsapp, 320);
   const personName = clean(candidate.contact_person_name, 160);

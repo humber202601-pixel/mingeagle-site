@@ -121,16 +121,18 @@ async function createOpenTask(db: D1Database, params: {
   return id;
 }
 
-export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
+export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.MINGEAGLE_DB) return Response.json({ ok: false, error: 'Database is not configured.' }, { status: 503 });
   try {
     const db = env.MINGEAGLE_DB;
+    const selectedId = clean(new URL(request.url).searchParams.get('leadId'), 100);
     const [targets, messages] = await Promise.all([
       db.prepare(`SELECT
         l.id AS lead_id, l.status AS lead_status, l.lead_score, l.product_interest, l.last_contact_at, l.next_action_at,
         c.id AS company_id, COALESCE(c.name, 'Individual buyer') AS company,
         ct.id AS contact_id, COALESCE(ct.full_name, ct.email, 'Unknown contact') AS contact,
         ct.first_name, ct.email, ct.phone, ct.whatsapp, ct.do_not_contact,
+        (SELECT COUNT(*) FROM messages m WHERE m.lead_id=l.id AND m.direction='OUTBOUND') AS outbound_count,
         (SELECT direction FROM messages m WHERE m.lead_id=l.id ORDER BY m.sent_at DESC, m.created_at DESC LIMIT 1) AS last_direction,
         (SELECT sent_at FROM messages m WHERE m.lead_id=l.id ORDER BY m.sent_at DESC, m.created_at DESC LIMIT 1) AS last_message_at,
         (SELECT reference FROM inquiries i WHERE i.lead_id=l.id AND i.status<>'CLOSED' ORDER BY datetime(i.updated_at) DESC LIMIT 1) AS inquiry_reference,
@@ -141,15 +143,19 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
       LEFT JOIN companies c ON c.id=l.company_id
       LEFT JOIN contacts ct ON ct.id=l.primary_contact_id
       WHERE l.status NOT IN ('LOST','NOT_FIT')
-      ORDER BY ct.do_not_contact ASC, l.lead_score DESC, l.created_at DESC
-      LIMIT 300`).all(),
+      ORDER BY CASE WHEN l.id=? THEN 0 ELSE 1 END, ct.do_not_contact ASC, l.lead_score DESC, l.created_at DESC
+      LIMIT 300`).bind(selectedId).all(),
       db.prepare(`SELECT m.id, m.lead_id, m.company_id, m.contact_id, m.channel, m.direction, m.subject, m.body, m.intent, m.sent_at,
         COALESCE(c.name,'Individual buyer') AS company, COALESCE(ct.full_name,ct.email,'Unknown contact') AS contact
       FROM messages m
       LEFT JOIN companies c ON c.id=m.company_id
       LEFT JOIN contacts ct ON ct.id=m.contact_id
-      ORDER BY m.sent_at DESC, m.created_at DESC LIMIT 300`).all(),
+      WHERE (?='' OR m.lead_id=?)
+      ORDER BY m.sent_at DESC, m.created_at DESC LIMIT 300`).bind(selectedId, selectedId).all(),
     ]);
+    if (selectedId && !targets.results.some(row => String(row.lead_id) === selectedId)) {
+      return Response.json({ ok: false, error: '所选潜在客户不存在或已停止开发，请从列表重新选择。' }, { status: 404 });
+    }
     return Response.json({ ok: true, targets: targets.results, messages: messages.results });
   } catch (error) {
     console.error('communications_load_failed', error);

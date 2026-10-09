@@ -1,3 +1,5 @@
+import { OUTREACH_SIGNATURE, WEBSITE_INTRO, customerGreeting } from '../../../shared/outreach';
+
 interface Env { MINGEAGLE_DB: D1Database }
 
 type Input = { leadId?: string; mode?: 'AUTO'|'INTRO'|'FOLLOWUP' };
@@ -59,7 +61,7 @@ function locationText(city:string,state:string){
 function introDraft(params:{company:string;greeting:string;location:string;fit:ReturnType<typeof fitCopy>;customerType:string;roleLine:string}){
   const {company,greeting,location,fit,customerType,roleLine}=params;
   const foundLine=location
-    ? `I came across ${company} while looking at ${fit.label}s in ${location}.`
+    ? `I came across ${company} while researching basketball organizations in ${location}.`
     : `I came across ${company} while looking at organizations that work with basketball players and programs.`;
   const subject=customerType.toUpperCase()==='SPORTS_RETAILER'
     ? `MING EAGLE ${fit.subject} for ${company}`
@@ -68,9 +70,10 @@ function introDraft(params:{company:string;greeting:string;location:string;fit:R
     greeting,
     [foundLine,roleLine].filter(Boolean).join(' '),
     `We make MING EAGLE silent basketballs for quieter indoor practice. Our silent basketball line has sold more than 30,000 sets in the U.S. market. ${fit.sentence}`,
+    WEBSITE_INTRO,
     `We can support sample evaluation, small wholesale quantities and repeat orders. If it looks relevant, I can send simple pricing for 20, 50 and 100 units together with shipping based on your ZIP code.`,
     `Would it be useful if I sent a short wholesale quote?`,
-    `Best regards,\nMING EAGLE\nwww.mingeagle.com`,
+    OUTREACH_SIGNATURE,
   ].join('\n\n');
   return {subject,body,draftType:'INTRO'};
 }
@@ -81,34 +84,34 @@ function followupDraft(params:{company:string;greeting:string;fit:ReturnType<typ
     return {
       draftType:'QUOTE_FOLLOWUP',
       subject:`Following up on pricing for ${company}`,
-      body:[greeting,`I wanted to follow up on the pricing discussion for MING EAGLE silent basketballs. If you have a target quantity, delivery ZIP code or any questions about shipping, lead time or payment terms, I can update the quote accordingly.`,`If helpful, I can also compare options for 20, 50 and 100 units.`,`Best regards,\nMING EAGLE\nwww.mingeagle.com`].join('\n\n'),
+      body:[greeting,`I wanted to follow up on the pricing discussion for MING EAGLE silent basketballs. If you have a target quantity, delivery ZIP code or any questions about shipping, lead time or payment terms, I can update the quote accordingly.`,`If helpful, I can also compare options for 20, 50 and 100 units.`,OUTREACH_SIGNATURE].join('\n\n'),
     };
   }
   if(status==='SAMPLE'){
     return {
       draftType:'SAMPLE_FOLLOWUP',
       subject:`Sample follow-up — MING EAGLE silent basketball`,
-      body:[greeting,`I’m following up on the MING EAGLE silent basketball sample. Please let me know if you’d like us to confirm the sample quantity, shipping ZIP code or the best delivery option.`,`Once you’ve had a chance to review it, I’d also be glad to prepare wholesale pricing for a larger order.`,`Best regards,\nMING EAGLE\nwww.mingeagle.com`].join('\n\n'),
+      body:[greeting,`I’m following up on the MING EAGLE silent basketball sample. Please let me know if you’d like us to confirm the sample quantity, shipping ZIP code or the best delivery option.`,`Once you’ve had a chance to review it, I’d also be glad to prepare wholesale pricing for a larger order.`,OUTREACH_SIGNATURE].join('\n\n'),
     };
   }
   if(status==='INTERESTED'||status==='NEGOTIATION'||status==='REPLIED'){
     return {
       draftType:'SALES_FOLLOWUP',
       subject:`Next step for ${company} — MING EAGLE silent basketball`,
-      body:[greeting,`Thanks again for the conversation about our silent basketballs. Based on ${company}’s work, I think ${fit.short} could be the most relevant use case.`,`If you send the approximate quantity and delivery ZIP code, I can confirm the best pricing and shipping option and help move this to the next step.`,`Best regards,\nMING EAGLE\nwww.mingeagle.com`].join('\n\n'),
+      body:[greeting,`Thanks again for the conversation about our silent basketballs. Based on ${company}’s work, I think ${fit.short} could be the most relevant use case.`,`If you send the approximate quantity and delivery ZIP code, I can confirm the best pricing and shipping option and help move this to the next step.`,OUTREACH_SIGNATURE].join('\n\n'),
     };
   }
   if(outboundCount>=2){
     return {
       draftType:'FOLLOWUP_2',
       subject:`Quick check-in — MING EAGLE silent basketball`,
-      body:[greeting,`One quick check-in in case my earlier note was missed. For ${company}, the most relevant use case may be ${fit.short}.`,`We can support small wholesale quantities as well as repeat orders. If it’s relevant, just send an approximate quantity and ZIP code and I’ll confirm the best option.`,`Best regards,\nMING EAGLE\nwww.mingeagle.com`].join('\n\n'),
+      body:[greeting,`One quick check-in in case my earlier note was missed. For ${company}, the most relevant use case may be ${fit.short}.`,`We can support small wholesale quantities as well as repeat orders. If it’s relevant, just send an approximate quantity and ZIP code and I’ll confirm the best option.`,OUTREACH_SIGNATURE].join('\n\n'),
     };
   }
   return {
     draftType:'FOLLOWUP_1',
     subject:lastSubject?`Re: ${lastSubject.replace(/^Re:\s*/i,'')}`:`Following up — MING EAGLE silent basketball`,
-    body:[greeting,`Just following up on my note about MING EAGLE silent basketballs. I thought the product could be relevant to ${company}, especially for ${fit.short}.`,`Would it be useful if I sent simple wholesale pricing for 20, 50 and 100 units?`,`Best regards,\nMING EAGLE\nwww.mingeagle.com`].join('\n\n'),
+    body:[greeting,`Just following up on my note about MING EAGLE silent basketballs. I thought the product could be relevant to ${company}, especially for ${fit.short}.`,`Would it be useful if I sent simple wholesale pricing for 20, 50 and 100 units?`,OUTREACH_SIGNATURE].join('\n\n'),
   };
 }
 
@@ -147,7 +150,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     const fit=fitCopy(customerType);
     const named=!isGenericContact(contact,company);
     const first=clean(row.first_name,80)||firstName(contact);
-    const greeting=named&&first?`Hi ${first},`:`Hello ${company} team,`;
+    const greeting=customerGreeting({company,contact,first_name:first});
     const roleLine=named&&contactTitle?`Since you’re listed as ${contactTitle}, I thought this might be relevant to the programs you work with.`:'';
     const status=clean(row.lead_status,80).toUpperCase();
     const resolvedMode=requestedMode==='AUTO'?(outboundCount>0||['CONTACTED','REPLIED','INTERESTED','SAMPLE','QUOTE','NEGOTIATION'].includes(status)?'FOLLOWUP':'INTRO'):requestedMode;

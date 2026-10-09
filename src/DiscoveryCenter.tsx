@@ -5,6 +5,8 @@ import DiscoverySources from './DiscoverySources';
 import AutoDiscovery from './AutoDiscovery';
 
 type Row = Record<string, unknown>;
+type IntakeResult = { imported: number; matched: number; review: number; failed: number; warnings: string[] };
+const intakeMessage = (intake?: IntakeResult) => intake ? `自动加入潜在客户 ${intake.imported} 个，匹配已有客户 ${intake.matched} 个${intake.review ? `，${intake.review} 个保留待核验或既有状态` : ''}${intake.failed ? `，${intake.failed} 个入库未完成，可重试` : ''}。` : '';
 
 type Props = {
   accessKey: string;
@@ -116,12 +118,13 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
           targetCount: data.get('targetCount'),city:data.get('city'),round,
         }),
       });
-      const body = await response.json() as {ok?:boolean;found?:number;added?:number;updated?:number;ready?:number;error?:string;note?:string;nextRound?:number;sources?:Record<string,boolean>;errors?:Record<string,string>};
+      const body = await response.json() as {ok?:boolean;found?:number;added?:number;updated?:number;ready?:number;intake?:IntakeResult;error?:string;note?:string;nextRound?:number;sources?:Record<string,boolean>;errors?:Record<string,string>};
       setSourceState(body.sources||{});setSourceErrors(body.errors||{});
       if (!response.ok || !body.ok) throw new Error(body.error || '搜索失败。');
       setSearchBatch({key:batchKey,round:body.nextRound??round+1});
-      setMessage(`第 ${round+1} 批完成：去重后 ${body.found||0} 个，本次新增 ${body.added||0} 个，更新已有 ${body.updated||0} 个，优先跟进 ${body.ready||0} 个。${body.note||''}`);
-      setReloadVersion(value=>value+1);
+      setMessage(`第 ${round+1} 批完成：去重后 ${body.found||0} 个，本次新增 ${body.added||0} 个，更新已有 ${body.updated||0} 个，${intakeMessage(body.intake)}${body.note||''}`);
+      if (body.intake?.warnings.length) setError(body.intake.warnings.join(' '));
+      setReloadVersion(value=>value+1);onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : '搜索失败。');
     } finally {
@@ -135,10 +138,11 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
       const urls=websiteUrls.split(/\r?\n/).map(url=>url.trim()).filter(Boolean);
       if(!urls.length||urls.length>10)throw new Error('请输入 1–10 个官网网址，每行一个。');
       const response=await fetch('/api/admin/discovery-website-v1',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':accessKey},body:JSON.stringify({stateCode:searchState,customerType:searchType,city:searchCity,websiteUrls:urls})});
-      const body=await response.json() as {ok?:boolean;error?:string;found?:number;added?:number;updated?:number;verified?:number;results?:Array<{url:string;status:string;name?:string;reason?:string}>};
+      const body=await response.json() as {ok?:boolean;error?:string;found?:number;added?:number;updated?:number;verified?:number;intake?:IntakeResult;results?:Array<{url:string;status:string;name?:string;reason?:string}>};
       if(!response.ok||!body.ok)throw new Error(body.error||'官网核验失败。');
-      setWebsiteResults(body.results||[]);setMessage(`官网核验完成：通过业务和地区核验 ${body.verified||0} 个，新增 ${body.added||0} 个，更新已有 ${body.updated||0} 个。已忽略的客户保持原状态。`);
-      setReloadVersion(value=>value+1);
+      setWebsiteResults(body.results||[]);setMessage(`官网核验完成：通过业务和地区核验 ${body.verified||0} 个，新增 ${body.added||0} 个，更新已有 ${body.updated||0} 个。${intakeMessage(body.intake)}已忽略的客户保持原状态。`);
+      if (body.intake?.warnings.length) setError(body.intake.warnings.join(' '));
+      setReloadVersion(value=>value+1);onChanged();
     }catch(err){setError(err instanceof Error?err.message:'官网核验失败。')}finally{setImporting(false)}
   }
 
@@ -338,7 +342,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
         <div><h2>客户发现中心</h2><span>17 类采购相关客户 · 地点发现 · 官网核验</span></div>
         {loading && <LoaderCircle size={18} className="spin"/>}
       </div>
-      <div className="discovery-pipeline"><span>01 选择采购群体</span><span>02 搜索与官网核验</span><span>03 筛选与补全</span><span>04 加入 CRM</span></div>
+      <div className="discovery-pipeline"><span>01 选择采购群体</span><span>02 搜索与官网核验</span><span>03 筛选与补全</span><span>04 自动加入潜在客户</span></div>
       <form className="discovery-search-form" onSubmit={runSearch}>
         <label>国家
           <input value="United States" readOnly />
@@ -361,11 +365,11 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
       </form>
       <details className="discovery-website-import">
         <summary>官网批量核验 · 补充搜索、展会和行业目录中的潜在客户</summary>
-        <p>使用上方的州、客户类型和城市条件。填写公开官网完整网址，每行一个，最多 10 个；系统核验机构、业务及地区，再提取公开联系方式并去重。城市仅表示官网提及的服务范围，不代表已核实的注册地址。</p>
+        <p>使用上方的州、客户类型和城市条件。填写公开官网完整网址，每行一个，最多 10 个；系统核验机构、业务及地区，提取公开联系方式、去重并自动加入潜在客户列表。城市仅表示官网提及的服务范围，不代表已核实的注册地址。</p>
         {COMMERCIAL_TYPES.has(searchType)?<form onSubmit={importWebsites}>
           <label htmlFor="discovery-websites">待核验官网</label>
           <textarea id="discovery-websites" value={websiteUrls} onChange={e=>setWebsiteUrls(e.target.value)} rows={4} maxLength={11000} placeholder="https://www.example.com" required/>
-          <button className="button secondary" disabled={autoBusy||expandedBusy||(importing||searching)}>{importing?'正在核验官网…':'核验并加入候选库'}</button>
+          <button className="button secondary" disabled={autoBusy||expandedBusy||(importing||searching)}>{importing?'正在核验官网…':'核验并加入潜在客户'}</button>
         </form>:<p>学校类别请使用上方学校专用发现。</p>}
         {!!websiteResults.length&&<ul className="discovery-website-results" aria-live="polite">{websiteResults.map((result,index)=><li key={index}><strong>{result.status==='VERIFIED'?'已核验':result.status==='DUPLICATE'?'本批重复':result.status==='IGNORED'?'保持忽略':'未通过'}</strong><span>{result.name||result.url}</span>{result.reason&&<small>{result.reason}</small>}</li>)}</ul>}
       </details>
