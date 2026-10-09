@@ -2,7 +2,7 @@ from pathlib import Path
 import json,re,html
 r=Path('public');locales=json.loads(Path('admin/learning-copy.json').read_text());en=locales['en'];master=json.loads((r/'product-master.json').read_text())
 base=(r/'index.html').read_text();header=base[base.index('<header class="top">'):base.index('<main id=')];footer=base[base.index('<a class="whatsapp"'):]
-version='20261010-learn1'
+version='20261010-learn2'
 footer=re.sub(r'<script src="learning(?:-links)?\.js[^"]*" defer></script>','',footer)
 footer=footer.replace('</body>',f'<script src="learning.js?v={version}" defer></script></body>')
 def text(k,tag='p',cls=''):
@@ -26,11 +26,11 @@ def table():
  return '<div class="learnTableWrap" role="region" aria-label="Model sizes, colors and logo eligibility" tabindex="0"><table class="learnTable"><caption>'+text('common.9','span')+'</caption><thead><tr>'+''.join(text('common.'+str(i),'th') for i in [18,19,20,21])+'</tr></thead><tbody>'+''.join(rows)+'</tbody></table></div>'
 def comparison_table():
  rows=[(7,8,9),(10,11,12),(13,14,15),(16,17,18)]
- return '<div class="learnTableWrap" role="region" aria-label="Basketball comparison" tabindex="0"><table class="learnTable"><caption>'+text('compare.6','span')+'</caption><thead><tr>'+text('common.18','th')+'<th>MING EAGLE</th>'+text('compare.9','th')+'</tr></thead><tbody>'+''.join('<tr>'+text(f'compare.{a}','th')+text(f'compare.{b}','td')+text(f'compare.{c}','td')+'</tr>' for a,b,c in rows)+'</tbody></table></div>'
+ return '<div class="learnTableWrap" role="region" aria-label="Basketball comparison" tabindex="0"><table class="learnTable"><caption>'+text('compare.6','span')+'</caption><thead><tr>'+text('common.26','th')+'<th>MING EAGLE</th>'+text('compare.9','th')+'</tr></thead><tbody>'+''.join('<tr>'+text(f'compare.{a}','th')+text(f'compare.{b}','td')+text(f'compare.{c}','td')+'</tr>' for a,b,c in rows)+'</tbody></table></div>'
 for kind in ['compare','team','hub']:
  path=paths[kind];url='https://www.mingeagle.com/'+path;k='common' if kind=='hub' else kind;title=en['common.24'] if kind=='hub' else en[k+'.0'];desc=en[k+'.2'] if kind=='hub' else en[k+'.1'];image='https://www.mingeagle.com/'+images[kind]
  if kind=='hub':
-  body='<section class="learnHub"><div class="wrap"><div class="learnCards learnHubCards">'+''.join('<article><img src="'+html.escape(img)+'" alt="'+html.escape(en[tk])+'" width="960" height="960" loading="lazy">'+text(tk,'h2')+text(pk)+link('common.17',href,'more')+'</article>' for tk,pk,img,href in [('compare.0','compare.1',images['compare'],paths['compare']),('team.0','team.1',images['team'],paths['team']),('common.5','common.2','assets/guide-set-studio-v3.webp','silent-basketball-guide.html')])+'</div><div class="learnNext">'+text('common.16','h2')+'<div class="actions">'+link('common.6','for-coaches.html')+link('common.10','inquiry.html?type=sample','btn orange')+'</div></div></div></section>'
+  body='<section class="learnHub"><div class="wrap"><div class="learnCards learnHubCards">'+''.join('<article><img src="'+html.escape(img)+'" alt="'+html.escape(en[tk])+'" width="960" height="960" loading="lazy">'+text(tk,'h2')+text(pk)+link('common.17',href,'more')+'</article>' for tk,pk,img,href in [('compare.0','compare.1',images['compare'],paths['compare']),('team.0','team.1',images['team'],paths['team']),('common.5','common.25','assets/guide-set-studio-v3.webp','silent-basketball-guide.html')])+'</div><div class="learnNext">'+text('common.16','h2')+'<div class="actions">'+link('common.6','for-coaches.html')+link('common.10','inquiry.html?type=sample','btn orange')+'</div></div></div></section>'
   schema={'@context':'https://schema.org','@type':'CollectionPage','name':title,'description':desc,'url':url,'inLanguage':'en','mainEntity':{'@type':'ItemList','itemListElement':[{'@type':'ListItem','position':i+1,'url':'https://www.mingeagle.com/'+p} for i,p in enumerate([paths['compare'],paths['team'],'silent-basketball-guide.html'])]}}
  else:
   content=section(kind,2,3)+section(kind,4,5)
@@ -38,7 +38,7 @@ for kind in ['compare','team','hub']:
   else:content+=table()+section(kind,6,7)+section(kind,8,9)+section(kind,10,11)+section(kind,12,13)
   content+=faq(kind)
   cta=link('common.10','inquiry.html?type=sample','btn orange') if kind=='compare' else link('common.12','custom-logo.html','btn orange')
-  aside='<aside class="learnSidebar">'+text('common.16','div','eyebrow')+text('common.1','h2')+cta+link('common.9','products.html')+link('common.11','inquiry.html?type=quote&amp;customer=academy'.replace('&amp;','&'))+link('common.5','silent-basketball-guide.html','more')+'</aside>'
+  aside='<aside class="learnSidebar">'+text('common.16','div','eyebrow')+text('common.1','h2')+cta+link('common.9','products.html')+link('common.11','inquiry.html?type=quote')+link('common.5','silent-basketball-guide.html','more')+'</aside>'
   body='<div class="wrap learnArticleGrid"><article class="learnArticle">'+content+'</article>'+aside+'</div>'+related()
   schema={'@context':'https://schema.org','@graph':[{'@type':'Article','headline':title,'description':desc,'image':[image],'datePublished':'2026-10-10','dateModified':'2026-10-10','author':{'@type':'Organization','name':'MING EAGLE','url':'https://www.mingeagle.com/'},'publisher':{'@type':'Organization','name':'MING EAGLE','url':'https://www.mingeagle.com/'},'mainEntityOfPage':url,'inLanguage':'en'},{'@type':'BreadcrumbList','itemListElement':[{'@type':'ListItem','position':1,'name':'MING EAGLE','item':'https://www.mingeagle.com/'},{'@type':'ListItem','position':2,'name':en['common.0'],'item':'https://www.mingeagle.com/learn.html'},{'@type':'ListItem','position':3,'name':title,'item':url}]}]}
  hero='<header class="learnHero"><div class="wrap '+('learnHeroGrid' if kind!='hub' else '')+'"><div><div class="learnCrumbs"><a href="index.html">MING EAGLE</a><span>/</span>'+link('common.0','learn.html','')+'</div>'+text('common.0' if kind=='hub' else 'common.7' if kind=='compare' else 'common.8','div','eyebrow')+text('common.1' if kind=='hub' else kind+'.0','h1')+text('common.2' if kind=='hub' else kind+'.1','p','learnIntro')+('<div class="learnByline">'+text('common.14','span')+'<span aria-hidden="true"> · </span>'+text('common.15','time')+'</div>' if kind!='hub' else '')+'</div>'+('' if kind=='hub' else '<img src="'+images[kind]+'?v=20261007-1" alt="'+html.escape(master['p1' if kind=='compare' else 'p3']['name'])+'" width="960" height="960" fetchpriority="high">')+'</div></header>'
@@ -48,7 +48,8 @@ for kind in ['compare','team','hub']:
 for name in ['index.html','silent-basketball-guide.html','for-coaches.html','wholesale.html','for-schools.html']:
  p=r/name;s=p.read_text();s=re.sub(r'<!-- MING LEARNING START -->.*?<!-- MING LEARNING END -->','',s,flags=re.S)
  s=s.replace('</main>','<!-- MING LEARNING START -->'+related()+'<!-- MING LEARNING END --></main>',1)
- if 'learning.css?' not in s:s=s.replace('</head>',f'<link rel="stylesheet" href="learning.css?v={version}"></head>',1)
+ s=re.sub(r'<link rel="stylesheet" href="learning\.css[^"]*">','',s)
+ s=s.replace('</head>',f'<link rel="stylesheet" href="learning.css?v={version}"></head>',1)
  s=re.sub(r'<script src="learning(?:-links)?\.js[^"]*" defer></script>','',s)
  s=s.replace('</body>',f'<script src="learning-links.js?v={version}" defer></script></body>',1)
  p.write_text(s)

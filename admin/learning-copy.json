@@ -78,7 +78,9 @@
     "team.19": "Not currently. The studio supports only the two eligible flocked basketball models.",
     "team.20": "What comes with the basketball?",
     "team.21": "The Flocked Silent Basketball Set includes a mini hoop. The Weighted Flocked Silent Basketball is ball only. Confirm the order’s packaging and customization scope with your quote.",
-    "common.24": "Silent basketball guides"
+    "common.24": "Silent basketball guides",
+    "common.25": "Install the mini hoop, prepare the foam after unpacking and care for the ball’s surface using the supplied instructions.",
+    "common.26": "Aspect"
   },
   "es": {
     "common.0": "APRENDA Y ELIJA",
@@ -159,7 +161,9 @@
     "team.19": "Actualmente no. Solo se admiten los dos modelos de baloncesto flocados compatibles.",
     "team.20": "¿Qué incluye el balón?",
     "team.21": "El Flocked Silent Basketball Set incluye mini aro. El Weighted Flocked Silent Basketball solo incluye el balón. Confirme embalaje y personalización con el presupuesto.",
-    "common.24": "Guías de baloncesto silencioso"
+    "common.24": "Guías de baloncesto silencioso",
+    "common.25": "Instale el mini aro, prepare la espuma al desembalar y cuide la superficie siguiendo las instrucciones suministradas.",
+    "common.26": "Aspecto"
   },
   "pt": {
     "common.0": "APRENDA E ESCOLHA",
@@ -240,7 +244,9 @@
     "team.19": "Atualmente não. O estúdio só aceita os dois modelos de basquetebol flocados compatíveis.",
     "team.20": "O que vem com a bola?",
     "team.21": "O Flocked Silent Basketball Set inclui mini cesto. O Weighted Flocked Silent Basketball inclui apenas a bola. Confirme embalagem e personalização no orçamento.",
-    "common.24": "Guias de basquetebol silencioso"
+    "common.24": "Guias de basquetebol silencioso",
+    "common.25": "Instale o mini cesto, prepare a espuma após desembalar e cuide da superfície seguindo as instruções fornecidas.",
+    "common.26": "Aspeto"
   },
   "fr": {
     "common.0": "APPRENDRE ET CHOISIR",
@@ -321,7 +327,9 @@
     "team.19": "Pas actuellement. Le studio accepte uniquement les deux modèles de basket floqués compatibles.",
     "team.20": "Que comprend le ballon ?",
     "team.21": "Le Flocked Silent Basketball Set comprend un mini panier. Le Weighted Flocked Silent Basketball est vendu seul. Confirmez l’emballage et la personnalisation avec le devis.",
-    "common.24": "Guides du basket silencieux"
+    "common.24": "Guides du basket silencieux",
+    "common.25": "Installez le mini panier, préparez la mousse au déballage et entretenez la surface en suivant les instructions fournies.",
+    "common.26": "Aspect"
   },
   "de": {
     "common.0": "INFORMIEREN UND WÄHLEN",
@@ -402,7 +410,9 @@
     "team.19": "Derzeit nicht. Das Studio unterstützt nur die beiden geeigneten beflockten Basketballmodelle.",
     "team.20": "Was gehört zum Basketball?",
     "team.21": "Das Flocked Silent Basketball Set enthält einen Minikorb. Der Weighted Flocked Silent Basketball ist nur der Ball. Verpackung und Personalisierungsumfang bestätigen Sie im Angebot.",
-    "common.24": "Ratgeber für leise Basketbälle"
+    "common.24": "Ratgeber für leise Basketbälle",
+    "common.25": "Montieren Sie den Minikorb, bereiten Sie den Schaumstoff nach dem Auspacken vor und pflegen Sie den Ball nach der mitgelieferten Anleitung.",
+    "common.26": "Merkmal"
   },
   "it": {
     "common.0": "SCOPRI E SCEGLI",
@@ -483,7 +493,9 @@
     "team.19": "Non al momento. Lo studio supporta solo i due modelli di basket floccati compatibili.",
     "team.20": "Cosa include il pallone?",
     "team.21": "Il Flocked Silent Basketball Set include mini canestro. Il Weighted Flocked Silent Basketball include solo la palla. Conferma imballaggio e personalizzazione nel preventivo.",
-    "common.24": "Guide al basket silenzioso"
+    "common.24": "Guide al basket silenzioso",
+    "common.25": "Monta il mini canestro, prepara la schiuma dopo l’apertura e cura la superficie seguendo le istruzioni fornite.",
+    "common.26": "Aspetto"
   },
   "nl": {
     "common.0": "LEER EN KIES",
@@ -564,7 +576,9 @@
     "team.19": "Momenteel niet. De studio ondersteunt alleen de twee geschikte gevlokte basketbalmodellen.",
     "team.20": "Wat wordt meegeleverd?",
     "team.21": "Het Flocked Silent Basketball Set bevat een miniring. De Weighted Flocked Silent Basketball is alleen de bal. Bevestig verpakking en personalisering met de offerte.",
-    "common.24": "Gidsen voor stille basketballen"
+    "common.24": "Gidsen voor stille basketballen",
+    "common.25": "Monteer de miniring, bereid het schuim na het uitpakken voor en verzorg de bal volgens de meegeleverde instructies.",
+    "common.26": "Kenmerk"
   },
   "pl": {
     "common.0": "POZNAJ I WYBIERZ",
@@ -645,7 +659,9 @@
     "team.19": "Obecnie nie. Studio obsługuje tylko dwa kompatybilne flokowane modele koszykarskie.",
     "team.20": "Co zawiera produkt?",
     "team.21": "Flocked Silent Basketball Set zawiera mini obręcz. Weighted Flocked Silent Basketball to sama piłka. Potwierdź opakowanie i zakres personalizacji w ofercie.",
-    "common.24": "Poradniki o cichych piłkach"
+    "common.24": "Poradniki o cichych piłkach",
+    "common.25": "Zamontuj mini obręcz, przygotuj piankę po rozpakowaniu i pielęgnuj powierzchnię zgodnie z dołączoną instrukcją.",
+    "common.26": "Cecha"
   },
   "ja": {
     "common.0": "学んで選ぶ",
@@ -726,6 +742,8 @@
     "team.19": "現在は対応していません。スタジオは2つの対応フロック加工バスケットボール専用です。",
     "team.20": "付属品は何ですか？",
     "team.21": "Flocked Silent Basketball Set はミニフープ付きです。Weighted Flocked Silent Basketball はボール単体です。梱包とカスタム範囲は見積で確認してください。",
-    "common.24": "サイレントバスケットボールのガイド"
+    "common.24": "サイレントバスケットボールのガイド",
+    "common.25": "同梱の説明に従ってミニフープを設置し、開封後のフォームを整え、表面のお手入れをしましょう。",
+    "common.26": "項目"
   }
 }
