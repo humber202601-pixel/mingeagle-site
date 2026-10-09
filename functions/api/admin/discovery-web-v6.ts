@@ -133,6 +133,13 @@ function scoreBusiness(hit:SearchHit,body:string,type:string,stateCode:string,en
   return {score:Math.max(0,Math.min(100,score)),cues};
 }
 
+export function eligibleSearchHit(hit:SearchHit,type:string,stateCode:string){
+  const body=hit.title+' '+hit.snippet;
+  if(!/basketball|hoops|physical education|sporting goods|sports equipment|ymca/i.test(body)||HARD_NEGATIVE.test(body)||/dictionary|English meaning|definition/i.test(hit.title))return false;
+  const locations=(hit.city?[hit.city]:[ALL_STATE_NAMES[stateCode],stateCode]).filter(Boolean);
+  return locations.some(location=>new RegExp('\\b'+location.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','i').test(body))||type==='SPORTS_DISTRIBUTOR'&&/nationwide|all 50 states|ship.*united states/i.test(body);
+}
+
 export async function verifyHit(hit:SearchHit,type:string,stateCode:string):Promise<VerifiedHit|null>{
   try{
     if(!allowedWebsite(hit.url))return null;const homeHtml=await fetchText(hit.url,5500);const entity=resolveEntity(homeHtml,hit.title,hit.url);if(!entity.name||entity.score<24||genericName(entity.name))return null;
@@ -161,11 +168,12 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     const input=await request.json() as Input;let parsed;try{parsed=parseSearch(input)}catch(e){return Response.json({ok:false,error:(e as Error).message},{status:400})}const {stateCode,customerType:type,targetCount:target,city,round}=parsed;if(!allowedTypes.has(type))return Response.json({ok:false,error:'不支持的商业客户类型。'},{status:400});
     jobId=crypto.randomUUID();await db.prepare(`INSERT INTO discovery_jobs (id,state_region,customer_type,target_count,source_provider) VALUES (?,?,?,?, 'WEB_SEARCH_VERIFIED_V6')`).bind(jobId,stateCode,type,target).run();
     const queries=queryPlan(stateCode,type,city,round,8);const started=Date.now();
-    const searched=await Promise.allSettled(queries.map(q=>bing(q.query,q.city)));const raw=searched.flatMap(r=>r.status==='fulfilled'?r.value:[]);const unique:SearchHit[]=[];const domains=new Set<string>();for(const h of raw){const d=domainOf(h.url);if(!d||domains.has(d))continue;domains.add(d);unique.push(h);if(unique.length>=Math.max(28,target*4))break}
-    let searchNote=`主索引 ${searched.filter(r=>r.status==='fulfilled').length}/${queries.length} 次查询可读取，返回可用官网 ${unique.length} 个。`;
-    let fallbackReadable=false;
+    const searched=await Promise.allSettled(queries.map(q=>bing(q.query,q.city)));const raw=searched.flatMap(r=>r.status==='fulfilled'?r.value:[]);const unique:SearchHit[]=[];const domains=new Set<string>();for(const h of raw.filter(hit=>eligibleSearchHit(hit,type,stateCode))){const d=domainOf(h.url);if(!d||domains.has(d))continue;domains.add(d);unique.push(h);if(unique.length>=Math.max(28,target*4))break}
+    let searchNote=`主索引 ${searched.filter(r=>r.status==='fulfilled').length}/${queries.length} 次查询可读取，返回网页 ${raw.length} 个，符合地区和业务条件 ${unique.length} 个。`;
+    let fallbackReadable=false,fallbackUsed=false;
     if(!unique.length){
-      const fallback=await Promise.allSettled(queries.slice(0,2).map(async q=>(await alternateSearch(q.query)).filter(hit=>allowedWebsite(hit.url)&&!HARD_NEGATIVE.test(hit.title+' '+hit.snippet)).map(hit=>({...hit,query:q.query,city:q.city}))));
+      fallbackUsed=true;
+      const fallback=await Promise.allSettled(queries.slice(0,2).map(async q=>(await alternateSearch(q.query,db)).map(hit=>({...hit,query:q.query,city:q.city})).filter(hit=>allowedWebsite(hit.url)&&eligibleSearchHit(hit,type,stateCode))));
       fallbackReadable=fallback.some(r=>r.status==='fulfilled');
       for(const hit of fallback.flatMap(r=>r.status==='fulfilled'?r.value:[])){const d=domainOf(hit.url);if(!domains.has(d)){domains.add(d);unique.push(hit);}}
       const errors=fallback.filter(r=>r.status==='rejected').map(r=>r.reason instanceof Error?r.reason.message:String(r.reason));
@@ -177,7 +185,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       const seeds=unique.slice(0,target).map(hit=>({key:'web-index:'+hit.url,title:hit.title,source:'WEB_INDEX',url:hit.url,website:hit.url,evidence:hit.snippet+' · '+hit.query,city:hit.city}));
       const foundIds=await saveAutoClues(db,{...input,customerType:type},seeds);
       await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(foundIds.length,jobId).run();
-      return Response.json({ok:true,found:foundIds.length,foundIds,note:searchNote+(foundIds.length?'公开官网线索已保存，随后逐个核验和补全。':'本次没有官网线索，不能据此判断当地没有潜在客户。')});
+      return Response.json({ok:true,found:foundIds.length,foundIds,review:!foundIds.length&&fallbackUsed&&!fallbackReadable,reason:searchNote,note:searchNote+(foundIds.length?'公开官网线索已保存，随后逐个核验和补全。':'本次没有官网线索，不能据此判断当地没有潜在客户。')});
     }
     if(!unique.length){await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=0,completed_at=CURRENT_TIMESTAMP,error='No public website candidates returned' WHERE id=?`).bind(jobId).run();return Response.json({ok:true,found:0,mode:'WEB_VERIFIED_V6',checked:0,verified:0,note:searchNote+'公开搜索本次未返回可验证官网候选，不能据此判断当地没有潜在客户。'})}
     const verified:VerifiedHit[]=[];for(let i=0;i<unique.length;i+=4){if(Date.now()-started>23000)break;const batch=unique.slice(i,i+4);const result=await Promise.allSettled(batch.map(h=>verifyHit(h,type,stateCode)));verified.push(...result.flatMap(x=>x.status==='fulfilled'&&x.value?[x.value]:[]));if(verified.length>=target)break}

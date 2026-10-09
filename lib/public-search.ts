@@ -22,6 +22,16 @@ export function htmlSearchHits(html:string):PublicSearchHit[]{
   return hits;
 }
 // One ordinary public HTML request; never solves challenges or changes the network/client identity.
-export async function alternateSearch(query:string){
-  return htmlSearchHits(await fetchPublicText('https://html.duckduckgo.com/html/?q='+encodeURIComponent(query)+'&kl=us-en',4500));
+export async function alternateSearch(query:string,db?:D1Database){
+  const key='public-index-block:duckduckgo';
+  if(db){
+    await db.prepare(`CREATE TABLE IF NOT EXISTS discovery_public_source_cache (cache_key TEXT PRIMARY KEY,payload TEXT NOT NULL,expires_at TEXT NOT NULL)`).run();
+    const blocked=await db.prepare(`SELECT payload FROM discovery_public_source_cache WHERE cache_key=? AND expires_at>CURRENT_TIMESTAMP`).bind(key).first<{payload:string}>();
+    if(blocked)throw new Error('备用公开索引处于人工验证限制期，本次停止该来源请求（30分钟内不重试）。');
+  }
+  try{return htmlSearchHits(await fetchPublicText('https://html.duckduckgo.com/html/?q='+encodeURIComponent(query)+'&kl=us-en',4500));}
+  catch(e){
+    if(db&&e instanceof Error&&e.message.includes('人工验证'))await db.prepare(`INSERT INTO discovery_public_source_cache(cache_key,payload,expires_at) VALUES(?,?,datetime('now','+30 minutes')) ON CONFLICT(cache_key) DO UPDATE SET payload=excluded.payload,expires_at=excluded.expires_at`).bind(key,JSON.stringify({reason:e.message})).run();
+    throw e;
+  }
 }

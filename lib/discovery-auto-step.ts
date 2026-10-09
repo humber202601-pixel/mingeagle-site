@@ -22,6 +22,7 @@ export async function runAutoStep(env:AutoEnv,base:string,key:string,input:Row):
     const source=clean(payload.source),path=source==='CORE'?(COMMERCIAL_TYPES.has(clean(scope.customerType))?'discovery-web-v6':'discovery-school-v1'):'discovery-sources-v1';
     const result=await autoApi(base,key,path,{...scope,round:payload.round,runId,autoSourceOnly:source==='CORE',action:'SEARCH',sources:[source],autoRunId:runId,autoToken:input.autoToken});
     await guard();const states=result.sources as Record<string,Row>|undefined;
+    if(result.review||states?.[source]?.review)return {review:true,found:0,reason:result.note||states?.[source]?.note};
     if(states?.[source]?.partial)throw new AutoStepError(clean(states[source].note)||'来源部分未完成。',true);
     return {found:result.found||states?.[source]?.found||0,note:result.note||states?.[source]?.note};
   }
@@ -54,7 +55,7 @@ export async function runAutoStep(env:AutoEnv,base:string,key:string,input:Row):
       try{const hits=await bing(query,clean(row.city,80));readable=true;for(const hit of hits)if(clueMatches(hit.title,name))websites.push(hit.url);}catch(e){lookupWarning=e instanceof Error?e.message:'主索引不可读取。';}
       await guard();
       if(!websites.length){
-        try{const hits=await alternateSearch(query);readable=true;for(const hit of hits)if(allowedWebsite(hit.url)&&clueMatches(hit.title,name))websites.push(hit.url);}catch(e){lookupWarning=e instanceof Error?e.message:'备用索引不可读取。';}
+        try{const hits=await alternateSearch(query,db);readable=true;for(const hit of hits)if(allowedWebsite(hit.url)&&clueMatches(hit.title,name))websites.push(hit.url);}catch(e){lookupWarning=e instanceof Error?e.message:'备用索引不可读取。';}
         await guard();
       }
       if(!readable)throw new AutoStepError('查找官网的公开索引本次不可读取。'+lookupWarning,true);

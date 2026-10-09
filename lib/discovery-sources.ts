@@ -16,6 +16,12 @@ export function mapBuyerMatch(title:string,type:string,context=''){
   if(['BASKETBALL_TRAINING','BASKETBALL_GYM','YOUTH_CLUB','INDEPENDENT_COACH'].includes(type))return false;
   return !/swim|aquatic|cheer|climb|bouldering|tennis|pickleball|golf|skating|martial|jiu.?jitsu|karate|taekwondo|boxing|pilates|yoga|crossfit|soccer|football|equestrian|ice rink|softball|baseball|bowling|bowl and barrel|track stadium|track and|sandy pickle/i.test(title+' '+context);
 }
+export function mapBuyerType(title:string,requested:string){
+  if(!COMMERCIAL_TYPES.has(requested))return requested;
+  if(/recreation|recreational|ymca|community cent(?:er|re)/i.test(title))return 'RECREATION_CENTER';
+  if(['BASKETBALL_TRAINING','BASKETBALL_GYM','YOUTH_CLUB','INDEPENDENT_COACH'].includes(requested)&&/fitness|gym|sports? cent(?:er|re)|sports? hall/i.test(title)&&!/academy|training|skills|coach/i.test(title))return 'BASKETBALL_GYM';
+  return requested;
+}
 export type WebsiteSocialProfile = {source:SocialSource;url:string;pageUrl:string;originalUrl:string;label:string};
 const schoolTerms:Record<string,string>={PRESCHOOL_KINDERGARTEN:'preschool kindergarten',ELEMENTARY_SCHOOL:'elementary school',MIDDLE_HIGH_SCHOOL:'middle high school',PRIVATE_CHARTER_SCHOOL:'private charter school',SCHOOL_DISTRICT:'school district purchasing',AFTER_SCHOOL_PROGRAM:'after school youth program',EDUCATION_SUPPLIER:'school physical education equipment supplier'};
 const clean=(v:unknown,max=1500)=>String(v??'').trim().replace(/\s+/g,' ').slice(0,max);
@@ -121,7 +127,7 @@ async function json(url:string,init:RequestInit={},timeout=12000){
   const c=new AbortController(),t=setTimeout(()=>c.abort(),timeout);
   try{const r=await fetch(url,{...init,signal:c.signal,headers:{accept:'application/json','user-agent':'MING-EAGLE-Public-Discovery/14.0 (+https://mingeagle.com)',...init.headers}});if(!r.ok)throw new Error(`公开来源 HTTP ${r.status}`);const text=await r.text();if(text.length>1500000)throw new Error('公开来源返回内容过大。');const d=JSON.parse(text);if(d.error)throw new Error(clean(d.error.message||d.error,180));if(d.remark)throw new Error(clean(d.remark,180));return d;}catch(e){if(e instanceof Error&&e.name==='AbortError')throw new Error('公开数据源请求超时，请稍后重试。');throw e;}finally{clearTimeout(t)}
 }
-export async function indexedClues(input:SourceInput,source:'SOCIAL'|'DIRECTORY'|SocialSource){
+export async function indexedClues(input:SourceInput,source:'SOCIAL'|'DIRECTORY'|SocialSource,db?:D1Database){
   const cities=input.city?[input.city]:METROS[input.stateCode]||[STATE_NAMES[input.stateCode]];
   const city=cities[input.round%cities.length];
   const terms=TERMS[input.customerType]||[schoolTerms[input.customerType]||'school'];
@@ -137,12 +143,12 @@ export async function indexedClues(input:SourceInput,source:'SOCIAL'|'DIRECTORY'
     return parseRssClues(rss,source,query,city,input.customerType);
   }));
   const primary=results.flatMap(x=>x.status==='fulfilled'?x.value:[]);
-  const alternate=primary.length?[]:await Promise.allSettled(queries.slice(0,2).map(async query=>indexClues(await alternateSearch(query),source,query,city,input.customerType)));
+  const alternate=primary.length?[]:await Promise.allSettled(queries.slice(0,2).map(async query=>indexClues(await alternateSearch(query,db),source,query,city,input.customerType)));
   if(results.every(x=>x.status==='rejected')&&!alternate.some(x=>x.status==='fulfilled'))throw new Error('公开网页索引本次不可用；主索引和备用索引均未能读取。');
   const failed=results.filter(x=>x.status==='rejected').length;
   const fallback=alternate.flatMap(x=>x.status==='fulfilled'?x.value:[]),clues=[...new Map([...primary,...fallback].map(clue=>[clue.key,clue])).values()].slice(0,Math.min(50,input.targetCount));
   const warning=alternate.filter(x=>x.status==='rejected').map(x=>x.reason instanceof Error?x.reason.message:String(x.reason)).slice(0,1).join('');
-  return {clues,note:`${city} · 主索引 ${sites.length-failed}/${sites.length} 次查询可读取，符合条件 ${primary.length} 条${alternate.length?`；备用索引符合条件 ${fallback.length} 条`:''}。${warning?warning+'。':''}${clues.length?'账号身份、地区和业务需官网核验。':'本次没有有效线索；查询完成不代表找到客户。'}仅覆盖公开索引页面。`,partial:failed>0&&!fallback.length};
+  return {clues,review:!clues.length&&alternate.length>0&&alternate.every(x=>x.status==='rejected'),note:`${city} · 主索引 ${sites.length-failed}/${sites.length} 次查询可读取，符合条件 ${primary.length} 条${alternate.length?`；备用索引符合条件 ${fallback.length} 条`:''}。${warning?warning.replace(/[。.]+$/,'')+'。':''}${clues.length?'账号身份、地区和业务需官网核验。':'本次没有有效线索；查询完成不代表找到客户。'}仅覆盖公开索引页面。`,partial:failed>0&&!fallback.length};
 }
 export const NCES_SCHOOL='https://nces.ed.gov/opengis/rest/services/K12_School_Locations/EDGE_GEOCODE_PUBLICSCH_2425/MapServer/0';
 export const NCES_DISTRICT='https://services1.arcgis.com/Ua5sjt3LWTPigjyD/ArcGIS/rest/services/School_District_Office_Locations_Current/FeatureServer/0';
@@ -202,7 +208,7 @@ export async function osmClues(input:SourceInput,geoapifyKey?:string,db?:D1Datab
   for(const e of data.elements){const t=e.tags||{},title=clean(t.name,200),explicitCity=clean(t['addr:city'],80),city=explicitCity||input.city;
     if(!title||(explicitCity&&city.toLowerCase()!==input.city.toLowerCase())||(!explicitCity&&!bounds)||!['node','way','relation'].includes(e.type)||!Number.isSafeInteger(e.id)||/drinking fountain|basketball hoop|basketball court$/i.test(title)||!mapBuyerMatch(title,input.customerType,String(t.sport||'')))continue;
     let website=clean(t.website||t['contact:website'],1000).split(';')[0];if(website&&!/^https?:\/\//i.test(website))website='https://'+website;if(!publicUrl(website))website='';
-    const customerType=t.amenity==='kindergarten'?'PRESCHOOL_KINDERGARTEN':t.amenity==='school'?'PUBLIC_SCHOOL':input.customerType;
+    const customerType=t.amenity==='kindergarten'?'PRESCHOOL_KINDERGARTEN':t.amenity==='school'?'PUBLIC_SCHOOL':mapBuyerType(title,input.customerType);
     clues.push({key:`osm:${e.type}:${e.id}`,title,source:'OSM',customerType,url:`https://www.openstreetmap.org/${e.type}/${e.id}`,city,website,address:clean([t['addr:housenumber'],t['addr:street'],city,input.stateCode,t['addr:postcode']].filter(Boolean).join(' '),500),snippet:clean(`OpenStreetMap 地点资料 · ${t['addr:street']||''} ${t['addr:housenumber']||''}, ${city} · ${explicitCity?'地图明确标注城市':'位于搜索城市边界；城市归属待核实'} · ${t.shop||t.leisure||t.club||t.amenity||t.office||''}。地图分类仅提供机构线索，业务及联系信息需官网核验。`)});
   }return {clues,note:`${input.city} · OSM 地图返回 ${clues.length} 条具名机构线索；${boundsNote}未填城市时轮换所选州的主要城市。普通球场、篮球架和饮水点不入库。`,partial:false};
 }
@@ -223,7 +229,7 @@ export async function geoapifyClues(input:SourceInput,apiKey?:string){
     let website=clean(p.website||p.contact?.website||raw.website||raw['contact:website'],1000).split(';')[0];if(website&&!/^https?:\/\//i.test(website))website='https://'+website;if(!publicUrl(website))website='';
     const rawType=String(raw.osm_type||p.datasource?.osm_type||'').toLowerCase(),osmType=({n:'node',w:'way',r:'relation'} as Record<string,string>)[rawType]||rawType,osmId=String(raw.osm_id||p.datasource?.osm_id||'');
     const osm=['node','way','relation'].includes(osmType)&&/^\d+$/.test(osmId),sourceUrl=osm?`https://www.openstreetmap.org/${osmType}/${osmId}`:`https://www.openstreetmap.org/search?query=${encodeURIComponent(title+' '+city+' '+input.stateCode)}`;
-    const customerType=categories.startsWith('education')?(p.categories?.includes('education.kindergarten')?'PRESCHOOL_KINDERGARTEN':'PUBLIC_SCHOOL'):/recreation|recreational|ymca|community cent(?:er|re)/i.test(title)?'RECREATION_CENTER':input.customerType;
+    const customerType=categories.startsWith('education')?(p.categories?.includes('education.kindergarten')?'PRESCHOOL_KINDERGARTEN':'PUBLIC_SCHOOL'):mapBuyerType(title,input.customerType);
     clues.push({key:osm?`osm:${osmType}:${osmId}`:`geoapify:${id}`,aliasKeys:osm?[`geoapify:${id}`]:[],source:'GEOAPIFY',title,customerType,url:sourceUrl,website,city:explicitCity||city,address:clean(p.formatted,500),snippet:clean(`Geoapify 公开地点目录 · ${p.formatted||title+' '+city} · 分类 ${(p.categories||[]).join(', ')} · ${explicitCity?'来源标注城市':'城市搜索范围，具体归属待核实'}。地图分类不等于采购意向，官网和业务需核验。`)});
   }
   const unique=[...new Map(clues.map(c=>[c.title.toLowerCase()+'|'+c.snippet.split(' · 分类 ')[0].toLowerCase(),c])).values()];
@@ -242,7 +248,7 @@ export async function collectSource(input:SourceInput,source:ExpansionSource,geo
   if(source==='OSM')return osmClues(input,geoapifyKey,db);
   if(source==='GEOAPIFY')return cachedGeoapifyClues(input,geoapifyKey,db);
   if(source==='WEBSITE_SOCIAL')throw new Error('官网批量发现需要候选库上下文。');
-  return indexedClues(input,source);
+  return indexedClues(input,source,db);
 }
 export async function ensureClues(db:D1Database){
   await db.prepare(`CREATE TABLE IF NOT EXISTS discovery_clues (id TEXT PRIMARY KEY,source_key TEXT NOT NULL UNIQUE,title TEXT NOT NULL,source_provider TEXT NOT NULL,source_url TEXT NOT NULL,source_evidence TEXT,customer_type TEXT NOT NULL,state_region TEXT NOT NULL,city TEXT,website TEXT,status TEXT NOT NULL DEFAULT 'PENDING',candidate_id TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();

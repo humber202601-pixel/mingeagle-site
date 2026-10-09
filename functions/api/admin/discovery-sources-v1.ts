@@ -98,7 +98,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       await ensureTables(db);jobId=crypto.randomUUID();
       await db.prepare(`INSERT INTO discovery_jobs(id,state_region,customer_type,target_count,source_provider) VALUES(?,?,?,?, 'PUBLIC_SOURCE_CLUES_V1')`).bind(jobId,parsed.stateCode,parsed.customerType,parsed.targetCount).run();
       const results=await Promise.allSettled(sources.map(source=>source==='WEBSITE_SOCIAL'?collectWebsiteSocial(db,parsed):collectSource(parsed,source,env.GEOAPIFY_API_KEY,db)));
-      const states:Record<string,{ok:boolean;found:number;added:number;updated?:number;retained?:number;partial?:boolean;note?:string;error?:string}>={};let added=0,updated=0;const addedIds:string[]=[],updatedIds:string[]=[],foundIds:string[]=[];
+      const states:Record<string,{ok:boolean;found:number;added:number;updated?:number;retained?:number;partial?:boolean;review?:boolean;note?:string;error?:string}>={};let added=0,updated=0;const addedIds:string[]=[],updatedIds:string[]=[],foundIds:string[]=[];
       for(let i=0;i<results.length;i++){
         const result=results[i],source=sources[i];if(result.status==='rejected'){states[source]={ok:false,found:0,added:0,error:result.reason instanceof Error?result.reason.message:String(result.reason)};continue;}
         let sourceAdded=0,sourceUpdated=0;const clues=[...new Map(result.value.clues.map(clue=>[clue.key,clue])).values()].slice(0,Math.min(50,parsed.targetCount));
@@ -120,7 +120,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
           for(const item of saved){if(item.id)foundIds.push(item.id);if(item.id&&item.kind==='added')addedIds.push(item.id);if(item.id&&item.kind==='updated')updatedIds.push(item.id);}
         }
         added+=sourceAdded;updated+=sourceUpdated;
-        states[source]={ok:true,found:clues.length,added:sourceAdded,updated:sourceUpdated,retained:clues.length-sourceAdded-sourceUpdated,partial:result.value.partial,note:result.value.note};
+        states[source]={ok:true,found:clues.length,added:sourceAdded,updated:sourceUpdated,retained:clues.length-sourceAdded-sourceUpdated,partial:result.value.partial,review:'review' in result.value&&Boolean(result.value.review),note:result.value.note};
       }
       const ok=Object.values(states).some(s=>s.ok);
       await db.prepare(`UPDATE discovery_jobs SET status=?,result_count=?,error=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(ok?'COMPLETED':'FAILED',added,Object.values(states).filter(s=>!s.ok).map(s=>s.error).join(' · ')||null,jobId).run();

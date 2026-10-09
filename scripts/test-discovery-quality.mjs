@@ -6,12 +6,18 @@ import {pathToFileURL} from 'node:url';
 import {build} from 'esbuild';
 const temp=mkdtempSync(join(tmpdir(),'mingeagle-quality-')),originalFetch=globalThis.fetch;
 try{
-  await build({entryPoints:['lib/public-search.ts','lib/discovery-sources.ts'],outdir:temp,bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},entryNames:'[name]',logLevel:'silent'});
+  await build({entryPoints:['lib/public-search.ts','lib/discovery-sources.ts','functions/api/admin/discovery-web-v6.ts'],outdir:temp,bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},entryNames:'[name]',logLevel:'silent'});
   const index=await import(pathToFileURL(join(temp,'public-search.mjs'))),sources=await import(pathToFileURL(join(temp,'discovery-sources.mjs')));
+  const web=await import(pathToFileURL(join(temp,'discovery-web-v6.mjs')));
+  for(const [title,snippet] of [['INDOOR | English meaning - Cambridge Dictionary','English dictionary'],['Indoor Activities in San Francisco','Activities in San Francisco'],['iFLY San Francisco (Union City)','Indoor skydiving San Francisco']])assert.equal(web.eligibleSearchHit({title,snippet,city:'Dallas',url:'https://example.org',query:'basketball training Dallas Texas'},'BASKETBALL_TRAINING','TX'),false,'query text must never be treated as location/business evidence');
+  assert.equal(web.eligibleSearchHit({title:'Dallas Hoopers Basketball Training',snippet:'Dallas Texas private basketball training lessons.',city:'Dallas',url:'https://dallashoopers.com',query:''},'BASKETBALL_TRAINING','TX'),true);
   const rejected=['Carter Softball Complex','Winters Softball Complex','Morrison-Bell Track Stadium','Bowl and Barrel','Fitness Together','24 Hour Fitness','The Sandy Pickle','Dallas Athletic Complex','Generic Sports Center'];
   for(const name of rejected)assert.equal(sources.mapBuyerMatch(name,'BASKETBALL_TRAINING'),false,name+' must not become a basketball academy clue');
   assert.equal(sources.mapBuyerMatch('Northstar Basketball Academy','BASKETBALL_TRAINING'),true);
   assert.equal(sources.mapBuyerMatch('Northstar Sports Center','BASKETBALL_TRAINING','basketball'),true);
+  assert.equal(sources.mapBuyerType('Harry Stone Recreation Center','BASKETBALL_TRAINING'),'RECREATION_CENTER');
+  assert.equal(sources.mapBuyerType('24 Hour Fitness','BASKETBALL_TRAINING'),'BASKETBALL_GYM');
+  assert.equal(sources.mapBuyerType('Northstar Basketball Academy','BASKETBALL_TRAINING'),'BASKETBALL_TRAINING');
   assert.equal(sources.mapBuyerMatch('Northstar Elementary School','ELEMENTARY_SCHOOL'),true);
   const input={stateCode:'TX',customerType:'BASKETBALL_TRAINING',city:'Dallas',targetCount:20,round:0};
   assert(sources.osmQuery(input).includes('["leisure"="sports_centre"]["sport"~"basketball"]'));
@@ -39,5 +45,9 @@ try{
   primaryMode='empty';alternateMode='challenge';found=await sources.indexedClues(input,'FACEBOOK');assert.equal(found.clues.length,0);assert(found.note.includes('人工验证'),'challenge is explicit and is never solved');
   primaryMode='failed';await assert.rejects(()=>sources.indexedClues(input,'FACEBOOK'),/均未能读取/);
   primaryMode='empty';alternateMode='empty';found=await sources.indexedClues(input,'FACEBOOK');assert.equal(found.clues.length,0);assert(found.note.includes('没有有效线索'));
+  // A recorded human-verification block stops later provider requests across backend steps.
+  let blocked=false;const providerDb={prepare(sql){return {bind(){return this;},async first(){return blocked?{payload:'blocked'}:null;},async run(){if(sql.startsWith('INSERT'))blocked=true;return {};}};}};
+  alternateMode='challenge';calls=[];await assert.rejects(()=>index.alternateSearch('basketball Dallas',providerDb),/人工验证/);const requested=calls.length;
+  await assert.rejects(()=>index.alternateSearch('basketball Dallas',providerDb),/停止该来源请求/);assert.equal(calls.length,requested,'blocked provider must not be called repeatedly');
   console.log('PASS: irrelevant live-map names excluded; basketball evidence required; RSS/HTML parsing, safe URLs and redirect unwrapping; bounded independent-index fallback; city/platform/business filters; explicit empty, unavailable, challenge and unknown-page outcomes.');
 }finally{globalThis.fetch=originalFetch;rmSync(temp,{recursive:true,force:true});}

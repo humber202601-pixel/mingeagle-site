@@ -19,3 +19,11 @@ A separate manual control test supplied Dallas Hoopers, Dallas Elite Athletics a
 ## Verification
 
 Five discovery suites include realistic irrelevant map names, search parsing, public URL and redirect checks, alternate-index completion through verification/enrichment/CRM, unavailable vs empty results, protected data, pause/resume and lease fencing. Production build and Pages Functions compilation are required before publication. Automatic live discovery must be checked separately; fixture tests and manually supplied websites do not demonstrate live automatic recall.
+
+## Live follow-up and additional safeguards
+
+The first new automatic Dallas test still imported zero customers. The primary RSS returned dictionary and San Francisco indoor-activity pages for basketball/Dallas queries. Some alternate queries returned directory clues, while others presented human-verification challenges. This live result does not demonstrate working automatic discovery.
+
+Additional safeguards exclude primary/alternate hits without basketball business and location evidence in their title or snippet (the submitted query is never evidence). A challenge records a 30-minute provider backoff shared by backend steps; no later request is made to that provider during the restriction. Zero-result sources with unavailable fallback become REVIEW instead of implying successful search. Basketball-tagged generic gyms and community centers preserve their real buyer classification.
+
+Reliable commercial automatic discovery still needs an available supported search provider/API; no paid service, account or credential was created. Manual official-site intake remains independently verified.
