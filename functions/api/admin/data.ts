@@ -142,6 +142,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
       pipeline: pipeline.results,
     });
   } catch (error) {
+    if (/D1.*(quota|limit|temporarily blocked)|exceeded.*(rows|read)|daily.*(read|limit)/i.test(error instanceof Error ? error.message : String(error))) throw error;
     console.error('admin_data_failed', error);
     return Response.json({ ok: false, error: 'Unable to load admin data.' }, { status: 500 });
   }

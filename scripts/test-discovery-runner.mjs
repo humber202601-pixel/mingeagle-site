@@ -29,8 +29,10 @@ try{
   await advance(10000);await advance(10000);assert.equal(busyKicks,0,'an active worker is polled without redundant processing requests');stopBusy();
   const scheduler=(await import(pathToFileURL(join(temp,'workers/followup-scheduler.mjs')))).default;
   let tickCalls=0;globalThis.fetch=async(_url,init)=>{tickCalls++;assert.equal(JSON.parse(init.body).action,'TICK');return Response.json({ok:true,workerBusy:true,run:{status:'RUNNING'}});};
-  let background;const ctx={waitUntil(p){background=p;}};await scheduler.scheduled({cron:'* * * * *'},{ADMIN_ACCESS_KEY:'fixture'},ctx);await background;assert.equal(tickCalls,1,'background scheduler yields to an active browser worker');
-  globalThis.fetch=async()=>new Response('<html>Temporary error</html>',{status:503});await scheduler.scheduled({cron:'* * * * *'},{ADMIN_ACCESS_KEY:'fixture'},ctx);await background;
-  globalThis.fetch=async()=>{throw new Error('network disconnected');};await scheduler.scheduled({cron:'* * * * *'},{ADMIN_ACCESS_KEY:'fixture'},ctx);await background;
+  const activeDb={prepare(sql){return{bind(){return this},async first(){return sql.includes('SELECT status')?{status:'RUNNING'}:{id:'fixture'}}}}};
+  let background;const ctx={waitUntil(p){background=p;}};await scheduler.scheduled({cron:'* * * * *'},{ADMIN_ACCESS_KEY:'fixture',MINGEAGLE_DB:activeDb},ctx);await background;assert.equal(tickCalls,1,'background scheduler yields to an active browser worker');
+  globalThis.fetch=async()=>new Response('<html>Temporary error</html>',{status:503});await scheduler.scheduled({cron:'* * * * *'},{ADMIN_ACCESS_KEY:'fixture',MINGEAGLE_DB:activeDb},ctx);await background;
+  globalThis.fetch=async()=>{throw new Error('network disconnected');};await scheduler.scheduled({cron:'* * * * *'},{ADMIN_ACCESS_KEY:'fixture',MINGEAGLE_DB:activeDb},ctx);await background;
+  const beforeIdle=tickCalls;await scheduler.scheduled({cron:'* * * * *'},{ADMIN_ACCESS_KEY:'fixture',MINGEAGLE_DB:{prepare(){return{async first(){return null}}}}},ctx);await background;assert.equal(tickCalls,beforeIdle,'idle scheduler makes no API requests');
   console.log('PASS: HTML/502 responses; non-responsive fetch deadline; independent progress polling during hung kickoff; out-of-order state fencing; request cancellation; no duplicate kickoff while worker busy; scheduler HTML/network failure and active-worker handling.');
 }finally{globalThis.fetch=originalFetch;rmSync(temp,{recursive:true,force:true});}

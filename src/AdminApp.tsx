@@ -180,18 +180,17 @@ export default function AdminApp() {
     if (!accessKey) return;
     setLoading(true); setError('');
     try {
-      await fetch('/api/admin/automation-sweep', { method: 'POST', headers: { 'x-admin-key': accessKey } }).catch(() => undefined);
-      const response = await fetch('/api/admin/data', { headers: { 'x-admin-key': accessKey } });
-      const body = await response.json() as AdminData & { error?: string };
+      const response = await fetch('/api/admin/data', { headers: { 'x-admin-key': accessKey }, signal: AbortSignal.timeout(15000) });
+      if (response.status === 401 || response.status === 403) { setAuthorized(false); sessionStorage.removeItem('mingeagle_admin_key'); }
+      const body = await response.json().catch(() => ({ ok: false, error: '服务器暂时不可用，请稍后重试。' })) as AdminData & { error?: string; code?: string; resetAt?: string };
+      if (body.code === 'DATABASE_DAILY_LIMIT') throw new Error('数据库今日读取额度已用完。下次重置：' + (body.resetAt ? new Date(body.resetAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) + '（北京时间）' : '每日北京时间 08:00') + '。请勿反复刷新。');
       if (!response.ok || !body.ok) throw new Error(body.error || '无法加载后台数据。');
       setData(body);
       setAuthorized(true);
       sessionStorage.setItem('mingeagle_admin_key', accessKey);
       setKey(accessKey);
     } catch (err) {
-      setAuthorized(false);
-      setError(err instanceof Error ? err.message : '无法进入后台工作台。');
-      sessionStorage.removeItem('mingeagle_admin_key');
+      setError(err instanceof Error && err.name === 'TimeoutError' ? '请求超时，请稍后重试。' : err instanceof Error ? err.message : '无法进入后台工作台。');
     } finally { setLoading(false); }
   }, [key]);
 
@@ -246,5 +245,5 @@ export default function AdminApp() {
     <TaskManager tasks={data.tasks} accessKey={key} onChanged={() => void load()} />
   </>;
 
-  return <Layout loading={loading} onRefresh={() => void load()} onLogout={() => { sessionStorage.removeItem('mingeagle_admin_key'); setKey(''); setAuthorized(false); setData(emptyData); }}>{content}</Layout>;
+  return <Layout loading={loading} onRefresh={() => void load()} onLogout={() => { sessionStorage.removeItem('mingeagle_admin_key'); setKey(''); setAuthorized(false); setData(emptyData); }}>{error && <div role="alert" className="form-status error">{error}</div>}{content}</Layout>;
 }

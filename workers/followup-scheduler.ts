@@ -299,6 +299,14 @@ export default {
 // Continue only existing discovery jobs; this route never queues or sends outreach.
 async function continueDiscovery(env:Env){
   if(!env.ADMIN_ACCESS_KEY)return;
+  // The partial active-run index makes idle checks independent of job history.
+  // Do not call authenticated API routes (and write auth history) when idle.
+  try {
+    const active = await env.MINGEAGLE_DB.prepare(`SELECT id FROM discovery_auto_runs WHERE status IN ('RUNNING','PAUSED') LIMIT 1`).first<{id:string}>();
+    if (!active) return;
+    const running = await env.MINGEAGLE_DB.prepare(`SELECT status FROM discovery_auto_runs WHERE id=?`).bind(active.id).first<{status:string}>();
+    if (running?.status !== 'RUNNING') return;
+  } catch { return; }
   for(let step=0;step<12;step++){
     try{const r=await fetch('https://app.mingeagle.com/api/admin/discovery-auto-v1',{
       method:'POST',headers:{'content-type':'application/json','x-admin-key':env.ADMIN_ACCESS_KEY},body:JSON.stringify({action:'TICK'}),signal:AbortSignal.timeout(25000)});

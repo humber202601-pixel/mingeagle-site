@@ -27,7 +27,17 @@ function clientIp(request: Request) {
     || 'unknown';
 }
 
+const securityReady = new WeakMap<D1Database, Promise<void>>();
+
 async function ensureSecurityTables(db: D1Database) {
+  const existing = securityReady.get(db);
+  if (existing) return existing;
+  const ready = initializeSecurityTables(db);
+  securityReady.set(db, ready);
+  try { await ready; } catch (error) { securityReady.delete(db); throw error; }
+}
+
+async function initializeSecurityTables(db: D1Database) {
   await db.prepare(`CREATE TABLE IF NOT EXISTS admin_auth_attempts (
     id TEXT PRIMARY KEY,
     ip_hash TEXT NOT NULL,
@@ -36,12 +46,13 @@ async function ensureSecurityTables(db: D1Database) {
   )`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_admin_auth_attempts_ip_time
     ON admin_auth_attempts(ip_hash, created_at DESC)`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_admin_auth_failures ON admin_auth_attempts(ip_hash, success, created_at)`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_admin_auth_created ON admin_auth_attempts(created_at)`).run();
 }
 
 async function failedAttempts(db: D1Database, ipHash: string) {
-  const row = await db.prepare(`SELECT COUNT(*) AS count
-    FROM admin_auth_attempts
-    WHERE ip_hash=? AND success=0 AND created_at >= datetime('now','-15 minutes')`)
+  const row = await db.prepare(`SELECT COUNT(*) AS count FROM (SELECT 1 FROM admin_auth_attempts
+    WHERE ip_hash=? AND success=0 AND created_at >= datetime('now','-15 minutes') LIMIT 8)`)
     .bind(ipHash).first<{ count: number }>();
   return Number(row?.count || 0);
 }
@@ -52,7 +63,7 @@ async function recordAttempt(db: D1Database, ipHash: string, success: boolean) {
   if (success) {
     await db.prepare(`DELETE FROM admin_auth_attempts WHERE ip_hash=? AND success=0`).bind(ipHash).run();
   }
-  await db.prepare(`DELETE FROM admin_auth_attempts WHERE created_at < datetime('now','-2 days')`).run();
+  await db.prepare(`DELETE FROM admin_auth_attempts WHERE id IN (SELECT id FROM admin_auth_attempts WHERE created_at < datetime('now','-2 days') ORDER BY created_at LIMIT 1000)`).run();
 }
 
 function hardenedJson(body: Record<string, unknown>, status: number, extraHeaders: Record<string, string> = {}) {
@@ -78,9 +89,10 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
   const db = context.env.MINGEAGLE_DB;
   const ipHash = await digestHex(clientIp(context.request));
+  let failures = 0;
   if (db) {
     await ensureSecurityTables(db);
-    const failures = await failedAttempts(db, ipHash);
+    failures = await failedAttempts(db, ipHash);
     if (failures >= 8) {
       return hardenedJson(
         { ok: false, error: 'Too many failed login attempts. Please wait 15 minutes and try again.' },
@@ -96,7 +108,11 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return hardenedJson({ ok: false, error: 'Unauthorized.' }, 401);
   }
 
-  if (db) await recordAttempt(db, ipHash, true);
+  // Polling is not a new login: retain the persistent failure limit without
+  // inserting a successful-auth row or scanning old history on every request.
+  if (db && failures > 0) {
+    await db.prepare(`DELETE FROM admin_auth_attempts WHERE ip_hash=? AND success=0`).bind(ipHash).run();
+  }
   const response = await context.next();
   const headers = new Headers(response.headers);
   headers.set('cache-control', 'no-store, no-cache, must-revalidate, max-age=0');
