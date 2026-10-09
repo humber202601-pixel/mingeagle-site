@@ -1,4 +1,3 @@
 User-agent: *
 Allow: /
-Disallow: /thank-you.html
 Sitemap: https://www.mingeagle.com/sitemap.xml
