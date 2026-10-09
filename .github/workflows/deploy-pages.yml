@@ -49,6 +49,9 @@ jobs:
             exit 1
           fi
 
+      - name: Verify inbound attribution and translations
+        run: node scripts/check-growth.cjs
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
