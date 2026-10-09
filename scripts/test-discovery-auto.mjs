@@ -22,7 +22,7 @@ try{
   const post=async(name,body)=>{const r=await handlers[name].onRequestPost({request:new Request(base+name,{method:'POST',headers,body:JSON.stringify(body)}),env});const bodyResult=await r.json();return {status:r.status,body:bodyResult};};
   const get=async(name)=>{const r=await handlers[name].onRequestGet({request:new Request(base+name,{headers}),env});return await r.json();};
   const scalar=(sql)=>db.sqlite.prepare(sql).get().n;
-  let failContact=false,failEnrich=false,missingContacts=false,failSources=false,websiteCalls=[];
+  let failContact=false,failEnrich=false,missingContacts=false,failSources=false,emptyIndex=false,alternateHits=false,websiteCalls=[];
   const html=()=>`<html><head><title>Northstar Basketball Academy — Dallas Texas Basketball Training</title><meta property="og:site_name" content="Northstar Basketball Academy"/><script type="application/ld+json">{"@type":"Organization","name":"Northstar Basketball Academy"}</script></head><body><h1>Northstar Basketball Academy</h1><p>Dallas Texas basketball academy private lessons youth club AAU training basketball summer camp and recreation programs. Register for training classes. Membership. Contact us.</p><a href="/contact">Contact</a><a href="/staff">Staff</a><a href="/coaches">Coaches</a><a href="/procurement">Procurement</a><p>Alex Morgan - Head Coach.</p>${missingContacts?'':'<a href="mailto:hello@academy.example">hello@academy.example</a><a href="tel:2145550186">214-555-0186</a>'}<a href="https://www.facebook.com/northstaracademy/">Facebook</a><a href="https://www.instagram.com/northstaracademy/">Instagram</a><a href="https://www.tiktok.com/@northstaracademy">TikTok</a><a href="https://www.linkedin.com/company/northstaracademy/">LinkedIn</a></body></html>`;
   globalThis.fetch=async(input,init={})=>{
     const url=new URL(String(input));
@@ -30,6 +30,7 @@ try{
     if(url.pathname.startsWith('/api/admin/'))return handlers[url.pathname.split('/').pop()].onRequestPost({request:new Request(url,init),env});
     if(url.hostname==='www.bing.com'){
       if(failSources)return new Response('Unavailable',{status:503});
+      if(emptyIndex)return new Response('<rss><channel></channel></rss>');
       const query=url.searchParams.get('q')||'';let link='https://academy.example';
       if(query.includes('Northstar Independent School'))return new Response('<rss><channel><item><title>Northstar Independent School Dallas Texas</title><link>https://school.example</link><description>Private school education in Dallas Texas.</description></item></channel></rss>');
       if(/site:facebook/.test(query))link='https://www.facebook.com/northstaracademy/';
@@ -37,6 +38,11 @@ try{
       else if(/site:instagram/.test(query))link='https://www.instagram.com/northstaracademy/';
       else if(/site:linkedin/.test(query))link='https://www.linkedin.com/company/northstaracademy/';
       return new Response(`<rss><channel><item><title>Northstar Basketball Academy Dallas Texas</title><link>${link}</link><description>Basketball training academy, private coach lessons and registration in Dallas Texas.</description></item></channel></rss>`);
+    }
+    if(url.hostname==='html.duckduckgo.com'){
+      if(failSources)return new Response('Unavailable',{status:503});
+      if(!alternateHits)return new Response('<div class="no-results">No results</div>');
+      return new Response('<h2><a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Facademy.example">Northstar Basketball Academy Dallas Texas</a></h2><a class="result__snippet">Dallas Texas youth basketball training academy private lessons.</a>');
     }
     if(url.hostname==='school.example')return new Response('<html><head><title>Northstar Independent School</title><meta property="og:site_name" content="Northstar Independent School"/><script type="application/ld+json">{"@type":"Organization","name":"Northstar Independent School"}</script></head><body><h1>Northstar Independent School</h1><p>Dallas Texas private school education, students, athletics and physical education. Contact our school office.</p><a href="mailto:office@school.example">office@school.example</a><a href="tel:2145550102">214-555-0102</a></body></html>',{headers:{'content-type':'text/html'}});
     if(url.hostname==='academy.example'){
@@ -177,5 +183,25 @@ try{
   await auto.advanceAuto(env,base,'fixture',faultId);faultSummary=await auto.advanceAuto(env,base,'fixture',faultId);
   assert.equal(htmlCalls,2);assert.equal(faultSummary.run.status,'PARTIAL');assert(faultSummary.exceptions[0].error.includes('非 JSON'));assert.equal(faultSummary.workerBusy,false);
   globalThis.fetch=realFixtureFetch;
+  // A readable but empty primary index uses another public index and retains the full verification/import flow.
+  await post('discovery-history-v1',{action:'CLEAR'});emptyIndex=true;alternateHits=true;
+  result=await post('discovery-auto-v1',{action:'START',...search});const alternateId=result.body.run.id;
+  db.sqlite.prepare("DELETE FROM discovery_auto_items WHERE run_id=? AND item_key<>'CORE:0'").run(alternateId);
+  for(let tick=0;tick<20;tick++){result=await post('discovery-auto-v1',{action:'ADVANCE',runId:alternateId});if(result.body.run.status!=='RUNNING')break;}
+  assert.equal(result.body.run.status,'COMPLETED',JSON.stringify(result.body.exceptions));
+  assert.equal(result.body.results.filter(row=>row.crm_lead_id).length,1,'alternate index customer must pass verification, enrichment and CRM intake');
+  assert(JSON.parse(result.body.sources[0].result_json).note.includes('备用公开索引返回可用官网 1'));
+  assert.equal(scalar('SELECT COUNT(*) AS n FROM messages'),0);assert.equal(scalar('SELECT COUNT(*) AS n FROM tasks'),0);
+  // Empty results and unavailable providers are different, with honest zero-customer messages.
+  await post('discovery-history-v1',{action:'CLEAR'});alternateHits=false;
+  result=await post('discovery-auto-v1',{action:'START',...search});const emptyId=result.body.run.id;
+  db.sqlite.prepare("DELETE FROM discovery_auto_items WHERE run_id=? AND item_key<>'CORE:0'").run(emptyId);
+  for(let tick=0;tick<5;tick++){result=await post('discovery-auto-v1',{action:'ADVANCE',runId:emptyId});if(result.body.run.status!=='RUNNING')break;}
+  assert.equal(result.body.run.status,'COMPLETED');assert(result.body.run.message.includes('本批未找到'));assert.equal(result.body.results.length,0);assert.equal(JSON.parse(result.body.sources[0].result_json).found,0);
+  await post('discovery-history-v1',{action:'CLEAR'});failSources=true;
+  result=await post('discovery-auto-v1',{action:'START',...search});const unavailableId=result.body.run.id;
+  db.sqlite.prepare("DELETE FROM discovery_auto_items WHERE run_id=? AND item_key<>'CORE:0'").run(unavailableId);
+  for(let tick=0;tick<5;tick++){result=await post('discovery-auto-v1',{action:'ADVANCE',runId:unavailableId});if(result.body.run.status!=='RUNNING')break;}
+  assert.equal(result.body.run.status,'PARTIAL');assert.equal(result.body.sources[0].status,'FAILED');assert(result.body.exceptions[0].error.includes('均不可读取'));assert(result.body.run.message.includes('本批未找到'));
   console.log('PASS: one-click source search → automatic official-site matching → verification → deeper enrichment → CRM; social/contact evidence; dedupe and repeated-click protection; pause/resume; explicit unavailable fields; automatic retry and exception recovery; lease lock; atomic recoverable cleanup/restore; protected commercial records; no outreach or queue.');
 }finally{globalThis.fetch=originalFetch;rmSync(temp,{recursive:true,force:true});}

@@ -1,5 +1,7 @@
 import { STATE_NAMES, METROS, TERMS, COMMERCIAL_TYPES } from '../shared/discovery';
 import { publicUrl, fetchPublicText } from './public-web';
+import {isWebsiteVendorSocial} from './public-contacts';
+import {alternateSearch,rssSearchHits,type PublicSearchHit} from './public-search';
 
 export const SOCIAL_SOURCES = ['FACEBOOK','TIKTOK','INSTAGRAM','LINKEDIN'] as const;
 export type SocialSource = typeof SOCIAL_SOURCES[number];
@@ -11,7 +13,8 @@ export function sourceCity(input:SourceInput){const cities=input.city?[input.cit
 export function mapBuyerMatch(title:string,type:string,context=''){
   if(!COMMERCIAL_TYPES.has(type)||['SPORTS_STORE','SPORTS_DISTRIBUTOR','SUMMER_CAMP','MULTISPORT_ACADEMY'].includes(type))return true;
   if(/basketball|hoops/i.test(title+' '+context))return true;
-  return !/swim|aquatic|cheer|climb|bouldering|tennis|pickleball|golf|skating|martial|jiu.?jitsu|karate|taekwondo|boxing|pilates|yoga|crossfit|soccer|football|equestrian|ice rink/i.test(title+' '+context);
+  if(['BASKETBALL_TRAINING','BASKETBALL_GYM','YOUTH_CLUB','INDEPENDENT_COACH'].includes(type))return false;
+  return !/swim|aquatic|cheer|climb|bouldering|tennis|pickleball|golf|skating|martial|jiu.?jitsu|karate|taekwondo|boxing|pilates|yoga|crossfit|soccer|football|equestrian|ice rink|softball|baseball|bowling|bowl and barrel|track stadium|track and|sandy pickle/i.test(title+' '+context);
 }
 export type WebsiteSocialProfile = {source:SocialSource;url:string;pageUrl:string;originalUrl:string;label:string};
 const schoolTerms:Record<string,string>={PRESCHOOL_KINDERGARTEN:'preschool kindergarten',ELEMENTARY_SCHOOL:'elementary school',MIDDLE_HIGH_SCHOOL:'middle high school',PRIVATE_CHARTER_SCHOOL:'private charter school',SCHOOL_DISTRICT:'school district purchasing',AFTER_SCHOOL_PROGRAM:'after school youth program',EDUCATION_SUPPLIER:'school physical education equipment supplier'};
@@ -32,7 +35,7 @@ export function socialProvider(value:string):SocialSource|undefined{
   if(hostIn(host,['linkedin.com']))return 'LINKEDIN';
 }
 export function sourceUrl(value:string,source:ExpansionSource){
-  if(!publicUrl(value))return '';
+  if(!publicUrl(value)||isWebsiteVendorSocial(value))return '';
   try{const u=new URL(value),host=u.hostname.toLowerCase().replace(/^www\./,'');u.hash='';
     if(source==='SOCIAL'||SOCIAL_SOURCES.includes(source as SocialSource)){
       if(!hostIn(host,socialHosts)||/^\/(?:p|reel|reels|explore|stories|groups|posts|watch|login|accounts|share|search|help|privacy)(?:\/|$)/i.test(u.pathname))return '';
@@ -102,10 +105,13 @@ export function websiteSocialProfiles(pages:Array<{url:string;html:string}>):Web
   return [...found.values()];
 }
 export function parseRssClues(rss:string,source:ExpansionSource,query:string,city:string,type:string):Clue[]{
+  return indexClues(rssSearchHits(rss),source,query,city,type);
+}
+function indexClues(hits:PublicSearchHit[],source:ExpansionSource,query:string,city:string,type:string):Clue[]{
   const out:Clue[]=[],seen=new Set<string>();
   const business=COMMERCIAL_TYPES.has(type)?/basketball|hoops|sporting goods|sports equipment|physical education|ymca/i:/school|district|preschool|kindergarten|education|after.school|youth program/i;
-  for(const item of rss.match(/<item\b[\s\S]*?<\/item>/gi)||[]){
-    const title=xml(item,'title'),url=sourceUrl(xml(item,'link'),source),snippet=xml(item,'description'),body=title+' '+snippet;
+  for(const hit of hits){
+    const title=hit.title,url=sourceUrl(hit.url,source),snippet=hit.snippet,body=title+' '+snippet;
     if(!url||!title||seen.has(url)||!business.test(body)||/live scores?|betting|online games?|NBA news|basketball reference/i.test(body))continue;
     if(city&&!new RegExp('\\b'+city.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','i').test(body))continue;
     seen.add(url);out.push({key:url,title:clean(title,200),source,url,snippet:clean(`公开搜索摘要：${snippet} · 查询：${query}`),city,website:''});
@@ -121,17 +127,22 @@ export async function indexedClues(input:SourceInput,source:'SOCIAL'|'DIRECTORY'
   const terms=TERMS[input.customerType]||[schoolTerms[input.customerType]||'school'];
   const term=terms[Math.floor(input.round/cities.length)%terms.length];
   const sites=source==='SOCIAL'?['facebook.com','instagram.com','linkedin.com/company']:source==='DIRECTORY'?['chamberofcommerce.com','yellowpages.com','bbb.org','manta.com','.gov','.edu']:[socialSites[source],socialSites[source],socialSites[source]];
+  const queries:string[]=[];
   const results=await Promise.allSettled(sites.map(async (site,index)=>{
     const keyword=source==='SOCIAL'||source==='DIRECTORY'?term:terms[(Math.floor(input.round/cities.length)*3+index)%terms.length];
     const query=`site:${site} ${keyword} "${city}" ${STATE_NAMES[input.stateCode]}`;
+    queries[index]=query;
     const rss=await fetchPublicText(`https://www.bing.com/search?q=${encodeURIComponent(query)}&format=rss&mkt=en-US&setlang=en-US`,6500);
     if(!/<rss\b|<channel\b/i.test(rss))throw new Error('公开搜索未返回可读取索引。');
     return parseRssClues(rss,source,query,city,input.customerType);
   }));
-  if(results.every(x=>x.status==='rejected'))throw new Error('公开网页索引本次不可用。');
+  const primary=results.flatMap(x=>x.status==='fulfilled'?x.value:[]);
+  const alternate=primary.length?[]:await Promise.allSettled(queries.slice(0,2).map(async query=>indexClues(await alternateSearch(query),source,query,city,input.customerType)));
+  if(results.every(x=>x.status==='rejected')&&!alternate.some(x=>x.status==='fulfilled'))throw new Error('公开网页索引本次不可用；主索引和备用索引均未能读取。');
   const failed=results.filter(x=>x.status==='rejected').length;
-  const clues=[...new Map(results.flatMap(x=>x.status==='fulfilled'?x.value:[]).map(clue=>[clue.key,clue])).values()].slice(0,Math.min(50,input.targetCount));
-  return {clues,note:`${city} · ${sites.length-failed}/${sites.length} 个公开索引查询完成；${clues.length?'账号身份、地区和业务需官网核验。':'未找到同时符合平台、城市和业务条件的页面。可选择“官网社交账号批量发现”直接读取已核验机构的公开链接。'}仅覆盖搜索引擎可见页面。`,partial:failed>0};
+  const fallback=alternate.flatMap(x=>x.status==='fulfilled'?x.value:[]),clues=[...new Map([...primary,...fallback].map(clue=>[clue.key,clue])).values()].slice(0,Math.min(50,input.targetCount));
+  const warning=alternate.filter(x=>x.status==='rejected').map(x=>x.reason instanceof Error?x.reason.message:String(x.reason)).slice(0,1).join('');
+  return {clues,note:`${city} · 主索引 ${sites.length-failed}/${sites.length} 次查询可读取，符合条件 ${primary.length} 条${alternate.length?`；备用索引符合条件 ${fallback.length} 条`:''}。${warning?warning+'。':''}${clues.length?'账号身份、地区和业务需官网核验。':'本次没有有效线索；查询完成不代表找到客户。'}仅覆盖公开索引页面。`,partial:failed>0&&!fallback.length};
 }
 export const NCES_SCHOOL='https://nces.ed.gov/opengis/rest/services/K12_School_Locations/EDGE_GEOCODE_PUBLICSCH_2425/MapServer/0';
 export const NCES_DISTRICT='https://services1.arcgis.com/Ua5sjt3LWTPigjyD/ArcGIS/rest/services/School_District_Office_Locations_Current/FeatureServer/0';
@@ -161,7 +172,8 @@ export function osmQuery(input:SourceInput,bounds?:[number,number,number,number]
   if(!input.city)throw new Error('OSM 地图搜索请填写城市，避免全州大范围查询。');
   if(bounds&&(!bounds.every(Number.isFinite)||bounds[0]>=bounds[2]||bounds[1]>=bounds[3]||Math.abs(bounds[0])>90||Math.abs(bounds[2])>90||Math.abs(bounds[1])>180||Math.abs(bounds[3])>180))throw new Error('城市地图边界无效。');
   const scope=`${bounds?'('+bounds.join(',')+')':'(area.state)["addr:city"~'+JSON.stringify('^'+input.city.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'$')+',i]'}["name"]`;
-  const filters=['SPORTS_STORE','SPORTS_DISTRIBUTOR','EDUCATION_SUPPLIER'].includes(input.customerType)?['["shop"="sports"]']:COMMERCIAL_TYPES.has(input.customerType)?['["leisure"="sports_centre"]','["club"="sport"]["sport"~"basketball"]','["leisure"="fitness_centre"]["sport"~"basketball"]']:['["amenity"="school"]','["amenity"="kindergarten"]'];
+  const basketballOnly=['BASKETBALL_TRAINING','BASKETBALL_GYM','YOUTH_CLUB','INDEPENDENT_COACH'].includes(input.customerType);
+  const filters=['SPORTS_STORE','SPORTS_DISTRIBUTOR','EDUCATION_SUPPLIER'].includes(input.customerType)?['["shop"="sports"]']:COMMERCIAL_TYPES.has(input.customerType)?[basketballOnly?'["leisure"="sports_centre"]["sport"~"basketball"]':'["leisure"="sports_centre"]','["club"="sport"]["sport"~"basketball"]','["leisure"="fitness_centre"]["sport"~"basketball"]']:['["amenity"="school"]','["amenity"="kindergarten"]'];
   return `[out:json][timeout:8][maxsize:16777216];${bounds?'':`area["ISO3166-2"="US-${input.stateCode}"]->.state;`}(${filters.map(f=>`nwr${scope}${f};`).join('')});out tags ${Math.min(50,input.targetCount)};`;
 }
 export async function osmClues(input:SourceInput,geoapifyKey?:string,db?:D1Database){
@@ -219,7 +231,7 @@ export async function geoapifyClues(input:SourceInput,apiKey?:string){
 }
 async function cachedGeoapifyClues(input:SourceInput,apiKey?:string,db?:D1Database){
   if(!db||!apiKey)return geoapifyClues(input,apiKey);
-  const {city,page}=sourceCity(input),key=['geoapify-v15',input.stateCode,input.customerType,city.toLowerCase(),page,Math.min(50,input.targetCount)].join('|');
+  const {city,page}=sourceCity(input),key=['geoapify-v18',input.stateCode,input.customerType,city.toLowerCase(),page,Math.min(50,input.targetCount)].join('|');
   const cached=await db.prepare(`SELECT payload FROM discovery_public_source_cache WHERE cache_key=? AND expires_at>CURRENT_TIMESTAMP`).bind(key).first<{payload:string}>();
   if(cached){try{const data=JSON.parse(cached.payload) as Awaited<ReturnType<typeof geoapifyClues>>;return {...data,note:data.note+' · 使用 5 分钟内的公开地图缓存。'};}catch{}}
   const data=await geoapifyClues(input,apiKey);

@@ -1,0 +1,43 @@
+import assert from 'node:assert/strict';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {build} from 'esbuild';
+const temp=mkdtempSync(join(tmpdir(),'mingeagle-quality-')),originalFetch=globalThis.fetch;
+try{
+  await build({entryPoints:['lib/public-search.ts','lib/discovery-sources.ts'],outdir:temp,bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},entryNames:'[name]',logLevel:'silent'});
+  const index=await import(pathToFileURL(join(temp,'public-search.mjs'))),sources=await import(pathToFileURL(join(temp,'discovery-sources.mjs')));
+  const rejected=['Carter Softball Complex','Winters Softball Complex','Morrison-Bell Track Stadium','Bowl and Barrel','Fitness Together','24 Hour Fitness','The Sandy Pickle','Dallas Athletic Complex','Generic Sports Center'];
+  for(const name of rejected)assert.equal(sources.mapBuyerMatch(name,'BASKETBALL_TRAINING'),false,name+' must not become a basketball academy clue');
+  assert.equal(sources.mapBuyerMatch('Northstar Basketball Academy','BASKETBALL_TRAINING'),true);
+  assert.equal(sources.mapBuyerMatch('Northstar Sports Center','BASKETBALL_TRAINING','basketball'),true);
+  assert.equal(sources.mapBuyerMatch('Northstar Elementary School','ELEMENTARY_SCHOOL'),true);
+  const input={stateCode:'TX',customerType:'BASKETBALL_TRAINING',city:'Dallas',targetCount:20,round:0};
+  assert(sources.osmQuery(input).includes('["leisure"="sports_centre"]["sport"~"basketball"]'));
+  const result=(url,title='Northstar Basketball Academy',snippet='Dallas Texas basketball training programs.')=>`<h2><a href="${url}" class="result__a">${title}</a></h2><a class="result__snippet">${snippet}</a>`;
+  for(const url of ['https://www.instagram.com/wix/','https://www.facebook.com/WixStudio','https://www.linkedin.com/company/wix-com'])assert.equal(sources.sourceUrl(url,'SOCIAL'),'','website builder accounts must not be customer profiles');
+  assert.equal(sources.websiteSocialProfiles([{url:'https://academy.example/',html:result('https://www.instagram.com/wix/')+result('https://www.facebook.com/WixStudio')+result('https://www.instagram.com/northstar/')}]).length,1);
+  const publicHtml=result('//duckduckgo.com/l/?uddg=https%3A%2F%2Facademy.example%2F&amp;rut=123','Northstar &amp; Hoops Academy')+result('https://academy.example/','Duplicate')+result('http://127.0.0.1/','Private')+result('https://duckduckgo.com/about','Provider');
+  const hits=index.htmlSearchHits(publicHtml);assert.equal(hits.length,1);assert.equal(hits[0].url,'https://academy.example/');assert.equal(hits[0].title,'Northstar & Hoops Academy');assert(hits[0].snippet.includes('Dallas'));
+  assert.deepEqual(index.htmlSearchHits('<div class="no-results">No results</div>'),[]);
+  assert.throws(()=>index.htmlSearchHits('<form id="challenge-form">Unfortunately, bots use DuckDuckGo</form>'),/人工验证/);
+  assert.throws(()=>index.htmlSearchHits('<html>Unexpected page</html>'),/无法识别/);
+  assert.throws(()=>index.rssSearchHits('<html>Not RSS</html>'),/未返回/);
+  const rss='<rss><channel><item><title>Northstar Academy</title><link>https://academy.example/</link><description>Dallas basketball</description></item></channel></rss>';
+  assert.equal(index.rssSearchHits(rss)[0].url,'https://academy.example/');
+  let primaryMode='empty',alternateMode='hit',calls=[];
+  globalThis.fetch=async value=>{
+    const url=new URL(String(value));calls.push(url.hostname);
+    if(url.hostname==='www.bing.com')return primaryMode==='failed'?new Response('Unavailable',{status:503}):new Response(primaryMode==='hit'?'<rss><channel><item><title>Northstar Basketball Academy</title><link>https://www.facebook.com/northstar/</link><description>Dallas Texas basketball training programs.</description></item></channel></rss>':'<rss><channel></channel></rss>');
+    if(url.hostname==='html.duckduckgo.com')return new Response(alternateMode==='challenge'?'<form id="challenge-form">Verify you are human</form>':alternateMode==='empty'?'<div class="no-results">No results</div>':result('https://www.facebook.com/northstar/')+result('https://www.facebook.com/austin/','Austin Basketball Academy','Austin Texas basketball training.')+result('https://www.tiktok.com/@wrong/'));
+    throw new Error('Unexpected endpoint '+url.hostname);
+  };
+  let found=await sources.indexedClues(input,'FACEBOOK');assert.equal(found.clues.length,1,'fallback keeps platform, city and buyer filters');assert(found.note.includes('备用索引符合条件 2'));assert.equal(calls.filter(x=>x==='html.duckduckgo.com').length,2);
+  primaryMode='hit';calls=[];found=await sources.indexedClues(input,'FACEBOOK');assert.equal(found.clues.length,1);assert.equal(calls.includes('html.duckduckgo.com'),false,'valid primary results need no additional provider request');
+  primaryMode='failed';found=await sources.indexedClues(input,'FACEBOOK');assert.equal(found.clues.length,1);assert.equal(found.partial,false,'working fallback recovers unavailable primary');
+  primaryMode='empty';alternateMode='challenge';found=await sources.indexedClues(input,'FACEBOOK');assert.equal(found.clues.length,0);assert(found.note.includes('人工验证'),'challenge is explicit and is never solved');
+  primaryMode='failed';await assert.rejects(()=>sources.indexedClues(input,'FACEBOOK'),/均未能读取/);
+  primaryMode='empty';alternateMode='empty';found=await sources.indexedClues(input,'FACEBOOK');assert.equal(found.clues.length,0);assert(found.note.includes('没有有效线索'));
+  console.log('PASS: irrelevant live-map names excluded; basketball evidence required; RSS/HTML parsing, safe URLs and redirect unwrapping; bounded independent-index fallback; city/platform/business filters; explicit empty, unavailable, challenge and unknown-page outcomes.');
+}finally{globalThis.fetch=originalFetch;rmSync(temp,{recursive:true,force:true});}

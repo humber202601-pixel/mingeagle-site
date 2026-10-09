@@ -4,6 +4,7 @@ import { clueMatches } from '../functions/api/admin/discovery-sources-v1';
 import { detailsGeo,extractGeoContact,verifySchoolWebsite } from '../functions/api/admin/discovery-school-v1';
 import { addToCrm } from '../functions/api/admin/discovery';
 import { syncCrm } from '../functions/api/admin/discovery-enrich';
+import {alternateSearch} from './public-search';
 import { assertAutoLease,autoApi,AutoStepError,type AutoRow as Row } from './discovery-auto-support';
 import type { AutoEnv } from './discovery-auto';
 const clean=(v:unknown,max=1000)=>String(v??'').trim().slice(0,max);
@@ -46,8 +47,19 @@ export async function runAutoStep(env:AutoEnv,base:string,key:string,input:Row):
     const name=clean(row.title||row.name,200),websites:string[]=[];
     if(allowedWebsite(clean(row.website)))websites.push(clean(row.website));
     if(kind==='CLUE'&&row.source_provider==='DIRECTORY'&&allowedWebsite(clean(row.source_url)))websites.push(clean(row.source_url));
-    if(!websites.length){const hits=await bing(`"${name}" ${clean(row.city,80)} ${STATE_NAMES[clean(row.state_region)]||clean(row.state_region,30)} official website`,clean(row.city,80));await guard();for(const hit of hits)if(clueMatches(hit.title,name))websites.push(hit.url);}
-    if(!websites.length)return {review:true,reason:'公开索引尚未提供可核验官网，记录保留待核验。'};
+    let lookupWarning='';
+    if(!websites.length){
+      const query=`"${name}" ${clean(row.city,80)} ${STATE_NAMES[clean(row.state_region)]||clean(row.state_region,30)} official website`;
+      let readable=false;
+      try{const hits=await bing(query,clean(row.city,80));readable=true;for(const hit of hits)if(clueMatches(hit.title,name))websites.push(hit.url);}catch(e){lookupWarning=e instanceof Error?e.message:'主索引不可读取。';}
+      await guard();
+      if(!websites.length){
+        try{const hits=await alternateSearch(query);readable=true;for(const hit of hits)if(allowedWebsite(hit.url)&&clueMatches(hit.title,name))websites.push(hit.url);}catch(e){lookupWarning=e instanceof Error?e.message:'备用索引不可读取。';}
+        await guard();
+      }
+      if(!readable)throw new AutoStepError('查找官网的公开索引本次不可读取。'+lookupWarning,true);
+    }
+    if(!websites.length)return {review:true,reason:'公开索引尚未提供名称匹配的可核验官网，记录保留待核验。'+lookupWarning};
     return again({stage:'VERIFY',websites:[...new Set(websites)].slice(0,2),websiteIndex:0});
   }
   if(stage==='VERIFY'){

@@ -31,3 +31,10 @@ export function publicPersonName(value:string){
   const nonNames=/^(?:at|the|new|our|your|basketball|academy|training|programs?|teams?|contact|about|director|coach|manager|owner|founder|staff|membership|sports|adult|youth|playing|career|experience|biography|profile|learn|more|read|meet|welcome|services?|schedule|register|registration|home|school|athletics|performance|leadership|principal|purchasing|procurement|gallery|news|privacy|policy|expert|interview|if)$/i;
   return parts.length>=2&&parts.length<=3&&parts.every(p=>/^[A-Z][A-Za-z'’-]{1,30}$/.test(p)&&!nonNames.test(p));
 }
+
+// Wix footer/social links describe the website builder, not the customer institution.
+export function isWebsiteVendorSocial(value:string){
+  try{const url=new URL(value),host=url.hostname.toLowerCase().replace(/^(www|m)\./,''),path=url.pathname.toLowerCase().replace(/\/+$/,'');
+    return host==='instagram.com'&&['/wix','/wixstudio'].includes(path)||host==='facebook.com'&&['/wix','/wixstudio'].includes(path)||host==='linkedin.com'&&['/company/wix-com','/company/wix'].includes(path)||host==='tiktok.com'&&['/@wix','/@wixstudio'].includes(path);
+  }catch{return false;}
+}

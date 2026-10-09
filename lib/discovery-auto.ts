@@ -112,7 +112,9 @@ export async function claimAuto(db:D1Database,runId:string):Promise<AutoWork|nul
 }
 async function finishAuto(db:D1Database,runId:string,token:string){
   const unresolved=await db.prepare(`SELECT COUNT(*) AS n FROM discovery_auto_items WHERE run_id=? AND status IN ('FAILED','REVIEW')`).bind(runId).first<{n:number}>();
-  await db.prepare(`UPDATE discovery_auto_runs SET status=?,phase='DONE',message=?,completed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP,revision=revision+1,lease_token=NULL,lease_until=NULL WHERE id=? AND lease_token=? AND status='RUNNING'`).bind(unresolved?.n?'PARTIAL':'COMPLETED',unresolved?.n?'本批已结束；已核实客户已入库，其余记录保留待核验。':'搜索、核验、公开信息补全和待开发客户入库已完成。',runId,token).run();
+  const imported=await db.prepare(`SELECT COUNT(*) AS n FROM discovery_auto_items i JOIN discovery_candidates c ON c.id=i.item_key WHERE i.run_id=? AND i.kind='CANDIDATE' AND i.status='DONE' AND c.crm_lead_id IS NOT NULL`).bind(runId).first<{n:number}>();
+  const message=imported?.n?`本批已加入 ${imported.n} 个待开发客户。${unresolved?.n?'其余记录保留待核验。':'搜索、核验和公开信息补全已完成。'}`:'本批未找到通过核验并入库的客户；请查看各来源返回数量及待核验原因。不能据此判断所选地区没有潜在客户。';
+  await db.prepare(`UPDATE discovery_auto_runs SET status=?,phase='DONE',message=?,completed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP,revision=revision+1,lease_token=NULL,lease_until=NULL WHERE id=? AND lease_token=? AND status='RUNNING'`).bind(unresolved?.n?'PARTIAL':'COMPLETED',message,runId,token).run();
   await db.prepare(`UPDATE discovery_auto_runs SET lease_token=NULL,lease_until=NULL WHERE id=? AND lease_token=?`).bind(runId,token).run();
 }
 export async function executeAuto(env:AutoEnv,base:string,key:string,work:AutoWork,timeoutMs=20000){
