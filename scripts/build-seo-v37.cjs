@@ -105,6 +105,7 @@ for(const filename of fs.readdirSync(root).filter(f=>f.endsWith('.html'))){const
 // Surface actionable customer-intent guides in the learning hub on every deployment.
 {
  const file=path.join(root,'learn.html');
+ if(fs.existsSync(file)){
  let html=fs.readFileSync(file,'utf8');
  html=html.replace(/<!-- MING EAGLE INTENT GUIDES BEGIN -->[\s\S]*?<!-- MING EAGLE INTENT GUIDES END -->/g,'');
  const guides=[
@@ -115,4 +116,5 @@ for(const filename of fs.readdirSync(root).filter(f=>f.endsWith('.html'))){const
  const links='<section class="learnNext" style="margin:24px auto"><h2>More buying guides</h2><div style="display:grid;gap:12px">'+guides.map(([url,title,desc])=>'<article style="background:#fff;padding:18px;border:1px solid #e7ebf0;border-radius:12px"><h3><a href="'+url+'">'+title+'</a></h3><p>'+desc+'</p><a href="'+url+'">Read guide →</a></article>').join('')+'</div></section>';
  html=html.replace('</main>','<!-- MING EAGLE INTENT GUIDES BEGIN -->'+links+'<!-- MING EAGLE INTENT GUIDES END --></main>');
  fs.writeFileSync(file,html);
+ }
 }
