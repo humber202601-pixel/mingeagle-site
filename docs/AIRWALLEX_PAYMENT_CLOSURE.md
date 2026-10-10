@@ -24,7 +24,8 @@ Configure these as encrypted production secrets for the project that serves `app
 - `AIRWALLEX_CLIENT_ID`
 - `AIRWALLEX_API_KEY`
 - `AIRWALLEX_WEBHOOK_SECRET`
-- `AIRWALLEX_ENV`
+- `AIRWALLEX_ENV` (`sandbox` or `prod`, must be explicitly set)
+- `AIRWALLEX_CHECKOUT_ENABLED` (`true` to enable; absent or any other value keeps checkout disabled)
 
 Use `AIRWALLEX_ENV=sandbox` for testing and `AIRWALLEX_ENV=prod` only after the production account and payment methods are active.
 
@@ -77,7 +78,9 @@ Run all of these before switching to production:
 
 ## Go-live gate
 
-Do not set `AIRWALLEX_ENV=prod` until:
+Keep `AIRWALLEX_CHECKOUT_ENABLED` unset or `false` in production until acceptance tests pass. A configured API key alone does not enable checkout.
+
+Do not set `AIRWALLEX_ENV=prod` or `AIRWALLEX_CHECKOUT_ENABLED=true` for live credentials until:
 
 - Airwallex Payments is activated.
 - Required payment methods are Active/Enabled.
