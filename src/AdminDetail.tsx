@@ -1,3 +1,4 @@
+import {parseWholesaleRfq} from './rfqParser';
 import LeadOutreach from './LeadOutreach';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -120,6 +121,7 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
       <Section title="询盘需求"><div className="detail-grid">
         <div><small>联系人</small><strong>{text(r.contact_name)}</strong></div><div><small>邮箱</small><strong>{text(r.contact_email)}</strong></div><div><small>客户公司</small><strong>{text(r.company_name)}</strong></div><div><small>预计数量</small><strong>{text(r.estimated_quantity)}</strong></div><div><small>国家</small><strong>{text(r.shipping_country)}</strong></div><div><small>邮编</small><strong>{text(r.shipping_postal_code)}</strong></div>
       </div><div className="detail-message"><small>客户留言</small><p>{text(r.message,'无')}</p></div></Section>
+      {parseWholesaleRfq(r.message).length>0 && <Section title="B2B 组合采购明细"><p className="detail-note">来自客户填写的采购需求，不代表已确认报价或库存。</p><MiniTable rows={parseWholesaleRfq(r.message).map((item,i)=>({id:i+1,...item}))} columns={[{key:'product',label:'产品系列'},{key:'size',label:'球号'},{key:'color',label:'颜色'},{key:'quantity',label:'数量（件）'}]}/><p><strong>采购需求总件数：{parseWholesaleRfq(r.message).reduce((sum,r)=>sum+r.quantity,0).toLocaleString('zh-CN')}</strong></p></Section>}
       {String(r.message||'').includes('Retail cart order request (NOT PAID)') && <Section title="零售购物车报价审核"><p className="detail-note">从客户购物车需求重新读取数据库零售价、包装和运价，生成多商品报价草稿。草稿不会自动发送或收款，请在报价管理中审核。</p><button className="button" type="button" disabled={retailQuoteBusy||retailQuoteCreated||r.status==='QUOTED'||r.status==='CLOSED'} onClick={()=>void draftRetailQuote(String(r.reference))}>{retailQuoteBusy?'正在生成…':'生成零售报价草稿'}</button>{retailQuoteResult&&<p role="status">{retailQuoteResult} {retailQuoteCreated&&<Link to="/app/quotes">前往报价管理 →</Link>}</p>}</Section>}
       {data.score && <ScoreCard score={data.score}/>} 
     </>}
