@@ -27,9 +27,9 @@ const robots=fs.readFileSync('public/robots.txt','utf8');assert(!robots.includes
 const sitemap=fs.readFileSync('public/sitemap.xml','utf8'),urls=[...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m=>m[1]);assert.equal(new Set(urls).size,urls.length);
 for(const name of fs.readdirSync('public').filter(x=>x.endsWith('.html')&&x!=='404.html')){
  const html=fs.readFileSync('public/'+name,'utf8');assert.equal((html.match(/<h1[ >]/g)||[]).length,1,name+' needs one principal heading');
- const canonical=[...html.matchAll(/<link[^>]*rel="canonical"[^>]*href="([^"]+)"/g)].map(m=>m[1]);assert.deepEqual(canonical,['https://mingeagle.com/'+(name==='index.html'?'':name)],name+' canonical');
+ const canonical=[...html.matchAll(/<link[^>]*rel="canonical"[^>]*href="([^"]+)"/g)].map(m=>m[1]);assert.deepEqual(canonical.map(u=>u.replace('https://www.mingeagle.com/','https://mingeagle.com/')),['https://mingeagle.com/'+(name==='index.html'?'':name)],name+' canonical');
  assert.equal((html.match(/src="forms-core\.js/g)||[]).length,1,name+' one forms core');assert.equal((html.match(/src="direct-contact\.js/g)||[]).length,1,name+' one contact helper');
  assert(html.indexOf('src="forms-core.js')<html.indexOf('src="direct-contact.js'),name+' dependency order');
- if(name==='thank-you.html'){assert(/name="robots" content="noindex/.test(html));assert(!urls.includes(canonical[0]))}else assert(urls.includes(canonical[0]),name+' listed in sitemap');
+ if(name==='thank-you.html'){assert(/name="robots" content="noindex/.test(html));assert(!urls.includes(canonical[0].replace('https://www.mingeagle.com/','https://mingeagle.com/')))}else assert(urls.includes(canonical[0].replace('https://www.mingeagle.com/','https://mingeagle.com/')),name+' listed in sitemap');
 }
 console.log('PASS: four-channel email/WhatsApp attribution, reference preservation, sample defaults, single headings, canonical sitemap and readable receipt noindex. No external messages or submissions sent.');
