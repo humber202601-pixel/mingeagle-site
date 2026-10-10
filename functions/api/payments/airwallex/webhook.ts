@@ -189,9 +189,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return new Response('Payment intent amount mismatch', { status: 409 });
     }
 
-    await db.prepare(`UPDATE payment_provider_sessions
-      SET status=?, updated_at=CURRENT_TIMESTAMP
-      WHERE provider='AIRWALLEX' AND provider_intent_id=?`)
+    await db.prepare(`UPDATE payment_provider_sessions\n      SET status=CASE WHEN status='SUCCEEDED' THEN status ELSE ? END, updated_at=CURRENT_TIMESTAMP\n      WHERE provider='AIRWALLEX' AND provider_intent_id=?`)
       .bind(providerStatus, providerReference).run();
 
     const metadata = { eventId, eventName, providerReference, providerStatus, amount, currency };
@@ -289,7 +287,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ ok: true, orderReference, paymentStatus: fullyPaid ? 'PAID' : 'PARTIAL' });
     }
 
-    if (eventName === 'payment_intent.pending' || eventName === 'payment_intent.pending_review') {
+    // Late/duplicate failure or pending notifications must not downgrade an already paid order.\n    if (String(order.payment_status) === 'PAID') {\n      await markEventProcessed(db, eventId);\n      return Response.json({ ok: true, ignored: true, reason: 'order_already_paid' });\n    }\n\n    if (eventName === 'payment_intent.pending' || eventName === 'payment_intent.pending_review') {
       await db.prepare(`UPDATE orders SET status='PAYMENT_PENDING', updated_at=CURRENT_TIMESTAMP WHERE id=? AND payment_status!='PAID'`).bind(orderId).run();
       await addActivity(db, orderId, 'PAYMENT_PENDING', 'Airwallex payment is processing', `${orderReference} payment is ${providerStatus.toLowerCase().replace(/_/g, ' ')}`, metadata);
     } else if (eventName === 'payment_intent.requires_customer_action') {
