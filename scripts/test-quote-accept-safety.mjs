@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+const path=new URL('../functions/api/quote/[token].ts',import.meta.url);
+const source=await readFile(path,'utf8');
+const accept=source.slice(source.indexOf('export const onRequestPost'));
+assert(accept.includes("if (!['SENT','VIEWED'].includes(status))"),'only sent/viewed quotes accepted');
+assert(accept.includes('CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_quote_unique'),'one order per quote');
+assert(accept.includes('await db.batch([orderInsert, ...itemInserts, converted])'),'order, items, conversion must be atomic');
+assert(accept.includes("payment_status: 'UNPAID'"),'new order must be unpaid');
+assert(accept.includes("status: 'PAYMENT_PENDING'"),'new order must be awaiting payment');
+assert(accept.includes('const raced = await getOrder(db, quoteId)'),'concurrent acceptance must reuse order');
+const legacy=accept.match(/for \(const item of items\.results\)[\s\S]*?await db\.prepare\(`INSERT INTO order_items/);
+assert.equal(legacy,null,'no separate non-atomic order item writes');
+console.log('PASS: quote acceptance preserves unpaid order, uniqueness, and atomic order + items conversion.');
