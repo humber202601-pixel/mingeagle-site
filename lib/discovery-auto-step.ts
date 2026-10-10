@@ -33,15 +33,32 @@ export async function runAutoStep(env:AutoEnv,base:string,key:string,input:Row):
   if(kind==='CLUE'&&row.status==='CONVERTED'&&row.candidate_id)return {candidateId:row.candidate_id};
   let stage=clean(payload.stage);
   if(!stage){
-    if(kind==='CLUE')stage=row.source_provider==='SCHOOL_GEOAPIFY'&&!allowedWebsite(clean(row.website))?'DETAIL':'LOOKUP';
-    else stage=row.source_provider==='GEOAPIFY_SCHOOL_V1'||!allowedWebsite(clean(row.website))?'LOOKUP':'ENRICH';
+    if(kind==='CLUE'){
+      // Map clues can carry an actual place ID even when their deduplicated
+      // provider is OSM. Prefer authoritative place details to unreliable RSS.
+      let placeId='';try{placeId=clean((JSON.parse(clean(row.raw_json)||'{}') as Row).placeId,300);}catch{}
+      stage=!allowedWebsite(clean(row.website))&&placeId&&env.GEOAPIFY_API_KEY?'DETAIL':'LOOKUP';
+    }else stage=row.source_provider==='GEOAPIFY_SCHOOL_V1'||!allowedWebsite(clean(row.website))?'LOOKUP':'ENRICH';
   }
   if(stage==='DETAIL'){
     const raw=JSON.parse(clean(row.raw_json)||'{}') as Row;
     if(!raw.placeId||!env.GEOAPIFY_API_KEY)return again({stage:'LOOKUP'});
-    const details=await detailsGeo(env.GEOAPIFY_API_KEY,clean(raw.placeId,300));await guard();
-    const geo=extractGeoContact(details);
-    if(allowedWebsite(geo.website))await db.prepare(`UPDATE discovery_clues SET website=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='PENDING'`).bind(geo.website,id).run();
+    try{
+      const details=await detailsGeo(env.GEOAPIFY_API_KEY,clean(raw.placeId,300));await guard();
+      const name=clean(details.name,200),state=clean(details.state_code).toUpperCase(),city=clean(details.city,80);
+      // A place ID alone is not identity evidence. Reject mismatched
+      // map records before accepting any website or contact details.
+      if((!name||clueMatches(name,clean(row.title,200)))&&
+         (!state||state===clean(row.state_region).toUpperCase())&&
+         (!city||city.toLowerCase()===clean(row.city,80).toLowerCase())){
+        const geo=extractGeoContact(details);
+        if(allowedWebsite(geo.website))await db.prepare(`UPDATE discovery_clues SET website=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='PENDING'`).bind(geo.website,id).run();
+      }
+    }catch(e){
+      await guard();
+      // A failed free-provider detail request is not a failed institution.
+      // Continue with the bounded public-index fallback and preserve the clue.
+    }
     return again({stage:'LOOKUP'});
   }
   if(stage==='LOOKUP'){
