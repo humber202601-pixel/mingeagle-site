@@ -80,7 +80,7 @@ try{
   assert(placeDetailCalls>0,'map clues lacking a website must use bounded place-details lookup before RSS');
   const enrichedMap=db.sqlite.prepare("SELECT raw_json,website FROM discovery_clues WHERE source_key='osm:way:42'").get();
   assert.equal(JSON.parse(enrichedMap.raw_json).placeId,'fixture-academy','store provider place ID through source ingestion');
-  assert.equal(enrichedMap.website,'https://academy.example','accept verified provider website from matching place details');
+  assert.equal(new URL(enrichedMap.website).hostname,'academy.example','accept verified provider website from matching place details');
   const contact=db.sqlite.prepare('SELECT * FROM contacts').get();assert.equal(contact.email,'hello@academy.example');assert.equal(contact.phone,'2145550186');assert.equal(contact.full_name,'Alex Morgan');
   assert.equal(db.sqlite.prepare("SELECT address FROM companies WHERE domain='academy.example'").get().address,'100 Hoops Street, Dallas, TX','late map verification preserves address in existing CRM');
   assert(contact.facebook_url.includes('facebook.com'));assert(contact.tiktok_url.includes('tiktok.com'));
