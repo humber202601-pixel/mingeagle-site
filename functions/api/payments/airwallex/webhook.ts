@@ -287,7 +287,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ ok: true, orderReference, paymentStatus: fullyPaid ? 'PAID' : 'PARTIAL' });
     }
 
-    // Late/duplicate failure or pending notifications must not downgrade an already paid order.\n    if (String(order.payment_status) === 'PAID') {\n      await markEventProcessed(db, eventId);\n      return Response.json({ ok: true, ignored: true, reason: 'order_already_paid' });\n    }\n\n    if (eventName === 'payment_intent.pending' || eventName === 'payment_intent.pending_review') {
+    // Late payment notifications must not reopen an already-paid order.
+    if (String(order.payment_status) === 'PAID') {
+      await markEventProcessed(db, eventId);
+      return Response.json({ ok: true, ignored: true, reason: 'order_already_paid' });
+    }
+
+    if (eventName === 'payment_intent.pending' || eventName === 'payment_intent.pending_review') {
       await db.prepare(`UPDATE orders SET status='PAYMENT_PENDING', updated_at=CURRENT_TIMESTAMP WHERE id=? AND payment_status!='PAID'`).bind(orderId).run();
       await addActivity(db, orderId, 'PAYMENT_PENDING', 'Airwallex payment is processing', `${orderReference} payment is ${providerStatus.toLowerCase().replace(/_/g, ' ')}`, metadata);
     } else if (eventName === 'payment_intent.requires_customer_action') {
