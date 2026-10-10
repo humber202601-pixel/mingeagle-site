@@ -11,8 +11,8 @@ const originalFetch=globalThis.fetch;
 try{
   await build({entryPoints:['functions/api/admin/discovery-auto-v1.ts','src/discovery-stall.ts'],
     outdir:tmp,platform:'node',format:'esm',bundle:true,logLevel:'silent',outExtension:{'.js':'.mjs'}});
-  const api=await import(pathToFileURL(join(tmp,'discovery-auto-v1.mjs')));
-  const {discoveryStall}=await import(pathToFileURL(join(tmp,'discovery-stall.mjs')));
+  const api=await import(pathToFileURL(join(tmp,'functions/api/admin/discovery-auto-v1.mjs')));
+  const {discoveryStall}=await import(pathToFileURL(join(tmp,'src/discovery-stall.mjs')));
   const clock=Date.parse('2026-10-10T09:00:00Z');
   const input={run:{status:'RUNNING',created_at:'2026-10-10 08:00:00',last_progress_at:'2026-10-10 08:52:00'},
     workerBusy:false,progress:{waiting:43,processing:1}};
