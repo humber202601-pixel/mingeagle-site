@@ -93,7 +93,7 @@ export default function ConversionFunnel({accessKey}:{accessKey:string}){
           {priorities.every(p=>p.confidence==='NONE')&&<p className="conversion-muted">目前所有类别都没有已入库样本，系统不会臆造「高转化客户类型」。可从目标市场小批测试并逐步积累真实回复、报价与订单记录。</p>}
           <div className="conversion-priority-grid">
           {priorities.slice(0,6).map((p,index)=><div className="conversion-priority" key={p.category}>
-            <div className="conversion-priority-head"><strong>{index+1}. {p.label}</strong>
+            <div className="conversion-priority-head"><strong>{p.confidence==='NONE'?'':(index+1)+'. '}{p.label}</strong>
               <span>{({BACKLOG:'现有客户待联系',MULTI_STAGE:'存在多阶段记录',REPLIES:'已有回复信号',EXPLORATION:'样本不足 · 小批探索',RETHINK:'先排查转化障碍'} as Record<string,string>)[p.level]}</span>
             </div>
             <p>{p.reason}</p>
