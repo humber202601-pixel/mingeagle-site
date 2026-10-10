@@ -282,13 +282,17 @@ async function processInquiryPost(context:Parameters<PagesFunction<Env>>[0],noti
     // Reuse the public website's ME reference so browser retries never create duplicate CRM leads.
     if (requestedReference) {
       const existing = await db.prepare(`SELECT i.id AS inquiry_id, i.reference, i.lead_id, i.status AS inquiry_status,
-          l.status AS lead_status
+          l.status AS lead_status, lower(ct.email) AS contact_email
         FROM inquiries i
         LEFT JOIN leads l ON l.id=i.lead_id
+        LEFT JOIN contacts ct ON ct.id=i.contact_id
         WHERE i.reference=? LIMIT 1`)
         .bind(requestedReference)
-        .first<{ inquiry_id: string; reference: string; lead_id: string | null; inquiry_status: string; lead_status: string | null }>();
+        .first<{ inquiry_id: string; reference: string; lead_id: string | null; inquiry_status: string; lead_status: string | null; contact_email: string | null }>();
       if (existing?.inquiry_id) {
+        if(existing.contact_email&&existing.contact_email!==email){
+          return Response.json({ok:false,error:'Inquiry reference belongs to a different contact.'},{status:409});
+        }
         const existingSample = await db.prepare('SELECT id FROM samples WHERE inquiry_id=? LIMIT 1')
           .bind(existing.inquiry_id).first<{ id: string }>();
         return successResponse(nativeForm, existing.reference, {
