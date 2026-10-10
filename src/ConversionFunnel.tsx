@@ -2,6 +2,7 @@ import {useEffect,useMemo,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {BarChart3,Download,ExternalLink,RefreshCcw} from 'lucide-react';
 import {TYPE_OPTIONS} from '../shared/discovery';
+import {discoveryPriorities} from './discovery-priorities';
 import './conversion-funnel.css';
 type Source='ALL'|'DISCOVERY'|'WEBSITE';
 type Segment={category:string;total:number;withContact:number;contactable:number;emailReady:number;blocked:number;contacted:number;replied:number;quoted:number;ordered:number;paid:number;readyToReview:number};
@@ -46,6 +47,9 @@ export default function ConversionFunnel({accessKey}:{accessKey:string}){
     return ()=>controller.abort();
   },[accessKey,days,source,refresh]);
   const prospects=useMemo(()=>data?.prospects.filter(p=>selected==='ALL'||p.category===selected)||[],[data,selected]);
+  // Reuse the already-loaded authenticated conversion snapshot. No extra D1
+  // query, no background scheduler and no outreach side effects.
+  const priorities=useMemo(()=>source==='DISCOVERY'&&data?discoveryPriorities(data.segments):[],[data,source]);
   const exportCsv=()=>{
     if(!data)return;
     const csv=[
@@ -80,7 +84,36 @@ export default function ConversionFunnel({accessKey}:{accessKey:string}){
       <section className="conversion-metrics">
         {columns.map(([key,label])=><div className="panel conversion-metric" key={key}><span>{label}</span><strong>{number(data.summary[key])}</strong><small>{key==='readyToReview'?'已公开联系方式、未被禁止联系且暂无发信记录':key==='paid'?'订单标记已付，未核对银行到账':key==='replied'?'实际消息时间晚于首次发信':key==='ordered'?'不含订单草稿及取消订单':'已保存的 CRM 真实记录'}</small></div>)}
       </section>
-      {data.summary.total===0?<section className="panel"><div className="empty-row">当前筛选范围内没有 CRM 客户。可切换到全部历史客户，或返回客户发现搜索并核验公开机构。</div><Link to="/app/discovery">打开客户发现</Link></section>:<>
+      {data.summary.total===0&&<section className="panel"><div className="empty-row">当前筛选范围内没有 CRM 客户。可切换到全部历史客户，或返回客户发现搜索并核验公开机构。</div><Link to="/app/discovery">打开客户发现</Link></section>}
+      <section className="panel conversion-recommendations">
+        <div className="panel-head"><div><h2>V34 · 下一批开发范围建议</h2>
+          <span>仅基于本页已读取的主动发现客户记录；建议不会自动开始搜索，也不会自动发送开发信</span></div></div>
+        {source!=='DISCOVERY'?<p className="conversion-muted">请切换上方「主动发现客户」，再查看针对客户发现流程的优先级建议。官网询盘与主动开发不适合直接混合作为获客证据。</p>:
+        <>
+          {priorities.every(p=>p.confidence==='NONE')&&<p className="conversion-muted">目前所有类别都没有已入库样本，系统不会臆造「高转化客户类型」。可从目标市场小批测试并逐步积累真实回复、报价与订单记录。</p>}
+          <div className="conversion-priority-grid">
+          {priorities.slice(0,6).map((p,index)=><div className="conversion-priority" key={p.category}>
+            <div className="conversion-priority-head"><strong>{p.confidence==='NONE'?'':(index+1)+'. '}{p.label}</strong>
+              <span>{({BACKLOG:'现有客户待联系',MULTI_STAGE:'存在多阶段记录',REPLIES:'已有回复信号',EXPLORATION:'样本不足 · 小批探索',RETHINK:'先排查转化障碍'} as Record<string,string>)[p.level]}</span>
+            </div>
+            <p>{p.reason}</p>
+            <small>{p.nextAction}</small>
+            <div className="conversion-priority-actions">
+              {p.level==='BACKLOG'?<Link to="/app/leads">先审核现有客户 <ExternalLink size={12}/></Link>:
+                <Link to={'/app/discovery?customerType='+encodeURIComponent(p.category)}>带入搜索类型 <ExternalLink size={12}/></Link>}
+              <span>{p.replyRate===null?'已联系样本不足10':`已联系后的回复率 ${p.replyRate}%（仅历史样本）`}</span>
+            </div>
+          </div>)}
+          </div>
+          {priorities.length>6&&<details className="conversion-priority-more"><summary>查看其他 {priorities.length-6} 类客户的分析依据</summary>
+            <div className="conversion-priority-grid">{priorities.slice(6).map(p=><div className="conversion-priority" key={p.category}>
+              <div className="conversion-priority-head"><strong>{p.label}</strong><span>{p.confidence==='OBSERVED'?'有已联系样本':'证据不足'}</span></div>
+              <p>{p.reason}</p><small>{p.nextAction}</small><div className="conversion-priority-actions"><Link to={'/app/discovery?customerType='+encodeURIComponent(p.category)}>带入搜索类型 <ExternalLink size={12}/></Link></div>
+            </div>)}</div>
+          </details>}
+          <p className="conversion-muted">建议优先处理已经入库但尚未联系的真实客户。只有已联系人数达到10且有实际客户回复记录时才提供扩展依据；小样本不会被解读为市场好坏或成交预测。跳转仅填入类别，需要你选州并手动启动搜索。</p>
+        </>}
+      </section>
       <section className="panel conversion-steps">
         <div className="panel-head"><h2>客户开发阶段覆盖</h2><BarChart3 size={18}/></div>
         <div className="conversion-bars">
@@ -117,7 +150,6 @@ export default function ConversionFunnel({accessKey}:{accessKey:string}){
             <Link to={'/app/leads/'+encodeURIComponent(p.id)}>打开档案并拟稿 <ExternalLink size={13}/></Link>
           </div>)}</div>}
       </section>
-      </>}
       <section className="panel">
         <div className="panel-head"><h2>统计口径与数据限制</h2><span>{data.generatedAt?'更新时间 '+new Date(data.generatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):''}</span></div>
         <div className="conversion-limitations">{data.limitations?.map((item,i)=><p key={i}>{item}</p>)}</div>

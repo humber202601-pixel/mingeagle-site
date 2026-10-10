@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { ExternalLink, LoaderCircle, MapPin, RefreshCcw, Search, UserPlus, X, Download } from 'lucide-react';
 import DiscoverySources from './DiscoverySources';
 import AutoDiscovery from './AutoDiscovery';
+import {useLocation} from 'react-router-dom';
 
 type Row = Record<string, unknown>;
 type IntakeResult = { imported: number; matched: number; review: number; failed: number; warnings: string[] };
@@ -45,6 +46,11 @@ const sourceLabel = (provider: unknown) => {
 };
 
 export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
+  const location=useLocation();
+  const recommendedType=useMemo(()=>{
+    const requested=new URLSearchParams(location.search).get('customerType');
+    return TYPE_OPTIONS.some(([code])=>code===requested)?requested||'': '';
+  },[location.search]);
   const [candidates, setCandidates] = useState<Row[]>([]);
   const [jobs, setJobs] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
@@ -71,13 +77,17 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
   const [sourceState,setSourceState]=useState<Record<string,boolean>>({});
   const [sourceErrors,setSourceErrors]=useState<Record<string,string>>({});
   const [searchState,setSearchState]=useState('TX');
-  const [searchType,setSearchType]=useState('BASKETBALL_TRAINING');
+  const [searchType,setSearchType]=useState(recommendedType||'BASKETBALL_TRAINING');
   const [searchCity,setSearchCity]=useState('');
   const [websiteUrls,setWebsiteUrls]=useState('');
   const [importing,setImporting]=useState(false);
   const [cleaning,setCleaning]=useState(false);
   const [websiteResults,setWebsiteResults]=useState<Array<{url:string;status:string;name?:string;reason?:string}>>([]);
 
+
+  useEffect(()=>{
+    if(recommendedType){setSearchType(recommendedType);setSearchBatch({key:'',round:0})}
+  },[recommendedType]);
 
   async function load(signal?:AbortSignal) {
     setLoading(true);
@@ -328,7 +338,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
   },[allCounts,priority]);
 
   return <>
-    <AutoDiscovery accessKey={accessKey} externalBusy={expandedBusy||searching||importing||cleaning||batching||preparing||Boolean(busyId)} onBusyChange={setAutoBusy} onChanged={()=>{setReloadVersion(v=>v+1);onChanged();}} onCleared={()=>{setHistoryVersion(v=>v+1);setSearchBatch({key:'',round:0});setCandidates([]);setJobs([]);setAllCounts([]);setMessage('');setError('');}}/>
+    <AutoDiscovery key={recommendedType||'default'} initialType={recommendedType} accessKey={accessKey} externalBusy={expandedBusy||searching||importing||cleaning||batching||preparing||Boolean(busyId)} onBusyChange={setAutoBusy} onChanged={()=>{setReloadVersion(v=>v+1);onChanged();}} onCleared={()=>{setHistoryVersion(v=>v+1);setSearchBatch({key:'',round:0});setCandidates([]);setJobs([]);setAllCounts([]);setMessage('');setError('');}}/>
     <details className="discovery-advanced"><summary>高级工具 · 手动搜索、核验与候选记录</summary>
     <section className="metric-grid discovery-metrics">
       <div className="metric"><span>候选客户库</span><strong>{counts.total}</strong><small>有效候选</small></div>
