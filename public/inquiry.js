@@ -67,7 +67,8 @@ form.addEventListener('submit',async e=>{
  if(rules($('request_type').value).purchase&&!form.querySelector('[name="products[]"]:checked')){
   $('productError').hidden=false;$('choose-p1').focus();return
  }
- if(isLogo()){const minimum=$('logoKind').value==='color'?200:20,qty=Number($('logoQuantity').value);if(!Number.isInteger(qty)||qty<minimum){$('formStatus').textContent='Logo printing requires at least '+minimum+' units. Black logo: 20+; color logo: 200+.';$('logoQuantity').focus();return}}\n const d=read();
+ if(isLogo()){const minimum=$('logoKind').value==='color'?200:20,qty=Number($('logoQuantity').value);if(!Number.isInteger(qty)||qty<minimum){$('formStatus').textContent='Logo printing requires at least '+minimum+' units. Black logo: 20+; color logo: 200+.';$('logoQuantity').focus();return}}
+ const d=read();
  if(!c.enabled){review(d);$('formStatus').textContent='Prepared. Please send it using email or WhatsApp below.';return}
  busy=true;$('submitInquiry').disabled=true;
  $('formStatus').textContent='Checking security verification…';
