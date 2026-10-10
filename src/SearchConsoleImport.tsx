@@ -27,14 +27,17 @@ export default function SearchConsoleImport({accessKey}:{accessKey:string}){
  const [kind,setKind]=useState<'queries'|'pages'>('queries'),[property,setProperty]=useState('sc-domain:mingeagle.com');
  const [start,setStart]=useState(''),[end,setEnd]=useState(''),[file,setFile]=useState<File|null>(null);
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[snapshots,setSnapshots]=useState<Snapshot[]>([]);
+ const [report,setReport]=useState<{imported:Snapshot|null;rows:Entry[]}|null>(null);
  const refresh=async()=>{try{const r=await fetch('/api/admin/search-console-import',{headers:{'x-admin-key':accessKey}});const b=await r.json() as {imports?:Snapshot[]};setSnapshots(b.imports||[])}catch{setSnapshots([])}};
+ const loadReport=async()=>{try{const r=await fetch('/api/admin/search-console-report?kind='+kind,{headers:{'x-admin-key':accessKey}});const b=await r.json() as {ok?:boolean;imported:Snapshot|null;rows:Entry[]};if(!r.ok||!b.ok)throw Error('报表读取失败');setReport({imported:b.imported,rows:b.rows});}catch{setReport(null)}};
  useEffect(()=>{void refresh()},[accessKey]);
+ useEffect(()=>{void loadReport()},[accessKey,kind]);
  const submit=async()=>{if(!file||!start||!end){setMessage('请选择 CSV 文件并填写实际报表日期范围。');return}
  setBusy(true);setMessage('');
  try{const rows=parse(await file.text(),kind);
  const r=await fetch('/api/admin/search-console-import',{method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},body:JSON.stringify({kind,property,startDate:start,endDate:end,rows})});
  const data=await r.json() as {ok?:boolean;error?:string;rows?:number};if(!r.ok||!data.ok)throw Error(data.error||'导入失败');
- setMessage('导入成功：保存 '+data.rows+' 条数据。这是手动导出快照，不是实时搜索数据。');await refresh();
+ setMessage('导入成功：保存 '+data.rows+' 条数据。这是手动导出快照，不是实时搜索数据。');await refresh();await loadReport();
  }catch(e){setMessage(e instanceof Error?e.message:'导入失败')}finally{setBusy(false)}};
  return <section className="panel" style={{padding:18,display:'grid',gap:12}}>
  <div className="panel-head"><h2>Google 搜索表现 · 手动导入</h2><span>真实报表快照</span></div>
@@ -48,5 +51,7 @@ export default function SearchConsoleImport({accessKey}:{accessKey:string}){
  </div><button className="button" type="button" disabled={busy} onClick={()=>void submit()}>{busy?'正在导入…':'保存 Search Console 数据快照'}</button>
  {message&&<p role="status">{message}</p>}
  <div className="table-wrap"><table><thead><tr><th>报表</th><th>统计区间</th><th>行数</th><th>导入时间</th></tr></thead><tbody>{snapshots.map(s=><tr key={s.id}><td>{s.kind==='queries'?'搜索词':'网页'}</td><td>{s.start_date} – {s.end_date}</td><td>{s.row_count}</td><td>{s.imported_at}</td></tr>)}{!snapshots.length&&<tr><td colSpan={4}>尚无导入记录，不展示估算搜索流量。</td></tr>}</tbody></table></div>
+ <div style={{display:'grid',gap:8}}><h3 style={{margin:'8px 0 0'}}>最新{kind==='queries'?'关键词':'页面'}数据（按展示次数排序）</h3>{report?.imported?<p style={{fontSize:12,color:'#667085'}}>报表区间：{report.imported.start_date} 至 {report.imported.end_date}；仅展示导入数据前 100 行，不代表网站总流量。</p>:<p style={{fontSize:12,color:'#667085'}}>尚未导入该类型报表。</p>}
+ <div className="table-wrap"><table><thead><tr><th>{kind==='queries'?'搜索关键词':'页面网址'}</th><th>展示</th><th>点击</th><th>CTR</th><th>平均排名</th></tr></thead><tbody>{(report?.rows||[]).map((row,i)=><tr key={row.dimension+i}><td style={{maxWidth:350,overflowWrap:'anywhere'}}>{row.dimension}</td><td>{row.impressions.toLocaleString()}</td><td>{row.clicks.toLocaleString()}</td><td>{(row.ctr*100).toFixed(1)}%</td><td>{row.position.toFixed(1)}</td></tr>)}{!report?.rows.length&&<tr><td colSpan={5}>没有已导入的搜索表现数据。</td></tr>}</tbody></table></div></div>
  </section>
 }
