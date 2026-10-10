@@ -6,11 +6,13 @@ const master=JSON.parse(fs.readFileSync('public/product-master.json','utf8'));
 const names=['Flocked Silent Basketball Set','Fabric-Cover Silent Basketball Set','Weighted Flocked Silent Basketball','Flocked Silent Soccer Ball'];
 for(const name of names){
  assert(form.includes('value="'+name+'"'),'Inquiry checkbox missing: '+name);
- assert(catalog.includes('type=quote&amp;product='+encodeURIComponent(name)),'Missing quote deep link for '+name);
- assert(catalog.includes('type=sample&amp;product='+encodeURIComponent(name)),'Missing sample deep link for '+name);
+ assert(catalog.includes(name),'Product absent from catalog: '+name);
 }
 assert(logic.includes("cb.value===q.get('product')"),'Form should preselect exact product query parameter');
 assert.equal((catalog.match(/class="catalog-product-actions"/g)||[]).length,4);
+for(const cls of ['catalog-size','catalog-color','catalog-qty','catalog-quote','catalog-sample'])assert.equal((catalog.match(new RegExp('class="'+cls+'"','g'))||[]).length,4,'Missing catalog selector '+cls);
+assert(catalog.includes("new URLSearchParams({product:name,size:"),'Selections must be sent to inquiry URL');
+assert(logic.includes("const color=q.get('color'),units=q.get('units')"),'Inquiry must prefill color and units');
 for(const product of Object.values(master)){
  assert([...catalog.matchAll(/<img[^>]*src="([^"]+)"/g)].some(m=>m[1].split('?')[0]===product.hero),'Catalog must use approved hero: '+product.name);
  assert(fs.existsSync('public/'+product.hero),'Approved hero missing: '+product.hero);
