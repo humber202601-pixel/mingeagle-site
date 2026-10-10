@@ -1,5 +1,5 @@
 // Public non-sensitive release marker to distinguish source CI from deployed Cloudflare Pages.
-const RELEASE_ID = 'b2b-rfq-parser-verified-20261011-v2';
+const RELEASE_ID = 'b2b-retail-savings-20261011-v3';
 export const onRequestGet: PagesFunction = async () => Response.json({
   ok: true,
   application: 'mingeagle-v2',
@@ -8,6 +8,8 @@ export const onRequestGet: PagesFunction = async () => Response.json({
     retailQuoteDraft: true,
     wholesaleMultiLineQuoteDraft: true,
     wholesaleUnitPricesRequireManualInput: true,
+    wholesaleRetailPriceComparison: true,
+    customerQuoteDynamicSavings: true,
     quoteAcceptanceReconciliation: true,
     paymentIntentOwnershipCheck: true,
     checkoutRequiresExplicitEnable: true,
