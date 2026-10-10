@@ -25,3 +25,5 @@ jobs:
         run: npm run test:discovery
       - name: Typecheck and build
         run: npm run build
+      - name: Compile Cloudflare scheduled Worker without publishing
+        run: npx wrangler deploy --config wrangler.scheduler.toml --dry-run --outdir /tmp/mingeagle-scheduler-build
