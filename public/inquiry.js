@@ -4,7 +4,7 @@ const TYPE_MAP={quote:'Wholesale quote',sample:'Sample request',question:'Genera
 function rules(type){return {purchase:['Wholesale quote','Sample request','Retail partnership'].includes(type),order:type==='Order support',message:['General product question','Order support'].includes(type)}}
 function summary(d,ctx){const lines=['MING EAGLE inquiry','Reference: '+d.reference,'Request: '+d.requestType,'Name: '+d.firstname,'Email: '+d.email];[['Products',d.products],['Quantity',d.quantity],['Destination',d.country],['Order / quote reference',d.orderReference],['Company',d.company],['Phone / WhatsApp',d.phone],['Customer type',d.customerType],['Postal code',d.zip],['Customization',d.customization],['Timing',d.timing],['Message',d.message]].forEach(([k,v])=>{if(v&&v!=='Not specified')lines.push(k+': '+v)});lines.push('Privacy: agreed to use these details to respond to this request.');if(ctx)lines.push(core.sourceLines(ctx));return lines.join('\n')}
 const core=typeof module!=='undefined'&&module.exports?require('./forms-core.js'):root.MingEagleForms;
-const {buildPayload,sendPayload}=core||{};
+const {buildPayload,sendPayload,sendCrmInquiry}=core||{};
 if(typeof module!=='undefined'&&module.exports){module.exports={rules,summary,buildPayload,sendPayload};return}
 if(!core)return;
 const form=document.querySelector('#quoteForm');if(!form)return;
@@ -35,6 +35,46 @@ form.addEventListener('change',()=>{sync();$('inquiryReview').hidden=true;$('for
 let autoSampleQuantity=false;function syncSampleQuantity(){const el=$('estimated_quantity');if($('request_type').value==='Sample request'&&!el.value){el.value='1–2 samples';autoSampleQuantity=true}else if($('request_type').value!=='Sample request'&&autoSampleQuantity){if(el.value==='1–2 samples')el.value='';autoSampleQuantity=false}}$('estimated_quantity').addEventListener('change',()=>{autoSampleQuantity=false});$('request_type').addEventListener('change',syncSampleQuantity);syncSampleQuantity();sync();
 $('submitInquiry').disabled=false;
 if(c.enabled){$('submitInquiry').textContent='Send request';$('deliveryNote').textContent='Your request is submitted directly. Keep the confirmation reference for follow-up.'}
-form.addEventListener('submit',async e=>{e.preventDefault();if(busy||!form.reportValidity())return;if(rules($('request_type').value).purchase&&!form.querySelector('[name="products[]"]:checked')){$('productError').hidden=false;$('choose-p1').focus();return}const d=read();if(!c.enabled){review(d);$('formStatus').textContent='Prepared. Please send it using email or WhatsApp below.';return}busy=true;$('submitInquiry').disabled=true;$('formStatus').textContent='Sending your request…';const context=core.context('MING EAGLE product / wholesale inquiry');try{await sendPayload(c,buildPayload(d,c,context));const stored=core.saveReceipt(d,'inquiry');$('formStatus').textContent='Your request was accepted. Reference: '+d.reference;if(stored)location.assign('thank-you.html?ref='+encodeURIComponent(d.reference))}catch(e){const msg=e.message==='UNCERTAIN'?'We could not confirm delivery. Please contact us with this reference so we can check before you resend.':e.message==='RATE_LIMIT'?'Please wait a moment before trying again, or send this request directly.':'Your request was not accepted. Please check your details or send it directly below.';$('formStatus').textContent=msg;review(d,msg+' Opening email or WhatsApp requires you to press Send in that app.');busy=false;$('submitInquiry').disabled=false}});
+form.addEventListener('submit',async e=>{
+ e.preventDefault();
+ if(busy||!form.reportValidity())return;
+ if(rules($('request_type').value).purchase&&!form.querySelector('[name="products[]"]:checked')){
+  $('productError').hidden=false;$('choose-p1').focus();return
+ }
+ const d=read();
+ if(!c.enabled){review(d);$('formStatus').textContent='Prepared. Please send it using email or WhatsApp below.';return}
+ busy=true;$('submitInquiry').disabled=true;
+ $('formStatus').textContent='Saving your request to MING EAGLE…';
+ const context=core.context('MING EAGLE product / wholesale inquiry');
+ try{
+  // First persist the lead, inquiry and follow-up task in our own CRM.
+  // The browser must never hold an admin key.
+  await sendCrmInquiry(c,d,context);
+  // Preserve the existing HubSpot lead source on a best-effort basis.
+  // A HubSpot outage cannot undo a successfully persisted CRM inquiry.
+  try{await sendPayload(c,buildPayload(d,c,context),undefined,4500)}
+  catch(mirrorError){console.warn('Optional HubSpot mirror did not complete',mirrorError)}
+  const stored=core.saveReceipt(d,'inquiry');
+  $('formStatus').textContent='Your request is saved. Reference: '+d.reference;
+  if(stored)location.assign('thank-you.html?ref='+encodeURIComponent(d.reference));
+  else{$('inquiryReview').hidden=true}
+ }catch(crmError){
+  // Cloudflare/D1 may be temporarily unavailable or over its free quota.
+  // Keep HubSpot as the known working fallback rather than lose a buyer inquiry.
+  try{
+   await sendPayload(c,buildPayload(d,c,context));
+   core.saveReceipt(d,'inquiry');
+   $('formStatus').textContent='Your request was received by our backup form. Reference: '+d.reference+'. Our sales team will review it; synchronization to the customer management system has not yet been confirmed.';
+   $('inquiryReview').hidden=true;
+   $('submitInquiry').disabled=true; // Prevent another submission of the same request.
+   return;
+  }catch(backupError){
+   const uncertain=crmError.message==='CRM_UNCERTAIN'||backupError.message==='UNCERTAIN';
+   const hint=uncertain?'We could not confirm delivery to either service. Please contact us with this reference before resending.':'Your request could not be submitted automatically. Please send it using email or WhatsApp below.';
+   $('formStatus').textContent=hint;
+   review(d,hint+' You will need to press Send in the email or WhatsApp app.');
+  }
+ }finally{busy=false;if(!$('formStatus').textContent.includes('backup form'))$('submitInquiry').disabled=false}
+});
 $('copyInquiry').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(prepared);$('formStatus').textContent='Request copied. Paste it into your email or message.'}catch(e){$('formStatus').textContent='Select the request text above and copy it manually.'}});
 })(typeof window==='undefined'?globalThis:window);
