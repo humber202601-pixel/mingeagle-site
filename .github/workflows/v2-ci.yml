@@ -30,6 +30,9 @@ jobs:
       - name: Test discovery and CRM integration
         run: npm run test:discovery
 
+      - name: Test wholesale multiline RFQ drafts
+        run: node scripts/test-wholesale-rfq.mjs
+
       - name: Test retail multi-item quote safety
         run: node scripts/test-retail-quote-draft.mjs
 
