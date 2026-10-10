@@ -59,7 +59,7 @@ jobs:
           fi
 
       - name: Verify inbound attribution and translations
-        run: node scripts/check-growth.cjs && node scripts/check-learning.cjs && node scripts/check-marketing-kit.cjs && node scripts/check-conversion.cjs && node scripts/check-crm-bridge.cjs && node scripts/check-turnstile.cjs && node scripts/check-seo-v37.cjs
+        run: node scripts/check-growth.cjs && node scripts/check-learning.cjs && node scripts/check-marketing-kit.cjs && node scripts/check-conversion.cjs && node scripts/check-crm-bridge.cjs && node scripts/check-turnstile.cjs && node scripts/check-seo-v37.cjs && node scripts/check-catalog-inquiry.cjs
 
       - name: Verify shipping quote calculator
         run: node scripts/check-shipping.cjs
