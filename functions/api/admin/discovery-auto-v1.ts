@@ -2,7 +2,21 @@ import { ensureAuto,startAuto,advanceAuto,autoSummary,claimAuto,executeAuto,type
 const json=(data:Record<string,unknown>,status=200)=>Response.json(data,{status,headers:{'cache-control':'no-store'}});
 export const onRequestGet:PagesFunction<AutoEnv>=async({request,env})=>{
   if(!env.MINGEAGLE_DB)return json({ok:false,error:'Database is not configured.'},503);
-  try{await ensureAuto(env.MINGEAGLE_DB);return json({ok:true,...await autoSummary(env.MINGEAGLE_DB,new URL(request.url).searchParams.get('runId')||undefined)});}catch(e){return json({ok:false,error:e instanceof Error?e.message:'任务进度暂时无法读取。'},503);}
+  try{
+    const db=env.MINGEAGLE_DB,runId=new URL(request.url).searchParams.get('runId')||undefined;
+    // GET is on the progress-polling hot path. Only bootstrap legacy/empty D1
+    // databases; repeat schema DDL during normal reads wastes the free quota.
+    try{return json({ok:true,...await autoSummary(db,runId)});}
+    catch(e){
+      if(!/no such table:\s*discovery_auto_runs/i.test(e instanceof Error?e.message:String(e)))throw e;
+      await ensureAuto(db);
+      return json({ok:true,...await autoSummary(db,runId)});
+    }
+  }catch(e){
+    const message=e instanceof Error?e.message:String(e);
+    if(/D1.*(quota|limit|temporarily blocked)|exceeded.*(rows|read)|daily.*(read|limit)/i.test(message))throw e;
+    return json({ok:false,error:'任务进度暂时无法读取。'},503);
+  }
 };
 export const onRequestPost:PagesFunction<AutoEnv>=async(context)=>{
   const {request,env}=context;

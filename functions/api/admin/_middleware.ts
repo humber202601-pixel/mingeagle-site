@@ -87,32 +87,29 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return hardenedJson({ ok: false, error: 'Admin access is not configured.' }, 503);
   }
 
-  const db = context.env.MINGEAGLE_DB;
-  const ipHash = await digestHex(clientIp(context.request));
-  let failures = 0;
-  if (db) {
-    await ensureSecurityTables(db);
-    failures = await failedAttempts(db, ipHash);
-    if (failures >= 8) {
-      return hardenedJson(
-        { ok: false, error: 'Too many failed login attempts. Please wait 15 minutes and try again.' },
-        429,
-        { 'retry-after': '900' },
-      );
-    }
-  }
-
+  // Verify the supplied secret before touching D1. A legitimate dashboard login
+  // must not consume the daily row-read quota or depend on database availability.
+  // Bad attempts still use persistent IP-based throttling.
   const supplied = context.request.headers.get('x-admin-key') || '';
-  if (!supplied || !(await sameSecret(supplied, configured))) {
-    if (db) await recordAttempt(db, ipHash, false);
+  const authorized = Boolean(supplied) && await sameSecret(supplied, configured);
+  if (!authorized) {
+    const db = context.env.MINGEAGLE_DB;
+    if (db) {
+      const ipHash = await digestHex(clientIp(context.request));
+      await ensureSecurityTables(db);
+      const failures = await failedAttempts(db, ipHash);
+      if (failures >= 8) {
+        return hardenedJson(
+          { ok: false, error: 'Too many failed login attempts. Please wait 15 minutes and try again.' },
+          429,
+          { 'retry-after': '900' },
+        );
+      }
+      await recordAttempt(db, ipHash, false);
+    }
     return hardenedJson({ ok: false, error: 'Unauthorized.' }, 401);
   }
 
-  // Polling is not a new login: retain the persistent failure limit without
-  // inserting a successful-auth row or scanning old history on every request.
-  if (db && failures > 0) {
-    await db.prepare(`DELETE FROM admin_auth_attempts WHERE ip_hash=? AND success=0`).bind(ipHash).run();
-  }
   const response = await context.next();
   const headers = new Headers(response.headers);
   headers.set('cache-control', 'no-store, no-cache, must-revalidate, max-age=0');
