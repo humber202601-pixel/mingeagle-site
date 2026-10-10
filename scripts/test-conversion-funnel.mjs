@@ -40,7 +40,7 @@ try{
       ('l5','website','ct4','WEBSITE','CONTACTED',77),
       ('l6','gym',NULL,'DISCOVERY','DISCOVERED',66);
     INSERT INTO leads(id,company_id,primary_contact_id,source,status,created_at) VALUES
-      ('old','gym',NULL,'DISCOVERY','DISCOVERED',datetime('now','-40 days'));
+      ('old','gym',NULL,'DISCOVERY','DISCOVERED',datetime('now','-400 days'));
     INSERT INTO messages(id,lead_id,channel,direction,body,sent_at) VALUES
       ('out1','l1','EMAIL','OUTBOUND','Hi',datetime('now','-6 days')),
       ('out2','l1','EMAIL','OUTBOUND','Following up',datetime('now','-5 days')),
