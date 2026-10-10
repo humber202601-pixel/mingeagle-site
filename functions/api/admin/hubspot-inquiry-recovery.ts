@@ -1,5 +1,5 @@
-import {receiveRecoveredInquiry} from '../../inquiries';
-import {FORM_PAGE_LIMIT,MINGEAGLE_HUBSPOT_FORM_ID,parseHubspotSubmission,type HubspotSubmission} from '../../../../lib/hubspot-form-recovery';
+import {receiveRecoveredInquiry} from '../inquiries';
+import {FORM_PAGE_LIMIT,MINGEAGLE_HUBSPOT_FORM_ID,parseHubspotSubmission,type HubspotSubmission} from '../../../lib/hubspot-form-recovery';
 
 interface Env{MINGEAGLE_DB:D1Database;HUBSPOT_PRIVATE_APP_TOKEN?:string;}
 type State={offset:number};
