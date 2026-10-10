@@ -24,6 +24,7 @@ import CommunicationCenter from './CommunicationCenter';
 import ContactManager from './ContactManager';
 import AutomationCenter from './AutomationCenter';
 import DiscoveryCenter from './DiscoveryCenter';
+import ConversionFunnel from './ConversionFunnel';
 import {
   activityTypeLabel,
   customerTypeLabel,
@@ -58,6 +59,7 @@ const nav = [
   ['/app', Gauge, '仪表盘'],
   ['/app/discovery', Radar, '客户发现'],
   ['/app/leads', Target, '潜在客户'],
+  ['/app/funnel', BarChart3, '客户转化分析'],
   ['/app/inquiries', Inbox, '询盘'],
   ['/app/companies', Building2, '客户公司'],
   ['/app/contacts', ContactRound, '联系人'],
@@ -234,6 +236,10 @@ export default function AdminApp() {
   else if (page === 'discovery') content = <>
     <Top title="客户发现" description="选择地区和客户类型，一键完成搜索、官网核验、公开信息补全和待开发客户入库。"/>
     <DiscoveryCenter accessKey={key} onChanged={() => void load(key)} />
+  </>;
+  else if (page === 'funnel') content = <>
+    <Top title="客户转化分析" description="真实客户分层、联系方式覆盖、已联系、客户回复、报价与订单，帮助确定优先开发对象。"/>
+    <ConversionFunnel accessKey={key}/>
   </>;
   else if (page === 'leads' && detailId) content = <AdminDetail type="lead" id={detailId} accessKey={key}/>;
   else if (page === 'inquiries' && detailId) content = <AdminDetail type="inquiry" id={detailId} accessKey={key}/>;
