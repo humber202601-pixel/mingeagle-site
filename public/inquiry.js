@@ -13,6 +13,17 @@ const challengeReady=challenge?challenge.start():Promise.resolve({enabled:false,
 const $=id=>document.getElementById(id),c=root.MINGEAGLE_INQUIRY_CONFIG||{enabled:false},q=new URLSearchParams(location.search);
 const type=TYPE_MAP[(q.get('type')||'').toLowerCase()];if(type)$('request_type').value=type;
 form.querySelectorAll('[name="products[]"]').forEach(cb=>{if(cb.value===q.get('product'))cb.checked=true});
+if(q.get('type')==='retail'&&q.get('cart')){
+ const items=String(q.get('cart')||'').slice(0,450);
+ const country=String(q.get('cart_country')||'').slice(0,2);
+ const shipping=String(q.get('cart_shipping')||'').slice(0,20);
+ const total=String(q.get('cart_total')||'').slice(0,20);
+ const method=q.get('cart_method')==='sea'?'Sea freight':'Air parcel';
+ const summary='Retail cart request (not paid): '+items+'\nDestination: '+country+'\nShipping method: '+method+'\nEstimated freight USD: '+shipping+'\nEstimated subtotal before taxes USD: '+total+'\nFinal amount, duties and availability require confirmation.';
+ if($('message'))$('message').value=summary;
+ if($('country'))$('country').value=country;
+}
+
 
 try{
  const raw=q.get('logo_design');
