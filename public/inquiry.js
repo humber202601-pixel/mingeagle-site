@@ -51,6 +51,31 @@ try{
  }
 }catch(e){}
 
+// Strictly validate combined wholesale RFQ lines against the existing official choices.
+let wholesaleRfqLines=[];
+try {
+ const raw=q.get('rfq');
+ if(raw&&raw.length<=2500&&q.get('type')==='quote'){
+  const selected=JSON.parse(raw);
+  const cards=[...form.querySelectorAll('[name="products[]"]')];
+  if(Array.isArray(selected)&&selected.length>=1&&selected.length<=4&&new Set(selected.map(x=>x.id)).size===selected.length){
+   const prepared=[];
+   for(const item of selected){
+    if(!Number.isInteger(item.id)||item.id<0||item.id>=cards.length||!Number.isSafeInteger(item.quantity)||item.quantity<1||item.quantity>999999)throw Error('Invalid RFQ line');
+    const cb=cards[item.id],pid=cb.closest('[data-product]').dataset.product;
+    const size=$('size-'+pid),color=$('color-'+pid);
+    if(![...size.options].some(o=>o.value==='No. '+item.size)||![...color.options].some(o=>o.value===item.color))throw Error('Invalid variant');
+    prepared.push({cb,size,color,sizeValue:'No. '+item.size,colorValue:item.color,quantity:item.quantity});
+   }
+   for(const x of prepared){x.cb.checked=true;x.size.value=x.sizeValue;x.color.value=x.colorValue;}
+   wholesaleRfqLines=prepared.map(x=>x.cb.value+' | '+x.sizeValue+' | '+x.colorValue+' | '+x.quantity+' units');
+   const total=prepared.reduce((a,x)=>a+x.quantity,0);
+   const tier=total<=2?'1–2 samples':total<=49?'3–49 units':total<=99?'50–99 units':total<=499?'100–499 units':total<=999?'500–999 units':'1,000+ units';
+   if($('estimated_quantity'))$('estimated_quantity').value=tier;
+   if($('quoteUnits'))$('quoteUnits').value=String(total);
+  }
+ }
+}catch(e){wholesaleRfqLines=[]}
 const customers={coach:'Coach / trainer',academy:'Training academy',retailer:'Retail store',distributor:'Distributor / wholesaler',ecommerce:'E-commerce seller'};if(customers[q.get('customer')])$('customer_type').value=customers[q.get('customer')];
 // Retail orders never offer logo printing. Customized logos are wholesale only.
 const logoPolicyAvailable=typeof document.createElement==='function';
@@ -107,7 +132,7 @@ function enforcePolicy(){
 }
 let reference=null,busy=false,prepared='';
 function sync(){enforcePolicy();const r=rules($('request_type').value);$('quoteFields').hidden=!r.purchase;$('quoteFields').querySelectorAll('input,select').forEach(el=>{el.disabled=!r.purchase;el.required=r.purchase});$('orderFields').hidden=!r.order;$('order_reference').disabled=!r.order;$('order_reference').required=r.order;$('message').required=r.message;$('messageRequired').hidden=!r.message;$('productHelp').textContent=r.purchase?'Select at least one product. Size and color choices appear below each selection.':'Select a product if relevant, or describe your question below.';form.querySelectorAll('.inquiryProduct').forEach(card=>{const selected=card.querySelector('[name="products[]"]').checked;card.classList.toggle('selected',selected);const opts=card.querySelector('.productOptions');opts.hidden=!selected;opts.querySelectorAll('select').forEach(el=>el.disabled=!selected)});$('productError').hidden=true}
-function read(){const fd=new FormData(form),r=rules($('request_type').value),v=n=>String(fd.get(n)||'').trim();const products=[...form.querySelectorAll('[name="products[]"]:checked')].map(cb=>{const id=cb.closest('[data-product]').dataset.product;return cb.value+' — '+($('size-'+id).value||'size: please advise')+' / '+($('color-'+id).value||'color: please advise')}).join('\n');if(!reference)reference=core.reference();return {reference,requestType:v('request_type'),firstname:v('firstname'),email:v('email'),products,quantity:r.purchase?v('estimated_quantity'):'',country:r.purchase?v('country'):'',orderReference:r.order?v('order_reference'):'',company:v('company'),phone:v('phone'),customerType:v('customer_type'),zip:v('zip'),customization:v('customization')+(logoPolicyAvailable&&isLogo()?' | '+$('logoKind').value+' logo | exact units: '+$('logoQuantity').value:''),timing:v('order_timing'),message:v('message')+(logoPolicyAvailable&&rules($('request_type').value).purchase?'\nShipping method: '+$('shippingMethod').value+'\nExact requested units: '+($('quoteUnits').value||'Not specified')+'\nFreight, stock readiness, delivery timeline and final total subject to confirmation before payment.':'')}}
+function read(){const fd=new FormData(form),r=rules($('request_type').value),v=n=>String(fd.get(n)||'').trim();const products=[...form.querySelectorAll('[name="products[]"]:checked')].map(cb=>{const id=cb.closest('[data-product]').dataset.product;return cb.value+' — '+($('size-'+id).value||'size: please advise')+' / '+($('color-'+id).value||'color: please advise')}).join('\n');if(!reference)reference=core.reference();return {reference,requestType:v('request_type'),firstname:v('firstname'),email:v('email'),products,quantity:r.purchase?v('estimated_quantity'):'',country:r.purchase?v('country'):'',orderReference:r.order?v('order_reference'):'',company:v('company'),phone:v('phone'),customerType:v('customer_type'),zip:v('zip'),customization:v('customization')+(logoPolicyAvailable&&isLogo()?' | '+$('logoKind').value+' logo | exact units: '+$('logoQuantity').value:''),timing:v('order_timing'),message:v('message')+(wholesaleRfqLines.length?'\nCombined wholesale RFQ (customer-selected; not a final price):\n'+wholesaleRfqLines.join('\n'):'')+(logoPolicyAvailable&&rules($('request_type').value).purchase?'\nShipping method: '+$('shippingMethod').value+'\nExact requested units: '+($('quoteUnits').value||'Not specified')+'\nFreight, stock readiness, delivery timeline and final total subject to confirmation before payment.':'')}}
 function review(d,hint){prepared=summary(d,core.context('MING EAGLE product / wholesale inquiry'));$('reviewContent').textContent=prepared;$('sendEmail').href='mailto:mingeaglecommerce@gmail.com?subject='+encodeURIComponent('MING EAGLE inquiry '+d.reference)+'&body='+encodeURIComponent(prepared);$('sendWhatsApp').href='https://wa.me/8613851585237?text='+encodeURIComponent(prepared);$('reviewHint').textContent=hint||'Choose email or WhatsApp and press Send in that app. Preparing this request does not submit it to MING EAGLE.';$('inquiryReview').hidden=false;$('inquiryReview').scrollIntoView({behavior:'smooth',block:'nearest'})}
 form.addEventListener('change',()=>{sync();$('inquiryReview').hidden=true;$('formStatus').textContent=''});form.addEventListener('input',()=>{$('inquiryReview').hidden=true;$('formStatus').textContent=''});
 let autoSampleQuantity=false;function syncSampleQuantity(){const el=$('estimated_quantity');if($('request_type').value==='Sample request'&&!el.value){el.value='1–2 samples';autoSampleQuantity=true}else if($('request_type').value!=='Sample request'&&autoSampleQuantity){if(el.value==='1–2 samples')el.value='';autoSampleQuantity=false}}$('estimated_quantity').addEventListener('change',()=>{autoSampleQuantity=false});$('request_type').addEventListener('change',syncSampleQuantity);syncSampleQuantity();sync();
