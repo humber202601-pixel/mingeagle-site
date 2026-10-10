@@ -1,11 +1,16 @@
 import {publicInquiryRateLimit} from '../../lib/public-inquiry-guard';
+import {verifyInquiryTurnstile,type TurnstileEnv} from '../../lib/turnstile-inquiry';
 interface Env {
   MINGEAGLE_DB: D1Database;
+  TURNSTILE_SITE_KEY?:TurnstileEnv['TURNSTILE_SITE_KEY'];
+  TURNSTILE_SECRET_KEY?:TurnstileEnv['TURNSTILE_SECRET_KEY'];
+  TURNSTILE_ENABLED?:TurnstileEnv['TURNSTILE_ENABLED'];
 }
 
 type InquiryInput = {
   originalReference?: string;
   _honey?: string;
+  turnstileToken?: string;
   firstName?: string;
   lastName?: string;
   email?: string;
@@ -134,6 +139,7 @@ async function parseRequest(request: Request): Promise<ParsedRequest> {
       nativeForm: true,
       input: {
         originalReference: formText(form, 'inquiry_reference', 80),
+        turnstileToken: formText(form, 'cf-turnstile-response', 2048),
         firstName: formText(form, 'firstname', 80),
         lastName: formText(form, 'lastname', 80),
         email: formText(form, 'email', 200),
@@ -271,7 +277,7 @@ async function processInquiryPost(context:Parameters<PagesFunction<Env>>[0],noti
 
     const origin=request.headers.get('origin');
     if ((nativeForm || isPublicInquiryOrigin(origin)) && !input.privacyAck) {
-      return new Response('Privacy acknowledgement is required.', { status: 400 });
+      return nativeForm ? new Response('Privacy acknowledgement is required.', { status: 400 }) : Response.json({ok:false,error:'Privacy acknowledgement is required.'},{status:400});
     }
     if (!firstName || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || (['SAMPLE','WHOLESALE','RETAIL_PARTNERSHIP'].includes(requestType) && !country)) {
       return Response.json({ error: 'First name, valid email, and country for purchase/sample inquiries are required.' }, { status: 400 });
@@ -543,6 +549,31 @@ export const onRequestPost: PagesFunction<Env>=async context=>{
   }catch(error){
     console.error('public_inquiry_throttle_failed',error);
     return publicCors(Response.json({ok:false,error:'Inquiry service temporarily unavailable.'},{status:503}),origin);
+  }
+  // Only anonymous/public requests reach this outer handler. The internal
+  // authenticated HubSpot replay calls processInquiryPost directly and cannot
+  // be blocked by a browser challenge.
+  let challengeToken='';
+  try{
+    const type=context.request.headers.get('content-type')||'';
+    if(type.includes('application/x-www-form-urlencoded')||type.includes('multipart/form-data')){
+      const form=await context.request.clone().formData();
+      challengeToken=String(form.get('cf-turnstile-response')||'');
+    }else{
+      const body=await context.request.clone().json() as {turnstileToken?:unknown};
+      challengeToken=typeof body?.turnstileToken==='string'?body.turnstileToken:'';
+    }
+  }catch{
+    return publicCors(Response.json({ok:false,code:'INVALID_INQUIRY_JSON',error:'Invalid form submission.'},{status:400}),origin);
+  }
+  const verification=await verifyInquiryTurnstile(context.env,challengeToken,context.request);
+  if(!verification.ok){
+    const unavailable=verification.code==='UNAVAILABLE'||verification.code==='MISCONFIGURED';
+    return publicCors(Response.json({
+      ok:false,code:'TURNSTILE_'+verification.code,
+      error:unavailable?'Verification is temporarily unavailable. Please try again later.':
+        'Security verification was not completed. Please retry the verification.',
+    },{status:unavailable?503:403,headers:{'cache-control':'no-store'}}),origin);
   }
   return publicCors(await processInquiryPost(context),origin);
 };

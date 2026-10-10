@@ -1,7 +1,7 @@
 // Read-only production acceptance snapshot. No fake provider counts, no new
 // D1 tables, no database migrations or customer-level identifiers exposed.
 // This API is protected by the existing /api/admin/_middleware.ts.
-interface Env{MINGEAGLE_DB?:D1Database;HUBSPOT_PRIVATE_APP_TOKEN?:string;}
+interface Env{MINGEAGLE_DB?:D1Database;HUBSPOT_PRIVATE_APP_TOKEN?:string;TURNSTILE_ENABLED?:string;TURNSTILE_SITE_KEY?:string;TURNSTILE_SECRET_KEY?:string;}
 type Row=Record<string,unknown>;
 const num=(v:unknown)=>Math.max(0,Number(v)||0);
 const json=(value:Record<string,unknown>,code=200)=>Response.json(value,{status:code,headers:{'cache-control':'no-store'}});
@@ -58,7 +58,13 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
     .reduce((n,x)=>n+num(x.count),0);
   return json({
     ok:true,generatedAt:new Date().toISOString(),
-    scheduler,hubspot:{
+    scheduler,turnstile:{
+      configured:Boolean(env.TURNSTILE_SITE_KEY&&env.TURNSTILE_SECRET_KEY),
+      enabled:(env.TURNSTILE_ENABLED==='1'||env.TURNSTILE_ENABLED==='true')
+        &&Boolean(env.TURNSTILE_SITE_KEY&&env.TURNSTILE_SECRET_KEY),
+      misconfigured:(env.TURNSTILE_ENABLED==='1'||env.TURNSTILE_ENABLED==='true')
+        &&!Boolean(env.TURNSTILE_SITE_KEY&&env.TURNSTILE_SECRET_KEY),
+    },hubspot:{
       credentialConfigured:Boolean(env.HUBSPOT_PRIVATE_APP_TOKEN),
       lastSuccessfulPageAt:recovery?.last_synced_at||null,
       importedTotal:recovery?num(recovery.imported_total):null,

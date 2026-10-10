@@ -9,6 +9,7 @@ type SchedulerRow = { id:string; cron:string; last_seen_at:string };
 type ProductionHealth={
   ok?:boolean;error?:string;generatedAt?:string;
   hubspot?:{credentialConfigured:boolean;stateKnown:boolean;importedTotal:number|null;lastSuccessfulPageAt:string|null;nextOffset:number|null};
+  turnstile?:{configured:boolean;enabled:boolean;misconfigured:boolean};
   discovery?:{status:string;phase:string;updatedAt:string;stepsCompleted:number;sources:number;sourceFailures:number;candidates:number;imported:number|null}|null;
   inquiries?:{total:number;last24h:number;newCount:number}|null;
   quota?:{actualD1RowsRead:number|null;actualD1RowsWritten:number|null;trackingConfigured:boolean};
@@ -277,6 +278,7 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
       {health&&<>
         <div className="list-row"><div><strong>官网询盘入库</strong><small>最近 24 小时新增，来自 D1 询盘表；不等于页面访问量</small></div><span>{health.inquiries?health.inquiries.last24h+' 条':'尚未建立统计表'}</span></div>
         <div className="list-row"><div><strong>历史询盘总数</strong><small>包含已处理和未处理记录</small></div><span>{health.inquiries?health.inquiries.total+' 条':'未知'}</span></div>
+        <div className="list-row"><div><strong>Turnstile 机器人验证</strong><small>{health.turnstile?.enabled?'已在服务器开启，每条公开询盘都需要验证':health.turnstile?.misconfigured?'已设置启用但缺少密钥：公开询盘验证会临时不可用':health.turnstile?.configured?'密钥已配置，等待手动开启':'未启用（沿用现有限流规则）'}</small></div><span>{health.turnstile?.enabled?'验证中':health.turnstile?.misconfigured?'配置不完整':'未开启'}</span></div>
         <div className="list-row"><div><strong>HubSpot 备用补录</strong><small>{health.hubspot?.credentialConfigured?'已配置服务端凭证；须进一步验证实际读取结果':'未配置 HUBSPOT_PRIVATE_APP_TOKEN，补录未启用'}</small></div><span>{health.hubspot?.lastSuccessfulPageAt?'累计补录 '+(health.hubspot.importedTotal??0)+' 条':'尚无成功补录记录'}</span></div>
         <div className="list-row"><div><strong>上一批客户发现</strong><small>{health.discovery?health.discovery.status+' · 来源批次 '+health.discovery.sources+' · 来源异常 '+health.discovery.sourceFailures:'尚无可统计的搜索任务'}</small></div><span>{health.discovery?.imported!=null?'确认入库 '+health.discovery.imported+' 个':'入库数量未知'}</span></div>
         {health.discovery&&<div className="list-row"><div><strong>发现流程排查</strong><small>候选机构 {health.discovery.candidates} 个 · 已完成处理步骤 {health.discovery.stepsCompleted} · 来源受限 {health.discovery.sourceFailures} 个</small></div><span>{health.discovery.sourceFailures>0?'存在来源受限':health.discovery.candidates>0&&health.discovery.imported===0?'核验或入库待排查':'查看任务明细'}</span></div>}
