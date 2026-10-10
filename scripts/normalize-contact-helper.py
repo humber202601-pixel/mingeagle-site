@@ -1,7 +1,7 @@
 """Normalize one official contact helper on each generated public page."""
 from pathlib import Path
 import re
-pattern=r'<script\\b[^>]*\\bsrc="direct-contact\\.js[^"]*"[^>]*></script>'
+pattern=r'<script\b[^>]*\bsrc="direct-contact\.js[^"]*"[^>]*></script>'
 for path in Path('public').glob('*.html'):
     html=path.read_text(encoding='utf-8')
     if 'src="forms-core.js' not in html:
