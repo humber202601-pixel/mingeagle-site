@@ -2,6 +2,7 @@ import { airwallexApiBase, airwallexSdkEnv, getAirwallexAccessToken, type Airwal
 
 interface Env extends AirwallexEnv {
   MINGEAGLE_DB: D1Database;
+  AIRWALLEX_CHECKOUT_ENABLED?: string;
 }
 
 type Row = Record<string, unknown>;
@@ -87,6 +88,9 @@ async function latestReusableSession(db: D1Database, orderId: string, amount: nu
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.MINGEAGLE_DB) return Response.json({ ok: false, error: 'Database is not configured.' }, { status: 503 });
+  if (env.AIRWALLEX_CHECKOUT_ENABLED !== 'true' || !['sandbox','prod'].includes(String(env.AIRWALLEX_ENV || '').toLowerCase())) {
+    return Response.json({ ok: false, error: 'Online checkout is not enabled.' }, { status: 503 });
+  }
   if (!env.AIRWALLEX_CLIENT_ID || !env.AIRWALLEX_API_KEY) {
     return Response.json({ ok: false, error: 'Airwallex checkout is not configured yet.' }, { status: 503 });
   }
