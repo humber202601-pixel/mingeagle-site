@@ -96,13 +96,25 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       let parsed;try{parsed=parseSearch(input);}catch(e){return response({ok:false,error:(e as Error).message},400);}
       if(!Array.isArray(input.sources)||!input.sources.length||input.sources.length>EXPANSION_SOURCES.length||input.sources.some(s=>!EXPANSION_SOURCES.includes(s as ExpansionSource)))return response({ok:false,error:'请选择有效的扩展来源。'},400);
       const sources=[...new Set(input.sources)] as ExpansionSource[];
+      // Cloudflare Workers Free limits a single invocation to 50 D1
+      // queries. One clue costs multiple D1 writes (record, mapping,
+      // provenance, address). Automatic jobs therefore persist at most four
+      // clues per source request and resume on the next scheduled step.
+      // Manual sources preserve their existing page size and behavior.
+      const chunked=Boolean(input.autoRunId);
+      const sourceOffset=chunked?Number(input.sourceOffset||0):0;
+      if(!Number.isInteger(sourceOffset)||sourceOffset<0||sourceOffset>100) return response({ok:false,error:'来源保存游标无效。'},400);
       await ensureTables(db);jobId=crypto.randomUUID();
       await db.prepare(`INSERT INTO discovery_jobs(id,state_region,customer_type,target_count,source_provider) VALUES(?,?,?,?, 'PUBLIC_SOURCE_CLUES_V1')`).bind(jobId,parsed.stateCode,parsed.customerType,parsed.targetCount).run();
       const results=await Promise.allSettled(sources.map(source=>source==='WEBSITE_SOCIAL'?collectWebsiteSocial(db,parsed):collectSource(parsed,source,env.GEOAPIFY_API_KEY,db)));
       const states:Record<string,{ok:boolean;found:number;added:number;updated?:number;retained?:number;partial?:boolean;review?:boolean;note?:string;error?:string}>={};let added=0,updated=0;const addedIds:string[]=[],updatedIds:string[]=[],foundIds:string[]=[];
       for(let i=0;i<results.length;i++){
         const result=results[i],source=sources[i];if(result.status==='rejected'){states[source]={ok:false,found:0,added:0,error:result.reason instanceof Error?result.reason.message:String(result.reason)};continue;}
-        let sourceAdded=0,sourceUpdated=0;const clues=[...new Map(result.value.clues.map(clue=>[clue.key,clue])).values()].slice(0,Math.min(50,parsed.targetCount));
+        let sourceAdded=0,sourceUpdated=0;
+        const unique=[...new Map(result.value.clues.map(clue=>[clue.key,clue])).values()].slice(0,Math.min(50,parsed.targetCount));
+        const maxPerInvocation=4;
+        const clues=chunked?unique.slice(sourceOffset,sourceOffset+maxPerInvocation):unique;
+        const hasMore=chunked&&sourceOffset+maxPerInvocation<unique.length;
         for(let start=0;start<clues.length;start+=5){
           await assertAutoLease(db,input);
           const saved=await Promise.all(clues.slice(start,start+5).map(async clue=>{
@@ -121,7 +133,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
           for(const item of saved){if(item.id)foundIds.push(item.id);if(item.id&&item.kind==='added')addedIds.push(item.id);if(item.id&&item.kind==='updated')updatedIds.push(item.id);}
         }
         added+=sourceAdded;updated+=sourceUpdated;
-        states[source]={ok:true,found:clues.length,added:sourceAdded,updated:sourceUpdated,retained:clues.length-sourceAdded-sourceUpdated,partial:result.value.partial,review:'review' in result.value&&Boolean(result.value.review),note:result.value.note};
+        states[source]={ok:true,found:clues.length,available:unique.length,hasMore,nextOffset:hasMore?sourceOffset+maxPerInvocation:null,added:sourceAdded,updated:sourceUpdated,retained:clues.length-sourceAdded-sourceUpdated,partial:result.value.partial,review:'review' in result.value&&Boolean(result.value.review),note:result.value.note};
       }
       const ok=Object.values(states).some(s=>s.ok);
       await db.prepare(`UPDATE discovery_jobs SET status=?,result_count=?,error=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(ok?'COMPLETED':'FAILED',added,Object.values(states).filter(s=>!s.ok).map(s=>s.error).join(' · ')||null,jobId).run();
