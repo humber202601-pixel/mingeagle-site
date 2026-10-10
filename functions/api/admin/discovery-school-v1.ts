@@ -8,7 +8,7 @@ import { ensureRuns, recordResult } from '../../../lib/discovery';
 import { allowedWebsite, resolveEntity } from './discovery-web-v6';
 interface Env { MINGEAGLE_DB: D1Database; GEOAPIFY_API_KEY?: string }
 
-type Input = { stateCode?: string; customerType?: string; targetCount?: number | string; city?: string; round?: number; runId?: string; autoSourceOnly?:boolean; autoRunId?:string; autoToken?:string };
+type Input = { stateCode?: string; customerType?: string; targetCount?: number | string; city?: string; round?: number; runId?: string; autoSourceOnly?:boolean; autoRunId?:string; autoToken?:string; sourceOffset?:number };
 type GeoResult = {
   name?: string; formatted?: string; city?: string; state?: string; state_code?: string; country_code?: string;
   lat?: number; lon?: number; place_id?: string;
@@ -195,10 +195,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const byPlace = new Map<string,{q:string;r:GeoResult}>(); for (const x of raw) { if(parsed.city&&clean(x.r.city,100).toLowerCase()!==parsed.city.toLowerCase())continue; const id = clean(x.r.place_id,300); const name = clean(x.r.name || x.r.formatted,180); if (!id || !name || !strongName(name,type)) continue; if (!byPlace.has(id)) byPlace.set(id,x); }
     if(input.autoSourceOnly){
       await ensureClues(db);await assertAutoLease(db,input);
-      const seeds=[...byPlace.values()].slice(0,target).map(({q,r})=>({key:'school-map:'+r.place_id,title:clean(r.name||r.formatted,180),source:'SCHOOL_GEOAPIFY',url:'https://www.openstreetmap.org/search?query='+encodeURIComponent(clean(r.name,180)+' '+clean(r.city,80)),evidence:q+' · 地图信息待官网核验',city:clean(r.city,80),address:clean(r.formatted,500),raw:{placeId:clean(r.place_id,300)}}));
+      const allSeeds=[...byPlace.values()].slice(0,target).map(({q,r})=>({key:'school-map:'+r.place_id,title:clean(r.name||r.formatted,180),source:'SCHOOL_GEOAPIFY',url:'https://www.openstreetmap.org/search?query='+encodeURIComponent(clean(r.name,180)+' '+clean(r.city,80)),evidence:q+' · 地图信息待官网核验',city:clean(r.city,80),address:clean(r.formatted,500),raw:{placeId:clean(r.place_id,300)}}));
+      const offset=Number(input.sourceOffset||0);
+      if(!Number.isInteger(offset)||offset<0||offset>100)return Response.json({ok:false,error:'来源游标无效。'},{status:400});
+      const seeds=allSeeds.slice(offset,offset+4);
       const foundIds=await saveAutoClues(db,{...input,customerType:type},seeds);
+      const hasMore=offset+4<allSeeds.length;
       await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(foundIds.length,jobId).run();
-      return Response.json({ok:true,found:foundIds.length,foundIds,note:'学校地图线索已保存，地点详情和官网核验将分步继续。'});
+      return Response.json({ok:true,found:foundIds.length,available:allSeeds.length,hasMore,nextOffset:hasMore?offset+4:null,foundIds,note:'学校地图线索已分批保存，地点详情和官网核验将分步继续。'});
     }
     const shortlist = [...byPlace.values()].slice(0,Math.min(28,target + 12)); const candidates: Candidate[] = []; let detailsChecked = 0; let websiteChecked = 0;
 
