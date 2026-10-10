@@ -8,4 +8,4 @@ database_name = "mingeagle-v2"
 database_id = "8dfddbe8-f4ff-4f5e-bb5d-063ec3933814"
 
 [triggers]
-crons = ["0 13 * * *", "* * * * *"]
+crons = ["0 13 * * *", "* * * * *", "0 * * * *"]
