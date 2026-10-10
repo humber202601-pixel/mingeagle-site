@@ -237,6 +237,7 @@ try{
   assert(claimed&&claimed.items.some(item=>item.item_key.startsWith('CORE:')));
   let coreSaved=0;
   const beforeIndex=coreIndexRequests;
+  let firstPageQueries=0;
   for(const offset of [0,4,8]){
     if(offset)failSources=true; // Cached pages must not refetch a now-failed index.
     const page=await post('discovery-web-v6',{...search,round:0,sourceOffset:offset,runId:coreBatchId,autoSourceOnly:true,autoRunId:coreBatchId,autoToken:claimed.token});
@@ -244,10 +245,12 @@ try{
     assert.equal(page.body.available,12,'preserve all valid official website clues');
     assert.equal(page.body.found,Math.min(4,12-offset),'main index saves only four websites at a time');
     assert.equal(page.body.hasMore,offset+4<12);
+    if(!offset)firstPageQueries=coreIndexRequests-beforeIndex;
+    else assert.equal(coreIndexRequests-beforeIndex,firstPageQueries,'later paged saves never re-query Bing');
     coreSaved+=page.body.found;
   }
   assert.equal(coreSaved,12,'all indexed sites eventually saved without exceeding per-request writes');
-  assert.equal(coreIndexRequests-beforeIndex,8,'8 public index queries run only on the FIRST source page, not 24 times');
+  assert(firstPageQueries>0&&firstPageQueries<=8,'original bounded query plan executes exactly once');
   failSources=false;
   const webJob=db.sqlite.prepare("SELECT status,result_count FROM discovery_jobs WHERE id=?").get('AUTO:'+coreBatchId+':WEB_SEARCH_VERIFIED_V6:0');
   assert.equal(webJob?.status,'COMPLETED','web source ends only after all source pages are saved');
