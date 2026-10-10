@@ -8,6 +8,7 @@ const keyFor=(runId:string,source:string,round:number)=>
 export async function sourceSnapshot<T>(
   db:D1Database,input:AutoScope,source:string,round:number,
   load:()=>Promise<T>,
+  cacheIf:(data:T)=>boolean=()=>true,
 ):Promise<T>{
   if(!input.autoRunId||!input.autoToken)return load();
   const key=keyFor(String(input.autoRunId),source,round);
@@ -20,6 +21,9 @@ export async function sourceSnapshot<T>(
     }catch{/* invalid payload is replaced by an independently verified request */}
   }
   const fresh=await load();
+  // A partial/blocked source must remain retryable. Freezing an incomplete
+  // snapshot would turn transient provider outages into two-hour failures.
+  if(!cacheIf(fresh))return fresh;
   await db.prepare(`INSERT INTO discovery_public_source_cache(cache_key,payload,expires_at)
     VALUES(?,?,datetime('now','+2 hours'))
     ON CONFLICT(cache_key) DO UPDATE SET payload=excluded.payload,expires_at=excluded.expires_at`)

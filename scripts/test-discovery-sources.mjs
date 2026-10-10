@@ -15,11 +15,12 @@ try{
   const input={stateCode:'TX',customerType:'BASKETBALL_TRAINING',city:'Dallas',targetCount:20,round:0};
   const html=(name='Northstar Basketball Academy')=>`<html><title>${name}</title><script type="application/ld+json">{"@type":"Organization","name":"${name}"}</script><h1>${name}</h1><p>Dallas Texas basketball training academy private lessons register youth programs. Contact us. Elementary school district purchasing procurement physical education department.</p><a href="mailto:hello@northstar.example">hello@northstar.example</a><a href="tel:2145550186">214-555-0186</a></html>`;
   let looseMap=false,mapRequests=[],failOverpass=false,missingMapSite=false;
-  let failIndex=false,manySchoolResults=false,ncesRequests=0,schoolTitle='Northstar Elementary School',websiteLinks='',websiteWrongRegion=false,websiteRequests=0;
+  let failIndex=false,failOneSocial=false,indexRequests=0,manySchoolResults=false,ncesRequests=0,schoolTitle='Northstar Elementary School',websiteLinks='',websiteWrongRegion=false,websiteRequests=0;
   globalThis.fetch=async(value,init)=>{
     const u=new URL(String(value));
     if(u.hostname==='www.bing.com'){
-      if(failIndex)return new Response('Failure',{status:503});
+      indexRequests++;
+      if(failIndex||failOneSocial&&u.searchParams.get('q')?.includes('site:facebook.com'))return new Response('Failure',{status:503});
       const social=u.searchParams.get('q').includes('site:facebook')?'https://www.facebook.com/northstar/':u.searchParams.get('q').includes('site:tiktok')?'https://www.tiktok.com/@northstar/':u.searchParams.get('q').includes('site:instagram')?'https://www.instagram.com/northstar/':u.searchParams.get('q').includes('site:linkedin')?'https://www.linkedin.com/company/northstar/':u.searchParams.get('q').includes('site:.gov')?'https://parks.example.gov/northstar':'https://www.chamberofcommerce.com/business/northstar';
       return new Response(`<rss><channel><item><title>Northstar Basketball Academy</title><link>${social}</link><description>Dallas Texas basketball training programs.</description></item><item><title>Unrelated Austin Academy</title><link>https://www.facebook.com/austin/</link><description>Austin basketball academy.</description></item></channel></rss>`);
     }
@@ -192,6 +193,24 @@ try{
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM discovery_jobs WHERE id LIKE 'AUTO:quota-fixture:PUBLIC:NCES:%'").get().n,1,'four pages create exactly one source job');
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM discovery_clues WHERE title LIKE 'Dallas Pilot Elementary %'").get().n,13);
   d1Cap=Infinity;manySchoolResults=false;
+  // First social-index read is partial (one failed provider, two successful).
+  // It must not be frozen: a second request should retry the provider and
+  // recover even though it belongs to the same resumable source page.
+  failOneSocial=true;
+  const partialSocial=await post({...input,action:'SEARCH',sources:['SOCIAL'],autoRunId:'quota-fixture',autoToken:'lease-fixture',sourceOffset:0});
+  assert.equal(partialSocial.status,200,JSON.stringify(partialSocial.body));
+  assert.equal(partialSocial.body.sources.SOCIAL.partial,true);
+  const partialCalls=indexRequests;
+  failOneSocial=false;
+  const recoveredSocial=await post({...input,action:'SEARCH',sources:['SOCIAL'],autoRunId:'quota-fixture',autoToken:'lease-fixture',sourceOffset:0});
+  assert.equal(recoveredSocial.status,200,JSON.stringify(recoveredSocial.body));
+  assert.equal(recoveredSocial.body.sources.SOCIAL.partial,false,'retry must read a fresh complete index instead of a stale partial cache');
+  assert(indexRequests>partialCalls,'provider is actually retried after partial failure');
+  const afterRecovery=indexRequests;
+  const cachedSocial=await post({...input,action:'SEARCH',sources:['SOCIAL'],autoRunId:'quota-fixture',autoToken:'lease-fixture',sourceOffset:0});
+  assert.equal(cachedSocial.status,200);
+  assert.equal(indexRequests,afterRecovery,'successful complete source is snapshotted for repeat/continuation');
+
   assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM messages').get().n,0);sqlite.close();
   console.log('PASS: V15 independent public/private/district catalogs, city rotation and map pagination, bounding-box POIs, cross-map deduplication, true found/retained counts, literal region/type/name filters, batch website social discovery, credential-free source links, no outreach/messages; verified website social discovery, page/raw-link evidence, institutional sameAs, excluded content/private/person links, no-refetch extraction, duplicate/ignored/converted preservation, school support, zero-result reporting, unverified clue-only storage, verified automatic CRM intake, separate school identities and no outreach; existing public-source searches and verification.');
 }finally{globalThis.fetch=original;rmSync(dir,{recursive:true,force:true});}
