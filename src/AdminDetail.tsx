@@ -1,10 +1,10 @@
+import {RETAIL_USD} from '../lib/retail-reference';
 import {parseWholesaleRfq} from './rfqParser';
 import LeadOutreach from './LeadOutreach';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { activityTypeLabel, customerTypeLabel, priorityLabel, requestTypeLabel, statusLabel, systemText, zhDate } from './adminI18n';
 
-const retailUnitPrices:Record<string,Record<string,number>>={'Flocked Silent Basketball Set':{'3':9.9,'5':11.9,'7':14.9},'Fabric-Cover Silent Basketball Set':{'3':10.9,'5':12.9,'7':15.9},'Weighted Flocked Silent Basketball':{'3':12.9,'4':14.9,'6':18.9,'7':21.9},'Flocked Silent Soccer Ball':{'5':17.9}};
 type Row = Record<string, unknown>;
 type DetailType = 'company' | 'inquiry' | 'lead';
 type DetailData = {
@@ -143,7 +143,7 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
       </div><div className="detail-message"><small>客户留言</small><p>{text(r.message,'无')}</p></div></Section>
       {parseWholesaleRfq(r.message).length>0 && <Section title="B2B 组合采购明细"><p className="detail-note">来自客户填写的采购需求，不代表已确认报价或库存。</p><MiniTable rows={parseWholesaleRfq(r.message).map((item,i)=>({id:i+1,...item}))} columns={[{key:'product',label:'产品系列'},{key:'size',label:'球号'},{key:'color',label:'颜色'},{key:'quantity',label:'数量（件）'}]}/><p><strong>采购需求总件数：{parseWholesaleRfq(r.message).reduce((sum,r)=>sum+r.quantity,0).toLocaleString('zh-CN')}</strong></p></Section>}
       {parseWholesaleRfq(r.message).length>0&&<Section title="生成 B2B 多行报价草稿（人工核价）"><p className="detail-note">以下报价不会自动发送。请核实每一项采购价格、运费、目的地、库存和交期。</p>
-       <div style={{display:'grid',gap:9}}>{parseWholesaleRfq(r.message).map((line,i)=><label key={i} style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}><span style={{flex:'1 1 250px'}}>{line.product} · No. {line.size} · {line.color} · {line.quantity} 件</span><span>零售价参考 USD {retailUnitPrices[line.product]?.[line.size]?.toFixed(2) || '—'} · {wholesalePrices[i]&&Number(wholesalePrices[i])>0&&Number(wholesalePrices[i])<retailUnitPrices[line.product]?.[line.size]?<strong style={{color:'#15803d'}}>节省 {((1-Number(wholesalePrices[i])/retailUnitPrices[line.product][line.size])*100).toFixed(1)}%</strong>:null}</span><span>批发单价 USD</span><input type="number" min="0.01" step="0.01" placeholder="人工填写" value={wholesalePrices[i]||''} disabled={wholesaleCreated} onChange={e=>setWholesalePrices(v=>({...v,[i]:e.target.value}))}/></label>)}
+       <div style={{display:'grid',gap:9}}>{parseWholesaleRfq(r.message).map((line,i)=><label key={i} style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}><span style={{flex:'1 1 250px'}}>{line.product} · No. {line.size} · {line.color} · {line.quantity} 件</span><span>零售价参考 USD {RETAIL_USD[line.product]?.[line.size]?.toFixed(2) || '—'} · {wholesalePrices[i]&&Number(wholesalePrices[i])>0&&Number(wholesalePrices[i])<RETAIL_USD[line.product]?.[line.size]?<strong style={{color:'#15803d'}}>节省 {((1-Number(wholesalePrices[i])/RETAIL_USD[line.product][line.size])*100).toFixed(1)}%</strong>:null}</span><span>批发单价 USD</span><input type="number" min="0.01" step="0.01" placeholder="人工填写" value={wholesalePrices[i]||''} disabled={wholesaleCreated} onChange={e=>setWholesalePrices(v=>({...v,[i]:e.target.value}))}/></label>)}
        <label>运费 USD（包邮填写 0） <input type="number" min="0" step="0.01" value={wholesaleShipping} onChange={e=>setWholesaleShipping(e.target.value)} disabled={wholesaleCreated}/></label>
        <label>付款条款 <input style={{width:'100%'}} value={wholesalePaymentTerms} onChange={e=>setWholesalePaymentTerms(e.target.value)} disabled={wholesaleCreated}/></label>
        <label>交付条款 <input style={{width:'100%'}} value={wholesaleDeliveryTerms} onChange={e=>setWholesaleDeliveryTerms(e.target.value)} disabled={wholesaleCreated}/></label>
