@@ -71,7 +71,15 @@ export async function startAuto(db:D1Database,input:Row){
 export async function autoSummary(db:D1Database,runId?:string){
   const run=runId?await db.prepare(`SELECT * FROM discovery_auto_runs WHERE id=?`).bind(runId).first<Row>():await db.prepare(`SELECT * FROM discovery_auto_runs ORDER BY created_at DESC,id DESC LIMIT 1`).first<Row>();
   if(!run)return {run:null};
-  const counts=await db.prepare(`SELECT kind,status,COUNT(*) AS count FROM discovery_auto_items WHERE run_id=? GROUP BY kind,status`).bind(run.id).all<Row>();
+  // Keep confirmed CRM imports in the existing grouped status query.
+  // DONE alone is a workflow state; only a linked real CRM lead counts.
+  // Aggregating avoids truncation when 100+ candidate rows exist.
+  const counts=await db.prepare(`SELECT i.kind,i.status,COUNT(*) AS count,
+      SUM(CASE WHEN i.kind='CANDIDATE' AND i.status='DONE'
+                 AND c.crm_lead_id IS NOT NULL THEN 1 ELSE 0 END) AS confirmed
+    FROM discovery_auto_items i
+    LEFT JOIN discovery_candidates c ON i.kind='CANDIDATE' AND c.id=i.item_key
+    WHERE i.run_id=? GROUP BY i.kind,i.status`).bind(run.id).all<Row>();
   const results=await db.prepare(`SELECT i.item_key,i.status,i.error,i.result_json,c.name,c.website,c.address,c.email,c.phone,c.whatsapp,c.instagram_url,c.facebook_url,c.linkedin_url,c.tiktok_url,c.contact_person_name,c.contact_person_title,c.lead_score,c.grade,c.crm_lead_id,c.customer_type,c.city,c.state_region
     FROM discovery_auto_items i LEFT JOIN discovery_candidates c ON c.id=i.item_key
     WHERE i.run_id=? AND i.kind='CANDIDATE' ORDER BY CASE i.status WHEN 'DONE' THEN 0 ELSE 1 END,c.lead_score DESC,i.item_key LIMIT 100`).bind(run.id).all<Row>();
