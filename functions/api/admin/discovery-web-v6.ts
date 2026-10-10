@@ -15,7 +15,7 @@ type SearchHit = { title:string; url:string; snippet:string; query:string; city:
 type EntityResolution = { name:string; score:number; source:string; candidates:Array<{name:string;score:number;source:string}> };
 type VerifiedHit = SearchHit & {
   fitScore:number; cues:string[]; orgName:string; entityScore:number; entitySource:string;
-  email:string; phone:string; whatsapp:string; instagram:string; facebook:string; tiktok:string; linkedin:string;
+  email:string; phone:string; whatsapp:string; instagram:string; facebook:string; tiktok?:string; linkedin:string;
   contactName:string; contactTitle:string; contactUrl:string; sourceUrls:string[];
   socialProfiles?:WebsiteSocialProfile[];
 };
@@ -144,7 +144,7 @@ export function eligibleSearchHit(hit:SearchHit,type:string,stateCode:string){
 export async function verifyHit(hit:SearchHit,type:string,stateCode:string):Promise<VerifiedHit|null>{
   try{
     if(!allowedWebsite(hit.url))return null;const homeHtml=await fetchText(hit.url,5500);const entity=resolveEntity(homeHtml,hit.title,hit.url);if(!entity.name||entity.score<24||genericName(entity.name))return null;
-    const pageUrls=[hit.url];const pages:string[]=[homeHtml];const extraUrls=sameOriginPreferred(homeHtml,hit.url).filter(url=>url!==hit.url).slice(0,3);const extras=await Promise.allSettled(extraUrls.map(url=>fetchText(url,3800)));for(let i=0;i<extras.length;i++){const result=extras[i];if(result.status==='fulfilled'){pages.push(result.value);pageUrls.push(extraUrls[i])}}
+    const pageUrls=[hit.url];const pages:string[]=[homeHtml];const extraUrls=sameOriginPreferred(homeHtml,hit.url).filter(url=>url!==hit.url).slice(0,4);const extras=await Promise.allSettled(extraUrls.map(url=>fetchText(url,3800)));for(let i=0;i<extras.length;i++){const result=extras[i];if(result.status==='fulfilled'){pages.push(result.value);pageUrls.push(extraUrls[i])}}
     const combinedHtml=pages.join('\n');const body=pages.map(strip).join(' ').slice(0,300000);const f=scoreBusiness(hit,body,type,stateCode,entity);if(f.score<70)return null;
     const allLinks=pages.flatMap((html,index)=>hrefs(html,pageUrls[index]||hit.url));const host=domainOf(hit.url);const email=chooseEmail(emailsOf(combinedHtml),host);const phone=phonesOf(combinedHtml,body)[0]||'';const whatsapp=whatsappOf(allLinks);const socialProfiles=websiteSocialProfiles(pages.map((html,index)=>({html,url:pageUrls[index]})));const instagram=socialProfiles.find(p=>p.source==='INSTAGRAM')?.url||'';const facebook=socialProfiles.find(p=>p.source==='FACEBOOK')?.url||'';const tiktok=socialProfiles.find(p=>p.source==='TIKTOK')?.url||'';const linkedin=socialProfiles.find(p=>p.source==='LINKEDIN')?.url||'';const person=extractPerson(body);const contactUrl=pageUrls.find(url=>/contact/i.test(url))||pageUrls.find(url=>/(team|staff|coach|about|leadership)/i.test(url))||pageUrls[1]||hit.url;
     const buyer=body.match(/(?:wholesale|bulk order|school equipment|physical education|youth program|private lesson|court rental|basketball camp|basketball classes)/gi)||[];if(buyer.length)f.cues.push('buyer-use:'+Array.from(new Set(buyer.map(x=>x.toLowerCase()))).slice(0,3).join('/'));return {...hit,city:f.cues.includes('national-supplier')?'':hit.city,fitScore:f.score,cues:f.cues,orgName:entity.name,entityScore:entity.score,entitySource:entity.source,email,phone,whatsapp,instagram,facebook,tiktok,linkedin,contactName:person.name,contactTitle:person.title,contactUrl,sourceUrls:pageUrls.slice(0,pages.length),socialProfiles};
