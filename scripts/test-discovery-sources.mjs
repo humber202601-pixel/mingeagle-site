@@ -10,11 +10,12 @@ try{
   await build({entryPoints:['lib/discovery-sources.ts','functions/api/admin/discovery-sources-v1.ts'],outdir:dir,bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},entryNames:'[name]',logLevel:'silent'});
   const sources=await import(pathToFileURL(join(dir,'discovery-sources.mjs'))),handler=await import(pathToFileURL(join(dir,'discovery-sources-v1.mjs')));
   const sqlite=new DatabaseSync(':memory:');sqlite.exec(readFileSync('migrations/0001_core.sql','utf8'));
-  const db={prepare(sql){const statement=(args=[])=>({bind(...values){return statement(values)},async first(){return sqlite.prepare(sql).get(...args)||null},async all(){return {results:sqlite.prepare(sql).all(...args)}},async run(){return {meta:sqlite.prepare(sql).run(...args)}}});return statement()}};
+  let d1Queries=0,d1Cap=Infinity;
+  const db={prepare(sql){d1Queries++;if(d1Queries>d1Cap)throw new Error('Mock Cloudflare D1: more than 50 queries per request');const statement=(args=[])=>({bind(...values){return statement(values)},async first(){return sqlite.prepare(sql).get(...args)||null},async all(){return {results:sqlite.prepare(sql).all(...args)}},async run(){return {meta:sqlite.prepare(sql).run(...args)}}});return statement()}};
   const input={stateCode:'TX',customerType:'BASKETBALL_TRAINING',city:'Dallas',targetCount:20,round:0};
   const html=(name='Northstar Basketball Academy')=>`<html><title>${name}</title><script type="application/ld+json">{"@type":"Organization","name":"${name}"}</script><h1>${name}</h1><p>Dallas Texas basketball training academy private lessons register youth programs. Contact us. Elementary school district purchasing procurement physical education department.</p><a href="mailto:hello@northstar.example">hello@northstar.example</a><a href="tel:2145550186">214-555-0186</a></html>`;
   let looseMap=false,mapRequests=[],failOverpass=false,missingMapSite=false;
-  let failIndex=false,schoolTitle='Northstar Elementary School',websiteLinks='',websiteWrongRegion=false,websiteRequests=0;
+  let failIndex=false,manySchoolResults=false,schoolTitle='Northstar Elementary School',websiteLinks='',websiteWrongRegion=false,websiteRequests=0;
   globalThis.fetch=async(value,init)=>{
     const u=new URL(String(value));
     if(u.hostname==='www.bing.com'){
@@ -22,6 +23,7 @@ try{
       const social=u.searchParams.get('q').includes('site:facebook')?'https://www.facebook.com/northstar/':u.searchParams.get('q').includes('site:tiktok')?'https://www.tiktok.com/@northstar/':u.searchParams.get('q').includes('site:instagram')?'https://www.instagram.com/northstar/':u.searchParams.get('q').includes('site:linkedin')?'https://www.linkedin.com/company/northstar/':u.searchParams.get('q').includes('site:.gov')?'https://parks.example.gov/northstar':'https://www.chamberofcommerce.com/business/northstar';
       return new Response(`<rss><channel><item><title>Northstar Basketball Academy</title><link>${social}</link><description>Dallas Texas basketball training programs.</description></item><item><title>Unrelated Austin Academy</title><link>https://www.facebook.com/austin/</link><description>Austin basketball academy.</description></item></channel></rss>`);
     }
+    if((u.hostname==='nces.ed.gov'||u.hostname==='services1.arcgis.com')&&manySchoolResults)return Response.json({features:Array.from({length:13},(_,i)=>({attributes:{NCESSCH:'4899900'+String(i).padStart(5,'0'),NAME:'Dallas Pilot Elementary '+i,CITY:'DALLAS',STATE:'TX',STREET:(i+1)+' Pilot Road',SCHOOLYEAR:'2024-2025'}}))});
     if(u.hostname==='nces.ed.gov'||u.hostname==='services1.arcgis.com')return Response.json({features:[{attributes:{NCESSCH:'480000100001',PPIN:'00000001',LEAID:'4800001',NAME:schoolTitle,CITY:'DALLAS',STATE:'TX',STREET:'1 Public Street',SCHOOLYEAR:'2024-2025'}},{attributes:{NCESSCH:'480000100002',LEAID:'4800002',NAME:'Austin Elementary',CITY:'AUSTIN',STATE:'TX'}}]});
     if(u.hostname==='api.geoapify.com'){
       mapRequests.push(u);
@@ -161,6 +163,27 @@ try{
   assert.equal((await get('status=PENDING&source=WEBSITE_SOCIAL')).body.pagination.total,1);assert.equal((await get('status=PENDING&source=INSTAGRAM')).body.clues.some(c=>c.source_url.includes('batchonly')),true);
   result=await post({...input,round:1,action:'SEARCH',sources:['WEBSITE_SOCIAL']});assert.equal(result.body.sources.WEBSITE_SOCIAL.found,0);assert.ok(result.body.sources.WEBSITE_SOCIAL.note.includes('暂无下一批'));
 
+  // Free Workers permit at most 50 D1 queries per invocation. A returned
+  // source page with 13 records must persist in a sequence of four small
+  // writes, without losing the remainder or a previously ignored clue.
+  sqlite.exec("CREATE TABLE IF NOT EXISTS discovery_auto_runs(id TEXT PRIMARY KEY,status TEXT,lease_token TEXT,lease_until TEXT)");
+  sqlite.prepare("INSERT INTO discovery_auto_runs(id,status,lease_token,lease_until) VALUES('quota-fixture','RUNNING','lease-fixture',datetime('now','+10 minutes'))").run();
+  manySchoolResults=true;d1Cap=50;let totalImported=0;
+  for(const offset of [0,4,8,12]){
+    d1Queries=0;
+    const response=await handler.onRequestPost({request:new Request('https://test.example/api/admin/discovery-sources-v1',{method:'POST',body:JSON.stringify({...input,customerType:'ELEMENTARY_SCHOOL',action:'SEARCH',sources:['NCES'],autoRunId:'quota-fixture',autoToken:'lease-fixture',sourceOffset:offset})}),env:{MINGEAGLE_DB:db}});
+    const page=await response.json();
+    assert.equal(response.status,200,JSON.stringify(page));
+    assert(d1Queries<=50,'D1 reads/writes per invocation must respect Workers Free 50-query budget');
+    assert.equal(page.sources.NCES.available,13);
+    assert.equal(page.sources.NCES.found,Math.min(4,13-offset));
+    assert.equal(page.sources.NCES.hasMore,offset+4<13);
+    if(offset+4<13)assert.equal(page.sources.NCES.nextOffset,offset+4);
+    totalImported+=page.sources.NCES.found;
+  }
+  assert.equal(totalImported,13,'all discovered records survive chunked automatic writes');
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM discovery_clues WHERE title LIKE 'Dallas Pilot Elementary %'").get().n,13);
+  d1Cap=Infinity;manySchoolResults=false;
   assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM messages').get().n,0);sqlite.close();
   console.log('PASS: V15 independent public/private/district catalogs, city rotation and map pagination, bounding-box POIs, cross-map deduplication, true found/retained counts, literal region/type/name filters, batch website social discovery, credential-free source links, no outreach/messages; verified website social discovery, page/raw-link evidence, institutional sameAs, excluded content/private/person links, no-refetch extraction, duplicate/ignored/converted preservation, school support, zero-result reporting, unverified clue-only storage, verified automatic CRM intake, separate school identities and no outreach; existing public-source searches and verification.');
 }finally{globalThis.fetch=original;rmSync(dir,{recursive:true,force:true});}
