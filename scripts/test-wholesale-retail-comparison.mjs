@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {transformSync} from 'esbuild';
+const shared=fs.readFileSync('lib/retail-reference.ts','utf8');
+const compiled=transformSync(shared,{loader:'ts',format:'esm',target:'es2022'}).code;
+const {RETAIL_USD,retailReference}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
+const catalog=fs.readFileSync('public/retail-prices.json','utf8');
+const expected=JSON.parse(catalog).products;
+const names=['Flocked Silent Basketball Set','Fabric-Cover Silent Basketball Set','Weighted Flocked Silent Basketball','Flocked Silent Soccer Ball'];
+for(let i=0;i<names.length;i++)assert.deepEqual(RETAIL_USD[names[i]],expected['p'+(i+1)],'Retail price mismatch: '+names[i]);
+assert.equal(retailReference('Weighted Flocked Silent Basketball | No. 6 | Brown'),18.9);
+assert.equal(retailReference('Unknown product | No. 5 | Blue'),null);
+const quote=fs.readFileSync('functions/quote/[token].ts','utf8');
+assert(quote.includes("wholesale<retail"),'Customer quote must show savings only when actual wholesale is lower than retail');
+assert(quote.includes("Retail reference: USD"),'Public quote must explain retail reference');
+const admin=fs.readFileSync('src/AdminDetail.tsx','utf8');
+assert(admin.includes('RETAIL_USD[line.product]'),'Admin must show the per-size retail reference');
+console.log('PASS: B2B admin and customer quote retail reference agree with published retail prices; savings shown only when below retail.');
