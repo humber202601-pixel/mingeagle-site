@@ -271,7 +271,7 @@ const processInquiryPost: PagesFunction<Env> = async ({ request, env }) => {
     if ((nativeForm || isPublicInquiryOrigin(origin)) && !input.privacyAck) {
       return new Response('Privacy acknowledgement is required.', { status: 400 });
     }
-    if (!firstName || !email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || (['SAMPLE','WHOLESALE','RETAIL_PARTNERSHIP'].includes(requestType) && !country)) {
+    if (!firstName || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || (['SAMPLE','WHOLESALE','RETAIL_PARTNERSHIP'].includes(requestType) && !country)) {
       return Response.json({ error: 'First name, valid email, and country for purchase/sample inquiries are required.' }, { status: 400 });
     }
 
