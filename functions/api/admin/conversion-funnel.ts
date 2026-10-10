@@ -25,7 +25,7 @@ const activity=`WITH message_activity AS (
   SELECT l.id,l.lead_score,l.source,l.status,c.name AS company_name,
     COALESCE(NULLIF(c.customer_type,''),'UNCLASSIFIED') AS category,
     c.city,c.state_region,
-    ct.email,ct.phone AS contact_phone,ct.whatsapp,
+    ct.email,COALESCE(NULLIF(ct.phone,''),NULLIF(c.phone,'')) AS contact_phone,ct.whatsapp,
     CASE WHEN COALESCE(ct.do_not_contact,0)=1
       OR l.status IN ('DO_NOT_CONTACT','NOT_INTERESTED','NOT_FIT','LOST')
       THEN 1 ELSE 0 END AS blocked,
