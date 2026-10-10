@@ -76,6 +76,20 @@ if(incomingProduct&&incomingSize){
  const matched=[...form.querySelectorAll('[name="products[]"]')].find(cb=>cb.value===incomingProduct);
  if(matched){matched.checked=true;const id=matched.closest('[data-product]').dataset.product;const sel=$('size-'+id);const option=[...sel.options].find(o=>o.value==='No. '+incomingSize);if(option)sel.value=option.value;}
 }
+// Catalog links may provide a verified product choice, size, color and quantity.
+if(incomingProduct){
+ const selected=[...form.querySelectorAll('[name="products[]"]')].find(cb=>cb.value===incomingProduct);
+ if(selected){
+  const pid=selected.closest('[data-product]').dataset.product;
+  const color=q.get('color'),units=q.get('units');
+  if(color){const dropdown=$('color-'+pid);if(dropdown&&[...dropdown.options].some(o=>o.value===color))dropdown.value=color;}
+  if(units&&/^[1-9]\\d{0,5}$/.test(units)){
+   const qty=Number(units),tier=qty<=2?'1–2 samples':qty<=49?'3–49 units':qty<=99?'50–99 units':qty<=499?'100–499 units':qty<=999?'500–999 units':'1,000+ units';
+   if($('estimated_quantity'))$('estimated_quantity').value=tier;
+   if($('quoteUnits'))$('quoteUnits').value=String(qty);
+  }
+ }
+}
 if(type==='Retail purchase inquiry'&&!window.__mingEagleCartOrder)$('estimated_quantity').value='1–2 samples';
 }
 function isLogo(){return ['Logo','Logo + packaging'].includes($('customization').value)}
