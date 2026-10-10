@@ -5,7 +5,7 @@ const expected=Object.keys(COPY.en).sort();for(const [lang,d]of Object.entries(C
 assert.equal(Object.keys(COPY).length,9);assert.equal(dictionary('unknown'),COPY.en);
 for(const [name,kind]of Object.entries(pages)){
  const html=fs.readFileSync('public/'+name,'utf8');assert.equal((html.match(/<h1\b/g)||[]).length,1);assert.equal((html.match(/src="learning.js/g)||[]).length,1,'no duplicate localization script');
- assert.ok(html.includes('https://www.mingeagle.com/'+name));assert.ok(fs.readFileSync('public/sitemap.xml','utf8').includes('https://www.mingeagle.com/'+name));
+ assert.ok(html.includes('https://mingeagle.com/'+name));assert.ok(fs.readFileSync('public/sitemap.xml','utf8').includes('https://mingeagle.com/'+name));
  const keys=[...html.matchAll(/data-learn="([^"]+)"/g)].map(x=>x[1]);for(const key of keys)for(const lang of Object.keys(COPY))assert.ok(COPY[lang][key],name+': '+lang+' missing '+key);
  for(const m of html.matchAll(/(?:href|src)="([^"?#]+)(?:\?[^"#]*)?(?:#[^"]*)?"/g)){if(!/^[a-z]+:/.test(m[1])&&!m[1].startsWith('#'))assert.ok(fs.existsSync('public/'+m[1]),name+' broken local link '+m[1]);}
  const schema=JSON.parse(html.match(/id="learning-schema">([\s\S]*?)<\/script>/)[1]);assert.equal(kind==='hub'?schema.inLanguage:schema['@graph'][0].inLanguage,'en');
