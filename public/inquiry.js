@@ -15,7 +15,7 @@ const type=TYPE_MAP[(q.get('type')||'').toLowerCase()];if(type)$('request_type')
 form.querySelectorAll('[name="products[]"]').forEach(cb=>{if(cb.value===q.get('product'))cb.checked=true});
 if(q.get('type')==='retail'&&q.get('cart')){
  const raw=String(q.get('cart')||'');
- const entries=raw.split(', ').map(item=>/^((?:P1-S[357]|P2-S[357]|P3-S[3467]|P4-S5)) × (\\d{1,5})$/.exec(item)).filter(Boolean);
+ const entries=raw.split(', ').slice(0,11).map(item=>/^((?:P1-S[357]|P2-S[357]|P3-S[3467]|P4-S5)) × (\\d{1,5})$/.exec(item)).filter(Boolean);
  const chosen=new Map();
  entries.forEach(match=>{const qty=Number(match[2]);if(qty>=1&&qty<=10000)chosen.set(match[1],qty)});
  const totalUnits=[...chosen.values()].reduce((sum,n)=>sum+n,0);
@@ -27,15 +27,14 @@ if(q.get('type')==='retail'&&q.get('cart')){
  const summary=['Retail cart order request (NOT PAID)','Products: '+lines.join(', '),'Total items: '+totalUnits,'Destination country: '+country,'Preferred shipping: '+mode,'Estimated freight USD (unverified): '+String(q.get('cart_shipping')||'').slice(0,20),'Estimated total before tax USD (unverified): '+String(q.get('cart_total')||'').slice(0,20),'Final item prices, freight, taxes and availability must be confirmed before payment.'].join('\\n');
  if($('message'))$('message').value=summary.slice(0,3900);
  if($('country'))$('country').value=country;
- const productChecks=[...form.querySelectorAll('[name="products[]"]')];
  for(const sku of chosen.keys()){const id='p'+sku[1],check=$('choose-'+id),size=$('size-'+id);
   if(check)check.checked=true;
   const number=sku.slice(-1);
   if(size){const options=[...size.options];if(options.some(o=>o.value==='No. '+number))size.value='No. '+number;}
  }
- if(totalUnits){const selector=$('estimated_quantity');const tier=totalUnits<=2?'1–2 samples':totalUnits<=49?'3–49 units':totalUnits<=99?'50–99 units':totalUnits<=499?'100–499 units':totalUnits<=999?'500–999 units':'1,000+ units';if(selector)selector.value=tier;}
+ if(totalUnits>0&&totalUnits<=10000){const selector=$('estimated_quantity');const tier=totalUnits<=2?'1–2 samples':totalUnits<=49?'3–49 units':totalUnits<=99?'50–99 units':totalUnits<=499?'100–499 units':totalUnits<=999?'500–999 units':'1,000+ units';if(selector)selector.value=tier;}
  // Keep actual per-SKU quantities in the message: the inquiry's coarse quantity is only a sales filter.
- window.__mingEagleCartOrder={lines,country,mode,totalUnits};
+ if(totalUnits>0&&totalUnits<=10000)window.__mingEagleCartOrder={lines,country,mode,totalUnits};
 }
 
 try{
