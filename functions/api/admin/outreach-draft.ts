@@ -21,25 +21,25 @@ function isGenericContact(name:string,company:string){
 
 function fitCopy(customerType:string){
   const type=customerType.toUpperCase();
-  if(type==='TRAINING_ACADEMY') return {
+  if(['TRAINING_ACADEMY','BASKETBALL_TRAINING','INDEPENDENT_COACH'].includes(type)) return {
     label:'basketball training academy',
     sentence:'For a training academy, the product can be useful for quieter ball-handling work, indoor skill sessions, warm-ups, camps and take-home practice.',
     short:'quieter ball-handling work, indoor skill sessions, camps and take-home practice',
     subject:'silent basketballs for indoor skill training',
   };
-  if(type==='YOUTH_SPORTS_CLUB') return {
+  if(['YOUTH_SPORTS_CLUB','YOUTH_CLUB','SUMMER_CAMP'].includes(type)) return {
     label:'youth basketball program',
     sentence:'For a youth program, the product can work well for quieter indoor drills, camps, warm-ups and at-home practice between team sessions.',
     short:'quieter youth drills, camps, warm-ups and at-home practice',
     subject:'silent basketballs for youth training',
   };
-  if(type==='SPORTS_FACILITY') return {
+  if(['SPORTS_FACILITY','BASKETBALL_GYM','RECREATION_CENTER'].includes(type)) return {
     label:'basketball facility',
     sentence:'For a basketball facility, the product can provide a quieter option for skill work in indoor spaces where standard dribbling noise can be disruptive.',
     short:'a quieter option for skill work in indoor spaces',
     subject:'a quieter basketball option for indoor training',
   };
-  if(type==='SPORTS_RETAILER') return {
+  if(['SPORTS_RETAILER','SPORTS_STORE','SPORTS_DISTRIBUTOR','EDUCATION_SUPPLIER'].includes(type)) return {
     label:'sports retailer',
     sentence:'For a sports retailer, the product offers a differentiated indoor-play item for parents, youth players and customers looking for a quieter basketball option.',
     short:'a differentiated indoor-play product for parents and youth players',
@@ -63,7 +63,7 @@ function introDraft(params:{company:string;greeting:string;location:string;fit:R
   const foundLine=location
     ? `I came across ${company} while researching basketball organizations in ${location}.`
     : `I came across ${company} while looking at organizations that work with basketball players and programs.`;
-  const subject=customerType.toUpperCase()==='SPORTS_RETAILER'
+  const subject=['SPORTS_RETAILER','SPORTS_STORE','SPORTS_DISTRIBUTOR','EDUCATION_SUPPLIER'].includes(customerType.toUpperCase())
     ? `MING EAGLE ${fit.subject} for ${company}`
     : `${company} — ${fit.subject}`;
   const body=[
@@ -126,7 +126,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     const row=await env.MINGEAGLE_DB.prepare(`SELECT
       l.id AS lead_id,l.status AS lead_status,l.lead_score,l.source_detail,l.product_interest,l.last_contact_at,
       c.name AS company,c.customer_type,c.city,c.state_region,c.website,c.notes,
-      ct.full_name AS contact,ct.first_name,ct.title AS contact_title,ct.email,
+      ct.full_name AS contact,ct.first_name,ct.title AS contact_title,ct.email,ct.do_not_contact,
       d.source_provider AS discovery_provider,d.source_evidence,d.website_contact_url,d.customer_type AS discovery_customer_type
       FROM leads l
       LEFT JOIN companies c ON c.id=l.company_id
@@ -170,6 +170,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
 
     return Response.json({
       ok:true,leadId,subject:draft.subject,body:draft.body,draftType:draft.draftType,outboundCount,
+      recipientEmail:clean(row.email,320),canContact:!Boolean(Number(row.do_not_contact||0))&&status!=='DO_NOT_CONTACT'&&status!=='NOT_INTERESTED',
       personalization:{company,customerType:customerType||'UNKNOWN',location,contactUsed:named?contact:'',contactTitle,fitReason:fit.sentence,evidence},
     });
   }catch(error){
