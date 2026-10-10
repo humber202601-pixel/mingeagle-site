@@ -14,16 +14,29 @@ const $=id=>document.getElementById(id),c=root.MINGEAGLE_INQUIRY_CONFIG||{enable
 const type=TYPE_MAP[(q.get('type')||'').toLowerCase()];if(type)$('request_type').value=type;
 form.querySelectorAll('[name="products[]"]').forEach(cb=>{if(cb.value===q.get('product'))cb.checked=true});
 if(q.get('type')==='retail'&&q.get('cart')){
- const items=String(q.get('cart')||'').slice(0,450);
- const country=String(q.get('cart_country')||'').slice(0,2);
- const shipping=String(q.get('cart_shipping')||'').slice(0,20);
- const total=String(q.get('cart_total')||'').slice(0,20);
- const method=q.get('cart_method')==='sea'?'Sea freight':'Air parcel';
- const summary='Retail cart request (not paid): '+items+'\nDestination: '+country+'\nShipping method: '+method+'\nEstimated freight USD: '+shipping+'\nEstimated subtotal before taxes USD: '+total+'\nFinal amount, duties and availability require confirmation.';
- if($('message'))$('message').value=summary;
+ const raw=String(q.get('cart')||'');
+ const entries=raw.split(', ').map(item=>/^((?:P1-S[357]|P2-S[357]|P3-S[3467]|P4-S5)) × (\\d{1,5})$/.exec(item)).filter(Boolean);
+ const chosen=new Map();
+ entries.forEach(match=>{const qty=Number(match[2]);if(qty>=1&&qty<=10000)chosen.set(match[1],qty)});
+ const totalUnits=[...chosen.values()].reduce((sum,n)=>sum+n,0);
+ const iso=String(q.get('cart_country')||'').toUpperCase();
+ const country=/^[A-Z]{2}$/.test(iso)?iso:'';
+ const mode=q.get('cart_method')==='sea'?'Sea freight':'Air parcel';
+ const lines=[...chosen].map(([sku,units])=>sku+' x '+units);
+ // This is a customer-provided estimate, not a trusted or payable quote.
+ const summary=['Retail cart order request (NOT PAID)','Products: '+lines.join(', '),'Total items: '+totalUnits,'Destination country: '+country,'Preferred shipping: '+mode,'Estimated freight USD (unverified): '+String(q.get('cart_shipping')||'').slice(0,20),'Estimated total before tax USD (unverified): '+String(q.get('cart_total')||'').slice(0,20),'Final item prices, freight, taxes and availability must be confirmed before payment.'].join('\\n');
+ if($('message'))$('message').value=summary.slice(0,3900);
  if($('country'))$('country').value=country;
+ const productChecks=[...form.querySelectorAll('[name="products[]"]')];
+ for(const sku of chosen.keys()){const id='p'+sku[1],check=$('choose-'+id),size=$('size-'+id);
+  if(check)check.checked=true;
+  const number=sku.slice(-1);
+  if(size){const options=[...size.options];if(options.some(o=>o.value==='No. '+number))size.value='No. '+number;}
+ }
+ if(totalUnits){const selector=$('estimated_quantity');const tier=totalUnits<=2?'1–2 samples':totalUnits<=49?'3–49 units':totalUnits<=99?'50–99 units':totalUnits<=499?'100–499 units':totalUnits<=999?'500–999 units':'1,000+ units';if(selector)selector.value=tier;}
+ // Keep actual per-SKU quantities in the message: the inquiry's coarse quantity is only a sales filter.
+ window.__mingEagleCartOrder={lines,country,mode,totalUnits};
 }
-
 
 try{
  const raw=q.get('logo_design');
@@ -64,7 +77,7 @@ if(incomingProduct&&incomingSize){
  const matched=[...form.querySelectorAll('[name="products[]"]')].find(cb=>cb.value===incomingProduct);
  if(matched){matched.checked=true;const id=matched.closest('[data-product]').dataset.product;const sel=$('size-'+id);const option=[...sel.options].find(o=>o.value==='No. '+incomingSize);if(option)sel.value=option.value;}
 }
-if(type==='Retail purchase inquiry')$('estimated_quantity').value='1–2 samples';
+if(type==='Retail purchase inquiry'&&!window.__mingEagleCartOrder)$('estimated_quantity').value='1–2 samples';
 }
 function isLogo(){return ['Logo','Logo + packaging'].includes($('customization').value)}
 function enforcePolicy(){
@@ -85,6 +98,7 @@ function read(){const fd=new FormData(form),r=rules($('request_type').value),v=n
 function review(d,hint){prepared=summary(d,core.context('MING EAGLE product / wholesale inquiry'));$('reviewContent').textContent=prepared;$('sendEmail').href='mailto:mingeaglecommerce@gmail.com?subject='+encodeURIComponent('MING EAGLE inquiry '+d.reference)+'&body='+encodeURIComponent(prepared);$('sendWhatsApp').href='https://wa.me/8613851585237?text='+encodeURIComponent(prepared);$('reviewHint').textContent=hint||'Choose email or WhatsApp and press Send in that app. Preparing this request does not submit it to MING EAGLE.';$('inquiryReview').hidden=false;$('inquiryReview').scrollIntoView({behavior:'smooth',block:'nearest'})}
 form.addEventListener('change',()=>{sync();$('inquiryReview').hidden=true;$('formStatus').textContent=''});form.addEventListener('input',()=>{$('inquiryReview').hidden=true;$('formStatus').textContent=''});
 let autoSampleQuantity=false;function syncSampleQuantity(){const el=$('estimated_quantity');if($('request_type').value==='Sample request'&&!el.value){el.value='1–2 samples';autoSampleQuantity=true}else if($('request_type').value!=='Sample request'&&autoSampleQuantity){if(el.value==='1–2 samples')el.value='';autoSampleQuantity=false}}$('estimated_quantity').addEventListener('change',()=>{autoSampleQuantity=false});$('request_type').addEventListener('change',syncSampleQuantity);syncSampleQuantity();sync();
+if(window.__mingEagleCartOrder){const order=window.__mingEagleCartOrder;if($('quoteUnits'))$('quoteUnits').value=String(order.totalUnits);if($('shippingMethod'))$('shippingMethod').value=order.mode==='Sea freight'?'Economy / sea freight':'Air freight / express';}
 $('submitInquiry').disabled=false;
 if(c.enabled){$('submitInquiry').textContent='Send request';$('deliveryNote').textContent='Your request is submitted directly. Keep the confirmation reference for follow-up.'}
 form.addEventListener('submit',async e=>{
