@@ -1,4 +1,5 @@
 import { assertAutoLease,saveAutoClues,sourceJobId } from '../../../lib/discovery-auto-support';
+import { sourceSnapshot } from '../../../lib/discovery-source-snapshot';
 import { ensureClues } from '../../../lib/discovery-sources';
 import {alternateSearch} from '../../../lib/public-search';
 import { publicPersonName } from '../../../lib/public-contacts';
@@ -169,21 +170,27 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     if(input.autoRunId)await assertAutoLease(db,input);
     jobId=sourceJobId(input,'WEB_SEARCH_VERIFIED_V6',round);
     await db.prepare(`INSERT OR IGNORE INTO discovery_jobs (id,state_region,customer_type,target_count,source_provider) VALUES (?,?,?,?, 'WEB_SEARCH_VERIFIED_V6')`).bind(jobId,stateCode,type,target).run();
-    const queries=queryPlan(stateCode,type,city,round,8);const started=Date.now();
-    const searched=await Promise.allSettled(queries.map(q=>bing(q.query,q.city)));const raw=searched.flatMap(r=>r.status==='fulfilled'?r.value:[]);const unique:SearchHit[]=[];const domains=new Set<string>();for(const h of raw.filter(hit=>eligibleSearchHit(hit,type,stateCode))){const d=domainOf(h.url);if(!d||domains.has(d))continue;domains.add(d);unique.push(h);if(unique.length>=Math.max(28,target*4))break}
-    let searchNote=`主索引 ${searched.filter(r=>r.status==='fulfilled').length}/${queries.length} 次查询可读取，返回网页 ${raw.length} 个，符合地区和业务条件 ${unique.length} 个。`;
-    let fallbackReadable=false,fallbackUsed=false;
-    if(!unique.length){
-      fallbackUsed=true;
-      const fallback=await Promise.allSettled(queries.slice(0,2).map(async q=>(await alternateSearch(q.query,db)).map(hit=>({...hit,query:q.query,city:q.city})).filter(hit=>allowedWebsite(hit.url)&&eligibleSearchHit(hit,type,stateCode))));
-      fallbackReadable=fallback.some(r=>r.status==='fulfilled');
-      for(const hit of fallback.flatMap(r=>r.status==='fulfilled'?r.value:[])){const d=domainOf(hit.url);if(!domains.has(d)){domains.add(d);unique.push(hit);}}
-      const errors=fallback.filter(r=>r.status==='rejected').map(r=>r.reason instanceof Error?r.reason.message:String(r.reason));
-      searchNote+=`备用公开索引返回可用官网 ${unique.length} 个。${errors[0]||''}`;
-    }
-    if(searched.every(r=>r.status==='rejected')&&!fallbackReadable)throw new Error('公开搜索的主索引和备用索引本次均不可读取，请稍后重试。');
+    if(input.autoSourceOnly)await ensureClues(db);
+    const {unique,searchNote,fallbackUsed,fallbackReadable}=await sourceSnapshot(db,input,
+      'WEB_SEARCH_VERIFIED_V6',round,async()=>{
+        const queries=queryPlan(stateCode,type,city,round,8);
+        const searched=await Promise.allSettled(queries.map(q=>bing(q.query,q.city)));const raw=searched.flatMap(r=>r.status==='fulfilled'?r.value:[]);const unique:SearchHit[]=[];const domains=new Set<string>();for(const h of raw.filter(hit=>eligibleSearchHit(hit,type,stateCode))){const d=domainOf(h.url);if(!d||domains.has(d))continue;domains.add(d);unique.push(h);if(unique.length>=Math.max(28,target*4))break}
+        let searchNote=`主索引 ${searched.filter(r=>r.status==='fulfilled').length}/${queries.length} 次查询可读取，返回网页 ${raw.length} 个，符合地区和业务条件 ${unique.length} 个。`;
+        let fallbackReadable=false,fallbackUsed=false;
+        if(!unique.length){
+          fallbackUsed=true;
+          const fallback=await Promise.allSettled(queries.slice(0,2).map(async q=>(await alternateSearch(q.query,db)).map(hit=>({...hit,query:q.query,city:q.city})).filter(hit=>allowedWebsite(hit.url)&&eligibleSearchHit(hit,type,stateCode))));
+          fallbackReadable=fallback.some(r=>r.status==='fulfilled');
+          for(const hit of fallback.flatMap(r=>r.status==='fulfilled'?r.value:[])){const d=domainOf(hit.url);if(!domains.has(d)){domains.add(d);unique.push(hit);}}
+          const errors=fallback.filter(r=>r.status==='rejected').map(r=>r.reason instanceof Error?r.reason.message:String(r.reason));
+          searchNote+=`备用公开索引返回可用官网 ${unique.length} 个。${errors[0]||''}`;
+        }
+        if(searched.every(r=>r.status==='rejected')&&!fallbackReadable)throw new Error('公开搜索的主索引和备用索引本次均不可读取，请稍后重试。');
+      return {unique,searchNote,fallbackUsed,fallbackReadable};
+    });
+    const started=Date.now();
     if(input.autoSourceOnly){
-      await ensureClues(db);await assertAutoLease(db,input);
+      await assertAutoLease(db,input);
       const allSeeds=unique.slice(0,target).map(hit=>({key:'web-index:'+hit.url,title:hit.title,source:'WEB_INDEX',url:hit.url,website:hit.url,evidence:hit.snippet+' · '+hit.query,city:hit.city}));
       const offset=Number(input.sourceOffset||0);
       if(!Number.isInteger(offset)||offset<0||offset>100) return Response.json({ok:false,error:'来源游标无效。'},{status:400});
