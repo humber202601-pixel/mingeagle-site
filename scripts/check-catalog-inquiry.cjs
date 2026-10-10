@@ -12,7 +12,7 @@ for(const name of names){
 assert(logic.includes("cb.value===q.get('product')"),'Form should preselect exact product query parameter');
 assert.equal((catalog.match(/class="catalog-product-actions"/g)||[]).length,4);
 for(const product of Object.values(master)){
- assert(catalog.includes('src="'+product.hero+'"'),'Catalog must use approved actual product hero: '+product.name);
+ assert(catalog.includes('src="'+product.hero+'"'),'Catalog hero mismatch: '+product.name+' | expected '+product.hero+' | actual '+[...catalog.matchAll(/<img[^>]*src="([^"]+)"/g)].map(m=>m[1]).join(', '));
  assert(fs.existsSync('public/'+product.hero),'Approved hero missing: '+product.hero);
  const bytes=fs.readFileSync('public/'+product.hero);
  assert.equal(bytes.toString('ascii',0,4),'RIFF','Hero must be RIFF WebP: '+product.hero);
