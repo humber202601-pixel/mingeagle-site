@@ -36,5 +36,8 @@ jobs:
       - name: Test quote acceptance safety
         run: node scripts/test-quote-accept-safety.mjs
 
+      - name: Test Airwallex webhook safety
+        run: node scripts/test-airwallex-webhook-safety.mjs
+
       - name: Bundle Cloudflare Functions
         run: npx wrangler pages functions build --outdir /tmp/mingeagle-functions
