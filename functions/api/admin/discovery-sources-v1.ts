@@ -1,4 +1,4 @@
-import { assertAutoLease } from '../../../lib/discovery-auto-support';
+import { assertAutoLease,sourceJobId } from '../../../lib/discovery-auto-support';
 import { intakeVerifiedCandidates } from '../../../lib/discovery-intake';
 import { parseSearch, COMMERCIAL_TYPES, STATE_NAMES, TYPE_OPTIONS } from '../../../shared/discovery';
 import { EXPANSION_SOURCES, SOCIAL_SOURCES, sourceUrl, collectSource, ensureClues, websiteSocialProfiles, type Clue, type SourceInput, type ExpansionSource, type SocialSource } from '../../../lib/discovery-sources';
@@ -104,8 +104,11 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       const chunked=Boolean(input.autoRunId);
       const sourceOffset=chunked?Number(input.sourceOffset||0):0;
       if(!Number.isInteger(sourceOffset)||sourceOffset<0||sourceOffset>100) return response({ok:false,error:'来源保存游标无效。'},400);
-      await ensureTables(db);jobId=crypto.randomUUID();
-      await db.prepare(`INSERT INTO discovery_jobs(id,state_region,customer_type,target_count,source_provider) VALUES(?,?,?,?, 'PUBLIC_SOURCE_CLUES_V1')`).bind(jobId,parsed.stateCode,parsed.customerType,parsed.targetCount).run();
+      await ensureTables(db);
+      if(chunked)await assertAutoLease(db,input);
+      const logicalSource=sources.length===1?sources[0]:'MULTI';
+      jobId=sourceJobId(input,'PUBLIC:'+logicalSource,parsed.round);
+      await db.prepare(`INSERT OR IGNORE INTO discovery_jobs(id,state_region,customer_type,target_count,source_provider) VALUES(?,?,?,?, 'PUBLIC_SOURCE_CLUES_V1')`).bind(jobId,parsed.stateCode,parsed.customerType,parsed.targetCount).run();
       const results=await Promise.allSettled(sources.map(source=>source==='WEBSITE_SOCIAL'?collectWebsiteSocial(db,parsed):collectSource(parsed,source,env.GEOAPIFY_API_KEY,db)));
       const states:Record<string,{ok:boolean;found:number;added:number;available?:number;hasMore?:boolean;nextOffset?:number|null;updated?:number;retained?:number;partial?:boolean;review?:boolean;note?:string;error?:string}>={};let added=0,updated=0;const addedIds:string[]=[],updatedIds:string[]=[],foundIds:string[]=[];
       for(let i=0;i<results.length;i++){
@@ -136,7 +139,11 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
         states[source]={ok:true,found:clues.length,available:unique.length,hasMore,nextOffset:hasMore?sourceOffset+maxPerInvocation:null,added:sourceAdded,updated:sourceUpdated,retained:clues.length-sourceAdded-sourceUpdated,partial:result.value.partial,review:'review' in result.value&&Boolean(result.value.review),note:result.value.note};
       }
       const ok=Object.values(states).some(s=>s.ok);
-      await db.prepare(`UPDATE discovery_jobs SET status=?,result_count=?,error=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(ok?'COMPLETED':'FAILED',added,Object.values(states).filter(s=>!s.ok).map(s=>s.error).join(' · ')||null,jobId).run();
+      const remaining=chunked&&Object.values(states).some(s=>s.hasMore);
+      const processed=chunked?sourceOffset+Object.values(states).reduce((n,s)=>n+(s.found||0),0):added;
+      const errors=Object.values(states).filter(s=>!s.ok).map(s=>s.error).join(' · ')||null;
+      await db.prepare(`UPDATE discovery_jobs SET status=?,result_count=?,error=?,completed_at=CASE WHEN ? THEN NULL ELSE CURRENT_TIMESTAMP END WHERE id=?`)
+        .bind(ok?(remaining?'RUNNING':'COMPLETED'):'FAILED',chunked?Math.max(0,processed):added,errors,remaining?1:0,jobId).run();
       return response({ok,added,updated,addedIds,updatedIds,foundIds:[...new Set(foundIds)],sources:states,nextRound:parsed.round+1,...(ok?{}:{error:'本次扩展来源均未完成，请查看各来源的具体原因。'})},ok?200:502);
     }
     const id=clean(input.clueId,80),clue=await db.prepare(`SELECT * FROM discovery_clues WHERE id=?`).bind(id).first<Record<string,string>>();
