@@ -22,7 +22,7 @@ try{
   const post=async(name,body)=>{const r=await handlers[name].onRequestPost({request:new Request(base+name,{method:'POST',headers,body:JSON.stringify(body)}),env});const bodyResult=await r.json();return {status:r.status,body:bodyResult};};
   const get=async(name)=>{const r=await handlers[name].onRequestGet({request:new Request(base+name,{headers}),env});return await r.json();};
   const scalar=(sql)=>db.sqlite.prepare(sql).get().n;
-  let failContact=false,failEnrich=false,missingContacts=false,failSources=false,emptyIndex=false,alternateHits=false,websiteCalls=[];
+  let failContact=false,failEnrich=false,missingContacts=false,failSources=false,emptyIndex=false,alternateHits=false,websiteCalls=[],placeDetailCalls=0;
   const html=()=>`<html><head><title>Northstar Basketball Academy — Dallas Texas Basketball Training</title><meta property="og:site_name" content="Northstar Basketball Academy"/><script type="application/ld+json">{"@type":"Organization","name":"Northstar Basketball Academy"}</script></head><body><h1>Northstar Basketball Academy</h1><p>Dallas Texas basketball academy private lessons youth club AAU training basketball summer camp and recreation programs. Register for training classes. Membership. Contact us.</p><a href="/contact">Contact</a><a href="/staff">Staff</a><a href="/coaches">Coaches</a><a href="/procurement">Procurement</a><p>Alex Morgan - Head Coach.</p>${missingContacts?'':'<a href="mailto:hello@academy.example">hello@academy.example</a><a href="tel:2145550186">214-555-0186</a>'}<a href="https://www.facebook.com/northstaracademy/">Facebook</a><a href="https://www.instagram.com/northstaracademy/">Instagram</a><a href="https://www.tiktok.com/@northstaracademy">TikTok</a><a href="https://www.linkedin.com/company/northstaracademy/">LinkedIn</a></body></html>`;
   globalThis.fetch=async(input,init={})=>{
     const url=new URL(String(input));
@@ -50,7 +50,14 @@ try{
       if(failContact&&url.pathname==='/')return new Response('Temporary error',{status:503});
       return new Response(html(),{headers:{'content-type':'text/html'}});
     }
-    if(url.hostname==='api.geoapify.com')return Response.json({features:[{properties:{name:'Northstar Basketball Academy',place_id:'fixture-academy',country_code:'us',state_code:'TX',city:'Dallas',website:'https://academy.example',formatted:'100 Hoops Street, Dallas, TX',categories:['sport.sports_centre'],datasource:{raw:{osm_type:'way',osm_id:42}}}}],results:[{place_id:'fixture-city',state_code:'TX',country_code:'us',bbox:{lat1:32,lon1:-97,lat2:33,lon2:-96}}]});
+    if(url.hostname==='api.geoapify.com'){
+      if(url.pathname==='/v2/place-details'){
+        placeDetailCalls++;
+        assert.equal(url.searchParams.get('id'),'fixture-academy','look up the returned place ID, not an invented entity');
+        return Response.json({features:[{properties:{feature_type:'details',name:'Northstar Basketball Academy',city:'Dallas',state_code:'TX',contact:{website:'https://academy.example'}}}]});
+      }
+      return Response.json({features:[{properties:{name:'Northstar Basketball Academy',place_id:'fixture-academy',country_code:'us',state_code:'TX',city:'Dallas',formatted:'100 Hoops Street, Dallas, TX',categories:['sport.sports_centre'],datasource:{raw:{osm_type:'way',osm_id:42,sport:'basketball'}}}}],results:[{place_id:'fixture-city',state_code:'TX',country_code:'us',bbox:{lat1:32,lon1:-97,lat2:33,lon2:-96}}]});
+    }
     if(url.hostname.startsWith('overpass'))return Response.json({elements:[]});
     if(url.hostname==='nces.ed.gov')return Response.json({features:[]});
     throw new Error('Unexpected external request '+url.hostname);
@@ -70,6 +77,10 @@ try{
   assert.equal(result.body.run.status,'COMPLETED',JSON.stringify(result.body.exceptions));
   assert.equal(scalar('SELECT COUNT(*) AS n FROM leads'),1,'all social clues and core search merge to one CRM lead');
   assert.equal(scalar("SELECT COUNT(*) AS n FROM discovery_candidates WHERE status='CRM'"),1);
+  assert(placeDetailCalls>0,'map clues lacking a website must use bounded place-details lookup before RSS');
+  const enrichedMap=db.sqlite.prepare("SELECT raw_json,website FROM discovery_clues WHERE source_key='osm:way:42'").get();
+  assert.equal(JSON.parse(enrichedMap.raw_json).placeId,'fixture-academy','store provider place ID through source ingestion');
+  assert.equal(enrichedMap.website,'https://academy.example','accept verified provider website from matching place details');
   const contact=db.sqlite.prepare('SELECT * FROM contacts').get();assert.equal(contact.email,'hello@academy.example');assert.equal(contact.phone,'2145550186');assert.equal(contact.full_name,'Alex Morgan');
   assert.equal(db.sqlite.prepare("SELECT address FROM companies WHERE domain='academy.example'").get().address,'100 Hoops Street, Dallas, TX','late map verification preserves address in existing CRM');
   assert(contact.facebook_url.includes('facebook.com'));assert(contact.tiktok_url.includes('tiktok.com'));
