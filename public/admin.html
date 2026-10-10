@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MING EAGLE Admin V1</title>
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <div class="brand">MING EAGLE</div>
+    <div class="sub">ADMIN V1</div>
+    <nav>
+      <button class="nav active" data-view="dashboard">Dashboard</button>
+      <button class="nav" data-view="products">Products</button>
+      <button class="nav" data-view="homepage">Homepage</button>
+      <button class="nav" data-view="faq">FAQ</button>
+      <button class="nav" data-view="settings">Settings</button>
+      <button class="nav" data-view="backup">Backup & Export</button>
+    </nav>
+    <div class="asideNote">Drafts save in this browser. Export JSON before switching computers.</div>
+  </aside>
+
+  <main>
+    <header>
+      <div>
+        <div class="eyebrow">CONTENT CONTROL CENTER</div>
+        <h1 id="viewTitle">Dashboard</h1>
+      </div>
+      <div class="status"><span class="dot"></span><span id="saveState">Loaded</span></div>
+    </header>
+
+    <section id="dashboard" class="view active">
+      <div class="cards">
+        <div class="card"><div class="k">Products</div><div class="v" id="statProducts">4</div></div>
+        <div class="card"><div class="k">Published</div><div class="v" id="statPublished">4</div></div>
+        <div class="card"><div class="k">FAQ</div><div class="v" id="statFaq">3</div></div>
+        <div class="card"><div class="k">Schema</div><div class="v small" id="statSchema">1.0</div></div>
+      </div>
+      <div class="panel">
+        <h2>Admin V1 scope</h2>
+        <p>This first version centralizes product and website content. It does not yet publish directly to GitHub; use Export to create a portable master content file.</p>
+        <div class="checkgrid">
+          <div>✓ Product master data</div><div>✓ Local draft saving</div>
+          <div>✓ JSON import / export</div><div>✓ Full content backup</div>
+          <div>✓ Homepage configuration</div><div>✓ FAQ editing</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="products" class="view">
+      <div class="toolbar">
+        <select id="productSelect"></select>
+        <button id="newProduct" class="secondary">Duplicate product</button>
+      </div>
+      <div class="editorGrid">
+        <div class="panel">
+          <h2>Product master</h2>
+          <label>ID<input id="p_id" disabled></label>
+          <label>Product name<input id="p_name"></label>
+          <label>Slug<input id="p_slug"></label>
+          <label>Page<input id="p_page"></label>
+          <label>Short description<textarea id="p_short" rows="4"></textarea></label>
+          <label>Best for<textarea id="p_bestFor" rows="3"></textarea></label>
+          <div class="two">
+            <label>Status<select id="p_status"><option>published</option><option>draft</option><option>hidden</option></select></label>
+            <label>Sort<input id="p_sort" type="number"></label>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Media & specifications</h2>
+          <label>Hero image path<input id="p_heroImage"></label>
+          <label>REAL PRODUCT HIGHLIGHTS image path<input id="p_highlightImage" placeholder="assets/..."></label>
+          <label>Sizes <span>comma separated</span><input id="p_sizes"></label>
+          <label>Colors <span>comma separated</span><input id="p_colors"></label>
+          <label>Tags <span>comma separated</span><input id="p_tags"></label>
+          <div class="preview">
+            <img id="previewImg" alt="">
+            <h3 id="previewName"></h3>
+            <p id="previewShort"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="homepage" class="view">
+      <div class="panel">
+        <h2>Homepage</h2>
+        <label>Hero eyebrow<input id="h_eyebrow"></label>
+        <label>Hero title<input id="h_title"></label>
+        <h3>Visible sections</h3>
+        <div id="sectionToggles" class="checkgrid"></div>
+      </div>
+    </section>
+
+    <section id="faq" class="view">
+      <div class="panel">
+        <div class="toolbar"><h2>FAQ</h2><button id="addFaq" class="secondary">Add FAQ</button></div>
+        <div id="faqList"></div>
+      </div>
+    </section>
+
+    <section id="settings" class="view">
+      <div class="panel">
+        <h2>Brand & contact</h2>
+        <label>Brand name<input id="b_name"></label>
+        <label>Company<input id="b_company"></label>
+        <label>Email<input id="b_email"></label>
+        <label>WhatsApp<input id="b_whatsapp"></label>
+        <label>Domain<input id="b_domain"></label>
+      </div>
+    </section>
+
+    <section id="backup" class="view">
+      <div class="panel">
+        <h2>Portable backup</h2>
+        <p>Export creates the master content file that can be restored on another computer, domain or future website.</p>
+        <div class="actions">
+          <button id="exportJson">Export JSON</button>
+          <button id="copyJson" class="secondary">Copy JSON</button>
+          <label class="fileBtn">Import JSON<input id="importJson" type="file" accept=".json,application/json"></label>
+          <button id="resetDraft" class="danger">Reset local draft</button>
+        </div>
+        <textarea id="jsonPreview" rows="18" readonly></textarea>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="admin.js"></script>
+</body>
+</html>
