@@ -27,6 +27,13 @@ try{
   time=0;jobs=new Map();let busyKicks=0;
   const stopBusy=startDiscoveryLoop({runId:'fixture',initial:{run:{id:'fixture',status:'RUNNING',revision:1},workerBusy:true},clock,request:async(body)=>{if(body)busyKicks++;return {run:{id:'fixture',status:'RUNNING',revision:1},workerBusy:true};},onData:()=>{},onError:()=>{}});
   await advance(10000);await advance(10000);assert.equal(busyKicks,0,'an active worker is polled without redundant processing requests');stopBusy();
+  // Foreground default must not hammer D1; a busy run still displays
+  // progress without dispatching duplicate work on every UI tick.
+  time=0;jobs=new Map();
+  const stopDefault=startDiscoveryLoop({runId:'fixture',initial:{run:{id:'fixture',status:'RUNNING',revision:1},workerBusy:true},clock,request:async()=>({run:{id:'fixture',status:'RUNNING',revision:1},workerBusy:true}),onData:()=>{},onError:()=>{}});
+  await advance(0);
+  assert([...jobs.values()].some(j=>j.due>=9000),'foreground default progress reads must not run every 3 seconds');
+  stopDefault();
   // A hidden admin tab must not poll or dispatch work; the server scheduler
   // owns continuation until the operator returns.
   time=0;jobs=new Map();let hiddenPolls=0,hiddenKicks=0;
@@ -38,8 +45,8 @@ try{
   assert.equal(hiddenPolls,0,'hidden browser does not poll D1 progress');
   assert.equal(hiddenKicks,0,'hidden browser does not kick D1 work');
   globalThis.document={visibilityState:'visible'};
-  await advance(15000);
-  assert(hiddenPolls>0&&hiddenKicks>0,'visible browser resumes progress and work');
+  await advance(60000);
+  assert(hiddenPolls>0&&hiddenKicks>0,'visible browser resumes progress and work after the low-cost hidden-tab interval');
   stopHidden();
   if(priorDocument===undefined)delete globalThis.document;else globalThis.document=priorDocument;
   const scheduler=(await import(pathToFileURL(join(temp,'workers/followup-scheduler.mjs')))).default;
