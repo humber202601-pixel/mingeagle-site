@@ -5,7 +5,8 @@ const pick=id=>document.getElementById(id);
 const form=pick('retailShippingForm'),status=pick('shippingEstimateStatus'),details=pick('shippingEstimateDetails');
 const prefix={p1:'P1',p2:'P2',p3:'P3',p4:'P4'}[block.dataset.product];
 if(!prefix)return;
-const js=document.createElement('script');js.src='retail-cart.js?v=20261011-1';document.head.appendChild(js);
+const js=document.createElement('script');js.src='retail-cart.js?v=20261011-3';document.head.appendChild(js);
+const add=document.createElement('button');add.type='button';add.id='addRetailCart';add.className='btn primary';add.textContent='Add to cart';form.insertAdjacentElement('afterend',add);add.addEventListener('click',()=>{const size=pick('retailSize')?.value,qty=Number(pick('shippingUnits').value);if(!size||!Number.isSafeInteger(qty)||qty<1||qty>10000){status.textContent='Please choose a size and valid quantity.';return}const cart=window.MingEagleCart;if(!cart){status.textContent='Cart is loading; please try again.';return}cart.add(prefix+'-S'+size,qty);location.href='retail-cart.html'});
 function syncMethod(){
  const n=Number(pick('shippingUnits').value);
  const sea=[...pick('shippingMode').options].find(o=>o.value==='sea');
@@ -25,7 +26,7 @@ form.addEventListener('submit',async e=>{
   pick('shippingFee').textContent='$'+Number(data.shippingUSD).toFixed(2);
   pick('shippingTotal').textContent='$'+Number(data.totalBeforeTaxesUSD).toFixed(2);
   details.hidden=false;status.textContent='Estimate only. Taxes, customs duties and availability require confirmation before payment.';
-  if(!document.getElementById('addRetailCart')){const b=document.createElement('button');b.id='addRetailCart';b.type='button';b.className='btn primary';b.textContent='Add to cart';details.appendChild(b);b.addEventListener('click',()=>{const size=pick('retailSize')?.value,qty=Number(pick('shippingUnits').value);if(!size||!Number.isSafeInteger(qty)||qty<1)return;const items=window.MingEagleCart;if(!items){status.textContent='Cart unavailable, please refresh the page.';return}items.add(prefix+'-S'+size,qty);location.href='retail-cart.html';});}
+
  }catch{status.textContent='Unable to load live shipping rates. Please ask for a manual quote.'}
 });
 })();
