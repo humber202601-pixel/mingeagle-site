@@ -9,4 +9,6 @@ assert(src.includes("Math.abs(amount - Number(session.amount)) > 0.01"),'Succeed
 assert(src.includes("status: 409"),'Unexpected provider intent must not be silently marked processed');
 assert(src.includes("INSERT OR IGNORE INTO payments"),'Unique provider reference must prevent duplicate ledger entries');
 assert(src.includes("if (fullyPaid)"),'Fulfillment only for fully paid orders');
+assert(src.includes("if (String(order.payment_status) === 'PAID')"),'late pending/failed events cannot reopen paid orders');
+assert(src.includes("CASE WHEN status='SUCCEEDED' THEN status ELSE ? END"),'late payment events cannot downgrade a succeeded payment intent');
 console.log('PASS: webhook intent ownership, amount reconciliation and fulfillment gating safety checks.');
