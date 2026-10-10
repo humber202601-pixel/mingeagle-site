@@ -7,11 +7,12 @@ import {build} from 'esbuild';
 
 const dir=mkdtempSync(join(tmpdir(),'mingeagle-outreach-'));
 try{
-  await build({entryPoints:['functions/api/admin/outreach-draft.ts','shared/outreach.ts'],
+  await build({entryPoints:['functions/api/admin/outreach-draft.ts','functions/api/admin/customer-email-send.ts','shared/outreach.ts'],
     outdir:dir,entryNames:'[name]',format:'esm',platform:'node',bundle:true,
     outExtension:{'.js':'.mjs'},logLevel:'silent'});
   const api=await import(pathToFileURL(join(dir,'outreach-draft.mjs')));
   const shared=await import(pathToFileURL(join(dir,'outreach.mjs')));
+  const sender=await import(pathToFileURL(join(dir,'customer-email-send.mjs')));
   const customer={company:'Northstar Basketball Academy',customer_type:'BASKETBALL_TRAINING',city:'Dallas',state_region:'TX',
     email:'sales@northstar.example',contact:'Public business contact',first_name:'',contact_title:'',lead_status:'READY_TO_CONTACT',
     discovery_provider:'WEB_SEARCH_VERIFIED_V6',do_not_contact:0};
@@ -64,6 +65,24 @@ try{
   const x=await run('BASKETBALL_TRAINING');
   assert.equal(shared.ensureWebsiteIntro(x.body),x.body,'site link appears before signature');
   assert(shared.ensureWebsiteIntro('Hello team,\n\nShort message\n\nBest regards,\nMING EAGLE').includes('https://www.mingeagle.com'));
+  // An interested/uninterested state is a legal suppression signal,
+  // regardless of the UI check or direct API access.
+  const denies={prepare(sql){
+    const statement={
+      bind(){return statement},
+      async first(){
+        assert(sql.includes('FROM leads'),'an excluded client must fail before querying Gmail or messages');
+        return {id:'lead',status:'NOT_INTERESTED',company_id:'company',
+          primary_contact_id:'contact',email:'no@reply.example',do_not_contact:0}
+      },
+    };
+    return statement;
+  }};
+  const response=await sender.onRequestPost({env:{MINGEAGLE_DB:denies},
+    request:new Request('https://app.mingeagle.com/api/admin/customer-email-send',{
+      method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({leadId:'lead',subject:'Unwanted outreach',body:'https://www.mingeagle.com'})})});
+  assert.equal(response.status,409,'opt-outs must not reach the Gmail API');
   const ui=readFileSync('src/LeadOutreach.tsx','utf8');
   const detail=readFileSync('src/AdminDetail.tsx','utf8');
   assert(detail.includes("<LeadOutreach key={id} leadId={id} accessKey={accessKey}/>"),'lead detail exposes editor');
@@ -75,5 +94,6 @@ try{
   assert(ui.includes("navigator.clipboard.writeText"),'copy for CRM workflows without Gmail keys');
   assert(ui.includes("canContact=draft?.canContact!==false"),'do-not-contact suppresses send');
   assert(!ui.includes("useEffect("),'never send or incur D1 calls on page load');
+  assert(ui.includes("const index=body.search("),'first email must show website in message not signature');
   console.log('PASS: personalized B2B email drafts for 11 actual buyer types, website introduction, opt-out hints, editable human-reviewed send, copy/mailto fallback and no automatic outreach.');
 }finally{rmSync(dir,{recursive:true,force:true})}
