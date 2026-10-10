@@ -1,7 +1,7 @@
 interface Env { MINGEAGLE_DB:D1Database }
 type Line={sku:string;quantity:number};
 const prices:Record<string,number>={'P1-S3':9.9,'P1-S5':11.9,'P1-S7':14.9,'P2-S3':10.9,'P2-S5':12.9,'P2-S7':15.9,'P3-S3':12.9,'P3-S4':14.9,'P3-S6':18.9,'P3-S7':21.9,'P4-S5':17.9};
-const cors={'access-control-allow-origin':'https://mingeagle.com','access-control-allow-methods':'POST, OPTIONS','access-control-allow-headers':'Content-Type','vary':'Origin','cache-control':'no-store'};
+const cors={'access-control-allow-origin':'*','access-control-allow-methods':'POST, OPTIONS','access-control-allow-headers':'Content-Type','vary':'Origin','cache-control':'no-store'};
 const result=(v:object,status=200)=>Response.json(v,{status,headers:cors});
 export const onRequestOptions:PagesFunction<Env>=async()=>new Response(null,{status:204,headers:cors});
 export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
