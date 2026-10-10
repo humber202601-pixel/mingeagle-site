@@ -22,13 +22,14 @@ try{
   const post=async(name,body)=>{const r=await handlers[name].onRequestPost({request:new Request(base+name,{method:'POST',headers,body:JSON.stringify(body)}),env});const bodyResult=await r.json();return {status:r.status,body:bodyResult};};
   const get=async(name)=>{const r=await handlers[name].onRequestGet({request:new Request(base+name,{headers}),env});return await r.json();};
   const scalar=(sql)=>db.sqlite.prepare(sql).get().n;
-  let failContact=false,failEnrich=false,missingContacts=false,failSources=false,emptyIndex=false,alternateHits=false,manyCoreHits=false,websiteCalls=[],placeDetailCalls=0;
+  let failContact=false,failEnrich=false,missingContacts=false,failSources=false,emptyIndex=false,alternateHits=false,manyCoreHits=false,coreIndexRequests=0,websiteCalls=[],placeDetailCalls=0;
   const html=()=>`<html><head><title>Northstar Basketball Academy — Dallas Texas Basketball Training</title><meta property="og:site_name" content="Northstar Basketball Academy"/><script type="application/ld+json">{"@type":"Organization","name":"Northstar Basketball Academy"}</script></head><body><h1>Northstar Basketball Academy</h1><p>Dallas Texas basketball academy private lessons youth club AAU training basketball summer camp and recreation programs. Register for training classes. Membership. Contact us.</p><a href="/contact">Contact</a><a href="/staff">Staff</a><a href="/coaches">Coaches</a><a href="/procurement">Procurement</a><p>Alex Morgan - Head Coach.</p>${missingContacts?'':'<a href="mailto:hello@academy.example">hello@academy.example</a><a href="tel:2145550186">214-555-0186</a>'}<a href="https://www.facebook.com/northstaracademy/">Facebook</a><a href="https://www.instagram.com/northstaracademy/">Instagram</a><a href="https://www.tiktok.com/@northstaracademy">TikTok</a><a href="https://www.linkedin.com/company/northstaracademy/">LinkedIn</a></body></html>`;
   globalThis.fetch=async(input,init={})=>{
     const url=new URL(String(input));
     if(url.pathname.endsWith('/discovery-enrich-v2')&&failEnrich)return Response.json({ok:false,error:'Fixture temporary enrichment service failure'},{status:503});
     if(url.pathname.startsWith('/api/admin/'))return handlers[url.pathname.split('/').pop()].onRequestPost({request:new Request(url,init),env});
     if(url.hostname==='www.bing.com'){
+      coreIndexRequests++;
       if(failSources)return new Response('Unavailable',{status:503});
       if(manyCoreHits)return new Response('<rss><channel>'+Array.from({length:13},(_,i)=>'<item><title>Northstar Basketball Academy Dallas Texas '+i+'</title><link>https://pilot'+i+'.example</link><description>Dallas Texas basketball training academy private lessons.</description></item>').join('')+'</channel></rss>');
       if(emptyIndex)return new Response('<rss><channel></channel></rss>');
@@ -235,7 +236,9 @@ try{
   const coreBatchId=result.body.run.id,claimed=await auto.claimAuto(db,coreBatchId);
   assert(claimed&&claimed.items.some(item=>item.item_key.startsWith('CORE:')));
   let coreSaved=0;
+  const beforeIndex=coreIndexRequests;
   for(const offset of [0,4,8]){
+    if(offset)failSources=true; // Cached pages must not refetch a now-failed index.
     const page=await post('discovery-web-v6',{...search,round:0,sourceOffset:offset,runId:coreBatchId,autoSourceOnly:true,autoRunId:coreBatchId,autoToken:claimed.token});
     assert.equal(page.status,200,JSON.stringify(page.body));
     assert.equal(page.body.available,12,'preserve all valid official website clues');
@@ -244,6 +247,8 @@ try{
     coreSaved+=page.body.found;
   }
   assert.equal(coreSaved,12,'all indexed sites eventually saved without exceeding per-request writes');
+  assert.equal(coreIndexRequests-beforeIndex,8,'8 public index queries run only on the FIRST source page, not 24 times');
+  failSources=false;
   const webJob=db.sqlite.prepare("SELECT status,result_count FROM discovery_jobs WHERE id=?").get('AUTO:'+coreBatchId+':WEB_SEARCH_VERIFIED_V6:0');
   assert.equal(webJob?.status,'COMPLETED','web source ends only after all source pages are saved');
   assert.equal(webJob?.result_count,12,'web index pages share one cumulative source job');
