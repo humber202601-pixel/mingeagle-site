@@ -1,5 +1,5 @@
 // Public non-sensitive release marker to distinguish source CI from deployed Cloudflare Pages.
-const RELEASE_ID = 'b2b-wholesale-quote-draft-20261011-v1';
+const RELEASE_ID = 'b2b-rfq-parser-verified-20261011-v2';
 export const onRequestGet: PagesFunction = async () => Response.json({
   ok: true,
   application: 'mingeagle-v2',
