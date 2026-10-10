@@ -9,7 +9,7 @@ import { parseSearch, queryPlan, COMMERCIAL_TYPES, METROS as ALL_METROS, STATE_N
 import { ensureRuns, recordResult } from '../../../lib/discovery';
 interface Env { MINGEAGLE_DB: D1Database }
 
-type Input = { stateCode?: string; customerType?: string; targetCount?: number | string; city?: string; round?: number; runId?: string; autoSourceOnly?:boolean; autoRunId?:string; autoToken?:string };
+type Input = { stateCode?: string; customerType?: string; targetCount?: number | string; city?: string; round?: number; runId?: string; autoSourceOnly?:boolean; autoRunId?:string; autoToken?:string; sourceOffset?:number };
 type SearchHit = { title:string; url:string; snippet:string; query:string; city:string };
 type EntityResolution = { name:string; score:number; source:string; candidates:Array<{name:string;score:number;source:string}> };
 type VerifiedHit = SearchHit & {
@@ -182,10 +182,14 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     if(searched.every(r=>r.status==='rejected')&&!fallbackReadable)throw new Error('公开搜索的主索引和备用索引本次均不可读取，请稍后重试。');
     if(input.autoSourceOnly){
       await ensureClues(db);await assertAutoLease(db,input);
-      const seeds=unique.slice(0,target).map(hit=>({key:'web-index:'+hit.url,title:hit.title,source:'WEB_INDEX',url:hit.url,website:hit.url,evidence:hit.snippet+' · '+hit.query,city:hit.city}));
+      const allSeeds=unique.slice(0,target).map(hit=>({key:'web-index:'+hit.url,title:hit.title,source:'WEB_INDEX',url:hit.url,website:hit.url,evidence:hit.snippet+' · '+hit.query,city:hit.city}));
+      const offset=Number(input.sourceOffset||0);
+      if(!Number.isInteger(offset)||offset<0||offset>100) return Response.json({ok:false,error:'来源游标无效。'},{status:400});
+      const seeds=allSeeds.slice(offset,offset+4);
       const foundIds=await saveAutoClues(db,{...input,customerType:type},seeds);
+      const hasMore=offset+4<allSeeds.length;
       await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(foundIds.length,jobId).run();
-      return Response.json({ok:true,found:foundIds.length,foundIds,review:!foundIds.length&&fallbackUsed&&!fallbackReadable,reason:searchNote,note:searchNote+(foundIds.length?'公开官网线索已保存，随后逐个核验和补全。':'本次没有官网线索，不能据此判断当地没有潜在客户。')});
+      return Response.json({ok:true,found:foundIds.length,available:allSeeds.length,hasMore,nextOffset:hasMore?offset+4:null,foundIds,review:!foundIds.length&&fallbackUsed&&!fallbackReadable,reason:searchNote,note:searchNote+(foundIds.length?'公开官网线索已分批保存，随后逐个核验和补全。':'本次没有官网线索，不能据此判断当地没有潜在客户。')});
     }
     if(!unique.length){await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=0,completed_at=CURRENT_TIMESTAMP,error='No public website candidates returned' WHERE id=?`).bind(jobId).run();return Response.json({ok:true,found:0,mode:'WEB_VERIFIED_V6',checked:0,verified:0,note:searchNote+'公开搜索本次未返回可验证官网候选，不能据此判断当地没有潜在客户。'})}
     const verified:VerifiedHit[]=[];for(let i=0;i<unique.length;i+=4){if(Date.now()-started>23000)break;const batch=unique.slice(i,i+4);const result=await Promise.allSettled(batch.map(h=>verifyHit(h,type,stateCode)));verified.push(...result.flatMap(x=>x.status==='fulfilled'&&x.value?[x.value]:[]));if(verified.length>=target)break}
