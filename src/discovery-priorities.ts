@@ -13,7 +13,7 @@ export type Priority={
   reason:string;nextAction:string;expandable:boolean;replyRate:number|null;
 };
 const integer=(n:unknown)=>Math.max(0,Math.floor(Number(n)||0));
-const valid=new Map<string,string>(TYPE_OPTIONS.map(([key,label])=>[key,label]));
+const catalogOrder=new Map<string,number>(TYPE_OPTIONS.map(([key],index)=>[key,index]));
 // A suggestion is not a sales prediction. Only actual matched CRM messages,
 // non-draft quotations and non-cancelled orders can support positive feedback.
 export function discoveryPriorities(segments:BuyerSegment[]):Priority[]{
@@ -55,5 +55,5 @@ export function discoveryPriorities(segments:BuyerSegment[]):Priority[]{
     (a.level==='MULTI_STAGE'?b.ordered-a.ordered||b.quoted-a.quoted:0)||
     (a.level==='REPLIES'?(b.replyRate||0)-(a.replyRate||0):0)||
     (a.level==='EXPLORATION'?a.contacted-b.contacted:0)||
-    a.label.localeCompare(b.label,'zh-CN'));
+    (catalogOrder.get(a.category)??999)-(catalogOrder.get(b.category)??999));
 }
