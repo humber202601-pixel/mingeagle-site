@@ -18,8 +18,11 @@ export function startDiscoveryLoop<T extends DiscoverySnapshot>(options:{runId:s
   const stop=()=>{stopped=true;clock.clear(pollTimer);clock.clear(kickTimer);for(const controller of controllers)controller.abort();};
   const accept=(next:T)=>{if(stopped||next.run&&next.run.id!==options.runId)return;latest=mergeDiscovery(latest,next);options.onData(latest);options.onError('');if(latest.run?.status!=='RUNNING')stop();};
   const request=async(body?:Record<string,unknown>)=>{const controller=new AbortController();controllers.add(controller);try{accept(await options.request(body,controller.signal));}catch(e){if(!stopped)options.onError(e instanceof Error?e.message:'暂时无法更新进度，将自动重新读取。');}finally{controllers.delete(controller);}};
-  const poll=async()=>{await request();if(!stopped)pollTimer=clock.set(()=>void poll(),interval);};
-  const kick=async()=>{if(!latest.workerBusy)await request({action:'KICK',runId:options.runId});if(!stopped)kickTimer=clock.set(()=>void kick(),interval);};
+  // The Cloudflare scheduler continues durable runs every minute. Browser tabs
+  // left in the background must not burn D1's daily read allowance polling.
+  const hidden=()=>typeof document!=='undefined'&&document.visibilityState==='hidden';
+  const poll=async()=>{if(!hidden())await request();if(!stopped)pollTimer=clock.set(()=>void poll(),hidden()?Math.max(interval,15000):interval);};
+  const kick=async()=>{if(!hidden()&&!latest.workerBusy)await request({action:'KICK',runId:options.runId});if(!stopped)kickTimer=clock.set(()=>void kick(),hidden()?Math.max(interval,15000):interval);};
   pollTimer=clock.set(()=>void poll(),0);kickTimer=clock.set(()=>void kick(),100);
   return stop;
 }
