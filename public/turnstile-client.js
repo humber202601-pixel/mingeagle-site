@@ -11,8 +11,11 @@ function loadWidgetScript(){
   const script=document.createElement('script');
   script.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
   script.async=true;script.defer=true;
-  script.onload=()=>root.turnstile?resolve(root.turnstile):reject(new Error('Turnstile widget failed to load.'));
-  script.onerror=()=>reject(new Error('Turnstile widget could not load.'));
+  let settled=false;
+  const finish=(error,api)=>{if(settled)return;settled=true;clearTimeout(timer);if(error)reject(error);else resolve(api)};
+  const timer=setTimeout(()=>finish(new Error('Turnstile script timed out.')),10000);
+  script.onload=()=>root.turnstile?finish(null,root.turnstile):finish(new Error('Turnstile widget failed to load.'));
+  script.onerror=()=>finish(new Error('Turnstile widget could not load.'));
   document.head.appendChild(script);
  });
 }
@@ -20,7 +23,7 @@ async function start(containerId='turnstileChallenge',hintId='turnstileHint',fet
  if(starting)return starting;
  starting=(async()=>{
   try{
-   const res=await fetcher(endpoint,{method:'GET',cache:'no-store'});
+   const res=await fetcher(endpoint,{method:'GET',cache:'no-store',signal:AbortSignal.timeout(9000)});
    if(!res.ok)throw new Error('Verification configuration unavailable.');
    const cfg=await res.json();
    if(!cfg||!cfg.ok||cfg.misconfigured)throw new Error('Verification configuration unavailable.');
