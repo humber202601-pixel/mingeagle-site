@@ -6,7 +6,7 @@ import {Search,LoaderCircle,Pause,Play,RefreshCcw,ExternalLink,ArrowRight,Trash2
 import {TYPE_OPTIONS,STATE_NAMES} from '../shared/discovery';
 type Row=Record<string,unknown>;
 type Run={id:string;status:string;phase:string;message:string;revision?:number;updated_at?:string;steps_completed?:number;scope:{stateCode:string;customerType:string;city:string;targetCount:number;batches:number}};
-type Data={ok?:boolean;error?:string;run?:Run|null;counts?:Array<{kind:string;status:string;count:number}>;results?:Row[];exceptions?:Row[];sources?:Row[];workerBusy?:boolean;progress?:{total:number;processed:number};current?:Array<{name:string;stage:string;startedAt:string}>};
+type Data={ok?:boolean;error?:string;run?:Run|null;counts?:Array<{kind:string;status:string;count:number;confirmed?:number}>;results?:Row[];exceptions?:Row[];sources?:Row[];workerBusy?:boolean;progress?:{total:number;processed:number};current?:Array<{name:string;stage:string;startedAt:string}>};
 type History={counts?:Record<string,number>;protectedLeads?:number;archives?:Array<{id:string;status:string;created_at:string;counts_json:string}>};
 type Props={accessKey:string;externalBusy:boolean;onBusyChange:(busy:boolean)=>void;onChanged:()=>void;onCleared:()=>void};
 const text=(v:unknown,fallback='—')=>v===null||v===undefined||v===''?fallback:String(v);
@@ -58,7 +58,8 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
   }
   const count=(kind:string,status?:string)=>(data.counts||[]).filter(c=>c.kind===kind&&(!status||c.status===status)).reduce((n,c)=>n+Number(c.count),0);
   // A completed work item is NOT proof that a CRM lead was inserted.
-  const imported=(data.results||[]).filter(row=>row.status==='DONE'&&Boolean(row.crm_lead_id)).length;
+  const imported=(data.counts||[]).filter(c=>c.kind==='CANDIDATE'&&c.status==='DONE')
+    .reduce((total,c)=>total+Number(c.confirmed||0),0);
   const importedRows=(data.results||[]).filter(row=>row.status==='DONE'&&row.crm_lead_id);
   const run=data.run,frozen=busy||run?.status==='PAUSED';
   const diagnosis=diagnoseDiscovery(data);
