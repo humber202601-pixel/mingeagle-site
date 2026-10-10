@@ -30,5 +30,8 @@ jobs:
       - name: Test discovery and CRM integration
         run: npm run test:discovery
 
+      - name: Test retail multi-item quote safety
+        run: node scripts/test-retail-quote-draft.mjs
+
       - name: Bundle Cloudflare Functions
         run: npx wrangler pages functions build --outdir /tmp/mingeagle-functions
