@@ -1,0 +1,10 @@
+const assert=require('node:assert/strict');
+const {calculate}=require('../public/shipping-math.js');
+const pack={lengthCm:30,widthCm:30,heightCm:30};
+const air=calculate({method:'air',units:1,packaging:pack,productPrice:9.9,ratePerVolKg:8,volumetricDivisor:6000});
+assert.equal(air.goodsUSD,9.9);assert.equal(air.volumetricWeightKg,4.5);assert.equal(air.shippingUSD,36);assert.equal(air.subtotalUSD,45.9);
+assert.throws(()=>calculate({method:'sea',units:9,packaging:pack,productPrice:9.9,ratePerCbm:100}),/minimum of 10/);
+const sea=calculate({method:'sea',units:10,packaging:pack,productPrice:9.9,ratePerCbm:100});
+assert.equal(sea.cbm,.27);assert.equal(sea.shippingUSD,27);
+assert.throws(()=>calculate({method:'air',units:1,packaging:pack,productPrice:9.9,ratePerVolKg:0}),/Invalid/);
+console.log('PASS: volumetric calculation, air one-unit, sea min 10, two decimal monetary arithmetic and invalid-rate rejection.');
