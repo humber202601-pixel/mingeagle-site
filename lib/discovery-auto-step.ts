@@ -26,8 +26,8 @@ export async function runAutoStep(env:AutoEnv,base:string,key:string,input:Row):
     if(states?.[source]?.partial)throw new AutoStepError(clean(states[source].note)||'来源部分未完成。',true);
     const chunkCount=Number(result.found||states?.[source]?.found||0);
     const accumulated=Number(payload.foundSoFar||0)+chunkCount;
-    if(states?.[source]?.hasMore){
-      const nextOffset=Number(states[source].nextOffset);
+    if(result.hasMore||states?.[source]?.hasMore){
+      const nextOffset=Number(result.nextOffset??states?.[source]?.nextOffset);
       if(!Number.isInteger(nextOffset)||nextOffset<=Number(payload.sourceOffset||0))throw new AutoStepError('来源分批保存游标无效。');
       return again({sourceOffset:nextOffset,foundSoFar:accumulated});
     }
