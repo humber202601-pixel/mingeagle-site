@@ -45,7 +45,14 @@ async function payload(db: D1Database) {
     recentRows = [];
   }
 
+  // Older deployments may not yet have a scheduler heartbeat table. In that
+  // case report "not observed" rather than implying that the Worker is down.
+  const heartbeats = await db.prepare(`SELECT id,cron,last_seen_at FROM scheduler_heartbeat ORDER BY id`)
+    .all<{ id:string; cron:string; last_seen_at:string }>()
+    .then(result => result.results).catch(() => []);
+
   return {
+    scheduler: heartbeats,
     settings: {
       enabled: Number(settings?.auto_email_enabled || 0) === 1,
       maxPerRun: Number(settings?.max_auto_send_per_run || 5),
