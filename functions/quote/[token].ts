@@ -1,3 +1,4 @@
+import {retailReference} from '../../lib/retail-reference';
 interface Env {
   MINGEAGLE_DB: D1Database;
   AIRWALLEX_CLIENT_ID?: string;
@@ -132,7 +133,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
     const order = await getOrder(db, quoteId);
     const currency = String(quote.currency || 'USD');
     const tokenJson = JSON.stringify(token);
-    const itemRows = items.map(item => `<tr><td>${esc(item.description)}</td><td>${esc(item.quantity)}</td><td>${esc(money(item.unit_price, currency))}</td><td>${esc(money(item.line_total, currency))}</td></tr>`).join('');
+    const itemRows = items.map(item => {const retail=currency==='USD'?retailReference(item.description):null;const wholesale=Number(item.unit_price||0),qty=Number(item.quantity||0);const savings=retail!==null&&wholesale>0&&wholesale<retail&&qty>0?Math.round((retail-wholesale)*qty*100)/100:0;const comparison=savings>0?`<div style="color:#067647;font-size:12px;font-weight:600">Retail reference: USD ${retail!.toFixed(2)} / unit · Save ${((1-wholesale/retail!)*100).toFixed(1)}% (${money(savings,currency)} on this line)</div>`:'';return `<tr><td>${esc(item.description)}${comparison}</td><td>${esc(item.quantity)}</td><td>${esc(money(item.unit_price,currency))}</td><td>${esc(money(item.line_total,currency))}</td></tr>`}).join('');
     const paymentReturned = new URL(request.url).searchParams.get('payment_return') === '1';
     const paymentReturnBanner = paymentReturned
       ? `<div class="notice info" id="paymentReturnNotice"><strong>Payment submitted.</strong> We are confirming it securely with Airwallex. This page will update automatically.</div>`
