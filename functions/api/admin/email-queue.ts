@@ -1,3 +1,5 @@
+import {ensureWebsiteIntro} from '../../../shared/outreach';
+
 interface Env {
   MINGEAGLE_DB: D1Database;
   GMAIL_CLIENT_ID?: string;
@@ -59,10 +61,12 @@ function greeting(row: DueLead) {
 
 function fitCopy(customerType:string) {
   const type=customerType.toUpperCase();
-  if(type==='TRAINING_ACADEMY') return { label:'basketball training academy', short:'quieter ball-handling work, indoor skill sessions, camps and take-home practice', subject:'silent basketballs for indoor skill training' };
-  if(type==='YOUTH_SPORTS_CLUB') return { label:'youth basketball program', short:'quieter youth drills, camps, warm-ups and at-home practice', subject:'silent basketballs for youth training' };
-  if(type==='SPORTS_FACILITY') return { label:'basketball facility', short:'a quieter option for skill work in indoor spaces', subject:'a quieter basketball option for indoor training' };
-  if(type==='SPORTS_RETAILER') return { label:'sports retailer', short:'a differentiated indoor-play product for parents and youth players', subject:'silent basketball retail opportunity' };
+  if(['TRAINING_ACADEMY','BASKETBALL_TRAINING','INDEPENDENT_COACH'].includes(type)) return { label:'basketball training academy', short:'quieter ball-handling work, indoor skill sessions, camps and take-home practice', subject:'silent basketballs for indoor skill training' };
+  if(['YOUTH_SPORTS_CLUB','YOUTH_CLUB','SUMMER_CAMP'].includes(type)) return { label:'youth basketball program', short:'quieter youth drills, camps, warm-ups and at-home practice', subject:'silent basketballs for youth training' };
+  if(['SPORTS_FACILITY','BASKETBALL_GYM','RECREATION_CENTER'].includes(type)) return { label:'basketball facility', short:'a quieter option for skill work in indoor spaces', subject:'a quieter basketball option for indoor training' };
+  if(['SPORTS_RETAILER','SPORTS_STORE'].includes(type)) return { label:'sports retailer', short:'a differentiated indoor-play product for parents and youth players', subject:'silent basketball retail opportunity' };
+  if(type==='SPORTS_DISTRIBUTOR'||type==='EDUCATION_SUPPLIER') return { label:'sporting goods supplier', short:'school and reseller indoor youth sports assortments', subject:'MING EAGLE wholesale supply' };
+  if(['MULTISPORT_ACADEMY','AFTER_SCHOOL_PROGRAM','PRESCHOOL_KINDERGARTEN','ELEMENTARY_SCHOOL','MIDDLE_HIGH_SCHOOL','PRIVATE_CHARTER_SCHOOL','PUBLIC_SCHOOL','SCHOOL_DISTRICT'].includes(type)) return { label:'youth activity provider', short:'quieter supervised indoor youth programs', subject:'silent ball options for youth programs' };
   return { label:'basketball organization', short:'quieter indoor skill work and at-home basketball training', subject:'silent basketball opportunity' };
 }
 
@@ -83,8 +87,8 @@ function templateFor(row: DueLead) {
       : `I came across ${company} while looking at organizations that work with basketball players and programs.`;
     return {
       type: 'OUTREACH_INITIAL',
-      subject: customerType === 'SPORTS_RETAILER' ? `MING EAGLE ${fit.subject} for ${company}` : `${company} — ${fit.subject}`,
-      body: `${hello}\n\n${foundLine}\n\nWe make MING EAGLE silent basketballs for quieter indoor practice. Our silent basketball line has sold more than 30,000 sets in the U.S. market. For ${company}, a relevant use case may be ${fit.short}.\n\nWe can support sample evaluation, small wholesale quantities and repeat orders. If it looks relevant, I can send simple pricing for 20, 50 and 100 units together with shipping based on your ZIP code.\n\nWould it be useful if I sent a short wholesale quote?\n\nBest regards,\nMING EAGLE\nwww.mingeagle.com`,
+      subject: ['SPORTS_RETAILER','SPORTS_STORE','SPORTS_DISTRIBUTOR','EDUCATION_SUPPLIER'].includes(customerType.toUpperCase()) ? `MING EAGLE ${fit.subject} for ${company}` : `${company} — ${fit.subject}`,
+      body: `${hello}\n\n${foundLine}\n\nWe make MING EAGLE silent basketballs for quieter indoor practice. Our silent basketball line has sold more than 30,000 sets in the U.S. market. For ${company}, a relevant use case may be ${fit.short}.\n\nWe can support sample evaluation, small wholesale quantities and repeat orders. If it looks relevant, I can send simple pricing for 20, 50 and 100 units together with shipping based on your ZIP code.\n\nWould it be useful if I sent a short wholesale quote?\n\nBest regards,\nMING EAGLE\nhttps://www.mingeagle.com`,
     };
   }
   if (status === 'WON') return {
@@ -219,7 +223,7 @@ async function sendQueueItem(db: D1Database, env: Env, queueId: string) {
   if (!row) throw new Error('Queue item not found.');
   if (['SENT','SKIPPED'].includes(String(row.status))) throw new Error('This queue item is already closed.');
   if (String(row.status) !== 'READY') throw new Error('Approve this draft before sending.');
-  if (Number(row.do_not_contact || 0) === 1 || String(row.lead_status) === 'DO_NOT_CONTACT') throw new Error('This contact is marked DO NOT CONTACT.');
+  if (Number(row.do_not_contact || 0) === 1 || ['DO_NOT_CONTACT','NOT_INTERESTED','NOT_FIT'].includes(String(row.lead_status || '').toUpperCase())) throw new Error('This contact is marked DO NOT CONTACT.');
 
   const clientId = env.GMAIL_CLIENT_ID || '';
   const clientSecret = env.GMAIL_CLIENT_SECRET || '';
@@ -238,6 +242,8 @@ async function sendQueueItem(db: D1Database, env: Env, queueId: string) {
   const email = clean(row.email, 320);
   const subject = clean(row.subject, 500);
   const body = typeof row.body === 'string' ? row.body.slice(0, 20000) : '';
+  if(String(row.queue_type)==='OUTREACH_INITIAL'&&ensureWebsiteIntro(body)!==body)
+    throw new Error('首次邀约邮件必须在正文中推荐官网 https://www.mingeagle.com。');
   const rawText = [
     `From: MING EAGLE <${from}>`,
     `To: ${email}`,

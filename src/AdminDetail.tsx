@@ -1,3 +1,4 @@
+import LeadOutreach from './LeadOutreach';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { activityTypeLabel, customerTypeLabel, priorityLabel, requestTypeLabel, statusLabel, systemText, zhDate } from './adminI18n';
@@ -121,6 +122,8 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
       </div></Section>
       {data.score && <ScoreCard score={data.score}/>} 
     </>}
+
+    {type==='lead'&&<LeadOutreach key={id} leadId={id} accessKey={accessKey}/>}
 
     {type==='lead'&&Boolean(data.evidence?.length)&&<Section title="公开来源与补全信息"><MiniTable rows={data.evidence||[]} columns={[
       {key:'field_name',label:'信息类型',format:x=>({website:'官网',email:'邮箱',phone:'电话',whatsapp:'WhatsApp',source:'原始来源',website_email:'官网邮箱',website_phone:'官网电话',website_whatsapp:'官网 WhatsApp',contact_person:'联系人 / 职务',linkedin:'LinkedIn',instagram:'Instagram',facebook:'Facebook',tiktok:'TikTok'} as Record<string,string>)[text(x.field_name)]||text(x.field_name)},
