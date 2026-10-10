@@ -180,6 +180,10 @@ export function osmQuery(input:SourceInput,bounds?:[number,number,number,number]
   const scope=`${bounds?'('+bounds.join(',')+')':'(area.state)["addr:city"~'+JSON.stringify('^'+input.city.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'$')+',i]'}["name"]`;
   const basketballOnly=['BASKETBALL_TRAINING','BASKETBALL_GYM','YOUTH_CLUB','INDEPENDENT_COACH'].includes(input.customerType);
   const filters=['SPORTS_STORE','SPORTS_DISTRIBUTOR','EDUCATION_SUPPLIER'].includes(input.customerType)?['["shop"="sports"]']:COMMERCIAL_TYPES.has(input.customerType)?[basketballOnly?'["leisure"="sports_centre"]["sport"~"basketball"]':'["leisure"="sports_centre"]','["club"="sport"]["sport"~"basketball"]','["leisure"="fitness_centre"]["sport"~"basketball"]']:['["amenity"="school"]','["amenity"="kindergarten"]'];
+  // Many real basketball academies have a website and a recognisable name,
+  // but no OSM sport tag. Add a narrow name+website route; courts and unrelated
+  // venues still fail the existing map and official-site verification checks.
+  if(basketballOnly)filters.push('["name"~"basketball|hoops|hoopers|aau",i]["website"]','["name"~"basketball|hoops|hoopers|aau",i]["contact:website"]');
   return `[out:json][timeout:8][maxsize:16777216];${bounds?'':`area["ISO3166-2"="US-${input.stateCode}"]->.state;`}(${filters.map(f=>`nwr${scope}${f};`).join('')});out tags ${Math.min(50,input.targetCount)};`;
 }
 export async function osmClues(input:SourceInput,geoapifyKey?:string,db?:D1Database){

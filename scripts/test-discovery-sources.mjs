@@ -42,7 +42,9 @@ try{
   assert.equal(sources.sourceUrl('http://127.0.0.1/','SOCIAL'),'');assert.equal(sources.sourceUrl('https://www.instagram.com/p/123/','SOCIAL'),'');assert.equal(sources.sourceUrl('https://www.linkedin.com/in/person/','SOCIAL'),'');assert.equal(sources.sourceUrl('https://www.instagram.com/northstar/?utm=123#x','SOCIAL'),'https://www.instagram.com/northstar/');
   const query=sources.ncesQuery({...input,customerType:'SCHOOL_DISTRICT',city:"O'Fallon"});assert.ok(new URL(query.url).searchParams.get('where').includes("O''FALLON"));assert.throws(()=>sources.osmQuery({...input,city:''}));assert.ok(sources.osmQuery(input).includes('US-TX'));
   assert.equal(handler.clueMatches('Northstar Basketball Academy','Northstar Basketball Academy | Facebook'),true);assert.equal(handler.clueMatches('Different Business Academy','Northstar Basketball Academy'),false);
-  assert.ok(sources.osmQuery(input,[32.5,-97,33,-96]).includes('(32.5,-97,33,-96)'));assert.throws(()=>sources.osmQuery(input,[33,-97,32.5,-96]));
+  assert.ok(sources.osmQuery(input,[32.5,-97,33,-96]).includes('(32.5,-97,33,-96)'));
+  assert(sources.osmQuery(input).includes('["name"~"basketball|hoops|hoopers|aau",i]["website"]'),'basketball academy map names with official sites must not require a missing sport tag');
+  assert(!sources.osmQuery({...input,customerType:'SPORTS_STORE'}).includes('["name"~"basketball|hoops|hoopers|aau",i]'),'basketball academy fallback does not contaminate sports retail results');assert.throws(()=>sources.osmQuery(input,[33,-97,32.5,-96]));
   assert.equal((await sources.osmClues(input,'test-fixture-only')).clues.length,1,'city bounding boxes must preserve facility and city filtering');
   let result=await post({...input,action:'SEARCH',sources:['SOCIAL','DIRECTORY','OSM']});assert.equal(result.status,200);assert.equal(result.body.added,6);assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM discovery_candidates').get().n,0,'unverified clues must not become buyers');
   result=await post({...input,action:'SEARCH',sources:['SOCIAL','DIRECTORY','OSM']});assert.equal(result.body.added,0);assert.equal(result.body.updated,6);
