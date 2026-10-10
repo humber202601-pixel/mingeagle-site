@@ -11,4 +11,6 @@ assert(accept.includes("status: 'PAYMENT_PENDING'"),'new order must be awaiting 
 assert(accept.includes('const raced = await getOrder(db, quoteId)'),'concurrent acceptance must reuse order');
 const legacy=accept.match(/for \(const item of items\.results\)[\s\S]*?await db\.prepare\(`INSERT INTO order_items/);
 assert.equal(legacy,null,'no separate non-atomic order item writes');
+assert(accept.includes('const validItems = items.results.every'),'all lines must be priced correctly');
+assert(accept.includes('computedTotalCents'),'server must reconcile subtotal, freight and grand total');
 console.log('PASS: quote acceptance preserves unpaid order, uniqueness, and atomic order + items conversion.');
