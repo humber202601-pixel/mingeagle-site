@@ -162,8 +162,23 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       return response({ok:true,alreadyConverted:true,candidateId:clue.candidate_id,intake});
     }
     const website=clean(input.website||clue.website,1000);if(!allowedWebsite(website))return response({ok:false,error:'请输入完整公开官网网址；社交主页及目录页保留为线索来源。'},400);
-    const hit=COMMERCIAL_TYPES.has(clue.customer_type)?await verifyHit({title:clue.title,url:website,snippet:'',query:'public source verification',city:clue.city||''},clue.customer_type,clue.state_region):await verifySchoolWebsite(website,clue.customer_type,clue.state_region,clue.city||'');
-    if(!hit||!clueMatches(hit.orgName,clue.title))return response({ok:false,error:'官网无法读取，或机构名称、业务、地区证据不足。线索保留待核验，未加入候选库。'},422);
+    const diagnostic:{reason?:string}={};
+    const hit=COMMERCIAL_TYPES.has(clue.customer_type)?await verifyHit({title:clue.title,url:website,snippet:'',query:'public source verification',city:clue.city||''},clue.customer_type,clue.state_region,diagnostic):await verifySchoolWebsite(website,clue.customer_type,clue.state_region,clue.city||'');
+    if(!hit||!clueMatches(hit.orgName,clue.title)){
+      const reason=!hit?diagnostic.reason||'SCHOOL_OR_WEBSITE_UNCONFIRMED':'ENTITY_NAME_MISMATCH';
+      const explanations:Record<string,string>={
+        'UNTRUSTED_SITE_URL':'官网网址不符合公开网站要求',
+        'ENTITY_UNCONFIRMED':'官网尚不能核实独立经营机构名称',
+        'OFFICIAL_SITE_UNREADABLE':'官网本次无法读取，请稍后重试',
+        'location-unconfirmed':'官网没有证据证明机构服务所选目标地区',
+        'no-strong-business-pair':'官网没有找到对应篮球训练、体育零售或采购业务证据',
+        'store-commerce-unconfirmed':'官网没有找到明确零售或供货业务证据',
+        'publisher-or-data-site':'来源更像资讯或资料站，不能确认采购机构',
+        'ENTITY_NAME_MISMATCH':'官网主体名称与线索名称不一致',
+        'SCHOOL_OR_WEBSITE_UNCONFIRMED':'学校或官网核验未通过',
+      };
+      return response({ok:false,reason,error:(explanations[reason]||'官网机构及目标业务证据不足')+'。线索保留待核验，未加入 CRM。'},422);
+    }
     await assertAutoLease(db,input);await ensureTables(db);const websiteUrl=new URL(website),domain=websiteUrl.hostname.toLowerCase().replace(/^www\./,''),school=!COMMERCIAL_TYPES.has(clue.customer_type);
     const key=school?'schoolweb:'+domain+(websiteUrl.pathname.replace(/\/+$/,'')||'/'):'web:'+domain;
     const possible=await db.prepare(`SELECT id,status,name,website,source_key FROM discovery_candidates WHERE source_key=? OR website=? OR website=? LIMIT 20`).bind(key,website,website.endsWith('/')?website.slice(0,-1):website+'/').all<{id:string;status:string;name:string;website:string;source_key:string}>();

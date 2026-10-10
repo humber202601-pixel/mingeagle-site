@@ -134,21 +134,32 @@ function scoreBusiness(hit:SearchHit,body:string,type:string,stateCode:string,en
   return {score:Math.max(0,Math.min(100,score)),cues};
 }
 
-export function eligibleSearchHit(hit:SearchHit,type:string,stateCode:string){
+// Search snippets may omit the street address even when a buyer's official
+// site identifies the company and its exact location. Snippet evidence is
+// only enough to create a provisional *site candidate*; location must still
+// pass the existing official-site scoreBusiness() check before CRM import.
+export function eligibleSearchHit(hit:SearchHit,type:string,_stateCode:string){
   const body=hit.title+' '+hit.snippet;
-  if(!/basketball|hoops|physical education|sporting goods|sports equipment|ymca/i.test(body)||HARD_NEGATIVE.test(body)||/dictionary|English meaning|definition/i.test(hit.title))return false;
+  return allowedWebsite(hit.url)&&Boolean(STRONG_PAIR[type])&&
+    /basketball|hoops|physical education|sporting goods|sports equipment|ymca/i.test(body)&&
+    !HARD_NEGATIVE.test(body)&&
+    !/dictionary|English meaning|definition|wikipedia/i.test(hit.title);
+}
+export function searchSnippetLocality(hit:SearchHit,type:string,stateCode:string){
+  const body=' '+(hit.title+' '+hit.snippet).toLowerCase().replace(/[^a-z0-9]+/g,' ')+' ';
   const locations=(hit.city?[hit.city]:[ALL_STATE_NAMES[stateCode],stateCode]).filter(Boolean);
-  return locations.some(location=>new RegExp('\\b'+location.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','i').test(body))||type==='SPORTS_DISTRIBUTOR'&&/nationwide|all 50 states|ship.*united states/i.test(body);
+  const located=locations.some(location=>body.includes(' '+location.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()+' '));
+  return located||type==='SPORTS_DISTRIBUTOR'&&/nationwide|all 50 states|ship.*united states/i.test(body);
 }
 
-export async function verifyHit(hit:SearchHit,type:string,stateCode:string):Promise<VerifiedHit|null>{
+export async function verifyHit(hit:SearchHit,type:string,stateCode:string,diagnostic?:{reason?:string}):Promise<VerifiedHit|null>{
   try{
-    if(!allowedWebsite(hit.url))return null;const homeHtml=await fetchText(hit.url,5500);const entity=resolveEntity(homeHtml,hit.title,hit.url);if(!entity.name||entity.score<24||genericName(entity.name))return null;
+    if(!allowedWebsite(hit.url)){if(diagnostic)diagnostic.reason='UNTRUSTED_SITE_URL';return null}const homeHtml=await fetchText(hit.url,5500);const entity=resolveEntity(homeHtml,hit.title,hit.url);if(!entity.name||entity.score<24||genericName(entity.name)){if(diagnostic)diagnostic.reason='ENTITY_UNCONFIRMED';return null}
     const pageUrls=[hit.url];const pages:string[]=[homeHtml];const extraUrls=sameOriginPreferred(homeHtml,hit.url).filter(url=>url!==hit.url).slice(0,4);const extras=await Promise.allSettled(extraUrls.map(url=>fetchText(url,3800)));for(let i=0;i<extras.length;i++){const result=extras[i];if(result.status==='fulfilled'){pages.push(result.value);pageUrls.push(extraUrls[i])}}
-    const combinedHtml=pages.join('\n');const body=pages.map(strip).join(' ').slice(0,300000);const f=scoreBusiness(hit,body,type,stateCode,entity);if(f.score<70)return null;
+    const combinedHtml=pages.join('\n');const body=pages.map(strip).join(' ').slice(0,300000);const f=scoreBusiness(hit,body,type,stateCode,entity);if(f.score<70){if(diagnostic)diagnostic.reason=f.cues[0]||'BUYER_FIT_UNCONFIRMED';return null}
     const allLinks=pages.flatMap((html,index)=>hrefs(html,pageUrls[index]||hit.url));const host=domainOf(hit.url);const email=chooseEmail(emailsOf(combinedHtml),host);const phone=phonesOf(combinedHtml,body)[0]||'';const whatsapp=whatsappOf(allLinks);const socialProfiles=websiteSocialProfiles(pages.map((html,index)=>({html,url:pageUrls[index]})));const instagram=socialProfiles.find(p=>p.source==='INSTAGRAM')?.url||'';const facebook=socialProfiles.find(p=>p.source==='FACEBOOK')?.url||'';const tiktok=socialProfiles.find(p=>p.source==='TIKTOK')?.url||'';const linkedin=socialProfiles.find(p=>p.source==='LINKEDIN')?.url||'';const person=extractPerson(body);const contactUrl=pageUrls.find(url=>/contact/i.test(url))||pageUrls.find(url=>/(team|staff|coach|about|leadership)/i.test(url))||pageUrls[1]||hit.url;
     const buyer=body.match(/(?:wholesale|bulk order|school equipment|physical education|youth program|private lesson|court rental|basketball camp|basketball classes)/gi)||[];if(buyer.length)f.cues.push('buyer-use:'+Array.from(new Set(buyer.map(x=>x.toLowerCase()))).slice(0,3).join('/'));return {...hit,city:f.cues.includes('national-supplier')?'':hit.city,fitScore:f.score,cues:f.cues,orgName:entity.name,entityScore:entity.score,entitySource:entity.source,email,phone,whatsapp,instagram,facebook,tiktok,linkedin,contactName:person.name,contactTitle:person.title,contactUrl,sourceUrls:pageUrls.slice(0,pages.length),socialProfiles};
-  }catch{return null}
+  }catch{if(diagnostic)diagnostic.reason='OFFICIAL_SITE_UNREADABLE';return null}
 }
 
 export async function save(db:D1Database,hits:VerifiedHit[],stateCode:string,type:string,target:number,runId?:string,provider='WEB_SEARCH_VERIFIED_V6',sourceKey?:string){
@@ -178,12 +189,26 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     const {unique,searchNote,fallbackUsed,fallbackReadable}=await sourceSnapshot(db,input,
       'WEB_SEARCH_VERIFIED_V6',round,async()=>{
         const queries=queryPlan(stateCode,type,city,round,8);
-        const searched=await Promise.allSettled(queries.map(q=>bing(q.query,q.city)));const raw=searched.flatMap(r=>r.status==='fulfilled'?r.value:[]);const unique:SearchHit[]=[];const domains=new Set<string>();for(const h of raw.filter(hit=>eligibleSearchHit(hit,type,stateCode))){const d=domainOf(h.url);if(!d||domains.has(d))continue;domains.add(d);unique.push(h);if(unique.length>=Math.max(28,target*4))break}
-        let searchNote=`主索引 ${searched.filter(r=>r.status==='fulfilled').length}/${queries.length} 次查询可读取，返回网页 ${raw.length} 个，符合地区和业务条件 ${unique.length} 个。`;
+        const searched=await Promise.allSettled(queries.map(q=>bing(q.query,q.city)));
+        const raw=searched.flatMap(r=>r.status==='fulfilled'?r.value:[]);
+        const business=raw.filter(hit=>eligibleSearchHit(hit,type,stateCode));
+        // Prefer local snippets, cap provisional hits to avoid extra site
+        // fetches and keep the Cloudflare free-plan work bounded.
+        const local=business.filter(hit=>searchSnippetLocality(hit,type,stateCode));
+        const pending=business.filter(hit=>!searchSnippetLocality(hit,type,stateCode));
+        const weakCap=Math.min(8,Math.max(2,Math.ceil(target/3)));
+        const unique:SearchHit[]=[];const domains=new Set<string>();let admittedWeak=0;
+        for(const h of [...local,...pending]){
+          const d=domainOf(h.url),weak=!searchSnippetLocality(h,type,stateCode);
+          if(!d||domains.has(d)||(weak&&admittedWeak>=weakCap))continue;
+          domains.add(d);unique.push(h);if(weak)admittedWeak++;
+          if(unique.length>=Math.max(28,target*4))break;
+        }
+        let searchNote=`主索引 ${searched.filter(r=>r.status==='fulfilled').length}/${queries.length} 次查询可读取，返回网页 ${raw.length} 条，业务相关 ${business.length} 条；摘要提及目标地区 ${local.length} 条；摘要缺地区、待官网核验 ${admittedWeak} 条（上限 ${weakCap}）。`;
         let fallbackReadable=false,fallbackUsed=false;
         if(!unique.length){
           fallbackUsed=true;
-          const fallback=await Promise.allSettled(queries.slice(0,2).map(async q=>(await alternateSearch(q.query,db)).map(hit=>({...hit,query:q.query,city:q.city})).filter(hit=>allowedWebsite(hit.url)&&eligibleSearchHit(hit,type,stateCode))));
+          const fallback=await Promise.allSettled(queries.slice(0,2).map(async q=>(await alternateSearch(q.query,db)).map(hit=>({...hit,query:q.query,city:q.city})).filter(hit=>eligibleSearchHit(hit,type,stateCode))));
           fallbackReadable=fallback.some(r=>r.status==='fulfilled');
           for(const hit of fallback.flatMap(r=>r.status==='fulfilled'?r.value:[])){const d=domainOf(hit.url);if(!domains.has(d)){domains.add(d);unique.push(hit);}}
           const errors=fallback.filter(r=>r.status==='rejected').map(r=>r.reason instanceof Error?r.reason.message:String(r.reason));
@@ -195,7 +220,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     const started=Date.now();
     if(input.autoSourceOnly){
       await assertAutoLease(db,input);
-      const allSeeds=unique.slice(0,target).map(hit=>({key:'web-index:'+hit.url,title:hit.title,source:'WEB_INDEX',url:hit.url,website:hit.url,evidence:hit.snippet+' · '+hit.query,city:hit.city}));
+      const allSeeds=unique.slice(0,target).map(hit=>({key:'web-index:'+hit.url,title:hit.title,source:'WEB_INDEX',url:hit.url,website:hit.url,evidence:hit.snippet+' · '+hit.query+(searchSnippetLocality(hit,type,stateCode)?' · location-in-index-snippet':' · location-not-in-snippet-requires-official-website-confirmation'),city:hit.city}));
       const offset=Number(input.sourceOffset||0);
       if(!Number.isInteger(offset)||offset<0||offset>100) return Response.json({ok:false,error:'来源游标无效。'},{status:400});
       const seeds=allSeeds.slice(offset,offset+4);
@@ -205,8 +230,24 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       return Response.json({ok:true,found:foundIds.length,available:allSeeds.length,hasMore,nextOffset:hasMore?offset+4:null,foundIds,review:!foundIds.length&&fallbackUsed&&!fallbackReadable,reason:searchNote,note:searchNote+(foundIds.length?'公开官网线索已分批保存，随后逐个核验和补全。':'本次没有官网线索，不能据此判断当地没有潜在客户。')});
     }
     if(!unique.length){await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=0,completed_at=CURRENT_TIMESTAMP,error='No public website candidates returned' WHERE id=?`).bind(jobId).run();return Response.json({ok:true,found:0,mode:'WEB_VERIFIED_V6',checked:0,verified:0,note:searchNote+'公开搜索本次未返回可验证官网候选，不能据此判断当地没有潜在客户。'})}
-    const verified:VerifiedHit[]=[];for(let i=0;i<unique.length;i+=4){if(Date.now()-started>23000)break;const batch=unique.slice(i,i+4);const result=await Promise.allSettled(batch.map(h=>verifyHit(h,type,stateCode)));verified.push(...result.flatMap(x=>x.status==='fulfilled'&&x.value?[x.value]:[]));if(verified.length>=target)break}
-    const found=await save(db,verified.sort((a,b)=>b.fitScore-a.fitScore||b.entityScore-a.entityScore),stateCode,type,target,input.runId);await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(found,jobId).run();
-    return Response.json({ok:true,found,mode:'WEB_VERIFIED_V6',provider:'WEB_SEARCH_VERIFIED_V6',checked:unique.length,verified:verified.length,note:found?`V6 已确认 ${found} 个真实机构主体并通过目标业务验证。`:'本次没有候选同时通过真实机构识别与业务验证。'});
+    const verified:VerifiedHit[]=[],rejected:Record<string,number>={};let checked=0;
+    for(let i=0;i<unique.length;i+=4){
+      if(Date.now()-started>23000)break;
+      const batch=unique.slice(i,i+4);
+      const result=await Promise.allSettled(batch.map(async h=>{
+        const diagnosis:{reason?:string}={};const success=await verifyHit(h,type,stateCode,diagnosis);
+        if(!success){const reason=diagnosis.reason||'UNSPECIFIED_REJECTION';rejected[reason]=(rejected[reason]||0)+1;}
+        return success;
+      }));
+      checked+=batch.length;
+      verified.push(...result.flatMap(x=>x.status==='fulfilled'&&x.value?[x.value]:[]));
+      if(verified.length>=target)break;
+    }
+    const found=await save(db,verified.sort((a,b)=>b.fitScore-a.fitScore||b.entityScore-a.entityScore),stateCode,type,target,input.runId);
+    await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(found,jobId).run();
+    const reasonLabels:Record<string,string>={'location-unconfirmed':'官网无目标地区证据','no-strong-business-pair':'官网无匹配业务证据','OFFICIAL_SITE_UNREADABLE':'官网本次无法读取','ENTITY_UNCONFIRMED':'官网机构主体不明确','store-commerce-unconfirmed':'零售或供货业务证据不足','publisher-or-data-site':'网站偏资讯内容'};
+    const summary=Object.entries(rejected).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([reason,count])=>`${reasonLabels[reason]||'其他官网核验未通过'} ${count} 个`).join('；');
+    return Response.json({ok:true,found,mode:'WEB_VERIFIED_V6',provider:'WEB_SEARCH_VERIFIED_V6',checked,verified:verified.length,rejected,searchNote,
+      note:found?`V6 已确认 ${found} 个真实机构主体并通过目标业务验证。${summary?' 未通过：'+summary+'。':''}`:`公开网页来源的官网核验结果为 0。${summary?'原因：'+summary+'。':''}不能据此认定当地没有采购机构。`});
   }catch(error){const msg=error instanceof Error?error.message:'Web verification V6 failed.';if(jobId)await db.prepare(`UPDATE discovery_jobs SET status='FAILED',error=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(msg.slice(0,1000),jobId).run();return Response.json({ok:false,error:msg},{status:502})}
 };
