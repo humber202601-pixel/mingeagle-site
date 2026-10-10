@@ -1,0 +1,25 @@
+{
+  "currency": "USD",
+  "pricingRule": "Price depends on product and size only; color does not affect price",
+  "products": {
+    "p1": {
+      "3": 9.9,
+      "5": 11.9,
+      "7": 14.9
+    },
+    "p2": {
+      "3": 10.9,
+      "5": 12.9,
+      "7": 15.9
+    },
+    "p3": {
+      "3": 12.9,
+      "4": 14.9,
+      "6": 18.9,
+      "7": 21.9
+    },
+    "p4": {
+      "5": 17.9
+    }
+  }
+}
