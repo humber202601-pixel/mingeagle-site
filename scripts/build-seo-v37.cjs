@@ -80,10 +80,10 @@ for(const [filename,config] of Object.entries(settings)){
   brand:{'@type':'Brand',name:'MING EAGLE'},category:'Indoor sports balls',
   productGroupID:key.toUpperCase(),variesBy:['https://schema.org/size'],hasVariant:variants
  }:config.schema;
- // Normalize the canonical domain without touching redirects or other site behavior.
- html=html.replace(/(<link\\b(?=[^>]*rel=[\"']canonical[\"'])[^>]*href=[\"'])https:\/\/www\\.mingeagle\\.com/g,'$1https://mingeagle.com');
+ // Normalize canonical URL and keep repeated builds idempotent.
+ html=html.replace(/(<link\b(?=[^>]*rel=["']canonical["'])[^>]*href=["'])https:\/\/www\.mingeagle\.com/g,'$1https://mingeagle.com');
  const priceBegin='<!-- MING EAGLE RETAIL PRICE BEGIN -->',priceEnd='<!-- MING EAGLE RETAIL PRICE END -->';
- html=html.replace(/<!-- MING EAGLE RETAIL PRICE BEGIN -->[\\s\\S]*?<!-- MING EAGLE RETAIL PRICE END -->\\s*/g,'');
+ html=html.replace(/<!-- MING EAGLE RETAIL PRICE BEGIN -->[\s\S]*?<!-- MING EAGLE RETAIL PRICE END -->\s*/g,'');
  if(key){
   const opts=Object.entries(retail.products[key]).map(([size,price])=>'<option value="'+size+'">Size '+size+' — $'+Number(price).toFixed(2)+'</option>').join('');
   const first=Object.values(retail.products[key])[0];
