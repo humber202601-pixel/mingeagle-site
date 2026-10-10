@@ -19,7 +19,7 @@ for(const product of Object.values(master)){
  assert.equal(bytes.toString('ascii',8,12),'WEBP','Hero must be WebP: '+product.hero);
  assert.equal(bytes.readUInt32LE(4)+8,bytes.length,'Hero incomplete: '+product.hero);
 }
-const images=[...catalog.matchAll(/<img\\b[^>]*\\bsrc="([^"]+)"/g)].map(m=>m[1]);
+const images=[...catalog.matchAll(/<img[^>]*src="([^"]+)"/g)].map(m=>m[1]);
 assert.equal(images.length,4,'Catalog must show precisely four approved product images');
 assert(images.every(src=>Object.values(master).some(p=>p.hero===src.split('?')[0])),'Catalog contains an unapproved or external product image');
 
