@@ -12,6 +12,8 @@ on:
       - 'scripts/check-conversion.cjs'
       - 'scripts/check-growth.cjs'
       - 'scripts/build-conversion.py'
+      - 'scripts/build-seo-v37.cjs'
+      - 'scripts/check-seo-v37.cjs'
       - '.github/workflows/verify-public-forms.yml'
   push:
     branches: [main]
@@ -31,3 +33,4 @@ jobs:
           node scripts/check-conversion.cjs
           node scripts/check-crm-bridge.cjs
           node scripts/check-turnstile.cjs
+          node scripts/check-seo-v37.cjs
