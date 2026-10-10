@@ -49,6 +49,9 @@ try{
   assert.equal(duplicateBody.idempotent,true,'retries reuse existing inquiry');
   assert.equal(count('leads'),1);
   assert.equal(count('tasks'),1);
+  const wrongContact=await request({...general,email:'different@example.test'});
+  assert.equal(wrongContact.status,409,'the same ME reference cannot return another contact private CRM identifiers');
+  assert.equal(count('leads'),1);
   const sample={...general,originalReference:'ME-20261010-B1B2C3D4',email:'sample@example.test',requestType:'SAMPLE',requestLabel:'Sample request',country:'US',estimatedQuantity:'1–2 samples'};
   const invalid=await request({...sample,country:''});
   assert.equal(invalid.status,400,'sample shipping country is mandatory');
@@ -65,5 +68,13 @@ try{
   assert.equal(count('inquiries'),3);
   assert.equal(count('messages'),0,'web inquiry never starts outreach');
   assert.equal(forwards,3,'inquiry emails only forward for accepted new records, not retries');
+  // The same Cloudflare-facing IP may submit up to 12 requests within a
+  // 15-minute window; the 13th is rejected without creating a new record.
+  for(let i=0;i<13;i++){
+    const reply=await request(general,{origin,'CF-Connecting-IP':'203.0.113.7'});
+    assert.equal(reply.status,i===12?429:200,'IP cap must stop excessive public form requests');
+    if(i===12)assert(Number(reply.headers.get('retry-after'))>0);
+  }
+  assert.equal(count('inquiries'),3,'rate limited requests cannot create leads');
   console.log('PASS: public form CORS, privacy, minimal legitimate inputs, inquiry types, sample validation, idempotent references, no outreach and safe mail notification.');
 }finally{globalThis.fetch=previousFetch;rmSync(dir,{recursive:true,force:true})}

@@ -1,3 +1,4 @@
+import {publicInquiryRateLimit} from '../../lib/public-inquiry-guard';
 interface Env {
   MINGEAGLE_DB: D1Database;
 }
@@ -229,7 +230,8 @@ function successResponse(nativeForm: boolean, reference: string, payload: Record
   return Response.json({ ok: true, reference, ...payload });
 }
 
-const processInquiryPost: PagesFunction<Env> = async ({ request, env }) => {
+async function processInquiryPost(context:Parameters<PagesFunction<Env>>[0],notify=true):Promise<Response>{
+  const {request,env}=context;
   try {
     if (!env.MINGEAGLE_DB) {
       return Response.json({ error: 'Database is not configured.' }, { status: 503 });
@@ -280,13 +282,17 @@ const processInquiryPost: PagesFunction<Env> = async ({ request, env }) => {
     // Reuse the public website's ME reference so browser retries never create duplicate CRM leads.
     if (requestedReference) {
       const existing = await db.prepare(`SELECT i.id AS inquiry_id, i.reference, i.lead_id, i.status AS inquiry_status,
-          l.status AS lead_status
+          l.status AS lead_status, lower(ct.email) AS contact_email
         FROM inquiries i
         LEFT JOIN leads l ON l.id=i.lead_id
+        LEFT JOIN contacts ct ON ct.id=i.contact_id
         WHERE i.reference=? LIMIT 1`)
         .bind(requestedReference)
-        .first<{ inquiry_id: string; reference: string; lead_id: string | null; inquiry_status: string; lead_status: string | null }>();
+        .first<{ inquiry_id: string; reference: string; lead_id: string | null; inquiry_status: string; lead_status: string | null; contact_email: string | null }>();
       if (existing?.inquiry_id) {
+        if(existing.contact_email&&existing.contact_email!==email){
+          return Response.json({ok:false,error:'Inquiry reference belongs to a different contact.'},{status:409});
+        }
         const existingSample = await db.prepare('SELECT id FROM samples WHERE inquiry_id=? LIMIT 1')
           .bind(existing.inquiry_id).first<{ id: string }>();
         return successResponse(nativeForm, existing.reference, {
@@ -465,7 +471,7 @@ const processInquiryPost: PagesFunction<Env> = async ({ request, env }) => {
         }),
       ).run();
 
-    const emailForwarded = await forwardInquiryEmail(input, reference);
+    const emailForwarded = notify ? await forwardInquiryEmail(input, reference) : false;
 
     return successResponse(nativeForm, reference, {
       inquiryId,
@@ -479,7 +485,16 @@ const processInquiryPost: PagesFunction<Env> = async ({ request, env }) => {
     console.error('inquiry_create_failed', error);
     return Response.json({ error: error instanceof Error ? error.message : 'Unable to save the inquiry right now.' }, { status: 500 });
   }
-};
+}
+
+// A server-internal import used only by the protected HubSpot recovery endpoint.
+// It never forwards a duplicate notification email or bypasses normal input validation.
+export async function receiveRecoveredInquiry(env:Env,input:Record<string,unknown>){
+  const request=new Request('https://app.mingeagle.com/api/inquiries',{
+    method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify(input)});
+  return processInquiryPost({request,env} as Parameters<PagesFunction<Env>>[0],false);
+}
 
 // The storefront is hosted separately from the CRM. Public inquiries never
 // carry an admin credential. CORS permits only the official storefront origins.
@@ -518,5 +533,16 @@ export const onRequestPost: PagesFunction<Env>=async context=>{
   }
   const size=Number(context.request.headers.get('content-length')||0);
   if(size>12000)return publicCors(Response.json({ok:false,error:'Inquiry too large.'},{status:413}),origin);
+  try{
+    const guard=await publicInquiryRateLimit(context.env.MINGEAGLE_DB,context.request);
+    if(!guard.allowed){
+      const response=Response.json({ok:false,error:'Too many form submissions. Please try later.'},
+        {status:429,headers:{'retry-after':String(guard.retryAfter)}});
+      return publicCors(response,origin);
+    }
+  }catch(error){
+    console.error('public_inquiry_throttle_failed',error);
+    return publicCors(Response.json({ok:false,error:'Inquiry service temporarily unavailable.'},{status:503}),origin);
+  }
   return publicCors(await processInquiryPost(context),origin);
 };
