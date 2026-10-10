@@ -43,7 +43,7 @@ try{
   const auto=readFileSync('src/AutoDiscovery.tsx','utf8');
   assert(ui.includes('source===\'DISCOVERY\'&&data?discoveryPriorities(data.segments):[]'),
     'suggestions are derived from the actual DISCOVERY cohort, not unpaired website leads');
-  assert(ui.includes('带入搜索类型')&&ui.includes("'customerType='+encodeURIComponent"),
+  assert(ui.includes('带入搜索类型')&&ui.includes("'/app/discovery?customerType='+encodeURIComponent"),
     'typed suggestion handoff must exist');
   assert(discovery.includes('TYPE_OPTIONS.some(([code])=>code===requested)'),
     'untrusted query parameters must be whitelisted');
