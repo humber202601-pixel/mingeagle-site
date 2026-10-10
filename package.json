@@ -11,7 +11,7 @@
     "cf:deploy:scheduler": "wrangler deploy --config wrangler.scheduler.toml",
     "db:migrate:local": "wrangler d1 migrations apply MINGEAGLE_DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply MINGEAGLE_DB --remote",
-    "test:discovery": "node scripts/test-discovery.mjs && node scripts/test-discovery-sources.mjs && node scripts/test-discovery-quality.mjs && node scripts/test-discovery-auto.mjs && node scripts/test-discovery-runner.mjs && node scripts/test-communications.mjs && node scripts/test-admin-reads.mjs && node scripts/test-scheduler-heartbeat.mjs && node scripts/test-discovery-diagnostics.mjs && node scripts/test-public-inquiries.mjs && node scripts/test-hubspot-inquiry-recovery.mjs && node scripts/test-production-health.mjs && node scripts/test-turnstile-inquiries.mjs && node scripts/test-discovery-intake-readiness.mjs && node scripts/test-outreach-workflow.mjs"
+    "test:discovery": "node scripts/test-discovery.mjs && node scripts/test-discovery-sources.mjs && node scripts/test-discovery-quality.mjs && node scripts/test-discovery-auto.mjs && node scripts/test-discovery-runner.mjs && node scripts/test-communications.mjs && node scripts/test-admin-reads.mjs && node scripts/test-scheduler-heartbeat.mjs && node scripts/test-discovery-diagnostics.mjs && node scripts/test-public-inquiries.mjs && node scripts/test-hubspot-inquiry-recovery.mjs && node scripts/test-production-health.mjs && node scripts/test-turnstile-inquiries.mjs && node scripts/test-discovery-intake-readiness.mjs && node scripts/test-outreach-workflow.mjs && node scripts/test-conversion-funnel.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
