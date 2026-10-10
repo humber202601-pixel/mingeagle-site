@@ -8,15 +8,15 @@ type Row=Record<string,unknown>;
 type Run={id:string;status:string;phase:string;message:string;revision?:number;updated_at?:string;steps_completed?:number;scope:{stateCode:string;customerType:string;city:string;targetCount:number;batches:number}};
 type Data={ok?:boolean;error?:string;run?:Run|null;counts?:Array<{kind:string;status:string;count:number;confirmed?:number}>;results?:Row[];exceptions?:Row[];sources?:Row[];workerBusy?:boolean;progress?:{total:number;processed:number};current?:Array<{name:string;stage:string;startedAt:string}>};
 type History={counts?:Record<string,number>;protectedLeads?:number;archives?:Array<{id:string;status:string;created_at:string;counts_json:string}>};
-type Props={accessKey:string;externalBusy:boolean;onBusyChange:(busy:boolean)=>void;onChanged:()=>void;onCleared:()=>void};
+type Props={accessKey:string;externalBusy:boolean;onBusyChange:(busy:boolean)=>void;onChanged:()=>void;onCleared:()=>void;initialType?:string};
 const text=(v:unknown,fallback='—')=>v===null||v===undefined||v===''?fallback:String(v);
 const sourceNames:Record<string,string>={CORE:'官网搜索与业务核验',DIRECTORY:'企业 / 公示目录',FACEBOOK:'Facebook',TIKTOK:'TikTok',INSTAGRAM:'Instagram',LINKEDIN:'LinkedIn',GEOAPIFY:'Geoapify 地图',OSM:'OpenStreetMap 地图',NCES:'公立学校名录',NCES_PRIVATE:'私立学校名录',NCES_DISTRICTS:'学区名录'};
 const statusNames:Record<string,string>={RUNNING:'处理中',PAUSED:'已暂停',COMPLETED:'已完成',PARTIAL:'已完成，部分信息待核验',DONE:'已完成',PENDING:'等待处理',FAILED:'暂未完成',REVIEW:'待核验',PROCESSING:'当前处理',SKIPPED:'保留既有状态'};
 const sourceResult=(row:Row):Row=>{try{return JSON.parse(String(row.result_json||'{}')) as Row;}catch{return {};}};
 const phaseNames:Record<string,string>={SEARCH:'搜索来源',SOURCE:'搜索来源',CLUE:'查找官网并核验',CANDIDATE:'补全并入库',DONE:'处理完成'};
 
-export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onChanged,onCleared}:Props){
-  const [state,setState]=useState('TX'),[type,setType]=useState('BASKETBALL_TRAINING'),[city,setCity]=useState(''),[target,setTarget]=useState(20),[batches,setBatches]=useState(1);
+export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onChanged,onCleared,initialType}:Props){
+  const [state,setState]=useState('TX'),[type,setType]=useState(initialType||'BASKETBALL_TRAINING'),[city,setCity]=useState(''),[target,setTarget]=useState(20),[batches,setBatches]=useState(1);
   const [data,setData]=useState<Data>({}),[loading,setLoading]=useState(true),[working,setWorking]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
   const [history,setHistory]=useState<History>({}),[historyOpen,setHistoryOpen]=useState(false),[historyBusy,setHistoryBusy]=useState(false);
   const onChangedRef=useRef(onChanged);onChangedRef.current=onChanged;
@@ -33,7 +33,15 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
     if(data.run?.status!=='RUNNING')return;
     return startDiscoveryLoop({runId:data.run.id,initial:data,request:(body,signal)=>api(body,signal,data.run!.id),onData:result=>{accept(result);if(result.run?.status!=='RUNNING')onChangedRef.current();},onError:setError});
   },[accessKey,data.run?.id,data.run?.status]);
-  useEffect(()=>{const scope=data.run?.scope;if(!scope)return;setState(scope.stateCode);setType(scope.customerType);setCity(scope.city);setTarget(scope.targetCount);setBatches(scope.batches);},[data.run?.id]);
+  useEffect(()=>{
+    const run=data.run,scope=run?.scope;
+    if(scope&&(!initialType||['RUNNING','PAUSED'].includes(run?.status||''))){
+      setState(scope.stateCode);setType(scope.customerType);setCity(scope.city);
+      setTarget(scope.targetCount);setBatches(scope.batches);return;
+    }
+    // An old completed batch should not overwrite a freshly selected category.
+    if(initialType)setType(initialType);
+  },[data.run?.id,data.run?.status,initialType]);
   async function start(event:FormEvent){
     event.preventDefault();if(busy||externalBusy)return;setWorking(true);setError('');setMessage('');
     try{setData(await api({action:'START',stateCode:state,customerType:type,city,targetCount:target,batches}));}catch(e){setError(e instanceof Error?e.message:'任务启动失败。');}finally{setWorking(false);}
