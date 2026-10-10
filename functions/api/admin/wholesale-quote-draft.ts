@@ -23,7 +23,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  if(old)return bad('Existing quote: '+String(old.reference),409);
  const text=String(inquiry.message||''),mark='Combined wholesale RFQ (customer-selected; not a final price):',idx=text.indexOf(mark);
  if(idx<0)return bad('Not a structured wholesale RFQ');
- const raw=text.slice(idx+mark.length).split(/\r?\n/),lines:{description:string;quantity:number}[]=[];
+ const raw=text.slice(idx+mark.length).replace(/^\r?\n/,'').split(/\r?\n/),lines:{description:string;quantity:number}[]=[];
  for(const line of raw){const m=/^(.+?) \| No\. (3|4|5|6|7) \| (.+?) \| ([1-9]\d{0,5}) units$/.exec(line.trim());if(!m)break;
   const product=variants[m[1]],quantity=Number(m[4]);if(!product||!product.sizes.includes(m[2])||!product.colors.includes(m[3])||!Number.isSafeInteger(quantity))return bad('Invalid customer variant',409);
   lines.push({description:m[1]+' | No. '+m[2]+' | '+m[3],quantity});if(lines.length>20)return bad('Too many RFQ lines',409);
