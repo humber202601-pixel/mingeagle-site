@@ -54,7 +54,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const lead = await env.MINGEAGLE_DB.prepare(`SELECT l.id, l.status, l.company_id, l.primary_contact_id, ct.email, ct.do_not_contact
       FROM leads l LEFT JOIN contacts ct ON ct.id=l.primary_contact_id WHERE l.id=? LIMIT 1`).bind(leadId).first<Record<string, unknown>>();
     if (!lead) return Response.json({ ok: false, error: 'Lead not found.' }, { status: 404 });
-    if (Number(lead.do_not_contact || 0) === 1 || String(lead.status || '') === 'DO_NOT_CONTACT') {
+    if (Number(lead.do_not_contact || 0) === 1 || ['DO_NOT_CONTACT','NOT_INTERESTED','NOT_FIT'].includes(String(lead.status || '').toUpperCase())) {
       return Response.json({ ok: false, error: 'This contact is marked DO NOT CONTACT.' }, { status: 409 });
     }
 
