@@ -1,3 +1,4 @@
+import {publicInquiryRateLimit} from '../../lib/public-inquiry-guard';
 interface Env {
   MINGEAGLE_DB: D1Database;
 }
@@ -528,5 +529,16 @@ export const onRequestPost: PagesFunction<Env>=async context=>{
   }
   const size=Number(context.request.headers.get('content-length')||0);
   if(size>12000)return publicCors(Response.json({ok:false,error:'Inquiry too large.'},{status:413}),origin);
+  try{
+    const guard=await publicInquiryRateLimit(context.env.MINGEAGLE_DB,context.request);
+    if(!guard.allowed){
+      const response=Response.json({ok:false,error:'Too many form submissions. Please try later.'},
+        {status:429,headers:{'retry-after':String(guard.retryAfter)}});
+      return publicCors(response,origin);
+    }
+  }catch(error){
+    console.error('public_inquiry_throttle_failed',error);
+    return publicCors(Response.json({ok:false,error:'Inquiry service temporarily unavailable.'},{status:503}),origin);
+  }
   return publicCors(await processInquiryPost(context),origin);
 };
