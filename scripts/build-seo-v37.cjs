@@ -95,3 +95,6 @@ for(const [filename,config] of Object.entries(settings)){
  fs.writeFileSync(file,html);
 }
 console.log('V37: updated SEO title and description on '+Object.keys(settings).length+' pages and factual structured data on 5 pages. No prices or ratings invented.');
+
+// Normalize all site's canonical hosts to match the sitemap and primary domain.
+for(const filename of fs.readdirSync(root).filter(f=>f.endsWith('.html'))){const file=path.join(root,filename);let html=fs.readFileSync(file,'utf8');html=html.replace(/https:\/\/www\.mingeagle\.com\//g,'https://mingeagle.com/');fs.writeFileSync(file,html);}
