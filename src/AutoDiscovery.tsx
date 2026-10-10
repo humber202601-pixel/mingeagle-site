@@ -96,7 +96,7 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
       <label>城市（可选）<input aria-label="一键发现城市" value={city} disabled={frozen||externalBusy} onChange={e=>setCity(e.target.value)} placeholder="例如 Dallas；留空轮换重点城市" maxLength={80}/></label>
       <label>每批目标数量<select aria-label="一键发现数量" value={target} disabled={frozen||externalBusy} onChange={e=>setTarget(Number(e.target.value))}><option value={20}>20</option><option value={50}>50</option><option value={100}>100</option></select></label>
       <label>搜索深度<select aria-label="一键发现批数" value={batches} disabled={frozen||externalBusy} onChange={e=>setBatches(Number(e.target.value))}><option value={1}>标准 · 1 批</option><option value={2}>扩大 · 2 批</option><option value={3}>深入 · 3 批</option></select></label>
-      <button className="button auto-discovery-start" disabled={frozen||externalBusy||loading}>{busy?<><LoaderCircle size={18} className="spin"/>{working?'正在提交…':'任务在后台执行 · 查看下方进度'}</>:<><Search size={18}/>一键发现并加入待开发客户<ArrowRight size={18}/></>}</button>
+      <button className="button auto-discovery-start" disabled={frozen||externalBusy||loading}>{busy?<>{stall.canRecover?<RefreshCcw size={18}/>:<LoaderCircle size={18} className="spin"/>}{working?'正在提交…':stall.stale?'任务可能停滞 · 查看下方恢复建议':'任务在后台执行 · 查看下方进度'}</>:<><Search size={18}/>一键发现并加入待开发客户<ArrowRight size={18}/></>}</button>
     </form>
     <p className="auto-discovery-help">自动选择地图、公开官网、企业目录及社交索引；官网、目录和社交渠道均检索公开搜索索引，并非平台全量数据库。城市留空时按批次轮换重点城市，不代表遍历全州。学校类型自动加入相应官方名录。仅补全有公开出处的信息，未公开字段会明确标记。任务进度保存在后台，离开页面后由后台每分钟续跑。</p>
     {loading&&<p role="status">正在读取任务进度…</p>}
