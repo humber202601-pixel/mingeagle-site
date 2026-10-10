@@ -68,9 +68,28 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
   const [data,setData] = useState<DetailData | null>(null);
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState('');
+  const [wholesaleBusy,setWholesaleBusy]=useState(false);
+  const [wholesaleResult,setWholesaleResult]=useState('');
+  const [wholesaleCreated,setWholesaleCreated]=useState(false);
+  const [wholesalePrices,setWholesalePrices]=useState<Record<number,string>>({});
+  const [wholesaleShipping,setWholesaleShipping]=useState('');
+  const [wholesalePaymentTerms,setWholesalePaymentTerms]=useState('Payment terms to be agreed with the buyer.');
+  const [wholesaleDeliveryTerms,setWholesaleDeliveryTerms]=useState('Shipment from China; lead time and duties to be confirmed.');
   const [retailQuoteBusy,setRetailQuoteBusy] = useState(false);
   const [retailQuoteResult,setRetailQuoteResult] = useState('');
   const [retailQuoteCreated,setRetailQuoteCreated] = useState(false);
+  async function draftWholesale(reference:string,lines:ReturnType<typeof parseWholesaleRfq>){
+    const prices=lines.map((_,i)=>Number(wholesalePrices[i]));
+    const shipping=Number(wholesaleShipping);
+    if(prices.some((p,i)=>!wholesalePrices[i]?.trim()||!Number.isFinite(p)||p<=0)||!wholesaleShipping.trim()||!wholesalePaymentTerms.trim()||!wholesaleDeliveryTerms.trim()){setWholesaleResult('请逐项填写已核实的批发单价、运费及商业条款。');return}
+    setWholesaleBusy(true);setWholesaleResult('');
+    try{
+      const response=await fetch('/api/admin/wholesale-quote-draft',{method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},body:JSON.stringify({inquiryReference:reference,unitPrices:prices,shippingUSD:shipping,paymentTerms:wholesalePaymentTerms,shippingTerms:wholesaleDeliveryTerms})});
+      const result=await response.json() as {ok?:boolean;error?:string;quoteReference?:string;totalUSD?:number};
+      if(!response.ok||!result.ok)throw Error(result.error||'无法生成报价草稿');
+      setWholesaleCreated(true);setWholesaleResult('草稿 '+result.quoteReference+' 已生成，USD '+Number(result.totalUSD).toFixed(2)+'。必须审核后才能发送。');
+    }catch(e){setWholesaleResult(e instanceof Error?e.message:'生成失败')}finally{setWholesaleBusy(false)}
+  }
   async function draftRetailQuote(reference:string){
     setRetailQuoteBusy(true);setRetailQuoteResult('');
     try {const response=await fetch('/api/admin/retail-quote-draft',{method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},body:JSON.stringify({inquiryReference:reference})});const result=await response.json() as {ok?:boolean;error?:string;quoteReference?:string;totalBeforeTaxesUSD?:number};if(!response.ok||!result.ok)throw Error(result.error||'Unable to create draft');setRetailQuoteCreated(true);setRetailQuoteResult('报价草稿 '+result.quoteReference+' 已创建，税前金额 USD '+Number(result.totalBeforeTaxesUSD).toFixed(2)+'。请到报价单审核商品、运费及交付条款后发送。');}catch(e){setRetailQuoteResult(e instanceof Error?e.message:'创建失败');}finally{setRetailQuoteBusy(false)}
@@ -122,6 +141,13 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
         <div><small>联系人</small><strong>{text(r.contact_name)}</strong></div><div><small>邮箱</small><strong>{text(r.contact_email)}</strong></div><div><small>客户公司</small><strong>{text(r.company_name)}</strong></div><div><small>预计数量</small><strong>{text(r.estimated_quantity)}</strong></div><div><small>国家</small><strong>{text(r.shipping_country)}</strong></div><div><small>邮编</small><strong>{text(r.shipping_postal_code)}</strong></div>
       </div><div className="detail-message"><small>客户留言</small><p>{text(r.message,'无')}</p></div></Section>
       {parseWholesaleRfq(r.message).length>0 && <Section title="B2B 组合采购明细"><p className="detail-note">来自客户填写的采购需求，不代表已确认报价或库存。</p><MiniTable rows={parseWholesaleRfq(r.message).map((item,i)=>({id:i+1,...item}))} columns={[{key:'product',label:'产品系列'},{key:'size',label:'球号'},{key:'color',label:'颜色'},{key:'quantity',label:'数量（件）'}]}/><p><strong>采购需求总件数：{parseWholesaleRfq(r.message).reduce((sum,r)=>sum+r.quantity,0).toLocaleString('zh-CN')}</strong></p></Section>}
+      {parseWholesaleRfq(r.message).length>0&&<Section title="生成 B2B 多行报价草稿（人工核价）"><p className="detail-note">以下报价不会自动发送。请核实每一项采购价格、运费、目的地、库存和交期。</p>
+       <div style={{display:'grid',gap:9}}>{parseWholesaleRfq(r.message).map((line,i)=><label key={i} style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}><span style={{flex:'1 1 250px'}}>{line.product} · No. {line.size} · {line.color} · {line.quantity} 件</span><span>USD 单价</span><input type="number" min="0.01" step="0.01" placeholder="人工填写" value={wholesalePrices[i]||''} disabled={wholesaleCreated} onChange={e=>setWholesalePrices(v=>({...v,[i]:e.target.value}))}/></label>)}
+       <label>运费 USD（包邮填写 0） <input type="number" min="0" step="0.01" value={wholesaleShipping} onChange={e=>setWholesaleShipping(e.target.value)} disabled={wholesaleCreated}/></label>
+       <label>付款条款 <input style={{width:'100%'}} value={wholesalePaymentTerms} onChange={e=>setWholesalePaymentTerms(e.target.value)} disabled={wholesaleCreated}/></label>
+       <label>交付条款 <input style={{width:'100%'}} value={wholesaleDeliveryTerms} onChange={e=>setWholesaleDeliveryTerms(e.target.value)} disabled={wholesaleCreated}/></label>
+       <button type="button" className="button" disabled={wholesaleBusy||wholesaleCreated||r.status==='QUOTED'||r.status==='CLOSED'} onClick={()=>void draftWholesale(String(r.reference),parseWholesaleRfq(r.message))}>{wholesaleBusy?'生成中…':'生成待审核 B2B 报价草稿'}</button>
+       {wholesaleResult&&<p role="status">{wholesaleResult} {wholesaleCreated&&<Link to="/app/quotes">查看报价管理 →</Link>}</p>}</div></Section>}
       {String(r.message||'').includes('Retail cart order request (NOT PAID)') && <Section title="零售购物车报价审核"><p className="detail-note">从客户购物车需求重新读取数据库零售价、包装和运价，生成多商品报价草稿。草稿不会自动发送或收款，请在报价管理中审核。</p><button className="button" type="button" disabled={retailQuoteBusy||retailQuoteCreated||r.status==='QUOTED'||r.status==='CLOSED'} onClick={()=>void draftRetailQuote(String(r.reference))}>{retailQuoteBusy?'正在生成…':'生成零售报价草稿'}</button>{retailQuoteResult&&<p role="status">{retailQuoteResult} {retailQuoteCreated&&<Link to="/app/quotes">前往报价管理 →</Link>}</p>}</Section>}
       {data.score && <ScoreCard score={data.score}/>} 
     </>}
