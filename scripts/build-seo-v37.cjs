@@ -56,7 +56,7 @@ for(const [filename,config] of Object.entries(settings)){
  const file=path.join(root,filename);
  if(!fs.existsSync(file))throw new Error('Missing approved site page: '+filename);
  let html=fs.readFileSync(file,'utf8');
- html=html.replace(/<!-- MING EAGLE V37 SEO BEGIN -->[\s\S]*?<!-- MING EAGLE V37 SEO END -->\\s*/g,'');
+ html=html.replace(/<!-- MING EAGLE V37 SEO BEGIN -->[\s\S]*?<!-- MING EAGLE V37 SEO END -->\s*/g,'');
  if(!/<head(?:\s[^>]*)?>/i.test(html)||!/<\/head>/i.test(html))throw new Error('Malformed head: '+filename);
  html=html.replace(/<title(?:\s[^>]*)?>[\s\S]*?<\/title>/i,'<title>'+esc(config.title)+'</title>');
  // Existing pages use both attribute orders, so replace any complete description tag.
