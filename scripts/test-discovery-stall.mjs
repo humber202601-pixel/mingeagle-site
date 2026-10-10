@@ -42,7 +42,7 @@ try{
     });return statement();
   },async batch(items){
     sqlite.exec('BEGIN');
-    try{const values=await Promise.all(items.map(async item=>sqlite.prepare(item.sql).run(...item.values)));
+    try{const values=items.map(item=>sqlite.prepare(item.sql).run(...item.values));
       sqlite.exec('COMMIT');return values.map(r=>({success:true,meta:{changes:Number(r.changes)}}));}
     catch(e){sqlite.exec('ROLLBACK');throw e;}
   }};
