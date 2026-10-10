@@ -20,7 +20,7 @@ const env={MINGEAGLE_DB:{
  prepare(sql){return {bind(...params){return {
   first:async()=>sql.startsWith('SELECT id,reference,lead_id')?inquiry:null,
   sql,params
- }}},async batch(stmts){saved.push(...stmts);return stmts.map(()=>({success:true}))}
+ }}}},async batch(stmts){saved.push(...stmts);return stmts.map(()=>({success:true}))}
 }};
 const call=async payload=>{const resp=await onRequestPost({request:new Request('https://app.mingeagle.com/api/admin/wholesale-quote-draft',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({inquiryReference:reference,...payload})}),env});return {status:resp.status,result:await resp.json()}};
 let x=await call({unitPrices:[2,3,4],shippingUSD:20,paymentTerms:'Payment after confirmation',shippingTerms:'FOB by agreement'});
