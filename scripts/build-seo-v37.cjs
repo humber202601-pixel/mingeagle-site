@@ -1,7 +1,9 @@
 // V37: deterministic, idempotent, SEO-safe additions to the existing static website.
 // Running in GitHub Pages build after approved content builders; no external API.
 const fs=require('node:fs'),path=require('node:path');
-const root=path.resolve(process.argv[2]||'public'),base='https://www.mingeagle.com/';
+const root=path.resolve(process.argv[2]||'public'),base='https://mingeagle.com/';
+const retail=JSON.parse(fs.readFileSync(path.join(root,'retail-prices.json'),'utf8'));
+const productKeys={'silent-basketball.html':'p1','fabric-silent-basketball.html':'p2','weighted-flocked-basketball.html':'p3','silent-soccer.html':'p4'};
 const settings={
  'index.html':{
   title:'Silent Basketball & Quiet Indoor Sports Balls | MING EAGLE',
@@ -64,13 +66,30 @@ for(const [filename,config] of Object.entries(settings)){
   '<meta name="description" content="'+esc(config.description)+'">');
  if(!html.includes('name="description"'))throw new Error('Missing description: '+filename);
  if(!/rel=["']canonical["']/i.test(html))throw new Error('Missing canonical: '+filename);
+ const key=productKeys[filename];
+ const variants=key?Object.entries(retail.products[key]).map(([size,price])=>({
+  '@type':'Product',name:config.product.name+' - Size '+size,
+  sku:key.toUpperCase()+'-S'+size,size:'Size '+size,
+  image:base+config.product.image,
+  url:base+filename,brand:{'@type':'Brand',name:'MING EAGLE'},
+  offers:{'@type':'Offer',url:base+filename,priceCurrency:'USD',price:Number(price).toFixed(2)}
+ })):[];
  const schema=config.product?{
-  '@context':'https://schema.org','@type':'Product',
-  name:config.product.name,description:config.product.description,
-  url:base+filename,image:[base+config.product.image],
-  brand:{'@type':'Brand',name:'MING EAGLE'},
-  category:'Indoor sports balls'
+  '@context':'https://schema.org','@type':'ProductGroup',name:config.product.name,
+  description:config.product.description,url:base+filename,image:[base+config.product.image],
+  brand:{'@type':'Brand',name:'MING EAGLE'},category:'Indoor sports balls',
+  productGroupID:key.toUpperCase(),variesBy:['https://schema.org/size'],hasVariant:variants
  }:config.schema;
+ // Normalize the canonical domain without touching redirects or other site behavior.
+ html=html.replace(/(<link\\b(?=[^>]*rel=[\"']canonical[\"'])[^>]*href=[\"'])https:\/\/www\\.mingeagle\\.com/g,'$1https://mingeagle.com');
+ const priceBegin='<!-- MING EAGLE RETAIL PRICE BEGIN -->',priceEnd='<!-- MING EAGLE RETAIL PRICE END -->';
+ html=html.replace(/<!-- MING EAGLE RETAIL PRICE BEGIN -->[\\s\\S]*?<!-- MING EAGLE RETAIL PRICE END -->\\s*/g,'');
+ if(key){
+  const opts=Object.entries(retail.products[key]).map(([size,price])=>'<option value="'+size+'">Size '+size+' — $'+Number(price).toFixed(2)+'</option>').join('');
+  const first=Object.values(retail.products[key])[0];
+  const ui=priceBegin+'<section class="section" id="retail-pricing"><div class="wrap"><div class="eyebrow">RETAIL &amp; WHOLESALE</div><h2>Choose your size</h2><p>Retail prices in USD. All available colors have the same price for a given size. Shipping and applicable taxes are confirmed before payment.</p><label for="retailSize">Ball size</label> <select id="retailSize" aria-label="Choose ball size">'+opts+'</select> <strong id="retailPrice" aria-live="polite">$'+Number(first).toFixed(2)+'</strong><div class="actions"><a class="btn primary" id="retailContact" href="inquiry.html?type=quote">Ask to buy this size</a><a class="btn" href="inquiry.html?type=quote">Request wholesale quote</a></div></div></section><script>(function(){var s=document.getElementById("retailSize"),p=document.getElementById("retailPrice"),a=document.getElementById("retailContact");var prices='+JSON.stringify(retail.products[key])+';function change(){p.textContent="$"+Number(prices[s.value]).toFixed(2);a.href="inquiry.html?type=quote&product="+encodeURIComponent('+JSON.stringify(config.product.name)+')+"&size="+encodeURIComponent(s.value)+"&price="+encodeURIComponent(prices[s.value]);}s.addEventListener("change",change);change();})();</script>'+priceEnd;
+  html=html.replace(/<\/main>/i,ui+'</main>');
+ }
  const injected=schema?begin+'\n<script type="application/ld+json">'+JSON.stringify(schema).replace(/</g,'\\u003c')+'</script>\n'+end+'\n':'';
  html=html.replace(/<\/head>/i,injected+'</head>');
  fs.writeFileSync(file,html);
