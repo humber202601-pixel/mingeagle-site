@@ -20,11 +20,18 @@ export async function runAutoStep(env:AutoEnv,base:string,key:string,input:Row):
   const guard=()=>assertAutoLease(db,input),again=(next:Row):StepResult=>({continue:true,payload:{...payload,...next}});
   if(kind==='SOURCE'){
     const source=clean(payload.source),path=source==='CORE'?(COMMERCIAL_TYPES.has(clean(scope.customerType))?'discovery-web-v6':'discovery-school-v1'):'discovery-sources-v1';
-    const result=await autoApi(base,key,path,{...scope,round:payload.round,runId,autoSourceOnly:source==='CORE',action:'SEARCH',sources:[source],autoRunId:runId,autoToken:input.autoToken});
+    const result=await autoApi(base,key,path,{...scope,round:payload.round,runId,autoSourceOnly:source==='CORE',action:'SEARCH',sources:[source],sourceOffset:Number(payload.sourceOffset||0),autoRunId:runId,autoToken:input.autoToken});
     await guard();const states=result.sources as Record<string,Row>|undefined;
     if(result.review||states?.[source]?.review)return {review:true,found:0,reason:result.note||states?.[source]?.note};
     if(states?.[source]?.partial)throw new AutoStepError(clean(states[source].note)||'来源部分未完成。',true);
-    return {found:result.found||states?.[source]?.found||0,note:result.note||states?.[source]?.note};
+    const chunkCount=Number(result.found||states?.[source]?.found||0);
+    const accumulated=Number(payload.foundSoFar||0)+chunkCount;
+    if(states?.[source]?.hasMore){
+      const nextOffset=Number(states[source].nextOffset);
+      if(!Number.isInteger(nextOffset)||nextOffset<=Number(payload.sourceOffset||0))throw new AutoStepError('来源分批保存游标无效。');
+      return again({sourceOffset:nextOffset,foundSoFar:accumulated});
+    }
+    return {found:accumulated,note:(result.note||states?.[source]?.note||'')+(Number(payload.sourceOffset||0)?` · 分批合并共 ${accumulated} 条。`:'')};
   }
   const table=kind==='CLUE'?'discovery_clues':'discovery_candidates';
   const row=await db.prepare(`SELECT * FROM ${table} WHERE id=?`).bind(id).first<Row>();
