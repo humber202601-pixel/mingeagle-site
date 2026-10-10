@@ -2,7 +2,7 @@
 // loaded by AutoDiscovery. This never introduces another D1 read or request.
 export type DiscoverySnapshot={
   run?:{status:string}|null;
-  counts?:Array<{kind:string;status:string;count:number}>;
+  counts?:Array<{kind:string;status:string;count:number;confirmed?:number}>;
   sources?:Array<{item_key?:unknown;status?:unknown;error?:unknown;result_json?:unknown}>;
   results?:Array<{status?:unknown;crm_lead_id?:unknown}>;
   exceptions?:Array<{kind?:unknown;error?:unknown}>;
@@ -24,7 +24,12 @@ export function diagnoseDiscovery(data:DiscoverySnapshot):DiscoveryDiagnosis|nul
   const sources=data.sources||[],failed=sources.filter(x=>['FAILED','REVIEW'].includes(String(x.status)));
   const returned=sources.filter(x=>String(x.status)==='DONE').reduce((n,x)=>n+sourceFound(x),0);
   const clues=count(data,'CLUE'),candidates=count(data,'CANDIDATE');
-  const imported=(data.results||[]).filter(row=>row.status==='DONE'&&Boolean(row.crm_lead_id)).length;
+  // Production totals come from the grouped SQL aggregate; the UI results
+  // snapshot is capped at 100 and must not be treated as a complete ledger.
+  const confirmed=(data.counts||[]).filter(c=>c.kind==='CANDIDATE'&&c.status==='DONE')
+    .reduce((n,c)=>n+Math.max(0,Number(c.confirmed)||0),0);
+  const imported=confirmed||((data.counts||[]).some(c=>c.kind==='CANDIDATE'&&c.confirmed!==undefined)
+    ?0:(data.results||[]).filter(row=>row.status==='DONE'&&Boolean(row.crm_lead_id)).length);
   const funnel={returned,clues,candidates,imported,sourceFailures:failed.length,sourceTotal:sources.length};
   const verdict=(code:DiscoveryDiagnosis['code'],title:string,detail:string,action:string):DiscoveryDiagnosis=>({code,title,detail,action,funnel});
   const status=data.run.status;

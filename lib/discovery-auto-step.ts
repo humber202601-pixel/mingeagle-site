@@ -7,6 +7,7 @@ import { syncCrm } from '../functions/api/admin/discovery-enrich';
 import {alternateSearch} from './public-search';
 import { assertAutoLease,autoApi,AutoStepError,type AutoRow as Row } from './discovery-auto-support';
 import type { AutoEnv } from './discovery-auto';
+import {hasReusableVerifiedEnrichment} from './discovery-intake-readiness';
 const clean=(v:unknown,max=1000)=>String(v??'').trim().slice(0,max);
 export type StepResult=Row&{continue?:boolean;payload?:Row;review?:boolean};
 export async function runAutoStep(env:AutoEnv,base:string,key:string,input:Row):Promise<StepResult>{
@@ -45,7 +46,8 @@ export async function runAutoStep(env:AutoEnv,base:string,key:string,input:Row):
       // provider is OSM. Prefer authoritative place details to unreliable RSS.
       let placeId='';try{placeId=clean((JSON.parse(clean(row.raw_json)||'{}') as Row).placeId,300);}catch{}
       stage=!allowedWebsite(clean(row.website))&&placeId&&env.GEOAPIFY_API_KEY?'DETAIL':'LOOKUP';
-    }else stage=row.source_provider==='GEOAPIFY_SCHOOL_V1'||!allowedWebsite(clean(row.website))?'LOOKUP':'ENRICH';
+    }else stage=row.source_provider==='GEOAPIFY_SCHOOL_V1'||!allowedWebsite(clean(row.website))?'LOOKUP':
+      hasReusableVerifiedEnrichment(row)?'IMPORT':'ENRICH';
   }
   if(stage==='DETAIL'){
     const raw=JSON.parse(clean(row.raw_json)||'{}') as Row;

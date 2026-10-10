@@ -6,7 +6,7 @@ import {Search,LoaderCircle,Pause,Play,RefreshCcw,ExternalLink,ArrowRight,Trash2
 import {TYPE_OPTIONS,STATE_NAMES} from '../shared/discovery';
 type Row=Record<string,unknown>;
 type Run={id:string;status:string;phase:string;message:string;revision?:number;updated_at?:string;steps_completed?:number;scope:{stateCode:string;customerType:string;city:string;targetCount:number;batches:number}};
-type Data={ok?:boolean;error?:string;run?:Run|null;counts?:Array<{kind:string;status:string;count:number}>;results?:Row[];exceptions?:Row[];sources?:Row[];workerBusy?:boolean;progress?:{total:number;processed:number};current?:Array<{name:string;stage:string;startedAt:string}>};
+type Data={ok?:boolean;error?:string;run?:Run|null;counts?:Array<{kind:string;status:string;count:number;confirmed?:number}>;results?:Row[];exceptions?:Row[];sources?:Row[];workerBusy?:boolean;progress?:{total:number;processed:number};current?:Array<{name:string;stage:string;startedAt:string}>};
 type History={counts?:Record<string,number>;protectedLeads?:number;archives?:Array<{id:string;status:string;created_at:string;counts_json:string}>};
 type Props={accessKey:string;externalBusy:boolean;onBusyChange:(busy:boolean)=>void;onChanged:()=>void;onCleared:()=>void};
 const text=(v:unknown,fallback='—')=>v===null||v===undefined||v===''?fallback:String(v);
@@ -57,7 +57,9 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
     }catch(e){setError(e instanceof Error?e.message:'历史记录操作失败。');}finally{setHistoryBusy(false);}
   }
   const count=(kind:string,status?:string)=>(data.counts||[]).filter(c=>c.kind===kind&&(!status||c.status===status)).reduce((n,c)=>n+Number(c.count),0);
-  const imported=count('CANDIDATE','DONE');
+  // A completed work item is NOT proof that a CRM lead was inserted.
+  const imported=(data.counts||[]).filter(c=>c.kind==='CANDIDATE'&&c.status==='DONE')
+    .reduce((total,c)=>total+Number(c.confirmed||0),0);
   const importedRows=(data.results||[]).filter(row=>row.status==='DONE'&&row.crm_lead_id);
   const run=data.run,frozen=busy||run?.status==='PAUSED';
   const diagnosis=diagnoseDiscovery(data);
@@ -87,6 +89,11 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
         <p style={{margin:'7px 0',color:'#475467'}}>下一步：{diagnosis.action}</p>
       </div>}
       {!!importedRows.length&&<div className="table-wrap"><table><thead><tr><th>机构 / 地区</th><th>公开联系方式</th><th>负责人 / 社交账号</th><th>结果</th></tr></thead><tbody>{importedRows.map(row=><tr key={text(row.item_key)}><td><strong>{text(row.name)}</strong><small>{text(row.city,'')} {text(row.state_region,'')} · {text(row.grade)} {text(row.lead_score,'0')}/100</small>{Boolean(row.address)&&<small>{text(row.address)}</small>}{Boolean(row.website)&&<a href={text(row.website)} target="_blank" rel="noreferrer">官网 <ExternalLink size={12}/></a>}</td><td><div>{text(row.email,'邮箱未公开')}</div><div>{text(row.phone,'电话未公开')}</div><small>{row.whatsapp?'WhatsApp: '+text(row.whatsapp):'WhatsApp 未公开'}</small></td><td><strong>{text(row.contact_person_name,'负责人未公开')}</strong><small>{text(row.contact_person_title,'')}</small><div className="discovery-socials">{[['Instagram','instagram_url'],['Facebook','facebook_url'],['TikTok','tiktok_url'],['LinkedIn','linkedin_url']].map(([label,key])=>row[key]?<a key={key} href={text(row[key])} target="_blank" rel="noreferrer">{label}</a>:null)}</div></td><td>{row.status==='DONE'&&row.crm_lead_id?<><span className="auto-discovery-imported">已加入待开发客户</span><Link to={'/app/leads/'+text(row.crm_lead_id)}>查看客户档案</Link></>:<span>{statusNames[text(row.status)]||text(row.status)}</span>}{Boolean(row.error)&&<small>{text(row.error)}</small>}</td></tr>)}</tbody></table></div>}
+      {(data.exceptions||[]).length>0&&<div className="auto-discovery-diagnosis" style={{marginTop:16,paddingTop:14,borderTop:'1px solid #e4e7ec'}} role="status">
+        <strong>尚未转入客户库的核验记录 · {data.exceptions?.length||0} 项</strong>
+        <p style={{margin:'7px 0'}}>这些记录不是已确认客户，不会被自动发送首次邀约；可以查看明确原因后再重试或人工核对官网。</p>
+        {(data.exceptions||[]).slice(0,5).map(row=><p key={text(row.kind)+text(row.item_key)} style={{margin:'6px 0'}}><strong>{text(row.name)}</strong>：{text(row.error,'原因待补充')}</p>)}
+      </div>}
       <details className="auto-discovery-details"><summary>查看来源进度与未完成信息（{data.exceptions?.length||0}）</summary><ul>{data.sources?.map(row=>{const result=sourceResult(row);return <li key={text(row.item_key)}><strong>{sourceNames[text(row.item_key).split(':')[0]]||text(row.item_key)}</strong> · {row.status==='DONE'?'查询完成':row.status==='REVIEW'?'来源受限 / 需检查':statusNames[text(row.status)]||text(row.status)}{row.status==='DONE'?` · 返回 ${Number(result.found||0)} 条线索`:''}{Boolean(result.note)&&<p>{text(result.note)}</p>}{Boolean(row.error)&&<p>{text(row.error)}</p>}</li>;})}</ul>{data.exceptions?.map(row=><p key={text(row.kind)+text(row.item_key)}><strong>{text(row.name)}</strong> · {text(row.error)}</p>)}</details>
     </div>}
     {message&&<div className="form-status success" role="status">{message}</div>}

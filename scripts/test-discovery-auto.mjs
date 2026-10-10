@@ -117,7 +117,13 @@ try{
   await post('discovery-history-v1',{action:'CLEAR'});missingContacts=false;
   result=await post('discovery-auto-v1',{action:'START',...search});const retryId=result.body.run.id;
   // A real persistent failure is reported; retry recovers only failed records.
-  for(let tick=0;tick<3;tick++)await post('discovery-auto-v1',{action:'ADVANCE',runId:retryId});
+  // Force a pre-existing verified candidate into a genuinely incomplete
+  // enrichment state. Previously completed, source-verified candidates are
+  // deliberately fast-pathed past this network call.
+  for(let tick=0;tick<20&&!scalar('SELECT COUNT(*) AS n FROM discovery_candidates');tick++)
+    await post('discovery-auto-v1',{action:'ADVANCE',runId:retryId});
+  assert(scalar('SELECT COUNT(*) AS n FROM discovery_candidates')>0,'fixture must have a verified candidate before injecting an enrichment failure');
+  db.sqlite.prepare("UPDATE discovery_candidates SET enrichment_status='NOT_STARTED' WHERE source_provider IN ('WEB_SEARCH_VERIFIED_V6','PUBLIC_SOURCE_VERIFIED_V1','OFFICIAL_WEBSITE_IMPORT_V1')").run();
   failEnrich=true;
   for(let tick=0;tick<40;tick++){result=await post('discovery-auto-v1',{action:'ADVANCE',runId:retryId});if(result.body.run.status!=='RUNNING')break;}
   assert.equal(result.body.run.status,'PARTIAL');assert.equal(scalar("SELECT COUNT(*) AS n FROM discovery_auto_items WHERE status='FAILED' AND attempts=2")>0,true);
