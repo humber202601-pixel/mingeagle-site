@@ -10,7 +10,7 @@ for(const name of names){
 }
 assert(logic.includes("cb.value===q.get('product')"),'Form should preselect exact product query parameter');
 assert.equal((catalog.match(/class="catalog-product-actions"/g)||[]).length,4);
-for(const cls of ['catalog-size','catalog-color','catalog-qty','catalog-quote','catalog-sample'])assert.equal((catalog.match(new RegExp('class="'+cls+'"','g'))||[]).length,4,'Missing catalog selector '+cls);
+for(const cls of ['catalog-size','catalog-color','catalog-qty','catalog-quote','catalog-sample'])assert.equal((catalog.match(new RegExp('class="[^"]*\\b'+cls+'\\b[^"]*"','g'))||[]).length,4,'Missing catalog selector '+cls);
 assert(catalog.includes("new URLSearchParams({product:name,size:"),'Selections must be sent to inquiry URL');
 assert(logic.includes("const color=q.get('color'),units=q.get('units')"),'Inquiry must prefill color and units');
 for(const product of Object.values(master)){
