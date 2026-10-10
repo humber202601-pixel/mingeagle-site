@@ -1,7 +1,7 @@
 """Preserve approved content while applying contact and crawl configuration."""
 from pathlib import Path
 import re
-root=Path('public');version='20261010-contact1'
+root=Path('public');version='20261010-crm-v26'
 for p in root.glob('*.html'):
  s=p.read_text()
  if 'site.js?' not in s:
