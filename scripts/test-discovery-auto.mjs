@@ -244,6 +244,10 @@ try{
     coreSaved+=page.body.found;
   }
   assert.equal(coreSaved,12,'all indexed sites eventually saved without exceeding per-request writes');
+  const webJob=db.sqlite.prepare("SELECT status,result_count FROM discovery_jobs WHERE id=?").get('AUTO:'+coreBatchId+':WEB_SEARCH_VERIFIED_V6:0');
+  assert.equal(webJob?.status,'COMPLETED','web source ends only after all source pages are saved');
+  assert.equal(webJob?.result_count,12,'web index pages share one cumulative source job');
+  assert.equal(scalar("SELECT COUNT(*) AS n FROM discovery_jobs WHERE id LIKE 'AUTO:"+''+"'"+''+"%WEB_SEARCH_VERIFIED_V6:0'"),1,'one logical web-index job instead of three page jobs');
   assert.equal(scalar("SELECT COUNT(*) AS n FROM discovery_clues WHERE source_provider='WEB_INDEX'"),12);
   assert.equal(scalar('SELECT COUNT(*) AS n FROM messages'),0);
   await post('discovery-auto-v1',{action:'FINISH',runId:coreBatchId});manyCoreHits=false;
