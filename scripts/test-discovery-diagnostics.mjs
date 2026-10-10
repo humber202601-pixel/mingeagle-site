@@ -10,7 +10,7 @@ try{
   await build({entryPoints:['src/discovery-diagnostics.ts'],bundle:true,platform:'node',format:'esm',outdir:dir,outExtension:{'.js':'.mjs'},logLevel:'silent'});
   const {diagnoseDiscovery}=await import(pathToFileURL(join(dir,'discovery-diagnostics.mjs')));
   const run=(status,found,clues,candidates,imported=0,failures=0)=>{
-    const counts=[{kind:'CLUE',status:'DONE',count:clues},{kind:'CANDIDATE',status:'DONE',count:candidates}];
+    const counts=[{kind:'CLUE',status:'DONE',count:clues},{kind:'CANDIDATE',status:'DONE',count:candidates,confirmed:imported}];
     const sources=[{item_key:'CORE:0',status:'DONE',result_json:JSON.stringify({found})},...Array.from({length:failures},(_,i)=>({item_key:'OSM:'+i,status:'FAILED',error:'Provider HTTP 503'}))];
     const results=Array.from({length:imported},(_,i)=>({status:'DONE',crm_lead_id:'lead-'+i}));
     return {run:{status},counts,sources,results};
@@ -24,6 +24,14 @@ try{
   assert.equal(diagnoseDiscovery(run('PARTIAL',10,3,0)).code,'WEBSITE_VERIFICATION','do not import unverified public clues');
   assert.equal(diagnoseDiscovery(run('COMPLETED',10,3,2)).code,'CRM_INTAKE','distinguish verified candidate from CRM conversion');
   assert.equal(diagnoseDiscovery(run('PARTIAL',10,3,2,1,1)).code,'SUCCESS');
+  const truncated=run('COMPLETED',220,150,150,125);
+  truncated.results=truncated.results.slice(0,5);
+  assert.equal(diagnoseDiscovery(truncated).funnel.imported,125,
+    'a 100-row snapshot cannot truncate CRM-confirmed client totals');
+  const falseDone=run('COMPLETED',10,8,4,0);
+  falseDone.results=[{status:'DONE',crm_lead_id:'obsolete-browser-entry'}];
+  assert.equal(diagnoseDiscovery(falseDone).funnel.imported,0,
+    'authoritative confirmed count takes precedence over stale UI rows');
   assert.equal(diagnoseDiscovery({run:{status:'COMPLETED'},sources:[{status:'DONE',result_json:'not-json'}]}).funnel.returned,0,'malformed provider data cannot crash dashboard');
   console.log('PASS: D1-free discovery funnel diagnosis distinguishes source outage, genuine zero results, clue persistence, website verification, CRM intake, active/paused and successful runs.');
 }finally{rmSync(dir,{recursive:true,force:true})}
