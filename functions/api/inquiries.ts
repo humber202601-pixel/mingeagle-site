@@ -262,8 +262,8 @@ const processInquiryPost: PagesFunction<Env> = async ({ request, env }) => {
       shippingPreference ? `Shipping preference: ${shippingPreference}` : '',
     ].filter(Boolean).join('\n');
     const requestedType = clean(input.requestType,40).toUpperCase();
-    const requestType = ['SAMPLE','WHOLESALE','GENERAL','ORDER_SUPPORT','RETAIL_PARTNERSHIP'].includes(requestedType)
-      ? requestedType : 'WHOLESALE';
+    const requestType = (['SAMPLE','WHOLESALE','GENERAL','ORDER_SUPPORT','RETAIL_PARTNERSHIP'].includes(requestedType)
+      ? requestedType : 'WHOLESALE') as NonNullable<InquiryInput['requestType']>;
     const productInterest = clean(input.productInterest, 120) || productInterestFromProducts(products);
     const requestedReference = safeReference(input.originalReference);
 
