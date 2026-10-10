@@ -15,7 +15,7 @@ try{
   const input={stateCode:'TX',customerType:'BASKETBALL_TRAINING',city:'Dallas',targetCount:20,round:0};
   const html=(name='Northstar Basketball Academy')=>`<html><title>${name}</title><script type="application/ld+json">{"@type":"Organization","name":"${name}"}</script><h1>${name}</h1><p>Dallas Texas basketball training academy private lessons register youth programs. Contact us. Elementary school district purchasing procurement physical education department.</p><a href="mailto:hello@northstar.example">hello@northstar.example</a><a href="tel:2145550186">214-555-0186</a></html>`;
   let looseMap=false,mapRequests=[],failOverpass=false,missingMapSite=false;
-  let failIndex=false,manySchoolResults=false,schoolTitle='Northstar Elementary School',websiteLinks='',websiteWrongRegion=false,websiteRequests=0;
+  let failIndex=false,manySchoolResults=false,ncesRequests=0,schoolTitle='Northstar Elementary School',websiteLinks='',websiteWrongRegion=false,websiteRequests=0;
   globalThis.fetch=async(value,init)=>{
     const u=new URL(String(value));
     if(u.hostname==='www.bing.com'){
@@ -23,6 +23,7 @@ try{
       const social=u.searchParams.get('q').includes('site:facebook')?'https://www.facebook.com/northstar/':u.searchParams.get('q').includes('site:tiktok')?'https://www.tiktok.com/@northstar/':u.searchParams.get('q').includes('site:instagram')?'https://www.instagram.com/northstar/':u.searchParams.get('q').includes('site:linkedin')?'https://www.linkedin.com/company/northstar/':u.searchParams.get('q').includes('site:.gov')?'https://parks.example.gov/northstar':'https://www.chamberofcommerce.com/business/northstar';
       return new Response(`<rss><channel><item><title>Northstar Basketball Academy</title><link>${social}</link><description>Dallas Texas basketball training programs.</description></item><item><title>Unrelated Austin Academy</title><link>https://www.facebook.com/austin/</link><description>Austin basketball academy.</description></item></channel></rss>`);
     }
+    if(u.hostname==='nces.ed.gov'||u.hostname==='services1.arcgis.com')ncesRequests++;
     if((u.hostname==='nces.ed.gov'||u.hostname==='services1.arcgis.com')&&manySchoolResults)return Response.json({features:Array.from({length:13},(_,i)=>({attributes:{NCESSCH:'4899900'+String(i).padStart(5,'0'),NAME:'Dallas Pilot Elementary '+i,CITY:'DALLAS',STATE:'TX',STREET:(i+1)+' Pilot Road',SCHOOLYEAR:'2024-2025'}}))});
     if(u.hostname==='nces.ed.gov'||u.hostname==='services1.arcgis.com')return Response.json({features:[{attributes:{NCESSCH:'480000100001',PPIN:'00000001',LEAID:'4800001',NAME:schoolTitle,CITY:'DALLAS',STATE:'TX',STREET:'1 Public Street',SCHOOLYEAR:'2024-2025'}},{attributes:{NCESSCH:'480000100002',LEAID:'4800002',NAME:'Austin Elementary',CITY:'AUSTIN',STATE:'TX'}}]});
     if(u.hostname==='api.geoapify.com'){
@@ -169,7 +170,9 @@ try{
   sqlite.exec("CREATE TABLE IF NOT EXISTS discovery_auto_runs(id TEXT PRIMARY KEY,status TEXT,lease_token TEXT,lease_until TEXT)");
   sqlite.prepare("INSERT INTO discovery_auto_runs(id,status,lease_token,lease_until) VALUES('quota-fixture','RUNNING','lease-fixture',datetime('now','+10 minutes'))").run();
   manySchoolResults=true;d1Cap=50;let totalImported=0;
+  const initialNcesRequests=ncesRequests;
   for(const offset of [0,4,8,12]){
+    if(offset)manySchoolResults=false; // Live results now shrink; snapshot must stay stable.
     d1Queries=0;
     const response=await handler.onRequestPost({request:new Request('https://test.example/api/admin/discovery-sources-v1',{method:'POST',body:JSON.stringify({...input,customerType:'ELEMENTARY_SCHOOL',action:'SEARCH',sources:['NCES'],autoRunId:'quota-fixture',autoToken:'lease-fixture',sourceOffset:offset})}),env:{MINGEAGLE_DB:db}});
     const page=await response.json();
@@ -182,6 +185,7 @@ try{
     totalImported+=page.sources.NCES.found;
   }
   assert.equal(totalImported,13,'all discovered records survive chunked automatic writes');
+  assert.equal(ncesRequests-initialNcesRequests,1,'a 13-school source makes only one public NCES request across four write pages');
   const logicalSourceJob=sqlite.prepare("SELECT status,result_count FROM discovery_jobs WHERE id='AUTO:quota-fixture:PUBLIC:NCES:0'").get();
   assert.equal(logicalSourceJob?.status,'COMPLETED','source job completes only after the final saved page');
   assert.equal(logicalSourceJob?.result_count,13,'one logical source job accumulates all four pages');
