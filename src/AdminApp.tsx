@@ -176,37 +176,64 @@ export default function AdminApp() {
   const [error, setError] = useState('');
   const [authorized, setAuthorized] = useState(false);
 
-  const load = useCallback(async (accessKey = key) => {
+  const [authBusy, setAuthBusy] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
+
+  // Data refresh is distinct from authentication. A D1 outage must not turn
+  // a correctly authenticated session into a misleading "wrong password" page.
+  const load = useCallback(async (accessKey: string) => {
     if (!accessKey) return;
     setLoading(true); setError('');
     try {
       const response = await fetch('/api/admin/data', { headers: { 'x-admin-key': accessKey }, signal: AbortSignal.timeout(15000) });
-      if (response.status === 401 || response.status === 403) { setAuthorized(false); sessionStorage.removeItem('mingeagle_admin_key'); }
+      if (response.status === 401 || response.status === 403) {
+        setAuthorized(false);
+        setKey('');
+        sessionStorage.removeItem('mingeagle_admin_key');
+        throw new Error('登录已失效，请重新验证管理员密码。');
+      }
       const body = await response.json().catch(() => ({ ok: false, error: '服务器暂时不可用，请稍后重试。' })) as AdminData & { error?: string; code?: string; resetAt?: string };
       if (body.code === 'DATABASE_DAILY_LIMIT') throw new Error('数据库今日读取额度已用完。下次重置：' + (body.resetAt ? new Date(body.resetAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) + '（北京时间）' : '每日北京时间 08:00') + '。请勿反复刷新。');
-      if (!response.ok || !body.ok) throw new Error(body.error || '无法加载后台数据。');
+      if (!response.ok || !body.ok) throw new Error(body.error || '业务数据暂时无法加载。');
       setData(body);
-      setAuthorized(true);
-      sessionStorage.setItem('mingeagle_admin_key', accessKey);
-      setKey(accessKey);
+      setDataLoaded(true);
     } catch (err) {
-      setError(err instanceof Error && err.name === 'TimeoutError' ? '请求超时，请稍后重试。' : err instanceof Error ? err.message : '无法进入后台工作台。');
+      setError(err instanceof Error && err.name === 'TimeoutError' ? '业务数据加载超时，请稍后点“刷新数据”重试。' : err instanceof Error ? err.message : '业务数据暂时无法加载。');
     } finally { setLoading(false); }
-  }, [key]);
+  }, []);
 
-  useEffect(() => { if (key) void load(key); }, []);
+  const login = useCallback(async (accessKey: string) => {
+    if (!accessKey) return;
+    setAuthBusy(true); setError('');
+    try {
+      const response = await fetch('/api/admin/session', { headers: { 'x-admin-key': accessKey }, signal: AbortSignal.timeout(15000) });
+      const body = await response.json().catch(() => ({ ok: false, error: '登录服务暂时不可用。' })) as { ok?: boolean; error?: string };
+      if (!response.ok || !body.ok) throw new Error(body.error || '密码验证失败。');
+      setAuthorized(true);
+      setKey(accessKey);
+      sessionStorage.setItem('mingeagle_admin_key', accessKey);
+      void load(accessKey);
+    } catch (err) {
+      setAuthorized(false);
+      sessionStorage.removeItem('mingeagle_admin_key');
+      setError(err instanceof Error && err.name === 'TimeoutError' ? '登录服务超时，请稍后重试。' : err instanceof Error ? err.message : '无法验证管理员密码。');
+    } finally { setAuthBusy(false); }
+  }, [load]);
+
+  useEffect(() => { if (key) void login(key); }, []);
 
   const segments = useMemo(() => location.pathname.replace(/^\/app\/?/, '').split('/').filter(Boolean), [location.pathname]);
   const page = segments[0] || 'dashboard';
   const detailId = segments[1] || '';
 
-  if (!authorized) return <Login onLogin={k => void load(k)} busy={loading} error={error}/>;
+  if (!authorized) return <Login onLogin={k => void login(k)} busy={authBusy} error={error}/>;
 
   let content: React.ReactNode;
-  if (page === 'dashboard') content = <Dashboard data={data}/>;
+  if (page === 'dashboard' && !dataLoaded) content = <><Top title="仪表盘" description="销售数据暂时未加载，管理员登录状态不受影响。"/><section className="panel"><p>{loading ? '正在加载业务数据…' : '暂时无法读取销售、订单和客户数据。请查看页面提示，并在数据库恢复后点击左侧“刷新数据”。'}</p></section></>;
+  else if (page === 'dashboard') content = <Dashboard data={data}/>;
   else if (page === 'discovery') content = <>
     <Top title="客户发现" description="选择地区和客户类型，一键完成搜索、官网核验、公开信息补全和待开发客户入库。"/>
-    <DiscoveryCenter accessKey={key} onChanged={() => void load()} />
+    <DiscoveryCenter accessKey={key} onChanged={() => void load(key)} />
   </>;
   else if (page === 'leads' && detailId) content = <AdminDetail type="lead" id={detailId} accessKey={key}/>;
   else if (page === 'inquiries' && detailId) content = <AdminDetail type="inquiry" id={detailId} accessKey={key}/>;
@@ -222,11 +249,11 @@ export default function AdminApp() {
   ]}/></>;
   else if (page === 'contacts') content = <>
     <Top title="联系人" description="补录负责人、采购联系人、电话和 WhatsApp，并管理禁止联系状态。"/>
-    <ContactManager contacts={data.contacts} accessKey={key} onChanged={() => void load()} />
+    <ContactManager contacts={data.contacts} accessKey={key} onChanged={() => void load(key)} />
   </>;
   else if (page === 'communications') content = <>
     <Top title="沟通中心" description="使用免费渠道开展邮件 / WhatsApp 跟进，登记客户回复，并自动推进潜客阶段和下一步任务。"/>
-    <CommunicationCenter accessKey={key} onChanged={() => void load()} />
+    <CommunicationCenter accessKey={key} onChanged={() => void load(key)} />
   </>;
   else if (page === 'automation') content = <>
     <Top title="自动化中心" description="集中控制暖客户自动跟进、发送上限、待审核队列和自动化运行状态。"/>
@@ -234,16 +261,16 @@ export default function AdminApp() {
   </>;
   else if (page === 'quotes') content = <>
     <Top title="报价单" description="创建报价草稿、生成客户安全链接、跟踪查看状态并自动转订单。"/>
-    <QuoteBuilder inquiries={data.inquiries} accessKey={key} onCreated={() => void load()} />
+    <QuoteBuilder inquiries={data.inquiries} accessKey={key} onCreated={() => void load(key)} />
   </>;
   else if (page === 'orders') content = <>
     <Top title="订单" description="确认收款、处理订单、录入物流、确认送达，并自动进入复购跟进。"/>
-    <OrderManager orders={data.orders} accessKey={key} onChanged={() => void load()} />
+    <OrderManager orders={data.orders} accessKey={key} onChanged={() => void load(key)} />
   </>;
   else content = <>
     <Top title="跟进任务" description="执行、延期或完成由销售和履约自动化产生的待办任务。"/>
-    <TaskManager tasks={data.tasks} accessKey={key} onChanged={() => void load()} />
+    <TaskManager tasks={data.tasks} accessKey={key} onChanged={() => void load(key)} />
   </>;
 
-  return <Layout loading={loading} onRefresh={() => void load()} onLogout={() => { sessionStorage.removeItem('mingeagle_admin_key'); setKey(''); setAuthorized(false); setData(emptyData); }}>{error && <div role="alert" className="form-status error">{error}</div>}{content}</Layout>;
+  return <Layout loading={loading} onRefresh={() => void load(key)} onLogout={() => { sessionStorage.removeItem('mingeagle_admin_key'); setKey(''); setAuthorized(false); setData(emptyData); }}>{error && <div role="alert" className="form-status error">{error}</div>}{content}</Layout>;
 }
