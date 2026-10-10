@@ -15,7 +15,7 @@ function redraw(){const lines=read(),body=$('cartLines');body.replaceChildren();
  const price=document.createElement('td');price.textContent=money(prices[l.sku]*l.quantity);sub+=prices[l.sku]*l.quantity;
  const rem=document.createElement('td'),b=document.createElement('button');b.type='button';b.textContent='Remove';b.addEventListener('click',()=>{save(read().filter(x=>x.sku!==l.sku));latest=null;redraw()});rem.append(b);tr.append(title,qcell,price,rem);body.append(tr)}
  $('cartEmpty').hidden=lines.length>0;$('cartTable').hidden=lines.length===0;
- $('cartSubtotal').textContent=money(sub);$('cartEstimate').hidden=true;$('cartCheckout').disabled=true;
+ $('cartSubtotal').textContent=money(sub);$('cartSummaryGoods').textContent=money(sub);$('cartSummaryShipping').textContent='Not calculated';$('cartSummaryTotal').textContent='—';$('cartEstimate').hidden=true;$('cartCheckout').disabled=true;
  const total=lines.reduce((n,x)=>n+x.quantity,0);$('cartSea').disabled=total<10;if(total<10&&$('cartMethod').value==='sea')$('cartMethod').value='air';
  $('cartStatus').textContent=lines.length?'Select destination and calculate the current shipping cost.':'Your cart is empty.';
 }
