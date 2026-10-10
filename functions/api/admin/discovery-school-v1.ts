@@ -1,4 +1,4 @@
-import { assertAutoLease,saveAutoClues } from '../../../lib/discovery-auto-support';
+import { assertAutoLease,saveAutoClues,sourceJobId } from '../../../lib/discovery-auto-support';
 import { ensureClues } from '../../../lib/discovery-sources';
 import { publicPhone, publicPhones } from '../../../lib/public-contacts';
 import { fetchPublicText } from '../../../lib/public-web';
@@ -189,7 +189,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     let parsed;try{parsed=parseSearch(input)}catch(e){return Response.json({ok:false,error:(e as Error).message},{status:400})}const cities = parsed.city?[parsed.city]:(ALL_METROS[state] || []); const locations = cities.length ? cities : [state]; const terms = TERMS[type] || ['school'];
     const allQueries=terms.flatMap(term=>locations.map(city=>`${term} ${city} ${ALL_STATE_NAMES[state]} USA`));const offset=(parsed.round*8)%allQueries.length;const queries=Array.from({length:Math.min(8,allQueries.length)},(_,i)=>allQueries[(offset+i)%allQueries.length]);
-    jobId = crypto.randomUUID(); await db.prepare(`INSERT INTO discovery_jobs (id,state_region,customer_type,target_count,source_provider) VALUES (?,?,?,?,'GEOAPIFY_SCHOOL_V1')`).bind(jobId,state,type,target).run();
+    if(input.autoRunId)await assertAutoLease(db,input);
+    jobId = sourceJobId(input,'GEOAPIFY_SCHOOL_V1',parsed.round);
+    await db.prepare(`INSERT OR IGNORE INTO discovery_jobs (id,state_region,customer_type,target_count,source_provider) VALUES (?,?,?,?,'GEOAPIFY_SCHOOL_V1')`).bind(jobId,state,type,target).run();
     const started = Date.now(); const searchRs = await Promise.allSettled(queries.map(q => searchGeo(env.GEOAPIFY_API_KEY!,q,state).then(results => ({ q, results }))));
     if(searchRs.every(r=>r.status==='rejected'))throw new Error('学校地点查询全部失败，请稍后重试。');const raw: Array<{q:string;r:GeoResult}> = []; for (const s of searchRs) if (s.status === 'fulfilled') for (const r of s.value.results) raw.push({ q:s.value.q, r });
     const byPlace = new Map<string,{q:string;r:GeoResult}>(); for (const x of raw) { if(parsed.city&&clean(x.r.city,100).toLowerCase()!==parsed.city.toLowerCase())continue; const id = clean(x.r.place_id,300); const name = clean(x.r.name || x.r.formatted,180); if (!id || !name || !strongName(name,type)) continue; if (!byPlace.has(id)) byPlace.set(id,x); }
@@ -201,7 +203,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const seeds=allSeeds.slice(offset,offset+4);
       const foundIds=await saveAutoClues(db,{...input,customerType:type},seeds);
       const hasMore=offset+4<allSeeds.length;
-      await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(foundIds.length,jobId).run();
+      await db.prepare(`UPDATE discovery_jobs SET status=?,result_count=MAX(result_count,?),error=NULL,completed_at=CASE WHEN ? THEN NULL ELSE CURRENT_TIMESTAMP END WHERE id=?`).bind(hasMore?'RUNNING':'COMPLETED',offset+foundIds.length,hasMore?1:0,jobId).run();
       return Response.json({ok:true,found:foundIds.length,available:allSeeds.length,hasMore,nextOffset:hasMore?offset+4:null,foundIds,note:'学校地图线索已分批保存，地点详情和官网核验将分步继续。'});
     }
     const shortlist = [...byPlace.values()].slice(0,Math.min(28,target + 12)); const candidates: Candidate[] = []; let detailsChecked = 0; let websiteChecked = 0;
