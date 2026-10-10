@@ -214,5 +214,17 @@ try{
   db.sqlite.prepare("DELETE FROM discovery_auto_items WHERE run_id=? AND item_key<>'CORE:0'").run(unavailableId);
   for(let tick=0;tick<5;tick++){result=await post('discovery-auto-v1',{action:'ADVANCE',runId:unavailableId});if(result.body.run.status!=='RUNNING')break;}
   assert.equal(result.body.run.status,'PARTIAL');assert.equal(result.body.sources[0].status,'FAILED');assert(result.body.exceptions[0].error.includes('均不可读取'));assert(result.body.run.message.includes('本批未找到'));
+  // All source providers must finish before clue verification. Otherwise OSM
+  // clues can fail before Geoapify supplies the missing website/place ID.
+  await post('discovery-history-v1',{action:'CLEAR'});
+  result=await post('discovery-auto-v1',{action:'START',...search});
+  const sourceFirstId=result.body.run.id;
+  db.sqlite.prepare('DELETE FROM discovery_auto_items WHERE run_id=?').run(sourceFirstId);
+  db.sqlite.prepare("INSERT INTO discovery_clues(id,source_key,title,source_provider,source_url,customer_type,state_region,city,status) VALUES('pending-geo-clue','osm:way:901','Northstar Basketball Academy','OSM','https://www.openstreetmap.org/way/901','BASKETBALL_TRAINING','TX','Dallas','PENDING')").run();
+  db.sqlite.prepare("INSERT INTO discovery_auto_items(run_id,kind,item_key,payload_json) VALUES(?,'SOURCE','GEOAPIFY:0','{}')").run(sourceFirstId);
+  db.sqlite.prepare("INSERT INTO discovery_auto_items(run_id,kind,item_key) VALUES(?,'CLUE','pending-geo-clue')").run(sourceFirstId);
+  const sourceWork=await auto.claimAuto(db,sourceFirstId);
+  assert.equal(sourceWork.items[0].kind,'SOURCE','gather and merge Geoapify evidence before processing existing OSM clues');
+  await post('discovery-auto-v1',{action:'FINISH',runId:sourceFirstId});
   console.log('PASS: one-click source search → automatic official-site matching → verification → deeper enrichment → CRM; social/contact evidence; dedupe and repeated-click protection; pause/resume; explicit unavailable fields; automatic retry and exception recovery; lease lock; atomic recoverable cleanup/restore; protected commercial records; no outreach or queue.');
 }finally{globalThis.fetch=originalFetch;rmSync(temp,{recursive:true,force:true});}

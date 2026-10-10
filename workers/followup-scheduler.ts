@@ -281,10 +281,33 @@ async function runSweep(env: Env) {
   };
 }
 
+// At most one persisted heartbeat per cron in 15 minutes. Deployment
+// success does not establish that Cloudflare is actually invoking Cron Triggers.
+// No customer/contact data or email is written by this passive monitor.
+let heartbeatTableReady: Promise<void> | undefined;
+async function recordHeartbeat(env: Env, cron: string) {
+  try {
+    if (!heartbeatTableReady) heartbeatTableReady = env.MINGEAGLE_DB.prepare(`CREATE TABLE IF NOT EXISTS scheduler_heartbeat (
+      id TEXT PRIMARY KEY,
+      cron TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`).run().then(() => undefined).catch(error => { heartbeatTableReady = undefined; throw error; });
+    await heartbeatTableReady;
+    const id = cron === '0 13 * * *' ? 'FOLLOWUP' : 'DISCOVERY';
+    await env.MINGEAGLE_DB.prepare(`INSERT INTO scheduler_heartbeat (id,cron,last_seen_at)
+      VALUES (?,?,CURRENT_TIMESTAMP)
+      ON CONFLICT(id) DO UPDATE SET
+      cron=excluded.cron,last_seen_at=CURRENT_TIMESTAMP
+      WHERE scheduler_heartbeat.last_seen_at <= datetime('now','-15 minutes')`).bind(id,cron).run();
+  } catch (error) {
+    console.error('scheduler_heartbeat_failed', error);
+  }
+}
+
 export default {
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    if (_event.cron === '0 13 * * *') ctx.waitUntil(runSweep(env));
-    else ctx.waitUntil(continueDiscovery(env));
+    const job = _event.cron === '0 13 * * *' ? runSweep(env) : continueDiscovery(env);
+    ctx.waitUntil(Promise.all([recordHeartbeat(env,_event.cron),job]).then(() => undefined));
   },
   async fetch() {
     return Response.json({
