@@ -1,0 +1,27 @@
+name: Verify Cloudflare CRM changes
+
+on:
+  pull_request:
+    branches: [v2-cloudflare]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run discovery, authentication, and CRM regression tests
+        run: npm run test:discovery
+      - name: Typecheck and build
+        run: npm run build
