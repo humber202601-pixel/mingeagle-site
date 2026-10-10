@@ -39,11 +39,23 @@ function fitCopy(customerType:string){
     short:'a quieter option for skill work in indoor spaces',
     subject:'a quieter basketball option for indoor training',
   };
-  if(['SPORTS_RETAILER','SPORTS_STORE','SPORTS_DISTRIBUTOR','EDUCATION_SUPPLIER'].includes(type)) return {
+  if(['SPORTS_RETAILER','SPORTS_STORE'].includes(type)) return {
     label:'sports retailer',
     sentence:'For a sports retailer, the product offers a differentiated indoor-play item for parents, youth players and customers looking for a quieter basketball option.',
     short:'a differentiated indoor-play product for parents and youth players',
     subject:'silent basketball retail opportunity',
+  };
+  if(type==='SPORTS_DISTRIBUTOR'||type==='EDUCATION_SUPPLIER') return {
+    label:'sporting goods distributor',
+    sentence:'For suppliers serving schools or resellers, our silent-ball models may fit indoor activity, youth training and physical education assortment discussions.',
+    short:'indoor youth activity and school sporting goods assortments',
+    subject:'MING EAGLE silent ball wholesale supply',
+  };
+  if(['MULTISPORT_ACADEMY','AFTER_SCHOOL_PROGRAM','PRESCHOOL_KINDERGARTEN','ELEMENTARY_SCHOOL','MIDDLE_HIGH_SCHOOL','PRIVATE_CHARTER_SCHOOL','PUBLIC_SCHOOL','SCHOOL_DISTRICT'].includes(type)) return {
+    label:'youth sports and education organization',
+    sentence:'For indoor activity programs, our quieter silent-ball options may be suitable for supervised youth recreation, practice and product evaluation.',
+    short:'quieter supervised indoor youth programs',
+    subject:'quiet indoor ball options for youth programs',
   };
   return {
     label:'basketball organization',
