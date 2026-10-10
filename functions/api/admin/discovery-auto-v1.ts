@@ -27,7 +27,23 @@ export const onRequestPost:PagesFunction<AutoEnv>=async(context)=>{
     let runId=String(input.runId||'');
     if(input.action==='TICK'){const pending=await db.prepare(`SELECT id FROM discovery_auto_runs WHERE status='RUNNING' ORDER BY created_at LIMIT 1`).first<{id:string}>();if(!pending)return json({ok:true,idle:true});runId=pending.id;}
     if(!runId)return json({ok:false,error:'任务编号不能为空。'},400);
-    if(input.action==='KICK'){const work=await claimAuto(db,runId);const snapshot=await autoSummary(db,runId);if(work)context.waitUntil(executeAuto(env,request.url,request.headers.get('x-admin-key')||'',work));return json({ok:true,accepted:Boolean(work),...snapshot});}
+    if(input.action==='KICK'||input.action==='RECOVER'){
+      // RECOVER is an explicit operator retry; never steal an active worker
+      // lease, reset completed steps, clear verified leads, or resend emails.
+      if(input.action==='RECOVER'){
+        const run=await db.prepare(`SELECT status,lease_until FROM discovery_auto_runs WHERE id=?`).bind(runId).first<{status:string;lease_until:string|null}>();
+        if(!run||run.status!=='RUNNING')return json({ok:false,error:'任务未处于执行中；请先恢复或新建任务。'},409);
+        if(run.lease_until&&Date.parse(run.lease_until.replace(' ','T')+'Z')>Date.now()){
+          return json({ok:true,accepted:false,recoveryNote:'当前工作线程仍持有任务锁，请等待锁释放后再试。',...await autoSummary(db,runId)});
+        }
+      }
+      const work=await claimAuto(db,runId);
+      const snapshot=await autoSummary(db,runId);
+      if(work)context.waitUntil(executeAuto(env,request.url,request.headers.get('x-admin-key')||'',work));
+      return json({ok:true,accepted:Boolean(work),
+        ...(input.action==='RECOVER'?{recoveryNote:work?'已申请处理下一批或恢复过期工作项；不会清除已入库客户。':'当前没有待恢复工作项；请查看结果是否已完成。'}:{}),
+        ...snapshot});
+    }
     if(input.action==='FINISH'){await db.batch([db.prepare(`UPDATE discovery_auto_items SET status='REVIEW',error='本批已结束，未完成记录保留，可重新核验。',claim_token=NULL,started_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE run_id=? AND status IN ('PENDING','PROCESSING')`).bind(runId),db.prepare(`UPDATE discovery_auto_runs SET status='PARTIAL',phase='DONE',message='本批已结束；已入库客户保留，未完成记录可重试。',lease_token=NULL,lease_until=NULL,completed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP,revision=revision+1 WHERE id=? AND status IN ('RUNNING','PAUSED')`).bind(runId)]);return json({ok:true,...await autoSummary(db,runId)});}
     if(input.action==='ADVANCE'||input.action==='TICK')return json({ok:true,...await advanceAuto(env,request.url,request.headers.get('x-admin-key')||'',runId)});
     if(input.action==='PAUSE'||input.action==='RESUME'){

@@ -30,7 +30,7 @@ async function initializeAuto(db:D1Database){
     status TEXT NOT NULL DEFAULT 'PENDING', attempts INTEGER NOT NULL DEFAULT 0,
     error TEXT, result_json TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY(run_id,kind,item_key))`).run();
-  for(const [table,fields] of [['discovery_auto_runs',[['revision','INTEGER NOT NULL DEFAULT 0'],['steps_completed','INTEGER NOT NULL DEFAULT 0']]],['discovery_auto_items',[['started_at','TEXT'],['claim_token','TEXT']]]] as const){
+  for(const [table,fields] of [['discovery_auto_runs',[['revision','INTEGER NOT NULL DEFAULT 0'],['steps_completed','INTEGER NOT NULL DEFAULT 0'],['last_progress_at','TEXT']]],['discovery_auto_items',[['started_at','TEXT'],['claim_token','TEXT']]]] as const){
     const info=await db.prepare(`PRAGMA table_info(${table})`).all<{name:string}>();
     for(const [field,definition] of fields)if(!info.results.some(row=>row.name===field)){try{await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${field} ${definition}`).run();}catch(e){const now=await db.prepare(`PRAGMA table_info(${table})`).all<{name:string}>();if(!now.results.some(row=>row.name===field))throw e;}}
   }
@@ -88,11 +88,14 @@ export async function autoSummary(db:D1Database,runId?:string){
     LEFT JOIN discovery_clues l ON i.kind='CLUE' AND l.id=i.item_key
     WHERE i.run_id=? AND i.status IN ('FAILED','REVIEW') ORDER BY i.kind,i.item_key LIMIT 100`).bind(run.id).all<Row>();
   const sources=await db.prepare(`SELECT item_key,status,error,result_json FROM discovery_auto_items WHERE run_id=? AND kind='SOURCE' ORDER BY item_key`).bind(run.id).all<Row>();
-  const safeRun={id:run.id,status:run.status,phase:run.phase,message:run.message,scope:JSON.parse(String(run.scope_json)),created_at:run.created_at,updated_at:run.updated_at,completed_at:run.completed_at,revision:Number(run.revision||0),steps_completed:Number(run.steps_completed||0)};
+  const safeRun={id:run.id,status:run.status,phase:run.phase,message:run.message,scope:JSON.parse(String(run.scope_json)),created_at:run.created_at,updated_at:run.updated_at,completed_at:run.completed_at,last_progress_at:run.last_progress_at||null,revision:Number(run.revision||0),steps_completed:Number(run.steps_completed||0)};
   const current=await db.prepare(`SELECT i.kind,i.item_key,i.payload_json,i.started_at,COALESCE(c.name,l.title,i.item_key) AS name FROM discovery_auto_items i LEFT JOIN discovery_candidates c ON i.kind='CANDIDATE' AND c.id=i.item_key LEFT JOIN discovery_clues l ON i.kind='CLUE' AND l.id=i.item_key WHERE i.run_id=? AND i.status='PROCESSING'`).bind(run.id).all<Row>();
   const total=counts.results.reduce((n,row)=>n+Number(row.count),0),processed=counts.results.filter(row=>['DONE','FAILED','REVIEW','SKIPPED'].includes(String(row.status))).reduce((n,row)=>n+Number(row.count),0);
+  const waiting=counts.results.filter(row=>row.status==='PENDING').reduce((n,row)=>n+Number(row.count),0);
+  const processing=counts.results.filter(row=>row.status==='PROCESSING').reduce((n,row)=>n+Number(row.count),0);
+  const unresolved=counts.results.filter(row=>['FAILED','REVIEW'].includes(String(row.status))).reduce((n,row)=>n+Number(row.count),0);
   const workerBusy=Boolean(run.lease_token&&Date.parse(String(run.lease_until).replace(' ','T')+'Z')>Date.now());
-  return {run:safeRun,counts:counts.results,results:results.results,exceptions:exceptions.results,sources:sources.results,workerBusy,leaseUntil:workerBusy?run.lease_until:null,progress:{total,processed},current:current.results.map(row=>({kind:row.kind,name:row.name,startedAt:row.started_at,stage:JSON.parse(String(row.payload_json)).stage||row.kind}))};
+  return {run:safeRun,counts:counts.results,results:results.results,exceptions:exceptions.results,sources:sources.results,workerBusy,leaseUntil:workerBusy?run.lease_until:null,progress:{total,processed,waiting,processing,unresolved},current:current.results.map(row=>({kind:row.kind,name:row.name,startedAt:row.started_at,stage:JSON.parse(String(row.payload_json)).stage||row.kind}))};
 }
 async function reconcile(db:D1Database,runId:string){
   await db.batch([
@@ -142,7 +145,7 @@ export async function executeAuto(env:AutoEnv,base:string,key:string,work:AutoWo
       }catch(e){error=clean(e instanceof Error?e.message:e);status=e instanceof AutoStepError&&e.retryable&&item.attempts<1?'PENDING':'FAILED';}
       await db.batch([
         db.prepare(`UPDATE discovery_auto_items SET status=?,error=?,result_json=?,payload_json=?,attempts=CASE WHEN ? THEN 0 ELSE attempts END,claim_token=NULL,started_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE run_id=? AND kind=? AND item_key=? AND status='PROCESSING' AND claim_token=? AND EXISTS(SELECT 1 FROM discovery_auto_runs WHERE id=? AND lease_token=? AND status IN ('RUNNING','PAUSED'))`).bind(status,error,result?JSON.stringify(result):null,payload,reset?1:0,runId,item.kind,item.item_key,token,runId,token),
-        db.prepare(`UPDATE discovery_auto_runs SET steps_completed=steps_completed+1,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND lease_token=? AND status IN ('RUNNING','PAUSED')`).bind(runId,token),
+        db.prepare(`UPDATE discovery_auto_runs SET steps_completed=steps_completed+1,last_progress_at=CURRENT_TIMESTAMP,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND lease_token=? AND status IN ('RUNNING','PAUSED')`).bind(runId,token),
       ]);
       if(status==='DONE'&&result?.candidateId){await db.prepare(`INSERT OR IGNORE INTO discovery_auto_items(run_id,kind,item_key) SELECT ?,'CANDIDATE',? WHERE EXISTS(SELECT 1 FROM discovery_auto_runs WHERE id=? AND lease_token=? AND status IN ('RUNNING','PAUSED'))`).bind(runId,String(result.candidateId),runId,token).run();}
     }));

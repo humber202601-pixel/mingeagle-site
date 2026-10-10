@@ -1,12 +1,13 @@
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {discoveryRequest,startDiscoveryLoop,mergeDiscovery} from './discovery-runner';
 import {diagnoseDiscovery} from './discovery-diagnostics';
+import {discoveryStall} from './discovery-stall';
 import {Link} from 'react-router-dom';
 import {Search,LoaderCircle,Pause,Play,RefreshCcw,ExternalLink,ArrowRight,Trash2} from 'lucide-react';
 import {TYPE_OPTIONS,STATE_NAMES} from '../shared/discovery';
 type Row=Record<string,unknown>;
-type Run={id:string;status:string;phase:string;message:string;revision?:number;updated_at?:string;steps_completed?:number;scope:{stateCode:string;customerType:string;city:string;targetCount:number;batches:number}};
-type Data={ok?:boolean;error?:string;run?:Run|null;counts?:Array<{kind:string;status:string;count:number;confirmed?:number}>;results?:Row[];exceptions?:Row[];sources?:Row[];workerBusy?:boolean;progress?:{total:number;processed:number};current?:Array<{name:string;stage:string;startedAt:string}>};
+type Run={id:string;status:string;phase:string;message:string;revision?:number;updated_at?:string;created_at?:string;last_progress_at?:string|null;steps_completed?:number;scope:{stateCode:string;customerType:string;city:string;targetCount:number;batches:number}};
+type Data={ok?:boolean;error?:string;run?:Run|null;counts?:Array<{kind:string;status:string;count:number;confirmed?:number}>;results?:Row[];exceptions?:Row[];sources?:Row[];workerBusy?:boolean;progress?:{total:number;processed:number;waiting?:number;processing?:number;unresolved?:number};current?:Array<{name:string;stage:string;startedAt:string}>};
 type History={counts?:Record<string,number>;protectedLeads?:number;archives?:Array<{id:string;status:string;created_at:string;counts_json:string}>};
 type Props={accessKey:string;externalBusy:boolean;onBusyChange:(busy:boolean)=>void;onChanged:()=>void;onCleared:()=>void;initialType?:string};
 const text=(v:unknown,fallback='—')=>v===null||v===undefined||v===''?fallback:String(v);
@@ -19,7 +20,14 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
   const [state,setState]=useState('TX'),[type,setType]=useState(initialType||'BASKETBALL_TRAINING'),[city,setCity]=useState(''),[target,setTarget]=useState(20),[batches,setBatches]=useState(1);
   const [data,setData]=useState<Data>({}),[loading,setLoading]=useState(true),[working,setWorking]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
   const [history,setHistory]=useState<History>({}),[historyOpen,setHistoryOpen]=useState(false),[historyBusy,setHistoryBusy]=useState(false);
+  const [clockNow,setClockNow]=useState(()=>Date.now());
   const onChangedRef=useRef(onChanged);onChangedRef.current=onChanged;
+  useEffect(()=>{
+    if(data.run?.status!=='RUNNING')return;
+    setClockNow(Date.now());
+    const timer=setInterval(()=>setClockNow(Date.now()),30000);
+    return ()=>clearInterval(timer);
+  },[data.run?.id,data.run?.status]);
   const busy=working||historyBusy||data.run?.status==='RUNNING';
   useEffect(()=>{onBusyChange(Boolean(busy));return()=>onBusyChange(false);},[busy,onBusyChange]);
   const accept=(result:Data)=>setData(previous=>mergeDiscovery(previous,result));
@@ -47,8 +55,13 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
     try{setData(await api({action:'START',stateCode:state,customerType:type,city,targetCount:target,batches}));}catch(e){setError(e instanceof Error?e.message:'任务启动失败。');}finally{setWorking(false);}
   }
   async function action(actionName:string){
-    if(!data.run)return;setWorking(true);setError('');
-    try{accept(await api({action:actionName,runId:data.run.id}));onChangedRef.current();}catch(e){setError(e instanceof Error?e.message:'任务操作失败。');}finally{setWorking(false);}
+    if(!data.run)return;setWorking(true);setError('');setMessage('');
+    try{
+      const result=await api({action:actionName,runId:data.run.id});
+      accept(result);
+      if(actionName==='RECOVER')setMessage(String((result as Data&{recoveryNote?:string}).recoveryNote||'已请求安全恢复，请等待下一个任务步骤。'));
+      onChangedRef.current();
+    }catch(e){setError(e instanceof Error?e.message:'任务操作失败。');}finally{setWorking(false);}
   }
   async function loadHistory(){
     const h=await discoveryRequest<History>(accessKey,undefined,undefined,undefined,20000,'/api/admin/discovery-history-v1');setHistory(h);
@@ -70,6 +83,7 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
     .reduce((total,c)=>total+Number(c.confirmed||0),0);
   const importedRows=(data.results||[]).filter(row=>row.status==='DONE'&&row.crm_lead_id);
   const run=data.run,frozen=busy||run?.status==='PAUSED';
+  const stall=discoveryStall(data,clockNow);
   const diagnosis=diagnoseDiscovery(data);
   const zeroResult=Boolean(run&&['COMPLETED','PARTIAL'].includes(run.status)&&imported===0);
   const runMessage=zeroResult?'本批未找到通过核验并入库的客户；请查看各来源返回数量和待核验原因。':run?.message;
@@ -82,13 +96,13 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
       <label>城市（可选）<input aria-label="一键发现城市" value={city} disabled={frozen||externalBusy} onChange={e=>setCity(e.target.value)} placeholder="例如 Dallas；留空轮换重点城市" maxLength={80}/></label>
       <label>每批目标数量<select aria-label="一键发现数量" value={target} disabled={frozen||externalBusy} onChange={e=>setTarget(Number(e.target.value))}><option value={20}>20</option><option value={50}>50</option><option value={100}>100</option></select></label>
       <label>搜索深度<select aria-label="一键发现批数" value={batches} disabled={frozen||externalBusy} onChange={e=>setBatches(Number(e.target.value))}><option value={1}>标准 · 1 批</option><option value={2}>扩大 · 2 批</option><option value={3}>深入 · 3 批</option></select></label>
-      <button className="button auto-discovery-start" disabled={frozen||externalBusy||loading}>{busy?<><LoaderCircle size={18} className="spin"/>{working?'正在提交…':'任务在后台执行 · 查看下方进度'}</>:<><Search size={18}/>一键发现并加入待开发客户<ArrowRight size={18}/></>}</button>
+      <button className="button auto-discovery-start" disabled={frozen||externalBusy||loading}>{busy?<>{stall.canRecover?<RefreshCcw size={18}/>:<LoaderCircle size={18} className="spin"/>}{working?'正在提交…':stall.stale?'任务可能停滞 · 查看下方恢复建议':'任务在后台执行 · 查看下方进度'}</>:<><Search size={18}/>一键发现并加入待开发客户<ArrowRight size={18}/></>}</button>
     </form>
     <p className="auto-discovery-help">自动选择地图、公开官网、企业目录及社交索引；官网、目录和社交渠道均检索公开搜索索引，并非平台全量数据库。城市留空时按批次轮换重点城市，不代表遍历全州。学校类型自动加入相应官方名录。仅补全有公开出处的信息，未公开字段会明确标记。任务进度保存在后台，离开页面后由后台每分钟续跑。</p>
     {loading&&<p role="status">正在读取任务进度…</p>}
     {run&&<div className="auto-discovery-progress" aria-live="polite">
       <div className="auto-discovery-run-head"><div><strong>{statusNames[run.status]||run.status} · {phaseNames[run.phase]||run.phase}</strong><p>{STATE_NAMES[run.scope.stateCode]}{run.scope.city?' / '+run.scope.city:''} · {TYPE_OPTIONS.find(([key])=>key===run.scope.customerType)?.[1]} · {runMessage}</p></div><div className="secure-link-actions">{run.status==='RUNNING'?<button type="button" className="button secondary small" disabled={working} onClick={()=>void action('PAUSE')}><Pause size={14}/>暂停</button>:run.status==='PAUSED'?<button type="button" className="button small" disabled={working} onClick={()=>void action('RESUME')}><Play size={14}/>继续自动处理</button>:null}{run.status==='PARTIAL'&&<button type="button" className="button secondary small" disabled={working} onClick={()=>void action('RETRY')}><RefreshCcw size={14}/>重试未完成项目</button>}</div></div>
-      <div className="auto-discovery-live" role="status"><strong>已完成 {run.steps_completed||0} 个步骤 · 已处理 {data.progress?.processed||0} / {data.progress?.total||0} 个当前工作项</strong>{run.updated_at&&<span>最近更新：{new Date(run.updated_at.replace(' ','T')+'Z').toLocaleTimeString('zh-CN',{timeZone:'Asia/Shanghai'})}（北京时间）</span>}<span>已处理数会随步骤完成更新；新发现的线索会自动加入总数。</span>{data.current?.map((item,index)=><p key={item.name+index}>{({SOURCE:'搜索来源',CLUE:'核验线索',CANDIDATE:'整理客户',DETAIL:'读取地点详情',LOOKUP:'查找官网',VERIFY:'核验官网',ENRICH:'补全公开信息',IMPORT:'加入待开发客户'} as Record<string,string>)[item.stage]||item.stage} · {item.name}</p>)}{run.status==='RUNNING'&&!data.current?.length&&<p>{data.workerBusy?'上一处理步骤仍在执行；中断的步骤会在任务锁到期后自动恢复。':'正在衔接下一处理步骤。'}</p>}<button type="button" className="button secondary small" disabled={working} onClick={()=>void api(undefined,undefined,run.id).then(accept).catch(e=>setError(e.message))}>检查进度</button>{['RUNNING','PAUSED'].includes(run.status)&&<button type="button" className="button secondary small" disabled={working} onClick={()=>void action('FINISH')}>结束本批并保留结果</button>}</div>
+      <div className="auto-discovery-live" role="status"><strong>已完成 {run.steps_completed||0} 个步骤 · 已处理 {data.progress?.processed||0} / {data.progress?.total||0} 个当前工作项</strong>{run.updated_at&&<span>最近更新：{new Date(run.updated_at.replace(' ','T')+'Z').toLocaleTimeString('zh-CN',{timeZone:'Asia/Shanghai'})}（北京时间）</span>}<span>当前队列：待处理 {data.progress?.waiting??'—'} · 进行中 {data.progress?.processing??'—'} · 待复核 / 失败 {data.progress?.unresolved??'—'}。新发现的线索会自动加入总数，已完成步骤数可能大于已处理工作项。</span>{run.last_progress_at&&<span>最后一次实际步骤完成：{new Date(run.last_progress_at.replace(' ','T')+'Z').toLocaleTimeString('zh-CN',{timeZone:'Asia/Shanghai'})}（北京时间）；不是任务锁续期时间。</span>}{data.current?.map((item,index)=><p key={item.name+index}>{({SOURCE:'搜索来源',CLUE:'核验线索',CANDIDATE:'整理客户',DETAIL:'读取地点详情',LOOKUP:'查找官网',VERIFY:'核验官网',ENRICH:'补全公开信息',IMPORT:'加入待开发客户'} as Record<string,string>)[item.stage]||item.stage} · {item.name}</p>)}{run.status==='RUNNING'&&!data.current?.length&&<p>{data.workerBusy?'上一处理步骤仍在执行；中断的步骤会在任务锁到期后自动恢复。':'正在衔接下一处理步骤。'}</p>}{stall.stale&&<div className="auto-discovery-diagnosis" role="status" style={{margin:'12px 0',padding:'12px',border:'1px solid #cbd5e1',borderRadius:10}}><strong>已超过 {stall.elapsedMinutes} 分钟没有记录到新的处理步骤</strong><p style={{margin:'7px 0'}}>当前仍有 {stall.waiting} 项等待处理、{stall.processing} 项正在执行。{stall.workerBusy?'后台任务锁尚有效，请等待锁释放，不会强制抢占。':'可以申请一次安全恢复；已入库客户和已完成步骤不会清空。'}</p>{stall.canRecover&&<button type="button" className="button secondary small" disabled={working} onClick={()=>void action('RECOVER')}><RefreshCcw size={14}/>安全恢复任务</button>}</div>}<button type="button" className="button secondary small" disabled={working} onClick={()=>void api(undefined,undefined,run.id).then(accept).catch(e=>setError(e.message))}>检查进度</button>{['RUNNING','PAUSED'].includes(run.status)&&<button type="button" className="button secondary small" disabled={working} onClick={()=>void action('FINISH')}>结束本批并保留结果</button>}</div>
       <div className="auto-discovery-stats"><div><strong>{count('SOURCE','DONE')} / {count('SOURCE')}</strong><span>已查询来源批次</span></div><div><strong>{count('CLUE')}</strong><span>去重后来源线索</span></div><div><strong>{count('CANDIDATE')}</strong><span>候选机构</span></div><div><strong>{imported}</strong><span>已加入待开发客户</span></div></div>
       {diagnosis&&<div className="auto-discovery-diagnosis" style={{marginTop:16,paddingTop:14,borderTop:'1px solid #e4e7ec'}} role="status">
         <strong>自动诊断：{diagnosis.title}</strong>
