@@ -171,6 +171,24 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ ok: true, ignored: true, reason: 'currency_mismatch' });
     }
 
+    // Only reconcile a signed provider event against a PaymentIntent that this
+    // server created for this exact order. Merchant order metadata alone is not
+    // sufficient to identify a payable transaction.
+    const session = await db.prepare(`SELECT order_id, amount, currency FROM payment_provider_sessions
+      WHERE provider='AIRWALLEX' AND provider_intent_id=? LIMIT 1`)
+      .bind(providerReference).first<{ order_id:string; amount:number; currency:string }>();
+    if (!session || String(session.order_id) !== orderId ||
+        String(session.currency || '').toUpperCase() !== currency) {
+      console.error('airwallex_webhook_unmatched_intent', { eventId, orderReference, providerReference });
+      // Keep event unprocessed so legitimate out-of-order delivery can retry.
+      return new Response('Unrecognized payment intent for order', { status: 409 });
+    }
+    if (eventName === 'payment_intent.succeeded' &&
+        (!Number.isFinite(amount) || Math.abs(amount - Number(session.amount)) > 0.01)) {
+      console.error('airwallex_webhook_amount_mismatch', { eventId, orderReference, providerReference });
+      return new Response('Payment intent amount mismatch', { status: 409 });
+    }
+
     await db.prepare(`UPDATE payment_provider_sessions
       SET status=?, updated_at=CURRENT_TIMESTAMP
       WHERE provider='AIRWALLEX' AND provider_intent_id=?`)
