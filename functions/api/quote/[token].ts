@@ -132,8 +132,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
     const items = await db.prepare(`SELECT product_id, variant_id, description, quantity, unit_price, line_total FROM quote_items WHERE quote_id=? ORDER BY sort_order, id`)
       .bind(quoteId).all<Row>();
     if (!items.results.length) return Response.json({ ok: false, error: 'Quote has no line items.' }, { status: 409 });
-    if (!items.results.some(item => Number(item.quantity || 0) > 0 && Number(item.unit_price || 0) > 0 && Number(item.line_total || 0) > 0)) {
-      return Response.json({ ok: false, error: 'This quotation has no valid priced line items and cannot be accepted.' }, { status: 409 });
+    // Never create an order from a partially priced or inconsistent quote.
+    const validItems = items.results.every(item => {
+      const qty = Number(item.quantity), unit = Number(item.unit_price), line = Number(item.line_total);
+      return Number.isSafeInteger(qty) && qty > 0 &&
+        Number.isFinite(unit) && unit > 0 && Number.isFinite(line) && line > 0 &&
+        Math.abs(Math.round(qty * unit * 100) - Math.round(line * 100)) <= 1;
+    });
+    const quotedSubtotal = Number(quote.subtotal), discount = Number(quote.discount || 0),
+      shipping = Number(quote.shipping || 0), tax = Number(quote.tax || 0), total = Number(quote.total);
+    const computedSubtotalCents = items.results.reduce((sum,item) => sum + Math.round(Number(item.line_total) * 100), 0);
+    const computedTotalCents = computedSubtotalCents - Math.round(discount * 100) +
+      Math.round(shipping * 100) + Math.round(tax * 100);
+    if (!validItems || ![quotedSubtotal, discount, shipping, tax, total].every(Number.isFinite) ||
+        discount < 0 || shipping < 0 || tax < 0 || total <= 0 ||
+        Math.abs(computedSubtotalCents - Math.round(quotedSubtotal * 100)) > 1 ||
+        Math.abs(computedTotalCents - Math.round(total * 100)) > 2) {
+      return Response.json({ ok:false, error:'Quotation totals or item amounts do not reconcile. Please request a corrected quotation.' }, { status:409 });
     }
 
     const orderId = crypto.randomUUID();
