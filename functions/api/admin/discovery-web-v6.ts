@@ -1,4 +1,4 @@
-import { assertAutoLease,saveAutoClues } from '../../../lib/discovery-auto-support';
+import { assertAutoLease,saveAutoClues,sourceJobId } from '../../../lib/discovery-auto-support';
 import { ensureClues } from '../../../lib/discovery-sources';
 import {alternateSearch} from '../../../lib/public-search';
 import { publicPersonName } from '../../../lib/public-contacts';
@@ -166,7 +166,9 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   if(!env.MINGEAGLE_DB)return Response.json({ok:false,error:'Database is not configured.'},{status:503});const db=env.MINGEAGLE_DB;await ensureTables(db);let jobId='';
   try{
     const input=await request.json() as Input;let parsed;try{parsed=parseSearch(input)}catch(e){return Response.json({ok:false,error:(e as Error).message},{status:400})}const {stateCode,customerType:type,targetCount:target,city,round}=parsed;if(!allowedTypes.has(type))return Response.json({ok:false,error:'不支持的商业客户类型。'},{status:400});
-    jobId=crypto.randomUUID();await db.prepare(`INSERT INTO discovery_jobs (id,state_region,customer_type,target_count,source_provider) VALUES (?,?,?,?, 'WEB_SEARCH_VERIFIED_V6')`).bind(jobId,stateCode,type,target).run();
+    if(input.autoRunId)await assertAutoLease(db,input);
+    jobId=sourceJobId(input,'WEB_SEARCH_VERIFIED_V6',round);
+    await db.prepare(`INSERT OR IGNORE INTO discovery_jobs (id,state_region,customer_type,target_count,source_provider) VALUES (?,?,?,?, 'WEB_SEARCH_VERIFIED_V6')`).bind(jobId,stateCode,type,target).run();
     const queries=queryPlan(stateCode,type,city,round,8);const started=Date.now();
     const searched=await Promise.allSettled(queries.map(q=>bing(q.query,q.city)));const raw=searched.flatMap(r=>r.status==='fulfilled'?r.value:[]);const unique:SearchHit[]=[];const domains=new Set<string>();for(const h of raw.filter(hit=>eligibleSearchHit(hit,type,stateCode))){const d=domainOf(h.url);if(!d||domains.has(d))continue;domains.add(d);unique.push(h);if(unique.length>=Math.max(28,target*4))break}
     let searchNote=`主索引 ${searched.filter(r=>r.status==='fulfilled').length}/${queries.length} 次查询可读取，返回网页 ${raw.length} 个，符合地区和业务条件 ${unique.length} 个。`;
@@ -188,7 +190,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       const seeds=allSeeds.slice(offset,offset+4);
       const foundIds=await saveAutoClues(db,{...input,customerType:type},seeds);
       const hasMore=offset+4<allSeeds.length;
-      await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(foundIds.length,jobId).run();
+      await db.prepare(`UPDATE discovery_jobs SET status=?,result_count=MAX(result_count,?),error=NULL,completed_at=CASE WHEN ? THEN NULL ELSE CURRENT_TIMESTAMP END WHERE id=?`).bind(hasMore?'RUNNING':'COMPLETED',offset+foundIds.length,hasMore?1:0,jobId).run();
       return Response.json({ok:true,found:foundIds.length,available:allSeeds.length,hasMore,nextOffset:hasMore?offset+4:null,foundIds,review:!foundIds.length&&fallbackUsed&&!fallbackReadable,reason:searchNote,note:searchNote+(foundIds.length?'公开官网线索已分批保存，随后逐个核验和补全。':'本次没有官网线索，不能据此判断当地没有潜在客户。')});
     }
     if(!unique.length){await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=0,completed_at=CURRENT_TIMESTAMP,error='No public website candidates returned' WHERE id=?`).bind(jobId).run();return Response.json({ok:true,found:0,mode:'WEB_VERIFIED_V6',checked:0,verified:0,note:searchNote+'公开搜索本次未返回可验证官网候选，不能据此判断当地没有潜在客户。'})}
