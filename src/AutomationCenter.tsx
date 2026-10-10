@@ -237,22 +237,23 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
     } finally { setSampleBusy(''); }
   }
 
-  const heartbeatDisplay = (kind: 'DISCOVERY' | 'FOLLOWUP') => {
+  const heartbeatDisplay = (kind: 'DISCOVERY' | 'FOLLOWUP' | 'HUBSPOT_RECOVERY') => {
     const row=scheduler.find(item=>item.id===kind);
     if(!row)return {state:'未观察到执行记录',time:'—',recent:false};
     const date=new Date(row.last_seen_at.replace(' ','T')+'Z');
     if(Number.isNaN(date.getTime()))return {state:'记录时间无效',time:'—',recent:false};
-    const age=Date.now()-date.getTime(),windowMs=kind==='DISCOVERY'?30*60*1000:26*60*60*1000;
+    const age=Date.now()-date.getTime(),windowMs=kind==='DISCOVERY'?30*60*1000:kind==='HUBSPOT_RECOVERY'?3*60*60*1000:26*60*60*1000;
     return {state:age>=0&&age<=windowMs?'最近有触发':'触发记录可能过期',time:date.toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false})+'（北京时间）',recent:age>=0&&age<=windowMs};
   };
-  const discoveryBeat=heartbeatDisplay('DISCOVERY'),followupBeat=heartbeatDisplay('FOLLOWUP');
+  const discoveryBeat=heartbeatDisplay('DISCOVERY'),followupBeat=heartbeatDisplay('FOLLOWUP'),recoveryBeat=heartbeatDisplay('HUBSPOT_RECOVERY');
 
   return <div>
     <section className="panel" aria-label="定时任务真实运行记录">
       <div className="panel-head"><div><h2>定时任务触发记录</h2><span>只有 Worker 实际收到 Cron Trigger 才会产生记录</span></div><button type="button" className="side-button" disabled={busy} onClick={()=>void load()}><RefreshCcw size={16}/>刷新状态</button></div>
       <div className="list-row"><div><strong>客户发现续跑 · 每分钟检查一次</strong><small>{discoveryBeat.time}</small></div><span className={discoveryBeat.recent?'priority medium':'priority high'}>{discoveryBeat.state}</span></div>
       <div className="list-row"><div><strong>客户跟进调度 · 北京时间每天 21:00</strong><small>{followupBeat.time}</small></div><span className={followupBeat.recent?'priority medium':'priority high'}>{followupBeat.state}</span></div>
-      <p style={{color:'#667085',fontSize:13,marginTop:10}}>记录最多每 15 分钟更新一次，以减少 D1 消耗。触发成功不代表搜索找到客户或邮件已发送；首次部署后暂无记录时请核对 Cloudflare Cron Triggers。</p>
+      <div className="list-row"><div><strong>HubSpot 备用询盘补录 · 每小时检查一次</strong><small>{recoveryBeat.time}</small></div><span className={recoveryBeat.recent?'priority medium':'priority high'}>{recoveryBeat.state}</span></div>
+      <p style={{color:'#667085',fontSize:13,marginTop:10}}>记录最多每 15 分钟更新一次，以减少 D1 消耗。触发成功不代表搜索找到客户、询盘已补录或邮件已发送。HubSpot 补录还需要在后台安全配置读取凭证；首次部署后暂无记录时请核对 Cloudflare Cron Triggers。</p>
     </section>
     <section className="metric-grid">
       <div className="metric"><span>今日已自动发送</span><strong>{metrics.sentToday}</strong><small>UTC 当日统计</small></div>
