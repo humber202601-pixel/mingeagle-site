@@ -33,6 +33,9 @@ jobs:
       - name: Apply contact and crawl improvements
         run: python scripts/build-conversion.py
 
+      - name: Build V37 search discovery metadata
+        run: node scripts/build-seo-v37.cjs
+
       - name: Verify confirmation build
         run: |
           test -f public/index.html
@@ -56,7 +59,7 @@ jobs:
           fi
 
       - name: Verify inbound attribution and translations
-        run: node scripts/check-growth.cjs && node scripts/check-learning.cjs && node scripts/check-marketing-kit.cjs && node scripts/check-conversion.cjs && node scripts/check-crm-bridge.cjs && node scripts/check-turnstile.cjs
+        run: node scripts/check-growth.cjs && node scripts/check-learning.cjs && node scripts/check-marketing-kit.cjs && node scripts/check-conversion.cjs && node scripts/check-crm-bridge.cjs && node scripts/check-turnstile.cjs && node scripts/check-seo-v37.cjs
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
