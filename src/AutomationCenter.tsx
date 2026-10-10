@@ -6,6 +6,13 @@ type Row = Record<string, unknown>;
 type Settings = { enabled: boolean; maxPerRun: number; maxPerLead: number; updatedAt?: string | null };
 type Metrics = { sentToday: number; ready: number; reviewRequired: number; failed: number; sentTotal: number };
 type SchedulerRow = { id:string; cron:string; last_seen_at:string };
+type ProductionHealth={
+  ok?:boolean;error?:string;generatedAt?:string;
+  hubspot?:{credentialConfigured:boolean;stateKnown:boolean;importedTotal:number|null;lastSuccessfulPageAt:string|null;nextOffset:number|null};
+  discovery?:{status:string;phase:string;updatedAt:string;stepsCompleted:number;sources:number;sourceFailures:number;candidates:number;imported:number|null}|null;
+  inquiries?:{total:number;last24h:number;newCount:number}|null;
+  quota?:{actualD1RowsRead:number|null;actualD1RowsWritten:number|null;trackingConfigured:boolean};
+};
 type ResponseData = { ok?: boolean; settings?: Settings; metrics?: Metrics; recent?: Row[]; scheduler?: SchedulerRow[]; error?: string };
 type QueueData = { ok?: boolean; rows?: Row[]; counts?: Row[]; error?: string; reviewed?: number; created?: number; initialCreated?: number; followupCreated?: number };
 type SamplesData = { ok?: boolean; samples?: Row[]; error?: string };
@@ -57,6 +64,8 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
   const [metrics, setMetrics] = useState<Metrics>(emptyMetrics);
   const [recent, setRecent] = useState<Row[]>([]);
   const [scheduler, setScheduler] = useState<SchedulerRow[]>([]);
+  const [health, setHealth] = useState<ProductionHealth|null>(null);
+  const [healthError, setHealthError] = useState('');
   const [queue, setQueue] = useState<Row[]>([]);
   const [samples, setSamples] = useState<Row[]>([]);
   const [sampleDrafts, setSampleDrafts] = useState<Record<string, SampleDraft>>({});
@@ -72,10 +81,11 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
   const load = useCallback(async () => {
     setBusy(true); setError('');
     try {
-      const [automationResponse, queueResponse, samplesResponse] = await Promise.all([
+      const [automationResponse, queueResponse, samplesResponse, healthResponse] = await Promise.all([
         fetch('/api/admin/automation-control', { headers: { 'x-admin-key': accessKey } }),
         fetch('/api/admin/email-queue', { headers: { 'x-admin-key': accessKey } }),
         fetch('/api/admin/samples', { headers: { 'x-admin-key': accessKey } }),
+        fetch('/api/admin/production-health', { headers: { 'x-admin-key': accessKey } }),
       ]);
       const body = await automationResponse.json() as ResponseData;
       const queueBody = await queueResponse.json() as QueueData;
@@ -87,6 +97,11 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
       setMetrics(body.metrics || emptyMetrics);
       setRecent(body.recent || []);
       setScheduler(body.scheduler || []);
+      // Health checks are a read-only convenience. A temporary D1 quota or
+      // incomplete migration must not break the existing automation screen.
+      const healthBody=await healthResponse.json().catch(()=>({})) as ProductionHealth;
+      if(healthResponse.ok&&healthBody.ok){setHealth(healthBody);setHealthError('');}
+      else {setHealth(null);setHealthError(healthBody.error||'健康检查暂时不可用');}
       setQueue(queueBody.rows || []);
       const nextSamples = samplesBody.samples || [];
       setSamples(nextSamples);
@@ -254,6 +269,20 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
       <div className="list-row"><div><strong>客户跟进调度 · 北京时间每天 21:00</strong><small>{followupBeat.time}</small></div><span className={followupBeat.recent?'priority medium':'priority high'}>{followupBeat.state}</span></div>
       <div className="list-row"><div><strong>HubSpot 备用询盘补录 · 每小时检查一次</strong><small>{recoveryBeat.time}</small></div><span className={recoveryBeat.recent?'priority medium':'priority high'}>{recoveryBeat.state}</span></div>
       <p style={{color:'#667085',fontSize:13,marginTop:10}}>记录最多每 15 分钟更新一次，以减少 D1 消耗。触发成功不代表搜索找到客户、询盘已补录或邮件已发送。HubSpot 补录还需要在后台安全配置读取凭证；首次部署后暂无记录时请核对 Cloudflare Cron Triggers。</p>
+    </section>
+    <section className="panel" aria-label="生产环境真实业务验收">
+      <div className="panel-head"><div><h2>生产验收 · 真实运行数据</h2><span>仅显示数据库已确认的结果，无法读取的数据不按 0 处理</span></div><button type="button" className="side-button" disabled={busy} onClick={()=>void load()}><RefreshCcw size={16}/>重新检查</button></div>
+      {healthError&&<p className="form-status error" role="status">{healthError}</p>}
+      {!health&&!healthError&&<p>生产数据检查尚未完成。</p>}
+      {health&&<>
+        <div className="list-row"><div><strong>官网询盘入库</strong><small>最近 24 小时新增，来自 D1 询盘表；不等于页面访问量</small></div><span>{health.inquiries?health.inquiries.last24h+' 条':'尚未建立统计表'}</span></div>
+        <div className="list-row"><div><strong>历史询盘总数</strong><small>包含已处理和未处理记录</small></div><span>{health.inquiries?health.inquiries.total+' 条':'未知'}</span></div>
+        <div className="list-row"><div><strong>HubSpot 备用补录</strong><small>{health.hubspot?.credentialConfigured?'已配置服务端凭证；须进一步验证实际读取结果':'未配置 HUBSPOT_PRIVATE_APP_TOKEN，补录未启用'}</small></div><span>{health.hubspot?.lastSuccessfulPageAt?'累计补录 '+(health.hubspot.importedTotal??0)+' 条':'尚无成功补录记录'}</span></div>
+        <div className="list-row"><div><strong>上一批客户发现</strong><small>{health.discovery?health.discovery.status+' · 来源批次 '+health.discovery.sources+' · 来源异常 '+health.discovery.sourceFailures:'尚无可统计的搜索任务'}</small></div><span>{health.discovery?.imported!=null?'确认入库 '+health.discovery.imported+' 个':'入库数量未知'}</span></div>
+        {health.discovery&&<div className="list-row"><div><strong>发现流程排查</strong><small>候选机构 {health.discovery.candidates} 个 · 已完成处理步骤 {health.discovery.stepsCompleted} · 来源受限 {health.discovery.sourceFailures} 个</small></div><span>{health.discovery.sourceFailures>0?'存在来源受限':health.discovery.candidates>0&&health.discovery.imported===0?'核验或入库待排查':'查看任务明细'}</span></div>}
+        <div className="list-row"><div><strong>Cloudflare D1 免费额度</strong><small>数据库无法自行读取云平台累计行数；必须以 Cloudflare Analytics 为准</small></div><span>未接入额度遥测 · 不显示虚假余量</span></div>
+        <p style={{color:'#667085',fontSize:13,marginTop:10}}>定时触发只表示 Cron 收到执行事件，不等于 HubSpot 数据同步成功；实际 D1 消耗与线上表单端到端效果需要生产环境验证。</p>
+      </>}
     </section>
     <section className="metric-grid">
       <div className="metric"><span>今日已自动发送</span><strong>{metrics.sentToday}</strong><small>UTC 当日统计</small></div>
