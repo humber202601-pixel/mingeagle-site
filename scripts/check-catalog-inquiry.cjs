@@ -15,6 +15,9 @@ assert(catalog.includes("new URLSearchParams({product:name,size:"),'Selections m
 assert(logic.includes("const color=q.get('color'),units=q.get('units')"),'Inquiry must prefill color and units');
 assert.equal((catalog.match(/class="catalog-add"/g)||[]).length,4,'Each product needs multi-item select');
 assert(catalog.includes('id="catalog-rfq-submit"')&&catalog.includes('encodeURIComponent(JSON.stringify(selected))'),'Combined RFQ must transport line data');
+assert.equal((catalog.match(/class="catalog-add-line"/g)||[]).length,4,'Each product must allow additional variant lines');
+assert(catalog.includes("extra.push({id:Number(b.dataset.catalogId)")&&catalog.includes("concat(extra)"),'Extra variant lines must be included in combined RFQ');
+assert(logic.includes("selected.length<=20")&&logic.includes("total>9999999"),'RFQ multi-line validation and total limit required');
 assert(logic.includes("q.get('rfq')")&&logic.includes('Combined wholesale RFQ')&&logic.includes('wholesaleRfqLines.join'),'Form must preserve itemized multi-product RFQ');
 for(const product of Object.values(master)){
  assert([...catalog.matchAll(/<img[^>]*src="([^"]+)"/g)].some(m=>m[1].split('?')[0]===product.hero),'Catalog must use approved hero: '+product.name);
