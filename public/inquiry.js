@@ -55,10 +55,10 @@ try{
 let wholesaleRfqLines=[];
 try {
  const raw=q.get('rfq');
- if(raw&&raw.length<=2500&&q.get('type')==='quote'){
+ if(raw&&raw.length<=7000&&q.get('type')==='quote'){
   const selected=JSON.parse(raw);
   const cards=[...form.querySelectorAll('[name="products[]"]')];
-  if(Array.isArray(selected)&&selected.length>=1&&selected.length<=4&&new Set(selected.map(x=>x.id)).size===selected.length){
+  if(Array.isArray(selected)&&selected.length>=1&&selected.length<=20){
    const prepared=[];
    for(const item of selected){
     if(!Number.isInteger(item.id)||item.id<0||item.id>=cards.length||!Number.isSafeInteger(item.quantity)||item.quantity<1||item.quantity>999999)throw Error('Invalid RFQ line');
@@ -70,6 +70,7 @@ try {
    for(const x of prepared){x.cb.checked=true;x.size.value=x.sizeValue;x.color.value=x.colorValue;}
    wholesaleRfqLines=prepared.map(x=>x.cb.value+' | '+x.sizeValue+' | '+x.colorValue+' | '+x.quantity+' units');
    const total=prepared.reduce((a,x)=>a+x.quantity,0);
+   if(!Number.isSafeInteger(total)||total>9999999)throw Error('RFQ quantity limit exceeded');
    const tier=total<=2?'1–2 samples':total<=49?'3–49 units':total<=99?'50–99 units':total<=499?'100–499 units':total<=999?'500–999 units':'1,000+ units';
    if($('estimated_quantity'))$('estimated_quantity').value=tier;
    if($('quoteUnits'))$('quoteUnits').value=String(total);
