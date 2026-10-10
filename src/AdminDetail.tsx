@@ -67,6 +67,12 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
   const [data,setData] = useState<DetailData | null>(null);
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState('');
+  const [retailQuoteBusy,setRetailQuoteBusy] = useState(false);
+  const [retailQuoteResult,setRetailQuoteResult] = useState('');
+  async function draftRetailQuote(reference:string){
+    setRetailQuoteBusy(true);setRetailQuoteResult('');
+    try {const response=await fetch('/api/admin/retail-quote-draft',{method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},body:JSON.stringify({inquiryReference:reference})});const result=await response.json() as {ok?:boolean;error?:string;quoteReference?:string;totalBeforeTaxesUSD?:number};if(!response.ok||!result.ok)throw Error(result.error||'Unable to create draft');setRetailQuoteResult('报价草稿 '+result.quoteReference+' 已创建，税前金额 USD '+Number(result.totalBeforeTaxesUSD).toFixed(2)+'。请到报价单审核商品、运费及交付条款后发送。');}catch(e){setRetailQuoteResult(e instanceof Error?e.message:'创建失败');}finally{setRetailQuoteBusy(false)}
+  }
 
   useEffect(()=>{
     let active = true;
@@ -113,6 +119,7 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
       <Section title="询盘需求"><div className="detail-grid">
         <div><small>联系人</small><strong>{text(r.contact_name)}</strong></div><div><small>邮箱</small><strong>{text(r.contact_email)}</strong></div><div><small>客户公司</small><strong>{text(r.company_name)}</strong></div><div><small>预计数量</small><strong>{text(r.estimated_quantity)}</strong></div><div><small>国家</small><strong>{text(r.shipping_country)}</strong></div><div><small>邮编</small><strong>{text(r.shipping_postal_code)}</strong></div>
       </div><div className="detail-message"><small>客户留言</small><p>{text(r.message,'无')}</p></div></Section>
+      {String(r.message||'').includes('Retail cart order request (NOT PAID)') && <Section title="零售购物车报价审核"><p className="detail-note">从客户购物车需求重新读取数据库零售价、包装和运价，生成多商品报价草稿。草稿不会自动发送或收款，请在报价管理中审核。</p><button className="button" type="button" disabled={retailQuoteBusy||r.status==='QUOTED'||r.status==='CLOSED'} onClick={()=>void draftRetailQuote(String(r.reference))}>{retailQuoteBusy?'正在生成…':'生成零售报价草稿'}</button>{retailQuoteResult&&<p role="status">{retailQuoteResult}</p>}</Section>}
       {data.score && <ScoreCard score={data.score}/>} 
     </>}
 
