@@ -9,6 +9,6 @@ for path in Path('public').glob('*.html'):
     if len(matches)==1 and html.index('src="forms-core.js')<html.index('src="direct-contact.js'):
         continue
     html=re.sub(r'<script src="direct-contact\.js[^"]*"></script>','',html)
-    html=html.replace('</body>','<script src="direct-contact.js?v=20261011-retail"></script></body>')
+    html=html.rsplit('</body>',1)[0]+'<script src="direct-contact.js?v=20261011-retail"></script></body>'+html.rsplit('</body>',1)[1] if '</body>' in html else html
     path.write_text(html,encoding='utf-8')
     print('Contact helper normalized:',path.name,'previous count',len(matches))
