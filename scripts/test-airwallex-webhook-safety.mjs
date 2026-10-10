@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+const src=await readFile(new URL('../functions/api/payments/airwallex/webhook.ts',import.meta.url),'utf8');
+const ownership=src.indexOf("const session = await db.prepare(");
+const ledger=src.indexOf("INSERT OR IGNORE INTO payments");
+assert(ownership>0&&ledger>ownership,'Provider intent ownership must be verified before payment ledger');
+assert(src.includes("String(session.order_id) !== orderId"),'Intent must match order');
+assert(src.includes("Math.abs(amount - Number(session.amount)) > 0.01"),'Succeeded amount must match created intent');
+assert(src.includes("status: 409"),'Unexpected provider intent must not be silently marked processed');
+assert(src.includes("INSERT OR IGNORE INTO payments"),'Unique provider reference must prevent duplicate ledger entries');
+assert(src.includes("if (fullyPaid)"),'Fulfillment only for fully paid orders');
+console.log('PASS: webhook intent ownership, amount reconciliation and fulfillment gating safety checks.');
