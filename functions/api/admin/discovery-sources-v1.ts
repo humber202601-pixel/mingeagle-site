@@ -142,7 +142,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       const remaining=chunked&&Object.values(states).some(s=>s.hasMore);
       const processed=chunked?sourceOffset+Object.values(states).reduce((n,s)=>n+(s.found||0),0):added;
       const errors=Object.values(states).filter(s=>!s.ok).map(s=>s.error).join(' · ')||null;
-      await db.prepare(`UPDATE discovery_jobs SET status=?,result_count=?,error=?,completed_at=CASE WHEN ? THEN NULL ELSE CURRENT_TIMESTAMP END WHERE id=?`)
+      await db.prepare(`UPDATE discovery_jobs SET status=?,result_count=MAX(result_count,?),error=?,completed_at=CASE WHEN ? THEN NULL ELSE CURRENT_TIMESTAMP END WHERE id=?`)
         .bind(ok?(remaining?'RUNNING':'COMPLETED'):'FAILED',chunked?Math.max(0,processed):added,errors,remaining?1:0,jobId).run();
       return response({ok,added,updated,addedIds,updatedIds,foundIds:[...new Set(foundIds)],sources:states,nextRound:parsed.round+1,...(ok?{}:{error:'本次扩展来源均未完成，请查看各来源的具体原因。'})},ok?200:502);
     }
