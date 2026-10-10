@@ -230,8 +230,24 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       return Response.json({ok:true,found:foundIds.length,available:allSeeds.length,hasMore,nextOffset:hasMore?offset+4:null,foundIds,review:!foundIds.length&&fallbackUsed&&!fallbackReadable,reason:searchNote,note:searchNote+(foundIds.length?'公开官网线索已分批保存，随后逐个核验和补全。':'本次没有官网线索，不能据此判断当地没有潜在客户。')});
     }
     if(!unique.length){await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=0,completed_at=CURRENT_TIMESTAMP,error='No public website candidates returned' WHERE id=?`).bind(jobId).run();return Response.json({ok:true,found:0,mode:'WEB_VERIFIED_V6',checked:0,verified:0,note:searchNote+'公开搜索本次未返回可验证官网候选，不能据此判断当地没有潜在客户。'})}
-    const verified:VerifiedHit[]=[];for(let i=0;i<unique.length;i+=4){if(Date.now()-started>23000)break;const batch=unique.slice(i,i+4);const result=await Promise.allSettled(batch.map(h=>verifyHit(h,type,stateCode)));verified.push(...result.flatMap(x=>x.status==='fulfilled'&&x.value?[x.value]:[]));if(verified.length>=target)break}
-    const found=await save(db,verified.sort((a,b)=>b.fitScore-a.fitScore||b.entityScore-a.entityScore),stateCode,type,target,input.runId);await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(found,jobId).run();
-    return Response.json({ok:true,found,mode:'WEB_VERIFIED_V6',provider:'WEB_SEARCH_VERIFIED_V6',checked:unique.length,verified:verified.length,note:found?`V6 已确认 ${found} 个真实机构主体并通过目标业务验证。`:'本次没有候选同时通过真实机构识别与业务验证。'});
+    const verified:VerifiedHit[]=[],rejected:Record<string,number>={};let checked=0;
+    for(let i=0;i<unique.length;i+=4){
+      if(Date.now()-started>23000)break;
+      const batch=unique.slice(i,i+4);
+      const result=await Promise.allSettled(batch.map(async h=>{
+        const diagnosis:{reason?:string}={};const success=await verifyHit(h,type,stateCode,diagnosis);
+        if(!success){const reason=diagnosis.reason||'UNSPECIFIED_REJECTION';rejected[reason]=(rejected[reason]||0)+1;}
+        return success;
+      }));
+      checked+=batch.length;
+      verified.push(...result.flatMap(x=>x.status==='fulfilled'&&x.value?[x.value]:[]));
+      if(verified.length>=target)break;
+    }
+    const found=await save(db,verified.sort((a,b)=>b.fitScore-a.fitScore||b.entityScore-a.entityScore),stateCode,type,target,input.runId);
+    await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(found,jobId).run();
+    const reasonLabels:Record<string,string>={'location-unconfirmed':'官网无目标地区证据','no-strong-business-pair':'官网无匹配业务证据','OFFICIAL_SITE_UNREADABLE':'官网本次无法读取','ENTITY_UNCONFIRMED':'官网机构主体不明确','store-commerce-unconfirmed':'零售或供货业务证据不足','publisher-or-data-site':'网站偏资讯内容'};
+    const summary=Object.entries(rejected).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([reason,count])=>`${reasonLabels[reason]||'其他官网核验未通过'} ${count} 个`).join('；');
+    return Response.json({ok:true,found,mode:'WEB_VERIFIED_V6',provider:'WEB_SEARCH_VERIFIED_V6',checked,verified:verified.length,rejected,searchNote,
+      note:found?`V6 已确认 ${found} 个真实机构主体并通过目标业务验证。${summary?' 未通过：'+summary+'。':''}`:`公开网页来源的官网核验结果为 0。${summary?'原因：'+summary+'。':''}不能据此认定当地没有采购机构。`});
   }catch(error){const msg=error instanceof Error?error.message:'Web verification V6 failed.';if(jobId)await db.prepare(`UPDATE discovery_jobs SET status='FAILED',error=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(msg.slice(0,1000),jobId).run();return Response.json({ok:false,error:msg},{status:502})}
 };
