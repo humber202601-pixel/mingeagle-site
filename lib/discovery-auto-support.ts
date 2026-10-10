@@ -1,4 +1,10 @@
 export type AutoRow=Record<string,unknown>;
+// A resumable source is a single logical job, not one history record per
+// 4-clue page. The AUTO prefix avoids collisions with legacy random UUIDs.
+// Only callers with a valid lease may use an auto-scoped identity.
+export function sourceJobId(input:{autoRunId?:unknown;autoToken?:unknown},source:string,round:number){
+  return input.autoRunId&&input.autoToken?`AUTO:${String(input.autoRunId)}:${source}:${round}`:crypto.randomUUID();
+}
 export class AutoStepError extends Error{constructor(message:string,public retryable=false){super(message);this.name='AutoStepError';}}
 export async function assertAutoLease(db:D1Database,input:AutoRow){
   if(!input.autoRunId&&!input.autoToken)return;

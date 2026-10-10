@@ -182,6 +182,10 @@ try{
     totalImported+=page.sources.NCES.found;
   }
   assert.equal(totalImported,13,'all discovered records survive chunked automatic writes');
+  const logicalSourceJob=sqlite.prepare("SELECT status,result_count FROM discovery_jobs WHERE id='AUTO:quota-fixture:PUBLIC:NCES:0'").get();
+  assert.equal(logicalSourceJob?.status,'COMPLETED','source job completes only after the final saved page');
+  assert.equal(logicalSourceJob?.result_count,13,'one logical source job accumulates all four pages');
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM discovery_jobs WHERE id LIKE 'AUTO:quota-fixture:PUBLIC:NCES:%'").get().n,1,'four pages create exactly one source job');
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM discovery_clues WHERE title LIKE 'Dallas Pilot Elementary %'").get().n,13);
   d1Cap=Infinity;manySchoolResults=false;
   assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM messages').get().n,0);sqlite.close();
