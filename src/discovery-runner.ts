@@ -14,15 +14,29 @@ export async function discoveryRequest<T>(accessKey:string,body?:Record<string,u
 type Clock={set:(fn:()=>void,ms:number)=>unknown;clear:(id:unknown)=>void};
 export function startDiscoveryLoop<T extends DiscoverySnapshot>(options:{runId:string;initial:T;request:(body?:Record<string,unknown>,signal?:AbortSignal)=>Promise<T>;onData:(value:T)=>void;onError:(message:string)=>void;clock?:Clock;intervalMs?:number}){
   const clock=options.clock||{set:(fn:()=>void,ms:number)=>setTimeout(fn,ms),clear:(id:unknown)=>clearTimeout(id as ReturnType<typeof setTimeout>)};
-  const interval=options.intervalMs||3000,controllers=new Set<AbortController>();let stopped=false,latest=options.initial,pollTimer:unknown,kickTimer:unknown;
+  // A foreground dashboard previously issued GET + KICK every 3 seconds.
+  // A 9-second cadence lowers per-tab D1 traffic by roughly two thirds.
+  // When the scheduler or an existing worker is active the browser can wait.
+  const interval=options.intervalMs||9000,controllers=new Set<AbortController>();let stopped=false,latest=options.initial,pollTimer:unknown,kickTimer:unknown;
+  let pollPending=false,kickPending=false,failures=0;
+  const intervalForNext=()=>hidden()?Math.max(interval,60000):failures>=3?Math.max(interval,60000):interval;
   const stop=()=>{stopped=true;clock.clear(pollTimer);clock.clear(kickTimer);for(const controller of controllers)controller.abort();};
   const accept=(next:T)=>{if(stopped||next.run&&next.run.id!==options.runId)return;latest=mergeDiscovery(latest,next);options.onData(latest);options.onError('');if(latest.run?.status!=='RUNNING')stop();};
-  const request=async(body?:Record<string,unknown>)=>{const controller=new AbortController();controllers.add(controller);try{accept(await options.request(body,controller.signal));}catch(e){if(!stopped)options.onError(e instanceof Error?e.message:'暂时无法更新进度，将自动重新读取。');}finally{controllers.delete(controller);}};
+  const request=async(body?:Record<string,unknown>)=>{const controller=new AbortController();controllers.add(controller);try{accept(await options.request(body,controller.signal));failures=0;}catch(e){if(!stopped){failures++;options.onError(e instanceof Error?e.message:'暂时无法更新进度，将自动重新读取。');}}finally{controllers.delete(controller);}};
   // The Cloudflare scheduler continues durable runs every minute. Browser tabs
   // left in the background must not burn D1's daily read allowance polling.
   const hidden=()=>typeof document!=='undefined'&&document.visibilityState==='hidden';
-  const poll=async()=>{if(!hidden())await request();if(!stopped)pollTimer=clock.set(()=>void poll(),hidden()?Math.max(interval,15000):interval);};
-  const kick=async()=>{if(!hidden()&&!latest.workerBusy)await request({action:'KICK',runId:options.runId});if(!stopped)kickTimer=clock.set(()=>void kick(),hidden()?Math.max(interval,15000):interval);};
+  const poll=async()=>{
+    if(!hidden()&&!pollPending){pollPending=true;try{await request();}finally{pollPending=false;}}
+    if(!stopped)pollTimer=clock.set(()=>void poll(),intervalForNext());
+  };
+  const kick=async()=>{
+    if(!hidden()&&!latest.workerBusy&&!kickPending&&failures<3){
+      kickPending=true;
+      try{await request({action:'KICK',runId:options.runId});}finally{kickPending=false;}
+    }
+    if(!stopped)kickTimer=clock.set(()=>void kick(),intervalForNext());
+  };
   pollTimer=clock.set(()=>void poll(),0);kickTimer=clock.set(()=>void kick(),100);
   return stop;
 }
