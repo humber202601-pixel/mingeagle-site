@@ -293,7 +293,7 @@ async function recordHeartbeat(env: Env, cron: string) {
       last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )`).run().then(() => undefined).catch(error => { heartbeatTableReady = undefined; throw error; });
     await heartbeatTableReady;
-    const id = cron === '0 13 * * *' ? 'FOLLOWUP' : 'DISCOVERY';
+    const id = cron === '0 13 * * *' ? 'FOLLOWUP' : cron === '0 * * * *' ? 'HUBSPOT_RECOVERY' : 'DISCOVERY';
     await env.MINGEAGLE_DB.prepare(`INSERT INTO scheduler_heartbeat (id,cron,last_seen_at)
       VALUES (?,?,CURRENT_TIMESTAMP)
       ON CONFLICT(id) DO UPDATE SET
@@ -306,7 +306,7 @@ async function recordHeartbeat(env: Env, cron: string) {
 
 export default {
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    const job = _event.cron === '0 13 * * *' ? runSweep(env) : continueDiscovery(env);
+    const job = _event.cron === '0 13 * * *' ? runSweep(env) : _event.cron === '0 * * * *' ? runHubspotRecovery(env) : continueDiscovery(env);
     ctx.waitUntil(Promise.all([recordHeartbeat(env,_event.cron),job]).then(() => undefined));
   },
   async fetch() {
@@ -338,4 +338,19 @@ async function continueDiscovery(env:Env){
     if(!r.ok||!data.ok||data.idle||data.workerBusy||data.run?.status!=='RUNNING')break;
     }catch{break;}
   }
+}
+
+// Run a bounded, admin-protected HubSpot backup replay once an hour.
+// Pages owns HUBSPOT_PRIVATE_APP_TOKEN. Worker only needs its already-configured
+// admin access key. Missing HubSpot credentials disable recovery gracefully.
+async function runHubspotRecovery(env:Env){
+  if(!env.ADMIN_ACCESS_KEY)return;
+  try{
+    const response=await fetch('https://app.mingeagle.com/api/admin/hubspot-inquiry-recovery',{
+      method:'POST',
+      headers:{'content-type':'application/json','x-admin-key':env.ADMIN_ACCESS_KEY},
+      body:JSON.stringify({action:'SYNC'}),
+      signal:AbortSignal.timeout(25000)});
+    if(!response.ok)console.error('hubspot_recovery_tick_failed',response.status);
+  }catch(error){console.error('hubspot_recovery_tick_error',error);}
 }
