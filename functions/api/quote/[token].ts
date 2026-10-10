@@ -139,37 +139,36 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
     const orderId = crypto.randomUUID();
     const orderReference = `ME-${Date.now().toString(36).toUpperCase()}`;
 
-    try {
-      await db.prepare(`INSERT INTO orders (
+    // Commit the order, every order item, and the quotation state together.
+    // A failure must not leave a payable order missing its items.
+    const orderInsert = db.prepare(`INSERT INTO orders (
         id, reference, quote_id, lead_id, company_id, contact_id, status, currency,
         subtotal, discount, shipping, tax, total, payment_status, customer_notes, confirmed_at
       ) VALUES (?, ?, ?, ?, ?, ?, 'PAYMENT_PENDING', ?, ?, ?, ?, ?, ?, 'UNPAID', ?, CURRENT_TIMESTAMP)`)
-        .bind(
-          orderId, orderReference, quoteId,
-          quote.lead_id ? String(quote.lead_id) : null,
-          quote.company_id ? String(quote.company_id) : null,
-          quote.contact_id ? String(quote.contact_id) : null,
-          String(quote.currency || 'USD'), Number(quote.subtotal || 0), Number(quote.discount || 0), Number(quote.shipping || 0), Number(quote.tax || 0), Number(quote.total || 0),
-          `Accepted from quote ${String(quote.reference)}`,
-        ).run();
+      .bind(orderId, orderReference, quoteId,
+        quote.lead_id ? String(quote.lead_id) : null,
+        quote.company_id ? String(quote.company_id) : null,
+        quote.contact_id ? String(quote.contact_id) : null,
+        String(quote.currency || 'USD'), Number(quote.subtotal || 0), Number(quote.discount || 0),
+        Number(quote.shipping || 0), Number(quote.tax || 0), Number(quote.total || 0),
+        `Accepted from quote ${String(quote.reference)}`);
+    const itemInserts = items.results.map(item => db.prepare(`INSERT INTO order_items
+        (id, order_id, product_id, variant_id, description, quantity, unit_price, line_total)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(crypto.randomUUID(), orderId,
+        item.product_id ? String(item.product_id) : null,
+        item.variant_id ? String(item.variant_id) : null,
+        String(item.description || 'MING EAGLE products'), Number(item.quantity || 0),
+        Number(item.unit_price || 0), Number(item.line_total || 0)));
+    const converted = db.prepare(`UPDATE quotes SET status='CONVERTED', accepted_at=CURRENT_TIMESTAMP,
+        updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('SENT','VIEWED')`).bind(quoteId);
+    try {
+      await db.batch([orderInsert, ...itemInserts, converted]);
     } catch (insertError) {
       const raced = await getOrder(db, quoteId);
       if (raced) return Response.json({ ok: true, accepted: true, order: raced });
       throw insertError;
     }
-
-    for (const item of items.results) {
-      await db.prepare(`INSERT INTO order_items (id, order_id, product_id, variant_id, description, quantity, unit_price, line_total)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-        .bind(
-          crypto.randomUUID(), orderId,
-          item.product_id ? String(item.product_id) : null,
-          item.variant_id ? String(item.variant_id) : null,
-          String(item.description || 'MING EAGLE products'), Number(item.quantity || 0), Number(item.unit_price || 0), Number(item.line_total || 0),
-        ).run();
-    }
-
-    await db.prepare(`UPDATE quotes SET status='CONVERTED', accepted_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(quoteId).run();
     if (quote.lead_id) {
       await db.prepare(`UPDATE leads SET status='NEGOTIATION', next_best_action='Confirm payment and fulfillment', next_action_at=datetime('now','+1 day'), updated_at=CURRENT_TIMESTAMP WHERE id=?`)
         .bind(String(quote.lead_id)).run();
