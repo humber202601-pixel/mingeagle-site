@@ -11,4 +11,10 @@ assert(src.includes("INSERT OR IGNORE INTO payments"),'Unique provider reference
 assert(src.includes("if (fullyPaid)"),'Fulfillment only for fully paid orders');
 assert(src.includes("if (String(order.payment_status) === 'PAID')"),'late pending/failed events cannot reopen paid orders');
 assert(src.includes("CASE WHEN status='SUCCEEDED' THEN status ELSE ? END"),'late payment events cannot downgrade a succeeded payment intent');
+const fs=await import('node:fs/promises');
+const checkout=await fs.readFile(new URL('../functions/api/payments/airwallex/create.ts',import.meta.url),'utf8');
+const quotePage=await fs.readFile(new URL('../functions/quote/[token].ts',import.meta.url),'utf8');
+assert(checkout.includes("env.AIRWALLEX_CHECKOUT_ENABLED !== 'true'"),'checkout API must require explicit enable');
+assert(quotePage.includes("env.AIRWALLEX_CHECKOUT_ENABLED === 'true'"),'customer page must hide checkout by default');
+assert(checkout.includes("['sandbox','prod'].includes"),'checkout API must require explicit environment');
 console.log('PASS: webhook intent ownership, amount reconciliation and fulfillment gating safety checks.');
