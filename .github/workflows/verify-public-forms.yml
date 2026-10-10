@@ -1,0 +1,30 @@
+name: Verify public form / CRM bridge
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'public/inquiry.js'
+      - 'public/forms-core.js'
+      - 'public/inquiry-config.js'
+      - 'scripts/check-crm-bridge.cjs'
+      - 'scripts/check-conversion.cjs'
+      - 'scripts/check-growth.cjs'
+      - 'scripts/build-conversion.py'
+      - '.github/workflows/verify-public-forms.yml'
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  public-form-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check public inquiry / CRM mapping and site attribution
+        run: |
+          node scripts/check-growth.cjs
+          node scripts/check-conversion.cjs
+          node scripts/check-crm-bridge.cjs
