@@ -1,7 +1,7 @@
 (function(root){
 'use strict';
-const TYPE_MAP={quote:'Wholesale quote',sample:'Sample request',question:'General product question','order-support':'Order support','retail-partnership':'Retail partnership'};
-function rules(type){return {purchase:['Wholesale quote','Sample request','Retail partnership'].includes(type),order:type==='Order support',message:['General product question','Order support'].includes(type)}}
+const TYPE_MAP={retail:'Retail purchase inquiry',quote:'Wholesale quote',sample:'Sample request',question:'General product question','order-support':'Order support','retail-partnership':'Retail partnership'};
+function rules(type){return {purchase:['Wholesale quote','Sample request','Retail partnership','Retail purchase inquiry'].includes(type),order:type==='Order support',message:['General product question','Order support'].includes(type)}}
 function summary(d,ctx){const lines=['MING EAGLE inquiry','Reference: '+d.reference,'Request: '+d.requestType,'Name: '+d.firstname,'Email: '+d.email];[['Products',d.products],['Quantity',d.quantity],['Destination',d.country],['Order / quote reference',d.orderReference],['Company',d.company],['Phone / WhatsApp',d.phone],['Customer type',d.customerType],['Postal code',d.zip],['Customization',d.customization],['Timing',d.timing],['Message',d.message]].forEach(([k,v])=>{if(v&&v!=='Not specified')lines.push(k+': '+v)});lines.push('Privacy: agreed to use these details to respond to this request.');if(ctx)lines.push(core.sourceLines(ctx));return lines.join('\n')}
 const core=typeof module!=='undefined'&&module.exports?require('./forms-core.js'):root.MingEagleForms;
 const {buildPayload,sendPayload,sendCrmInquiry}=core||{};
@@ -29,9 +29,33 @@ try{
 }catch(e){}
 
 const customers={coach:'Coach / trainer',academy:'Training academy',retailer:'Retail store',distributor:'Distributor / wholesaler',ecommerce:'E-commerce seller'};if(customers[q.get('customer')])$('customer_type').value=customers[q.get('customer')];
+// Retail orders never offer logo printing. Customized logos are wholesale only.
+const retailOption=document.createElement('option');retailOption.value='Retail purchase inquiry';retailOption.textContent='Retail purchase (shipping quote)';$('request_type').appendChild(retailOption);
+if(type==='Retail purchase inquiry')$('request_type').value=type;
+const customField=$('customization').closest('.field');
+const customPolicy=document.createElement('div');customPolicy.id='customPolicy';customPolicy.style.cssText='margin:8px 0;font-size:13px;line-height:1.6';customField.appendChild(customPolicy);
+const logoKind=document.createElement('label');logoKind.id='logoKindBlock';logoKind.style.cssText='display:block;margin-top:10px';
+logoKind.innerHTML='<span>Logo printing type (wholesale only)</span><select id="logoKind" style="display:block;width:100%;margin-top:5px"><option value="">Choose logo printing</option><option value="black">Single-color black logo — minimum 20 units</option><option value="color">Color logo — minimum 200 units</option></select>';
+customField.appendChild(logoKind);
+const logoCount=document.createElement('label');logoCount.id='logoCountBlock';logoCount.style.cssText='display:block;margin-top:10px';
+logoCount.innerHTML='<span>Exact quantity for logo customization</span><input id="logoQuantity" type="number" min="1" max="999999" step="1" inputmode="numeric" placeholder="Exact units" style="display:block;width:100%;margin-top:5px">';
+customField.appendChild(logoCount);
+const statusPolicy='Product prices exclude international freight and taxes. Orders dispatch from China. Shipping cost, available stock, delivery date and final total are confirmed before payment.';
+const policyNote=document.createElement('p');policyNote.id='shippingPolicy';policyNote.textContent=statusPolicy;policyNote.style.cssText='font-size:13px;line-height:1.6;margin:10px 0';$('quoteFields').appendChild(policyNote);
+function isLogo(){return ['Logo','Logo + packaging'].includes($('customization').value)}
+function enforcePolicy(){
+ const retail=$('request_type').value==='Retail purchase inquiry';
+ if(retail){$('customization').value='No customization';}
+ customField.hidden=retail;
+ customPolicy.textContent='Custom logo printing is offered on wholesale inquiries only. Black-only logos require 20+ units; color logos require 200+ units.';
+ logoKind.hidden=retail||!isLogo();
+ logoCount.hidden=retail||!isLogo();
+ $('logoKind').required=!logoKind.hidden;
+ $('logoQuantity').required=!logoCount.hidden;
+}
 let reference=null,busy=false,prepared='';
-function sync(){const r=rules($('request_type').value);$('quoteFields').hidden=!r.purchase;$('quoteFields').querySelectorAll('input,select').forEach(el=>{el.disabled=!r.purchase;el.required=r.purchase});$('orderFields').hidden=!r.order;$('order_reference').disabled=!r.order;$('order_reference').required=r.order;$('message').required=r.message;$('messageRequired').hidden=!r.message;$('productHelp').textContent=r.purchase?'Select at least one product. Size and color choices appear below each selection.':'Select a product if relevant, or describe your question below.';form.querySelectorAll('.inquiryProduct').forEach(card=>{const selected=card.querySelector('[name="products[]"]').checked;card.classList.toggle('selected',selected);const opts=card.querySelector('.productOptions');opts.hidden=!selected;opts.querySelectorAll('select').forEach(el=>el.disabled=!selected)});$('productError').hidden=true}
-function read(){const fd=new FormData(form),r=rules($('request_type').value),v=n=>String(fd.get(n)||'').trim();const products=[...form.querySelectorAll('[name="products[]"]:checked')].map(cb=>{const id=cb.closest('[data-product]').dataset.product;return cb.value+' — '+($('size-'+id).value||'size: please advise')+' / '+($('color-'+id).value||'color: please advise')}).join('\n');if(!reference)reference=core.reference();return {reference,requestType:v('request_type'),firstname:v('firstname'),email:v('email'),products,quantity:r.purchase?v('estimated_quantity'):'',country:r.purchase?v('country'):'',orderReference:r.order?v('order_reference'):'',company:v('company'),phone:v('phone'),customerType:v('customer_type'),zip:v('zip'),customization:v('customization'),timing:v('order_timing'),message:v('message')}}
+function sync(){enforcePolicy();const r=rules($('request_type').value);$('quoteFields').hidden=!r.purchase;$('quoteFields').querySelectorAll('input,select').forEach(el=>{el.disabled=!r.purchase;el.required=r.purchase});$('orderFields').hidden=!r.order;$('order_reference').disabled=!r.order;$('order_reference').required=r.order;$('message').required=r.message;$('messageRequired').hidden=!r.message;$('productHelp').textContent=r.purchase?'Select at least one product. Size and color choices appear below each selection.':'Select a product if relevant, or describe your question below.';form.querySelectorAll('.inquiryProduct').forEach(card=>{const selected=card.querySelector('[name="products[]"]').checked;card.classList.toggle('selected',selected);const opts=card.querySelector('.productOptions');opts.hidden=!selected;opts.querySelectorAll('select').forEach(el=>el.disabled=!selected)});$('productError').hidden=true}
+function read(){const fd=new FormData(form),r=rules($('request_type').value),v=n=>String(fd.get(n)||'').trim();const products=[...form.querySelectorAll('[name="products[]"]:checked')].map(cb=>{const id=cb.closest('[data-product]').dataset.product;return cb.value+' — '+($('size-'+id).value||'size: please advise')+' / '+($('color-'+id).value||'color: please advise')}).join('\n');if(!reference)reference=core.reference();return {reference,requestType:v('request_type'),firstname:v('firstname'),email:v('email'),products,quantity:r.purchase?v('estimated_quantity'):'',country:r.purchase?v('country'):'',orderReference:r.order?v('order_reference'):'',company:v('company'),phone:v('phone'),customerType:v('customer_type'),zip:v('zip'),customization:v('customization')+(isLogo()?' | '+$('logoKind').value+' logo | exact units: '+$('logoQuantity').value:''),timing:v('order_timing'),message:v('message')}}
 function review(d,hint){prepared=summary(d,core.context('MING EAGLE product / wholesale inquiry'));$('reviewContent').textContent=prepared;$('sendEmail').href='mailto:mingeaglecommerce@gmail.com?subject='+encodeURIComponent('MING EAGLE inquiry '+d.reference)+'&body='+encodeURIComponent(prepared);$('sendWhatsApp').href='https://wa.me/8613851585237?text='+encodeURIComponent(prepared);$('reviewHint').textContent=hint||'Choose email or WhatsApp and press Send in that app. Preparing this request does not submit it to MING EAGLE.';$('inquiryReview').hidden=false;$('inquiryReview').scrollIntoView({behavior:'smooth',block:'nearest'})}
 form.addEventListener('change',()=>{sync();$('inquiryReview').hidden=true;$('formStatus').textContent=''});form.addEventListener('input',()=>{$('inquiryReview').hidden=true;$('formStatus').textContent=''});
 let autoSampleQuantity=false;function syncSampleQuantity(){const el=$('estimated_quantity');if($('request_type').value==='Sample request'&&!el.value){el.value='1–2 samples';autoSampleQuantity=true}else if($('request_type').value!=='Sample request'&&autoSampleQuantity){if(el.value==='1–2 samples')el.value='';autoSampleQuantity=false}}$('estimated_quantity').addEventListener('change',()=>{autoSampleQuantity=false});$('request_type').addEventListener('change',syncSampleQuantity);syncSampleQuantity();sync();
@@ -43,7 +67,7 @@ form.addEventListener('submit',async e=>{
  if(rules($('request_type').value).purchase&&!form.querySelector('[name="products[]"]:checked')){
   $('productError').hidden=false;$('choose-p1').focus();return
  }
- const d=read();
+ if(isLogo()){const minimum=$('logoKind').value==='color'?200:20,qty=Number($('logoQuantity').value);if(!Number.isInteger(qty)||qty<minimum){$('formStatus').textContent='Logo printing requires at least '+minimum+' units. Black logo: 20+; color logo: 200+.';$('logoQuantity').focus();return}}\n const d=read();
  if(!c.enabled){review(d);$('formStatus').textContent='Prepared. Please send it using email or WhatsApp below.';return}
  busy=true;$('submitInquiry').disabled=true;
  $('formStatus').textContent='Checking security verification…';
