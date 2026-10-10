@@ -100,7 +100,11 @@ export async function claimAuto(db:D1Database,runId:string):Promise<AutoWork|nul
     await db.prepare(`UPDATE discovery_auto_items SET status=CASE WHEN attempts>=2 THEN 'FAILED' ELSE 'PENDING' END,error='上一个处理步骤意外中断，已自动恢复。',claim_token=NULL,started_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE run_id=? AND status='PROCESSING'`).bind(runId).run();
     await reconcile(db,runId);
     let items:Item[]=[];
-    for(const kind of ['CANDIDATE','CLUE','SOURCE']){
+    // Collect all discovery sources before evaluating or importing leads. An
+    // OSM clue may only receive its official website/place ID when Geoapify's
+    // later source batch returns. Processing the clue too early creates
+    // avoidable REVIEW results and misses valid customers.
+    for(const kind of ['SOURCE','CLUE','CANDIDATE']){
       const records=await db.prepare(`SELECT run_id,kind,item_key,payload_json,attempts FROM discovery_auto_items WHERE run_id=? AND kind=? AND status='PENDING' ORDER BY attempts,CASE WHEN item_key LIKE 'CORE:%' OR item_key LIKE 'NCES%' OR item_key LIKE 'GEOAPIFY:%' THEN 0 ELSE 1 END,item_key LIMIT 3`).bind(runId,kind).all<Item>();
       if(records.results.length){items=records.results;break;}
     }
