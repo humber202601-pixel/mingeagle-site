@@ -1,4 +1,5 @@
 import { assertAutoLease,saveAutoClues,sourceJobId } from '../../../lib/discovery-auto-support';
+import { sourceSnapshot } from '../../../lib/discovery-source-snapshot';
 import { ensureClues } from '../../../lib/discovery-sources';
 import { publicPhone, publicPhones } from '../../../lib/public-contacts';
 import { fetchPublicText } from '../../../lib/public-web';
@@ -192,11 +193,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if(input.autoRunId)await assertAutoLease(db,input);
     jobId = sourceJobId(input,'GEOAPIFY_SCHOOL_V1',parsed.round);
     await db.prepare(`INSERT OR IGNORE INTO discovery_jobs (id,state_region,customer_type,target_count,source_provider) VALUES (?,?,?,?,'GEOAPIFY_SCHOOL_V1')`).bind(jobId,state,type,target).run();
-    const started = Date.now(); const searchRs = await Promise.allSettled(queries.map(q => searchGeo(env.GEOAPIFY_API_KEY!,q,state).then(results => ({ q, results }))));
-    if(searchRs.every(r=>r.status==='rejected'))throw new Error('学校地点查询全部失败，请稍后重试。');const raw: Array<{q:string;r:GeoResult}> = []; for (const s of searchRs) if (s.status === 'fulfilled') for (const r of s.value.results) raw.push({ q:s.value.q, r });
-    const byPlace = new Map<string,{q:string;r:GeoResult}>(); for (const x of raw) { if(parsed.city&&clean(x.r.city,100).toLowerCase()!==parsed.city.toLowerCase())continue; const id = clean(x.r.place_id,300); const name = clean(x.r.name || x.r.formatted,180); if (!id || !name || !strongName(name,type)) continue; if (!byPlace.has(id)) byPlace.set(id,x); }
+    if(input.autoSourceOnly)await ensureClues(db);
+    const {locationsFound,rawCount}=await sourceSnapshot(db,input,'GEOAPIFY_SCHOOL_V1',parsed.round,async()=>{
+        const searchRs = await Promise.allSettled(queries.map(q => searchGeo(env.GEOAPIFY_API_KEY!,q,state).then(results => ({ q, results }))));
+        if(searchRs.every(r=>r.status==='rejected'))throw new Error('学校地点查询全部失败，请稍后重试。');const raw: Array<{q:string;r:GeoResult}> = []; for (const s of searchRs) if (s.status === 'fulfilled') for (const r of s.value.results) raw.push({ q:s.value.q, r });
+        const byPlace = new Map<string,{q:string;r:GeoResult}>(); for (const x of raw) { if(parsed.city&&clean(x.r.city,100).toLowerCase()!==parsed.city.toLowerCase())continue; const id = clean(x.r.place_id,300); const name = clean(x.r.name || x.r.formatted,180); if (!id || !name || !strongName(name,type)) continue; if (!byPlace.has(id)) byPlace.set(id,x); }
+      return {locationsFound:[...byPlace.values()],rawCount:raw.length};
+    });
+    const started=Date.now();
+    const byPlace=new Map(locationsFound.map(({q,r})=>[clean(r.place_id,300),{q,r}]));
     if(input.autoSourceOnly){
-      await ensureClues(db);await assertAutoLease(db,input);
+      await assertAutoLease(db,input);
       const allSeeds=[...byPlace.values()].slice(0,target).map(({q,r})=>({key:'school-map:'+r.place_id,title:clean(r.name||r.formatted,180),source:'SCHOOL_GEOAPIFY',url:'https://www.openstreetmap.org/search?query='+encodeURIComponent(clean(r.name,180)+' '+clean(r.city,80)),evidence:q+' · 地图信息待官网核验',city:clean(r.city,80),address:clean(r.formatted,500),raw:{placeId:clean(r.place_id,300)}}));
       const offset=Number(input.sourceOffset||0);
       if(!Number.isInteger(offset)||offset<0||offset>100)return Response.json({ok:false,error:'来源游标无效。'},{status:400});
@@ -242,7 +249,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const found = await save(db,candidates,state,type,target,input.runId); await db.prepare(`UPDATE discovery_jobs SET status='COMPLETED',result_count=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(found,jobId).run();
-    return Response.json({ ok:true, release:RELEASE, found, checked:detailsChecked, verified:candidates.filter(c=>c.verified).length, rawCount:raw.length, uniquePlaces:byPlace.size, websiteChecked, elapsedMs:Date.now()-started, provider:'GEOAPIFY_SCHOOL_V1', mode:'SCHOOL_PROCUREMENT_V1', note:`学校/教育客户发现完成：搜索 ${queries.length} 个地点关键词，优先识别学校官网、PE/体育部门、采购/Procurement/Vendor 页面和公开联系人。` });
+    return Response.json({ ok:true, release:RELEASE, found, checked:detailsChecked, verified:candidates.filter(c=>c.verified).length, rawCount, uniquePlaces:byPlace.size, websiteChecked, elapsedMs:Date.now()-started, provider:'GEOAPIFY_SCHOOL_V1', mode:'SCHOOL_PROCUREMENT_V1', note:`学校/教育客户发现完成：搜索 ${queries.length} 个地点关键词，优先识别学校官网、PE/体育部门、采购/Procurement/Vendor 页面和公开联系人。` });
   } catch (error) {
     console.error('school_discovery_failed', error); if (jobId) { try { await db.prepare(`UPDATE discovery_jobs SET status='FAILED',error=?,completed_at=CURRENT_TIMESTAMP WHERE id=?`).bind(error instanceof Error ? error.message : String(error),jobId).run(); } catch {} }
     return Response.json({ ok:false, error:error instanceof Error ? error.message : '学校客户发现失败。', release:RELEASE }, { status:500 });
