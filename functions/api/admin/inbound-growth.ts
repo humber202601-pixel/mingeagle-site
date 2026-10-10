@@ -47,6 +47,9 @@ const attribution=`WITH inquiry_base AS (
     THEN 'B2B'
   ELSE 'UNKNOWN' END AS audience,
  CASE
+  WHEN landing LIKE '%/silent-basketball-for-apartments.html' THEN 'APARTMENT_GUIDE'
+  WHEN landing LIKE '%/basketball-camp-equipment-supplier.html' THEN 'CAMP_GUIDE'
+  WHEN landing LIKE '%/silent-basketball-bulk-buying-guide.html' THEN 'BULK_GUIDE'
   WHEN landing LIKE '%/for-coaches.html' THEN 'FOR_COACHES'
   WHEN landing LIKE '%/for-schools.html' THEN 'FOR_SCHOOLS'
   WHEN landing LIKE '%/wholesale.html' THEN 'WHOLESALE'
@@ -66,7 +69,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
  if(!Number.isInteger(days)||!periods.has(days))return json({ok:false,error:'不支持的统计时间范围。'},400);
  try{
   // Independent buckets cannot multiply messages/quotes/orders. At most 9
-  // channels x 3 audiences, plus 8 entry-page buckets; only two SELECTs.
+  // channels x 3 audiences, plus entry-page buckets; only two SELECTs.
   const sourceRows=(await db.prepare(`${attribution}
    SELECT channel,audience,COUNT(*) AS inquiries,SUM(quoted) AS quoted,SUM(ordered) AS ordered
    FROM buckets GROUP BY channel,audience ORDER BY inquiries DESC,channel,audience`)
