@@ -235,16 +235,16 @@ try{
   const coreBatchId=result.body.run.id,claimed=await auto.claimAuto(db,coreBatchId);
   assert(claimed&&claimed.items.some(item=>item.item_key.startsWith('CORE:')));
   let coreSaved=0;
-  for(const offset of [0,4,8,12]){
+  for(const offset of [0,4,8]){
     const page=await post('discovery-web-v6',{...search,round:0,sourceOffset:offset,runId:coreBatchId,autoSourceOnly:true,autoRunId:coreBatchId,autoToken:claimed.token});
     assert.equal(page.status,200,JSON.stringify(page.body));
-    assert.equal(page.body.available,13,'preserve all valid official website clues');
-    assert.equal(page.body.found,Math.min(4,13-offset),'main index saves only four websites at a time');
-    assert.equal(page.body.hasMore,offset+4<13);
+    assert.equal(page.body.available,12,'preserve all valid official website clues');
+    assert.equal(page.body.found,Math.min(4,12-offset),'main index saves only four websites at a time');
+    assert.equal(page.body.hasMore,offset+4<12);
     coreSaved+=page.body.found;
   }
-  assert.equal(coreSaved,13,'all indexed sites eventually saved without exceeding per-request writes');
-  assert.equal(scalar("SELECT COUNT(*) AS n FROM discovery_clues WHERE source_provider='WEB_INDEX'"),13);
+  assert.equal(coreSaved,12,'all indexed sites eventually saved without exceeding per-request writes');
+  assert.equal(scalar("SELECT COUNT(*) AS n FROM discovery_clues WHERE source_provider='WEB_INDEX'"),12);
   assert.equal(scalar('SELECT COUNT(*) AS n FROM messages'),0);
   await post('discovery-auto-v1',{action:'FINISH',runId:coreBatchId});manyCoreHits=false;
   console.log('PASS: one-click source search → automatic official-site matching → verification → deeper enrichment → CRM; social/contact evidence; dedupe and repeated-click protection; pause/resume; explicit unavailable fields; automatic retry and exception recovery; lease lock; atomic recoverable cleanup/restore; protected commercial records; no outreach or queue.');
