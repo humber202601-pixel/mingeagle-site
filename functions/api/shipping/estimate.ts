@@ -14,6 +14,6 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
  const charge=method==='air'?cbm*1000000/Number(rate.volume_divisor)*Number(rate.usd_per_unit):cbm*Number(rate.usd_per_unit);
  const freight=Math.round((Math.max(charge,Number(rate.min_charge_usd))+Number(rate.handling_usd))*100)/100;
  const products=Math.round(prices[sku]*qty*100)/100;
- return Response.json({ok:true,sku,country,method,quantity:qty,productUSD:products,shippingUSD:freight,totalBeforeTaxesUSD:Math.round((products+freight)*100)/100,cbm:Number(cbm.toFixed(6)),currency:'USD',paymentEnabled:false,taxesNotIncluded:true,notice:'Shipping estimate only. Dispatch from China. Stock, packaging, delivery time, applicable duties and final payable amount require confirmation before payment.',rateUpdatedAt:rate.updated_at},{headers:{'cache-control':'no-store','access-control-allow-origin':'https://mingeagle.com','vary':'Origin'}});
+ return Response.json({ok:true,sku,country,method,quantity:qty,productUSD:products,shippingUSD:freight,totalBeforeTaxesUSD:Math.round((products+freight)*100)/100,cbm:Number(cbm.toFixed(6)),currency:'USD',paymentEnabled:false,taxesNotIncluded:true,notice:'Shipping estimate only. Dispatch from China. Stock, packaging, delivery time, applicable duties and final payable amount require confirmation before payment.',rateUpdatedAt:rate.updated_at},{headers:{'cache-control':'no-store','access-control-allow-origin':'*','vary':'Origin'}});
  }catch{return error('Shipping rates are unavailable or migration pending',503)}
 };
