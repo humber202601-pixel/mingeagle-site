@@ -1,3 +1,4 @@
+import SeoOpportunities from './SeoOpportunities';
 import SearchConsoleImport from './SearchConsoleImport';
 import {useEffect,useState} from 'react';
 import {ArrowUpRight,RefreshCcw} from 'lucide-react';
@@ -24,7 +25,7 @@ export default function InboundGrowth({accessKey}:{accessKey:string}){
    finally{if(!c.signal.aborted)setLoading(false)}})();
    return ()=>c.abort();
  },[accessKey,days,refresh]);
- return <div style={{display:'grid',gap:18}}><SearchConsoleImport accessKey={accessKey}/>
+ return <div style={{display:'grid',gap:18}}><SearchConsoleImport accessKey={accessKey}/><SeoOpportunities accessKey={accessKey}/>
    <section className="panel" style={{padding:18}}>
     <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'end'}}>
       <label style={{display:'grid',gap:7,fontSize:12,fontWeight:700}}>询盘创建时间
