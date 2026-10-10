@@ -229,7 +229,8 @@ function successResponse(nativeForm: boolean, reference: string, payload: Record
   return Response.json({ ok: true, reference, ...payload });
 }
 
-const processInquiryPost: PagesFunction<Env> = async ({ request, env }) => {
+async function processInquiryPost(context:Parameters<PagesFunction<Env>>[0],notify=true):Promise<Response>{
+  const {request,env}=context;
   try {
     if (!env.MINGEAGLE_DB) {
       return Response.json({ error: 'Database is not configured.' }, { status: 503 });
@@ -465,7 +466,7 @@ const processInquiryPost: PagesFunction<Env> = async ({ request, env }) => {
         }),
       ).run();
 
-    const emailForwarded = await forwardInquiryEmail(input, reference);
+    const emailForwarded = notify ? await forwardInquiryEmail(input, reference) : false;
 
     return successResponse(nativeForm, reference, {
       inquiryId,
@@ -479,7 +480,16 @@ const processInquiryPost: PagesFunction<Env> = async ({ request, env }) => {
     console.error('inquiry_create_failed', error);
     return Response.json({ error: error instanceof Error ? error.message : 'Unable to save the inquiry right now.' }, { status: 500 });
   }
-};
+}
+
+// A server-internal import used only by the protected HubSpot recovery endpoint.
+// It never forwards a duplicate notification email or bypasses normal input validation.
+export async function receiveRecoveredInquiry(env:Env,input:Record<string,unknown>){
+  const request=new Request('https://app.mingeagle.com/api/inquiries',{
+    method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify(input)});
+  return processInquiryPost({request,env} as Parameters<PagesFunction<Env>>[0],false);
+}
 
 // The storefront is hosted separately from the CRM. Public inquiries never
 // carry an admin credential. CORS permits only the official storefront origins.
