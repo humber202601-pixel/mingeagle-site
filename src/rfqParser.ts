@@ -5,7 +5,7 @@ export function parseWholesaleRfq(message:unknown):RfqLine[]{
  const s=String(message||'');
  const marker='Combined wholesale RFQ (customer-selected; not a final price):';
  const i=s.indexOf(marker);if(i<0)return [];
- const following=s.slice(i+marker.length).split(/\r?\n/);
+ const following=s.slice(i+marker.length).replace(/^\r?\n/,'').split(/\r?\n/);
  const results:RfqLine[]=[];
  for(const raw of following){
   const line=raw.trim();
