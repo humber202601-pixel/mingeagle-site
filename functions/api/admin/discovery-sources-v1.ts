@@ -111,7 +111,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       jobId=sourceJobId(input,'PUBLIC:'+logicalSource,parsed.round);
       await db.prepare(`INSERT OR IGNORE INTO discovery_jobs(id,state_region,customer_type,target_count,source_provider) VALUES(?,?,?,?, 'PUBLIC_SOURCE_CLUES_V1')`).bind(jobId,parsed.stateCode,parsed.customerType,parsed.targetCount).run();
       const results=await Promise.allSettled(sources.map(source=>sourceSnapshot(db,input,source,parsed.round,
-        ()=>source==='WEBSITE_SOCIAL'?collectWebsiteSocial(db,parsed):collectSource(parsed,source,env.GEOAPIFY_API_KEY,db))));
+        ()=>source==='WEBSITE_SOCIAL'?collectWebsiteSocial(db,parsed):collectSource(parsed,source,env.GEOAPIFY_API_KEY,db),
+        data=>!data.partial&&(!('review' in data)||!data.review))));
       const states:Record<string,{ok:boolean;found:number;added:number;available?:number;hasMore?:boolean;nextOffset?:number|null;updated?:number;retained?:number;partial?:boolean;review?:boolean;note?:string;error?:string}>={};let added=0,updated=0;const addedIds:string[]=[],updatedIds:string[]=[],foundIds:string[]=[];
       for(let i=0;i<results.length;i++){
         const result=results[i],source=sources[i];if(result.status==='rejected'){states[source]={ok:false,found:0,added:0,error:result.reason instanceof Error?result.reason.message:String(result.reason)};continue;}
