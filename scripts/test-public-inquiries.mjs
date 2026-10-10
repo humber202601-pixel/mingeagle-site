@@ -49,6 +49,9 @@ try{
   assert.equal(duplicateBody.idempotent,true,'retries reuse existing inquiry');
   assert.equal(count('leads'),1);
   assert.equal(count('tasks'),1);
+  const wrongContact=await request({...general,email:'different@example.test'});
+  assert.equal(wrongContact.status,409,'the same ME reference cannot return another contact private CRM identifiers');
+  assert.equal(count('leads'),1);
   const sample={...general,originalReference:'ME-20261010-B1B2C3D4',email:'sample@example.test',requestType:'SAMPLE',requestLabel:'Sample request',country:'US',estimatedQuantity:'1–2 samples'};
   const invalid=await request({...sample,country:''});
   assert.equal(invalid.status,400,'sample shipping country is mandatory');
