@@ -59,10 +59,10 @@ function greeting(row: DueLead) {
 
 function fitCopy(customerType:string) {
   const type=customerType.toUpperCase();
-  if(type==='TRAINING_ACADEMY') return { label:'basketball training academy', short:'quieter ball-handling work, indoor skill sessions, camps and take-home practice', subject:'silent basketballs for indoor skill training' };
-  if(type==='YOUTH_SPORTS_CLUB') return { label:'youth basketball program', short:'quieter youth drills, camps, warm-ups and at-home practice', subject:'silent basketballs for youth training' };
-  if(type==='SPORTS_FACILITY') return { label:'basketball facility', short:'a quieter option for skill work in indoor spaces', subject:'a quieter basketball option for indoor training' };
-  if(type==='SPORTS_RETAILER') return { label:'sports retailer', short:'a differentiated indoor-play product for parents and youth players', subject:'silent basketball retail opportunity' };
+  if(['TRAINING_ACADEMY','BASKETBALL_TRAINING','INDEPENDENT_COACH'].includes(type)) return { label:'basketball training academy', short:'quieter ball-handling work, indoor skill sessions, camps and take-home practice', subject:'silent basketballs for indoor skill training' };
+  if(['YOUTH_SPORTS_CLUB','YOUTH_CLUB','SUMMER_CAMP'].includes(type)) return { label:'youth basketball program', short:'quieter youth drills, camps, warm-ups and at-home practice', subject:'silent basketballs for youth training' };
+  if(['SPORTS_FACILITY','BASKETBALL_GYM','RECREATION_CENTER'].includes(type)) return { label:'basketball facility', short:'a quieter option for skill work in indoor spaces', subject:'a quieter basketball option for indoor training' };
+  if(['SPORTS_RETAILER','SPORTS_STORE','SPORTS_DISTRIBUTOR','EDUCATION_SUPPLIER'].includes(type)) return { label:'sports retailer', short:'a differentiated indoor-play product for parents and youth players', subject:'silent basketball retail opportunity' };
   return { label:'basketball organization', short:'quieter indoor skill work and at-home basketball training', subject:'silent basketball opportunity' };
 }
 
@@ -83,7 +83,7 @@ function templateFor(row: DueLead) {
       : `I came across ${company} while looking at organizations that work with basketball players and programs.`;
     return {
       type: 'OUTREACH_INITIAL',
-      subject: customerType === 'SPORTS_RETAILER' ? `MING EAGLE ${fit.subject} for ${company}` : `${company} — ${fit.subject}`,
+      subject: ['SPORTS_RETAILER','SPORTS_STORE','SPORTS_DISTRIBUTOR','EDUCATION_SUPPLIER'].includes(customerType.toUpperCase()) ? `MING EAGLE ${fit.subject} for ${company}` : `${company} — ${fit.subject}`,
       body: `${hello}\n\n${foundLine}\n\nWe make MING EAGLE silent basketballs for quieter indoor practice. Our silent basketball line has sold more than 30,000 sets in the U.S. market. For ${company}, a relevant use case may be ${fit.short}.\n\nWe can support sample evaluation, small wholesale quantities and repeat orders. If it looks relevant, I can send simple pricing for 20, 50 and 100 units together with shipping based on your ZIP code.\n\nWould it be useful if I sent a short wholesale quote?\n\nBest regards,\nMING EAGLE\nwww.mingeagle.com`,
     };
   }
