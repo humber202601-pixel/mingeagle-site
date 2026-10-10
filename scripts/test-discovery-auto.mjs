@@ -221,7 +221,7 @@ try{
   const sourceFirstId=result.body.run.id;
   db.sqlite.prepare('DELETE FROM discovery_auto_items WHERE run_id=?').run(sourceFirstId);
   db.sqlite.prepare("INSERT INTO discovery_clues(id,source_key,title,source_provider,source_url,customer_type,state_region,city,status) VALUES('pending-geo-clue','osm:way:901','Northstar Basketball Academy','OSM','https://www.openstreetmap.org/way/901','BASKETBALL_TRAINING','TX','Dallas','PENDING')").run();
-  db.sqlite.prepare("INSERT INTO discovery_auto_items(run_id,kind,item_key,payload_json) VALUES(?,'SOURCE','GEOAPIFY:0','{\\"source\\":\\"GEOAPIFY\\",\\"round\\":0}')").run(sourceFirstId);
+  db.sqlite.prepare("INSERT INTO discovery_auto_items(run_id,kind,item_key,payload_json) VALUES(?,'SOURCE','GEOAPIFY:0','{}')").run(sourceFirstId);
   db.sqlite.prepare("INSERT INTO discovery_auto_items(run_id,kind,item_key) VALUES(?,'CLUE','pending-geo-clue')").run(sourceFirstId);
   const sourceWork=await auto.claimAuto(db,sourceFirstId);
   assert.equal(sourceWork.items[0].kind,'SOURCE','gather and merge Geoapify evidence before processing existing OSM clues');
