@@ -7,7 +7,7 @@ export const SOCIAL_SOURCES = ['FACEBOOK','TIKTOK','INSTAGRAM','LINKEDIN'] as co
 export type SocialSource = typeof SOCIAL_SOURCES[number];
 export const EXPANSION_SOURCES = ['SOCIAL',...SOCIAL_SOURCES,'DIRECTORY','NCES','NCES_PRIVATE','NCES_DISTRICTS','OSM','GEOAPIFY','WEBSITE_SOCIAL'] as const;
 export type ExpansionSource = typeof EXPANSION_SOURCES[number];
-export type Clue = {key:string;title:string;source:string;url:string;snippet:string;city:string;website:string;customerType?:string;aliasKeys?:string[];address?:string};
+export type Clue = {key:string;title:string;source:string;url:string;snippet:string;city:string;website:string;customerType?:string;aliasKeys?:string[];address?:string;placeId?:string};
 export type SourceInput = {stateCode:string;customerType:string;city:string;round:number;targetCount:number};
 export function sourceCity(input:SourceInput){const cities=input.city?[input.city]:METROS[input.stateCode]||[STATE_NAMES[input.stateCode]];return {city:cities[input.round%cities.length],page:Math.floor(input.round/cities.length)};}
 export function mapBuyerMatch(title:string,type:string,context=''){
@@ -230,10 +230,14 @@ export async function geoapifyClues(input:SourceInput,apiKey?:string){
     const rawType=String(raw.osm_type||p.datasource?.osm_type||'').toLowerCase(),osmType=({n:'node',w:'way',r:'relation'} as Record<string,string>)[rawType]||rawType,osmId=String(raw.osm_id||p.datasource?.osm_id||'');
     const osm=['node','way','relation'].includes(osmType)&&/^\d+$/.test(osmId),sourceUrl=osm?`https://www.openstreetmap.org/${osmType}/${osmId}`:`https://www.openstreetmap.org/search?query=${encodeURIComponent(title+' '+city+' '+input.stateCode)}`;
     const customerType=categories.startsWith('education')?(p.categories?.includes('education.kindergarten')?'PRESCHOOL_KINDERGARTEN':'PUBLIC_SCHOOL'):mapBuyerType(title,input.customerType);
-    clues.push({key:osm?`osm:${osmType}:${osmId}`:`geoapify:${id}`,aliasKeys:osm?[`geoapify:${id}`]:[],source:'GEOAPIFY',title,customerType,url:sourceUrl,website,city:explicitCity||city,address:clean(p.formatted,500),snippet:clean(`Geoapify 公开地点目录 · ${p.formatted||title+' '+city} · 分类 ${(p.categories||[]).join(', ')} · ${explicitCity?'来源标注城市':'城市搜索范围，具体归属待核实'}。地图分类不等于采购意向，官网和业务需核验。`)});
+    clues.push({key:osm?`osm:${osmType}:${osmId}`:`geoapify:${id}`,aliasKeys:osm?[`geoapify:${id}`]:[],source:'GEOAPIFY',title,customerType,url:sourceUrl,website,placeId:id,city:explicitCity||city,address:clean(p.formatted,500),snippet:clean(`Geoapify 公开地点目录 · ${p.formatted||title+' '+city} · 分类 ${(p.categories||[]).join(', ')} · ${explicitCity?'来源标注城市':'城市搜索范围，具体归属待核实'}。地图分类不等于采购意向，官网和业务需核验。`)});
   }
   const unique=[...new Map(clues.map(c=>[c.title.toLowerCase()+'|'+c.snippet.split(' · 分类 ')[0].toLowerCase(),c])).values()];
-  return {clues:unique,note:`${city} · 地图机构第 ${page+1} 页，返回 ${unique.length} 条；已排除明显无关的专项运动地点，并合并同名同地址记录。业务和采购意向需官网核验。`,partial:false};
+  // Enrichment is capped at 10 missing-site place IDs per source batch, to keep
+  // provider credits bounded and avoid repetitive lookup on low-quality records.
+  let detailBudget=10;
+  const bounded=unique.map(c=>({...c,placeId:!c.website&&c.placeId&&detailBudget-->0?c.placeId:undefined}));
+  return {clues:bounded,note:`${city} · 地图机构第 ${page+1} 页，返回 ${unique.length} 条；已排除明显无关的专项运动地点，并合并同名同地址记录。业务和采购意向需官网核验。`,partial:false};
 }
 async function cachedGeoapifyClues(input:SourceInput,apiKey?:string,db?:D1Database){
   if(!db||!apiKey)return geoapifyClues(input,apiKey);
