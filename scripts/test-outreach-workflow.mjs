@@ -37,8 +37,8 @@ try{
   const categories=[
     ['BASKETBALL_TRAINING','quieter ball-handling work'],
     ['INDEPENDENT_COACH','quieter ball-handling work'],
-    ['YOUTH_CLUB','quieter youth drills'],
-    ['SUMMER_CAMP','quieter youth drills'],
+    ['YOUTH_CLUB','quieter indoor drills'],
+    ['SUMMER_CAMP','quieter indoor drills'],
     ['BASKETBALL_GYM','quieter option for skill work'],
     ['RECREATION_CENTER','quieter option for skill work'],
     ['SPORTS_STORE','differentiated indoor-play item'],
