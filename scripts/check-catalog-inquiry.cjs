@@ -13,6 +13,9 @@ assert.equal((catalog.match(/class="catalog-product-actions"/g)||[]).length,4);
 for(const cls of ['catalog-size','catalog-color','catalog-qty','catalog-quote','catalog-sample'])assert.equal((catalog.match(new RegExp('class="[^"]*\\b'+cls+'\\b[^"]*"','g'))||[]).length,4,'Missing catalog selector '+cls);
 assert(catalog.includes("new URLSearchParams({product:name,size:"),'Selections must be sent to inquiry URL');
 assert(logic.includes("const color=q.get('color'),units=q.get('units')"),'Inquiry must prefill color and units');
+assert.equal((catalog.match(/class="catalog-add"/g)||[]).length,4,'Each product needs multi-item select');
+assert(catalog.includes('id="catalog-rfq-submit"')&&catalog.includes('encodeURIComponent(JSON.stringify(selected))'),'Combined RFQ must transport line data');
+assert(logic.includes("q.get('rfq')")&&logic.includes('Combined wholesale RFQ')&&logic.includes('wholesaleRfqLines.join'),'Form must preserve itemized multi-product RFQ');
 for(const product of Object.values(master)){
  assert([...catalog.matchAll(/<img[^>]*src="([^"]+)"/g)].some(m=>m[1].split('?')[0]===product.hero),'Catalog must use approved hero: '+product.name);
  assert(fs.existsSync('public/'+product.hero),'Approved hero missing: '+product.hero);
