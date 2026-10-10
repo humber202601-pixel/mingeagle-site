@@ -17,7 +17,7 @@ try{
   const db={prepare(sql){const stmt=(params=[])=>({bind(...args){return stmt(args)},
     async first(){return sqlite.prepare(sql).get(...params)||null},
     async all(){return {results:sqlite.prepare(sql).all(...params)}},
-    async run(){return {meta:sqlite.prepare(sql).run(...params)}});return stmt()}};
+    async run(){return {meta:sqlite.prepare(sql).run(...params)}}});return stmt()}};
   const count=table=>sqlite.prepare('SELECT COUNT(*) AS n FROM '+table).get().n;
   const origin='https://www.mingeagle.com',base='https://app.mingeagle.com';
   const env={MINGEAGLE_DB:db,TURNSTILE_ENABLED:'1',TURNSTILE_SITE_KEY:'public-site',TURNSTILE_SECRET_KEY:'secret-private'};
