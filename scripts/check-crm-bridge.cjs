@@ -40,7 +40,7 @@ const submit=async(responseData,responseStatus=200)=>{
  const fail=await submit({error:'Daily quota exceeded'},503);
  assert.equal(fail.error?.message,'CRM_UNAVAILABLE');
  const source=fs.readFileSync('public/inquiry.js','utf8');
- assert(source.includes('await sendCrmInquiry(c,d,context)'));
+ assert(source.includes("await sendCrmInquiry(c,d,context,undefined,challenge?challenge.token():'')"));
  assert(source.includes('await sendPayload(c,buildPayload(d,c,context))'),'HubSpot should remain available when D1 is down');
  assert(source.includes('synchronization to the customer management system has not yet been confirmed'),'fallback never falsely asserts CRM success');
  assert(source.indexOf('await sendCrmInquiry')<source.indexOf('await sendPayload(c,buildPayload(d,c,context),undefined,4500)'),'CRM is primary; HubSpot optional mirror');

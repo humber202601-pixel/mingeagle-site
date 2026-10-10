@@ -8,6 +8,8 @@ const {buildPayload,sendPayload,sendCrmInquiry}=core||{};
 if(typeof module!=='undefined'&&module.exports){module.exports={rules,summary,buildPayload,sendPayload};return}
 if(!core)return;
 const form=document.querySelector('#quoteForm');if(!form)return;
+const challenge=root.MingEagleTurnstile;
+const challengeReady=challenge?challenge.start():Promise.resolve({enabled:false,unavailable:false});
 const $=id=>document.getElementById(id),c=root.MINGEAGLE_INQUIRY_CONFIG||{enabled:false},q=new URLSearchParams(location.search);
 const type=TYPE_MAP[(q.get('type')||'').toLowerCase()];if(type)$('request_type').value=type;
 form.querySelectorAll('[name="products[]"]').forEach(cb=>{if(cb.value===q.get('product'))cb.checked=true});
@@ -44,12 +46,17 @@ form.addEventListener('submit',async e=>{
  const d=read();
  if(!c.enabled){review(d);$('formStatus').textContent='Prepared. Please send it using email or WhatsApp below.';return}
  busy=true;$('submitInquiry').disabled=true;
- $('formStatus').textContent='Saving your request to MING EAGLE…';
+ $('formStatus').textContent='Checking security verification…';
  const context=core.context('MING EAGLE product / wholesale inquiry');
  try{
   // First persist the lead, inquiry and follow-up task in our own CRM.
   // The browser must never hold an admin key.
-  await sendCrmInquiry(c,d,context);
+  const challengeConfig=await challengeReady;
+  if(challengeConfig.unavailable||(challengeConfig.enabled&&!challenge?.token())){
+   throw new Error('CRM_CHALLENGE');
+  }
+  $('formStatus').textContent='Saving your request to MING EAGLE…';
+  await sendCrmInquiry(c,d,context,undefined,challenge?challenge.token():'');
   // Preserve the existing HubSpot lead source on a best-effort basis.
   // A HubSpot outage cannot undo a successfully persisted CRM inquiry.
   try{await sendPayload(c,buildPayload(d,c,context),undefined,4500)}
@@ -59,6 +66,16 @@ form.addEventListener('submit',async e=>{
   if(stored)location.assign('thank-you.html?ref='+encodeURIComponent(d.reference));
   else{$('inquiryReview').hidden=true}
  }catch(crmError){
+  // CAPTCHA rejected/missing/unavailable: never bypass it by automatically
+  // posting to HubSpot. Show the existing manual email/WhatsApp alternatives.
+  if(['CRM_CHALLENGE','CRM_VERIFICATION_UNAVAILABLE'].includes(crmError?.message)){
+   challenge?.reset();
+   const hint='Security verification is required or temporarily unavailable. Please complete the check or send your request directly by email or WhatsApp.';
+   $('formStatus').textContent=hint;
+   review(d,hint+' Remember to press Send in the email or WhatsApp app.');
+   busy=false;$('submitInquiry').disabled=false;return;
+  }
+  challenge?.reset();
   // Cloudflare/D1 may be temporarily unavailable or over its free quota.
   // Keep HubSpot as the known working fallback rather than lose a buyer inquiry.
   try{

@@ -25,13 +25,17 @@ function crmPayload(d,ctx){
   utmContent:campaign.get('utm_content')||'',privacyAck:true,marketingConsent:false,_honey:''
  };
 }
-async function sendCrmInquiry(c,d,ctx,fetcher=fetch){
+async function sendCrmInquiry(c,d,ctx,fetcher=fetch,turnstileToken=''){
  const endpoint=c.crmEndpoint||'https://app.mingeagle.com/api/inquiries';
  if(!/^https:\/\/app\.mingeagle\.com\/api\/inquiries$/.test(endpoint))throw new Error('CRM_NOT_CONFIGURED');
- const payload=crmPayload(d,ctx),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),18000);
+ const payload={...crmPayload(d,ctx),turnstileToken},controller=new AbortController(),timer=setTimeout(()=>controller.abort(),18000);
  try{
   const res=await fetcher(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:controller.signal});
   let answer;try{answer=await res.json()}catch{throw new Error('CRM_UNCERTAIN')}
+  // CAPTCHA failures must NEVER fall through to the direct HubSpot backup form.
+  if(answer&&typeof answer.code==='string'&&answer.code.startsWith('TURNSTILE_')){
+   throw new Error(answer.code==='TURNSTILE_UNAVAILABLE'||answer.code==='TURNSTILE_MISCONFIGURED'?'CRM_VERIFICATION_UNAVAILABLE':'CRM_CHALLENGE');
+  }
   if(!res.ok||!answer||answer.ok!==true||answer.reference!==d.reference||!answer.inquiryId||!answer.leadId)throw new Error(res.status>=500?'CRM_UNAVAILABLE':'CRM_REJECTED');
   return {accepted:true,reference:answer.reference,inquiryId:answer.inquiryId,idempotent:!!answer.idempotent};
  }catch(error){if(error.name==='AbortError'||error instanceof TypeError)throw new Error('CRM_UNCERTAIN');throw error}

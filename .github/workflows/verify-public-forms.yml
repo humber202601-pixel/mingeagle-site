@@ -4,9 +4,11 @@ on:
     branches: [main]
     paths:
       - 'public/inquiry.js'
+      - 'public/turnstile-client.js'
       - 'public/forms-core.js'
       - 'public/inquiry-config.js'
       - 'scripts/check-crm-bridge.cjs'
+      - 'scripts/check-turnstile.cjs'
       - 'scripts/check-conversion.cjs'
       - 'scripts/check-growth.cjs'
       - 'scripts/build-conversion.py'
@@ -28,3 +30,4 @@ jobs:
           node scripts/check-growth.cjs
           node scripts/check-conversion.cjs
           node scripts/check-crm-bridge.cjs
+          node scripts/check-turnstile.cjs
