@@ -26,6 +26,7 @@ import AutomationCenter from './AutomationCenter';
 import DiscoveryCenter from './DiscoveryCenter';
 import ConversionFunnel from './ConversionFunnel';
 import InboundGrowth from './InboundGrowth';
+import ShippingManager from './ShippingManager';
 import {
   activityTypeLabel,
   customerTypeLabel,
@@ -68,6 +69,7 @@ const nav = [
   ['/app/communications', MessageSquareText, '沟通中心'],
   ['/app/automation', Bot, '自动化中心'],
   ['/app/quotes', CircleDollarSign, '报价单'],
+  ['/app/shipping', ShoppingBag, '国际运费管理'],
   ['/app/orders', ShoppingBag, '订单'],
   ['/app/tasks', ClipboardList, '跟进任务'],
 ] as const;
@@ -275,6 +277,7 @@ export default function AdminApp() {
     <Top title="报价单" description="创建报价草稿、生成客户安全链接、跟踪查看状态并自动转订单。"/>
     <QuoteBuilder inquiries={data.inquiries} accessKey={key} onCreated={() => void load(key)} />
   </>;
+  else if (page === 'shipping') content = <><Top title="国际运费管理" description="按国家和运输方式维护抛货运价、包装尺寸和启用状态。"/><ShippingManager accessKey={key}/></>;
   else if (page === 'orders') content = <>
     <Top title="订单" description="确认收款、处理订单、录入物流、确认送达，并自动进入复购跟进。"/>
     <OrderManager orders={data.orders} accessKey={key} onChanged={() => void load(key)} />
