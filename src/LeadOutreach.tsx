@@ -9,7 +9,7 @@ type Draft={
 type Mode='AUTO'|'INTRO'|'FOLLOWUP';
 const endpoint='/api/admin/';
 const WEB_URL='https://www.mingeagle.com';
-const hasWebsite=(body:string)=>/https?:\/\/(?:www\.)?mingeagle\.com(?:[\s/#?,;:!)]|\.(?=\s|$)|$)/i.test(body);
+const hasWebsite=(body:string)=>{const index=body.search(/(?:^|\n)(?:Best regards|Kind regards|Regards)[,\s]/i);return /https?:\/\/(?:www\.)?mingeagle\.com(?:[\s/#?,;:!)]|\.(?=\s|$)|$)/i.test(index>=0?body.slice(0,index):body)};
 const clean=(v:unknown)=>typeof v==='string'?v.trim():'';
 export default function LeadOutreach({leadId,accessKey}:{leadId:string;accessKey:string}){
   const [mode,setMode]=useState<Mode>('AUTO');
