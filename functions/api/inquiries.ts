@@ -4,6 +4,7 @@ interface Env {
 
 type InquiryInput = {
   originalReference?: string;
+  _honey?: string;
   firstName?: string;
   lastName?: string;
   email?: string;
@@ -33,7 +34,7 @@ type InquiryInput = {
   privacyAck?: boolean;
   requestLabel?: string;
   message?: string;
-  requestType?: 'WHOLESALE' | 'SAMPLE';
+  requestType?: 'WHOLESALE' | 'SAMPLE' | 'GENERAL' | 'ORDER_SUPPORT' | 'RETAIL_PARTNERSHIP';
   productInterest?: string;
 };
 
@@ -71,7 +72,7 @@ function quantityFloor(value: unknown, fallback = 0) {
 }
 
 function scoreLead(input: InquiryInput) {
-  let score = input.requestType === 'SAMPLE' ? 72 : 62;
+  let score = input.requestType === 'SAMPLE' ? 72 : input.requestType === 'GENERAL' || input.requestType === 'ORDER_SUPPORT' ? 45 : 62;
   const quantity = quantityFloor(input.estimatedQuantity, 0);
   if (quantity >= 20) score += 5;
   if (quantity >= 100) score += 8;
@@ -228,13 +229,14 @@ function successResponse(nativeForm: boolean, reference: string, payload: Record
   return Response.json({ ok: true, reference, ...payload });
 }
 
-export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+const processInquiryPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     if (!env.MINGEAGLE_DB) {
       return Response.json({ error: 'Database is not configured.' }, { status: 503 });
     }
 
     const { input, nativeForm } = await parseRequest(request);
+    if (clean(input._honey, 200))return Response.json({ok:false,error:'Spam check failed.'},{status:400});
     const firstName = clean(input.firstName, 80);
     const lastName = clean(input.lastName, 80);
     const email = clean(input.email, 200).toLowerCase();
@@ -259,15 +261,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       preferredConfiguration ? `Preferred configuration: ${preferredConfiguration}` : '',
       shippingPreference ? `Shipping preference: ${shippingPreference}` : '',
     ].filter(Boolean).join('\n');
-    const requestType = input.requestType === 'SAMPLE' ? 'SAMPLE' : 'WHOLESALE';
+    const requestedType = clean(input.requestType,40).toUpperCase();
+    const requestType = (['SAMPLE','WHOLESALE','GENERAL','ORDER_SUPPORT','RETAIL_PARTNERSHIP'].includes(requestedType)
+      ? requestedType : 'WHOLESALE') as NonNullable<InquiryInput['requestType']>;
     const productInterest = clean(input.productInterest, 120) || productInterestFromProducts(products);
     const requestedReference = safeReference(input.originalReference);
 
-    if (nativeForm && !input.privacyAck) {
+    const origin=request.headers.get('origin');
+    if ((nativeForm || isPublicInquiryOrigin(origin)) && !input.privacyAck) {
       return new Response('Privacy acknowledgement is required.', { status: 400 });
     }
-    if (!firstName || !lastName || !email || !country || !email.includes('@')) {
-      return Response.json({ error: 'First name, last name, valid email and country are required.' }, { status: 400 });
+    if (!firstName || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || (['SAMPLE','WHOLESALE','RETAIL_PARTNERSHIP'].includes(requestType) && !country)) {
+      return Response.json({ error: 'First name, valid email, and country for purchase/sample inquiries are required.' }, { status: 400 });
     }
 
     const db = env.MINGEAGLE_DB;
@@ -337,20 +342,21 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
             title=COALESCE(NULLIF(?, ''), title),
             phone=COALESCE(NULLIF(?, ''), phone), whatsapp=COALESCE(NULLIF(?, ''), whatsapp), updated_at=CURRENT_TIMESTAMP
         WHERE id=?`)
-        .bind(companyId, firstName, lastName, `${firstName} ${lastName}`, jobTitle, phone, whatsapp, contactId).run();
+        .bind(companyId, firstName, lastName, `${firstName} ${lastName}`.trim(), jobTitle, phone, whatsapp, contactId).run();
     } else {
       contactId = crypto.randomUUID();
       await db.prepare(`INSERT INTO contacts
         (id, company_id, first_name, last_name, full_name, title, email, email_type, email_verified, phone, whatsapp, is_primary)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 1)`)
-        .bind(contactId, companyId, firstName, lastName, `${firstName} ${lastName}`, jobTitle || null, email, 'UNKNOWN', phone || null, whatsapp || null).run();
+        .bind(contactId, companyId, firstName, lastName, `${firstName} ${lastName}`.trim(), jobTitle || null, email, 'UNKNOWN', phone || null, whatsapp || null).run();
     }
 
     const leadScore = scoreLead({ ...input, requestType, customerType, company: companyName, phone, whatsapp });
     const leadId = crypto.randomUUID();
     const leadStatus = leadScore >= 70 ? 'QUALIFIED' : 'ANALYZED';
-    const nextAction = requestType === 'SAMPLE'
-      ? 'Review sample request and confirm sample path'
+    const nextAction = requestType === 'SAMPLE' ? 'Review sample request and confirm sample path'
+      : requestType === 'ORDER_SUPPORT' ? 'Review customer order support request and check order reference'
+      : requestType === 'GENERAL' ? 'Answer public product question and confirm next step'
       : 'Review inquiry and prepare response / quote path';
 
     await db.prepare(`INSERT INTO leads (
@@ -415,7 +421,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         leadId,
         companyId,
         contactId,
-        requestType === 'SAMPLE' ? `Review sample request ${reference}` : `Review wholesale inquiry ${reference}`,
+        requestType === 'SAMPLE' ? `Review sample request ${reference}` : `Review ${requestType.toLowerCase().replace('_',' ')} inquiry ${reference}`,
         nextAction,
         taskPriority,
       ).run();
@@ -426,8 +432,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         'LEAD',
         leadId,
         'INQUIRY_CREATED',
-        requestType === 'SAMPLE' ? 'Sample request received' : 'Wholesale inquiry received',
-        `${firstName} ${lastName} submitted ${reference}`,
+        requestType === 'SAMPLE' ? 'Sample request received' : `${requestType.replace('_',' ')} inquiry received`,
+        `${firstName} ${lastName}`.trim()+` submitted ${reference}`,
         JSON.stringify({
           inquiryId,
           sampleId,
@@ -473,4 +479,44 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     console.error('inquiry_create_failed', error);
     return Response.json({ error: error instanceof Error ? error.message : 'Unable to save the inquiry right now.' }, { status: 500 });
   }
+};
+
+// The storefront is hosted separately from the CRM. Public inquiries never
+// carry an admin credential. CORS permits only the official storefront origins.
+const PUBLIC_INQUIRY_ORIGINS=new Set(['https://www.mingeagle.com','https://mingeagle.com']);
+function isPublicInquiryOrigin(origin:string|null){
+  return Boolean(origin)&&PUBLIC_INQUIRY_ORIGINS.has(String(origin));
+}
+function publicCors(response:Response,origin:string|null){
+  if(!isPublicInquiryOrigin(origin))return response;
+  const headers=new Headers(response.headers);
+  headers.set('access-control-allow-origin',String(origin));
+  headers.set('access-control-allow-methods','POST, OPTIONS');
+  headers.set('access-control-allow-headers','Content-Type');
+  headers.set('vary','Origin');
+  headers.set('cache-control','no-store');
+  return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+}
+export const onRequestOptions: PagesFunction<Env>=async({request})=>{
+  const origin=request.headers.get('origin');
+  if(!isPublicInquiryOrigin(origin))return new Response(null,{status:403});
+  if(request.headers.get('access-control-request-method')?.toUpperCase()!=='POST')return new Response(null,{status:405});
+  const headers=new Headers({
+    'access-control-allow-origin':String(origin),
+    'access-control-allow-methods':'POST, OPTIONS',
+    'access-control-allow-headers':'Content-Type',
+    'access-control-max-age':'600',
+    'cache-control':'no-store',
+    'vary':'Origin',
+  });
+  return new Response(null,{status:204,headers});
+};
+export const onRequestPost: PagesFunction<Env>=async context=>{
+  const origin=context.request.headers.get('origin');
+  if(origin&&!isPublicInquiryOrigin(origin)&&origin!==new URL(context.request.url).origin){
+    return Response.json({ok:false,error:'Origin not allowed.'},{status:403});
+  }
+  const size=Number(context.request.headers.get('content-length')||0);
+  if(size>12000)return publicCors(Response.json({ok:false,error:'Inquiry too large.'},{status:413}),origin);
+  return publicCors(await processInquiryPost(context),origin);
 };
