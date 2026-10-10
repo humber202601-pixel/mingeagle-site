@@ -27,6 +27,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Normalize built public form scripts
+        run: python scripts/normalize-contact-helper.py
       - name: Check public inquiry / CRM mapping and site attribution
         run: |
           node scripts/check-growth.cjs
