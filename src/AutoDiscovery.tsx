@@ -92,6 +92,22 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
   const runMessage=zeroResult?'本批未找到通过核验并入库的客户；请查看各来源返回数量和待核验原因。':run?.message;
   return <section className="panel auto-discovery-panel">
     <div className="auto-discovery-title"><div><span className="auto-discovery-kicker">客户开发 · 一键完成</span><h2>选定范围，自动整理成待开发客户</h2><p>搜索推荐渠道、查找官网、核验机构、补全公开信息并去重入库，全程自动衔接。</p></div><span className="auto-discovery-badge">搜索 → 核验 → 补全 → 入库</span></div>
+    <div style={{padding:'12px 14px',border:'1px solid #dce2ea',borderRadius:10,margin:'14px 0'}}>
+      <strong>美国精准获客 · Austin / Houston 30 家试点配置</strong>
+      <p>以下是六组搜索范围，每组计划核验约 5 家，共 30 家。点击仅填入筛选条件，不会自动发起搜索或联系客户；实际成功数量以独立官网核验和 CRM 去重结果为准。</p>
+      <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+        {(['Austin','Houston'] as const).flatMap(place=>[
+          {city:place,type:'BASKETBALL_TRAINING',label:'篮球训练'},
+          {city:place,type:'YOUTH_CLUB',label:'青少年俱乐部'},
+          {city:place,type:'SPORTS_STORE',label:'体育用品店'}
+        ]).map(item=><button type="button" key={item.city+item.type} className="button secondary small"
+          disabled={frozen||externalBusy||loading}
+          onClick={()=>{setState('TX');setCity(item.city);setType(item.type);setTarget(20);setBatches(1);setMessage('已选 '+item.city+' · '+item.label+'。请核对后点击下方一键发现按钮。');}}>
+          {item.city} · {item.label}
+        </button>)}
+      </div>
+      <p style={{fontSize:12,marginTop:8}}>注意：每批目标数量 20 是搜索上限设置，不代表保证得到 20 家。Foursquare 未加入此自动搜索；保留现有公开来源、官网核验及去重规则。</p>
+    </div>
     <form className="auto-discovery-form" onSubmit={start}>
       <label>国家<input value="United States" readOnly/></label>
       <label>州<select aria-label="一键发现州" value={state} disabled={frozen||externalBusy} onChange={e=>setState(e.target.value)}>{Object.entries(STATE_NAMES).map(([code,name])=><option value={code} key={code}>{name} ({code})</option>)}</select></label>
