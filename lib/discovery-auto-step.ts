@@ -93,7 +93,7 @@ export async function runAutoStep(env:AutoEnv,base:string,key:string,input:Row):
       const known=await db.prepare(`SELECT name,website FROM discovery_candidates
         WHERE lower(trim(name))=lower(trim(?)) AND lower(trim(city))=lower(trim(?))
           AND upper(trim(state_region))=upper(trim(?))
-          AND website IS NOT NULL AND website<>'' AND status NOT IN ('IGNORED','REVIEW')
+          AND website IS NOT NULL AND website<>'' AND crm_lead_id IS NOT NULL AND status NOT IN ('IGNORED','REVIEW')
         ORDER BY CASE WHEN crm_lead_id IS NOT NULL THEN 0 ELSE 1 END, updated_at DESC LIMIT 3`)
         .bind(name,clean(row.city,80),clean(row.state_region,30)).all<{name:string;website:string}>();
       await guard();
