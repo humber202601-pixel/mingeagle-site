@@ -148,7 +148,7 @@ async function generateQueue(db: D1Database) {
     LEFT JOIN contacts ct ON ct.id=l.primary_contact_id
     WHERE (
         (l.status='READY_TO_CONTACT' AND l.last_contact_at IS NULL
-          AND NOT EXISTS(SELECT 1 FROM messages m WHERE m.lead_id=l.id AND m.direction='OUTBOUND'))
+          AND NOT EXISTS(SELECT 1 FROM messages m WHERE m.lead_id=l.id AND m.direction IN ('OUTBOUND','INBOUND')))
         OR
         (l.next_action_at IS NOT NULL AND datetime(l.next_action_at) <= datetime('now')
           AND l.status IN ('CONTACTED','INTERESTED','SAMPLE','QUOTE','NEGOTIATION','WON')
@@ -247,6 +247,12 @@ async function sendQueueItem(db: D1Database, env: Env, queueId: string) {
   if (['SENT','SKIPPED'].includes(String(row.status))) throw new Error('This queue item is already closed.');
   if (String(row.status) !== 'READY') throw new Error('Approve this draft before sending.');
   if (Number(row.do_not_contact || 0) === 1 || ['DO_NOT_CONTACT','NOT_INTERESTED','NOT_FIT'].includes(String(row.lead_status || '').toUpperCase())) throw new Error('This contact is marked DO NOT CONTACT.');
+  // A lead with an incoming message is already in a conversation; do not send an unsolicited first-touch draft.
+  if(String(row.queue_type)==='OUTREACH_INITIAL'){
+    const inbound=await db.prepare(`SELECT 1 AS found FROM messages WHERE lead_id=? AND direction='INBOUND' LIMIT 1`)
+      .bind(String(row.lead_id)).first<{found:number}>();
+    if(inbound)throw new Error('该客户已有来信，请先查看对话，不要发送首次开发邮件。');
+  }
   // Never send a scheduled follow-up once a reply has already been recorded.
   // A fresh reply must be handled as a conversation, not as no-response outreach.
   if(String(row.queue_type)!=='OUTREACH_INITIAL'){
