@@ -20,7 +20,7 @@ const assistantSummary=(q.get('assistant_summary')||'').slice(0,350);
 const assistedInquiry=!!(assistantQuestion||assistantSummary);
 
 if(assistantSummary&&/^((Product|Size|Quantity|Destination postal code|Destination ZIP): [A-Za-z0-9 .-]+)(; (Product|Size|Quantity|Destination postal code|Destination ZIP): [A-Za-z0-9 .-]+)*$/.test(assistantSummary)){
- const message=$('message');if(message&&!message.value)message.value='Information collected by the automated website assistant (please confirm): '+assistantSummary;
+ const message=$('message');if(message&&!message.value.includes(assistantSummary))message.value=[message.value,'Information collected by the automated website assistant (please confirm): '+assistantSummary].filter(Boolean).join('\n\n').slice(0,message.maxLength>0?message.maxLength:4000);
  const postal=assistantSummary.match(/Destination (?:postal code|ZIP): ([A-Za-z0-9 -]{3,12})/i);if(postal&&$('zip'))$('zip').value=postal[1].trim();
  const units=assistantSummary.match(/Quantity: (\d{1,5}) units/);const qty=document.querySelector('[name="quantity"]');if(units&&qty&&!qty.value)qty.value=units[1];
  if(units&&$('estimated_quantity')){const count=Number(units[1]);const tier=count<=2?'1–2 samples':count<=49?'3–49 units':count<=99?'50–99 units':count<=499?'100–499 units':count<=999?'500–999 units':'1,000+ units';$('estimated_quantity').value=tier;}
