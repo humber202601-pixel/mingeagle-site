@@ -1,3 +1,4 @@
+import {retailReference} from '../../../lib/retail-reference';
 interface Env {
   MINGEAGLE_DB: D1Database;
 }
@@ -111,6 +112,22 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       id, quote_id, description, quantity, unit_price, line_total, sort_order
     ) VALUES (?, ?, ?, ?, ?, ?, 0)`)
       .bind(quoteItemId, quoteId, description, quantity, unitPrice, lineTotal).run();
+
+    // Snapshot the published size-specific retail price only for exact catalog variants.
+    // Arbitrary descriptions never receive an automatic savings claim.
+    const retail = retailReference(description);
+    if (retail !== null && unitPrice < retail) {
+      await db.prepare(`CREATE TABLE IF NOT EXISTS quote_retail_approvals (
+        quote_id TEXT NOT NULL,item_id TEXT NOT NULL,retail_usd REAL NOT NULL,
+        source_url TEXT NOT NULL,approved_description TEXT NOT NULL,
+        approved_unit_price REAL NOT NULL,approved_quantity INTEGER NOT NULL,
+        approved_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(quote_id,item_id))`).run();
+      await db.prepare(`INSERT INTO quote_retail_approvals
+        (quote_id,item_id,retail_usd,source_url,approved_description,approved_unit_price,approved_quantity)
+        VALUES (?,?,?,?,?,?,?)`)
+        .bind(quoteId,quoteItemId,retail,'https://app.mingeagle.com/retail-prices.json',description,unitPrice,quantity).run();
+    }
 
     await db.prepare(`UPDATE inquiries SET status = 'QUOTED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
       .bind(inquiry.id).run();
