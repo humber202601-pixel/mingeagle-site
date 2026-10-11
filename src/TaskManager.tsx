@@ -43,10 +43,10 @@ export default function TaskManager({ tasks, accessKey, onChanged }: Props) {
   }
   async function archiveCleanup(){
     if(cleanupCount===null||cleanupCount<1)return;
-    if(!window.confirm(`确认归档 ${cleanupCount} 项 test com 历史测试任务？不会删除客户、邮件或报价。`))return;
+    if(!window.confirm(`确认归档 ${cleanupCount} 项明确标记为测试客户的遗留待办？不会删除客户、邮件或报价。`))return;
     setCleanupBusy(true);setError('');
     try{
-      const r=await fetch('/api/admin/test-task-cleanup',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':accessKey},body:JSON.stringify({confirm:'ARCHIVE_TEST_COM_OLD_TASKS'})});
+      const r=await fetch('/api/admin/test-task-cleanup',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':accessKey},body:JSON.stringify({confirm:'ARCHIVE_NAMED_TEST_TASKS_PHASE2'})});
       const body=await r.json() as {ok?:boolean;archived?:number;error?:string};
       if(!r.ok||!body.ok)throw new Error(body.error||'归档失败');
       setCleanupCount(null);onChanged();
@@ -55,8 +55,8 @@ export default function TaskManager({ tasks, accessKey, onChanged }: Props) {
   }
   return <section className="panel task-manager">
     <div className="panel-head"><h2>待处理跟进任务</h2><span>当前 {tasks.length} 项</span></div>
-    <details className="task-test-cleanup"><summary>清理历史测试待办（仅 test com，安全归档）</summary>
-      <p>仅处理 2026 年 10 月 11 日之前创建且仍未完成的 test com 任务。不删除客户、邮件、询盘、报价或真实客户记录。</p>
+    <details className="task-test-cleanup"><summary>清理剩余测试待办（test com / QA TEST，安全归档）</summary>
+      <p>仅处理 2026 年 10 月 12 日之前创建，关联 test com 或 MING EAGLE QA TEST - DO NOT CONTACT 的未完成任务。不删除客户、邮件、询盘、报价或真实客户记录。</p>
       <button className="table-action" disabled={cleanupBusy} onClick={()=>void previewCleanup()}>预览可归档数量</button>
       {cleanupCount!==null&&<p>符合条件：{cleanupCount} 项。{cleanupCount>0&&<button className="table-action" disabled={cleanupBusy} onClick={()=>void archiveCleanup()}>确认归档这些测试任务</button>}</p>}
     </details>
