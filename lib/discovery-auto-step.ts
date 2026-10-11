@@ -73,12 +73,13 @@ export async function runAutoStep(env:AutoEnv,base:string,key:string,input:Row):
   if(stage==='LOOKUP'){
     const name=clean(row.title||row.name,200),websites:string[]=[];
     if(allowedWebsite(clean(row.website)))websites.push(clean(row.website));
-    if(kind==='CLUE'&&row.source_provider==='DIRECTORY'&&allowedWebsite(clean(row.source_url)))websites.push(clean(row.source_url));
+    // Directory results are evidence for discovering names, NOT the organization's website.
+    // Always resolve a separate official domain rather than verifying the directory itself.
     let lookupWarning='';
     if(!websites.length){
       const query=`"${name}" ${clean(row.city,80)} ${STATE_NAMES[clean(row.state_region)]||clean(row.state_region,30)} official website`;
       let readable=false;
-      try{const hits=await bing(query,clean(row.city,80));readable=true;for(const hit of hits)if(clueMatches(hit.title,name))websites.push(hit.url);}catch(e){lookupWarning=e instanceof Error?e.message:'主索引不可读取。';}
+      try{const hits=await bing(query,clean(row.city,80));readable=true;for(const hit of hits)if(allowedWebsite(hit.url)&&clueMatches(hit.title,name))websites.push(hit.url);}catch(e){lookupWarning=e instanceof Error?e.message:'主索引不可读取。';}
       await guard();
       if(!websites.length){
         try{const hits=await alternateSearch(query,db);readable=true;for(const hit of hits)if(allowedWebsite(hit.url)&&clueMatches(hit.title,name))websites.push(hit.url);}catch(e){lookupWarning=e instanceof Error?e.message:'备用索引不可读取。';}
@@ -87,7 +88,7 @@ export async function runAutoStep(env:AutoEnv,base:string,key:string,input:Row):
       if(!readable)throw new AutoStepError('查找官网的公开索引本次不可读取。'+lookupWarning,true);
     }
     if(!websites.length)return {review:true,reason:'公开索引尚未提供名称匹配的可核验官网，记录保留待核验。'+lookupWarning};
-    return again({stage:'VERIFY',websites:[...new Set(websites)].slice(0,2),websiteIndex:0});
+    return again({stage:'VERIFY',websites:[...new Set(websites.filter(allowedWebsite))].slice(0,3),websiteIndex:0});
   }
   if(stage==='VERIFY'){
     const websites=payload.websites as string[]||[],index=Number(payload.websiteIndex||0),website=websites[index];
