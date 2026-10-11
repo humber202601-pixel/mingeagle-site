@@ -17,7 +17,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  if(Number(request.headers.get('content-length')||0)>12000)return response(413,{ok:false,error:'Request too large'});
  if(env.AI_SALES_ENABLED!=='true'||!env.AI_SALES_API_KEY)return response(503,{ok:false,code:'AI_NOT_CONFIGURED',error:'Automated FAQ remains available'});
  let body:{messages?:Message[]};try{body=await request.json()}catch{return response(400,{ok:false,error:'Invalid JSON'})}
- if(!Array.isArray(body.messages)||body.messages.length<1||body.messages.length>12||body.messages.some(m=>!m||!['user','assistant'].includes(m.role)||typeof m.content!=='string'||!m.content.trim()||m.content.length>700)||body.messages.at(-1)?.role!=='user')return response(400,{ok:false,error:'Invalid chat messages'});
+ if(!Array.isArray(body.messages)||JSON.stringify(body).length>12000||body.messages.length<1||body.messages.length>12||body.messages.some(m=>!m||!['user','assistant'].includes(m.role)||typeof m.content!=='string'||!m.content.trim()||m.content.length>700)||body.messages.at(-1)?.role!=='user')return response(400,{ok:false,error:'Invalid chat messages'});
  // Public endpoint: enforce an atomic hourly and daily usage cap before any paid model call.
  // Hash the IP with the secret key; do not persist raw addresses or chat messages.
  if(!env.MINGEAGLE_DB)return response(503,{ok:false,error:'Rate protection unavailable'});
