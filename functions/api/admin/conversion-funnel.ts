@@ -75,10 +75,10 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
       GROUP BY category ORDER BY total DESC,category ASC LIMIT 80`)
       .bind(...bind).all<FunnelRow>()).results;
     const prospects=(await db.prepare(`${activity}
-      SELECT id,company_name,category,city,state_region,email,contact_phone,whatsapp,lead_score,status
+      SELECT id,company_name,category,city,state_region,email,contact_phone,whatsapp,has_email,lead_score,status
       FROM lead_flags
       WHERE has_contact=1 AND blocked=0 AND contacted=0
-      ORDER BY lead_score DESC,id ASC LIMIT 30`)
+      ORDER BY has_email DESC,lead_score DESC,id ASC LIMIT 30`)
       .bind(...bind).all<FunnelRow>()).results;
     // Quote engagement is measured from actual quote records, not lead status labels.
     // A quote may have been viewed or accepted before its status subsequently changed.
@@ -129,7 +129,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
         id:String(p.id),company:String(p.company_name||'未填写机构名称'),
         category:String(p.category||'UNCLASSIFIED'),city:String(p.city||''),state:String(p.state_region||''),
         email:String(p.email||''),phone:String(p.contact_phone||''),whatsapp:String(p.whatsapp||''),
-        score:n(p.lead_score),status:String(p.status||''),
+        score:n(p.lead_score),emailReady:n(p.has_email)===1,status:String(p.status||''),
       })),limitations:[
         '按客户创建日期建立同批样本，指标为当前累计状态，不是各环节严格嵌套的人数。',
         '已联系=CRM中实际存在发出消息；已回复=发出消息后收到非网站渠道消息，不推断离线沟通。',
