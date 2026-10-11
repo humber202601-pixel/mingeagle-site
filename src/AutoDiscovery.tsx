@@ -133,6 +133,8 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
   const diagnosis=diagnoseDiscovery(data);
   const contactReady=(row:Row)=>Boolean(String(row.email||'').trim()||String(row.phone||'').trim()||String(row.whatsapp||'').trim());
   const readyContacts=importedRows.filter(contactReady).length;
+  const emailReady=importedRows.filter(row=>/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(row.email||'').trim())).length;
+  const otherContactOnly=importedRows.filter(row=>!String(row.email||'').trim()&&Boolean(String(row.phone||'').trim()||String(row.whatsapp||'').trim())).length;
   const needEnrichment=importedRows.length-readyContacts;
   const zeroResult=Boolean(run&&['COMPLETED','PARTIAL'].includes(run.status)&&imported===0);
   const runMessage=zeroResult?'本批未找到通过核验并入库的客户；请查看各来源返回数量和待核验原因。':run?.message;
@@ -171,13 +173,13 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
     </div>}
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:10,marginTop:14}}>
       <div className="metric"><span>本轮已确认入库</span><strong>{imported}</strong><small>核验通过，不等于已联系</small></div>
-      <div className="metric"><span>本轮有联系方式</span><strong>{readyContacts}</strong><small>邮箱 / 电话 / WhatsApp</small></div>
+      <div className="metric"><span>本轮有可联系渠道</span><strong>{readyContacts}</strong><small>有效格式邮箱 {emailReady} · 仅电话或 WhatsApp {otherContactOnly}</small></div>
       <div className="metric"><span>待审核邮件</span><strong>{queueStats?.review??'—'}</strong><small>全部 CRM 邮件队列</small></div>
       <div className="metric"><span>历史已发邮件</span><strong>{queueStats?.sent??'—'}</strong><small>队列累计，非本轮</small></div>
     </div>
     <div className="panel" style={{marginTop:16,padding:16}}>
       <strong>下一步 · 联系精准客户</strong>
-      <p>将已进入销售准备状态、具有业务邮箱且允许联系的客户整理为邮件草稿。首次陌生开发邮件必须人工审核后才能发送。</p>
+      <p>本轮已入库机构中，有 {emailReady} 家具有可用格式的邮箱，可参与邮件草稿准备；另有 {otherContactOnly} 家只具备电话或 WhatsApp，需在客户档案中选择合适渠道联系。邮件队列也可能包含其他批次客户，首次陌生开发邮件必须人工审核。</p>
       <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center'}}>
         <button type="button" className="button secondary" disabled={draftBusy} onClick={()=>void prepareReviewDrafts()}>
           {draftBusy?'正在整理草稿…':'一键准备待审核邮件'}
