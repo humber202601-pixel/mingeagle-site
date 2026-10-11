@@ -1,3 +1,4 @@
+import {retailReference} from '../../../lib/retail-reference';
 // Admin-only, manually priced B2B draft. Never assume retail prices are wholesale prices.
 interface Env {MINGEAGLE_DB?:D1Database}
 type R=Record<string,unknown>;
@@ -38,8 +39,20 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  const subtotalCents=cents.reduce((a,b)=>a+b,0),totalCents=subtotalCents+Math.round(shipping*100);
  if(!Number.isSafeInteger(totalCents)||totalCents>100000000)return bad('Quote total outside review limits');
  const id=crypto.randomUUID(),quoteRef='ME-Q-'+Date.now().toString(36).toUpperCase()+'-'+crypto.randomUUID().slice(0,4).toUpperCase();
+ // Catalog reference is already published and keyed by product + size.
+ // Persist the exact per-line snapshot so the customer quotation can show verified savings.
+ await db.prepare(`CREATE TABLE IF NOT EXISTS quote_retail_approvals (
+ quote_id TEXT NOT NULL,item_id TEXT NOT NULL,retail_usd REAL NOT NULL,
+ source_url TEXT NOT NULL,approved_description TEXT NOT NULL,
+ approved_unit_price REAL NOT NULL,approved_quantity INTEGER NOT NULL,
+ approved_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(quote_id,item_id))`).run();
+ const lineItems=lines.map((line,i)=>({ ...line,itemId:crypto.randomUUID(),wholesale:input.unitPrices![i],retail:retailReference(line.description) }));
  const sql=db.prepare("INSERT INTO quotes (id,reference,lead_id,inquiry_id,company_id,contact_id,status,currency,subtotal,discount,shipping,tax,total,payment_terms,shipping_terms,notes,valid_until) VALUES (?,?,?,?,?,?,'DRAFT','USD',?,0,?,0,?,?,?,?,datetime('now','+14 days'))").bind(id,quoteRef,inquiry.lead_id,inquiry.id,inquiry.company_id,inquiry.contact_id,subtotalCents/100,shipping,totalCents/100,payment,terms,'Wholesale draft. Manually priced by staff; verify freight, duties, stock and terms before sending. Source inquiry '+ref);
- const stmts=[sql,...lines.map((line,i)=>db.prepare('INSERT INTO quote_items (id,quote_id,description,quantity,unit_price,line_total,sort_order) VALUES (?,?,?,?,?,?,?)').bind(crypto.randomUUID(),id,line.description,line.quantity,input.unitPrices![i],cents[i]/100,i)),db.prepare("UPDATE inquiries SET status='QUOTED',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(inquiry.id)];
+ const stmts=[sql,...lineItems.map((line,i)=>db.prepare('INSERT INTO quote_items (id,quote_id,description,quantity,unit_price,line_total,sort_order) VALUES (?,?,?,?,?,?,?)').bind(line.itemId,id,line.description,line.quantity,line.wholesale,cents[i]/100,i)),
+ ...lineItems.filter(line=>line.retail!==null&&line.wholesale<line.retail!).map(line=>db.prepare(`INSERT INTO quote_retail_approvals (quote_id,item_id,retail_usd,source_url,approved_description,approved_unit_price,approved_quantity)
+ VALUES (?,?,?,?,?,?,?)`).bind(id,line.itemId,line.retail,'https://app.mingeagle.com/retail-prices.json',line.description,line.wholesale,line.quantity)),
+ db.prepare("UPDATE inquiries SET status='QUOTED',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(inquiry.id)];
  await db.batch(stmts);
  return Response.json({ok:true,quoteReference:quoteRef,status:'DRAFT',items:lines.length,subtotalUSD:subtotalCents/100,shippingUSD:shipping,totalUSD:totalCents/100,reviewRequired:true,sent:false},{headers:{'cache-control':'no-store'}});
  }catch(e){console.error('wholesale_draft_error',e);return bad('Unable to create wholesale quote draft',503)}
