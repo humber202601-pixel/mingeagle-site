@@ -75,7 +75,8 @@ function domainOf(v:string){try{return new URL(v).hostname.toLowerCase().replace
 export function allowedWebsite(v:string){if(!publicUrl(v))return false;const h=domainOf(v);return !BLOCKED_DOMAINS.some(d=>h===d||h.endsWith(`.${d}`))}
 function grade(score:number){return score>=80?'A':score>=60?'B':'C'}
 function normalizeName(v:string){return organizationName(clean(v,120)).replace(/^(welcome to|official website of)\s+/i,'').replace(/\s+(official site|official website|home page)$/i,'').replace(/[|–—:-]+$/,'').trim()}
-function genericName(value:string){const v=normalizeName(value);if(!v||v.length<3||v.length>100)return true;if(GENERIC_NAME.test(v)||HARD_NEGATIVE.test(v)||/^\d+$/.test(v))return true;const words=v.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);if(words.length===1&&['basketball','training','academy','sports','athletics','hoops','program','club'].includes(words[0]))return true;return false}
+const EDITORIAL_RESULT_TITLE=/\b(?:top|best|ranking|ranked)\s+\d+\b|^\s*\d+\s+(?:best|top)\b|\b(?:best|top)\s+(?:youth\s+)?basketball\s+(?:programs?|academies|teams?|clubs?)\s+in\b|\b(?:list of|guide to|roundup of)\b/i;
+function genericName(value:string){const v=normalizeName(value);if(!v||v.length<3||v.length>100)return true;if(GENERIC_NAME.test(v)||HARD_NEGATIVE.test(v)||EDITORIAL_RESULT_TITLE.test(v)||/^\d+$/.test(v))return true;const words=v.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);if(words.length===1&&['basketball','training','academy','sports','athletics','hoops','program','club'].includes(words[0]))return true;return false}
 function humanizeDomain(domain:string){return domain.split('.')[0].replace(/[-_]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase()).slice(0,100)}
 
 const fetchText=fetchPublicText;
@@ -140,7 +141,7 @@ function scoreBusiness(hit:SearchHit,body:string,type:string,stateCode:string,en
 // pass the existing official-site scoreBusiness() check before CRM import.
 export function eligibleSearchHit(hit:SearchHit,type:string,_stateCode:string){
   const body=hit.title+' '+hit.snippet;
-  return allowedWebsite(hit.url)&&Boolean(STRONG_PAIR[type])&&
+  return allowedWebsite(hit.url)&&!EDITORIAL_RESULT_TITLE.test(hit.title)&&Boolean(STRONG_PAIR[type])&&
     /basketball|hoops|physical education|sporting goods|sports equipment|ymca/i.test(body)&&
     !HARD_NEGATIVE.test(body)&&
     !/dictionary|English meaning|definition|wikipedia/i.test(hit.title);
