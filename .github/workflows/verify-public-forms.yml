@@ -39,3 +39,4 @@ jobs:
           node scripts/check-turnstile.cjs
           node scripts/check-seo-v37.cjs
           node --check public/sales-assistant.js
+          node scripts/check-chat-i18n.cjs
