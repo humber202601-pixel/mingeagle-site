@@ -85,6 +85,7 @@ try{
   assert.equal(r.data.summary.paid,1);
   assert.equal(r.data.prospects.length,2);
   assert.equal(r.data.prospects[0].id,'l2');
+  assert.equal(r.data.prospects[0].emailReady,false,'a phone-only prospect is explicitly marked as such');
   assert.equal(r.data.prospects.find(p=>p.id==='l6')?.phone,'214-555-0131','organization phone is retained in review list');
   assert(!r.data.prospects.some(p=>p.id==='l3'),'opt-out must never surface in outreach shortlist');
   assert(!r.data.prospects.some(p=>p.id==='l1'),'previously contacted must not surface in cold contact list');
