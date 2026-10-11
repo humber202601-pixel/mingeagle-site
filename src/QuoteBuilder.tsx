@@ -326,7 +326,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
             </select>
           </label>
           <label>数量
-            <input name="quantity" type="number" min="1" defaultValue={text(selected?.estimated_quantity, '1')} key={`qty-${selectedReference}`} required />
+            <input name="quantity" type="number" min="1" defaultValue={text(selected?.estimated_quantity)} key={`qty-${selectedReference}`} placeholder="请确认客户数量" required />
           </label>
           <label className="span-2">产品描述（客户可见，建议英文）
             <input name="description" defaultValue={defaultDescription(selected)} key={`desc-${selectedReference}`} required />
@@ -335,7 +335,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
             <input name="unitPrice" type="number" min="0.01" step="0.01" placeholder="请确认后填写" required />
           </label>
           <label>运费（USD）
-            <input name="shipping" type="number" min="0" step="0.01" defaultValue="0" />
+            <input name="shipping" type="number" min="0" step="0.01" placeholder="填写真实运费，包邮填 0" required />
           </label>
           <label>客户 ZIP（内部参考）
             <input value={text(selected?.shipping_postal_code, '待确认')} readOnly />
@@ -364,7 +364,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
         </div>
         <div className="quote-form-actions">
           <button className="button" disabled={busy}>{busy ? '正在创建…' : '创建报价草稿'}</button>
-          <small>总价实时预览 = 数量 × 单价 − 折扣 + 运费。此操作只创建草稿，不会自动发送。</small>
+          <small>创建前检查：产品型号 / 规格、客户确认数量、批发单价、实际运费或包邮依据、收货 ZIP、付款和运输条款。缺少 ZIP 时请先核实运输费用；此操作只创建草稿，不会自动发送。</small>
         </div>
         {result && <div className="form-status success"><strong>报价草稿已创建：{result.reference}</strong><p>{result.currency} {Number(result.total).toFixed(2)} · {statusLabel(result.status)}</p></div>}
         {error && <div className="form-status error"><strong>报价操作失败</strong><p>{error}</p></div>}
