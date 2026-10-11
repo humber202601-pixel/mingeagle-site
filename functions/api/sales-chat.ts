@@ -1,4 +1,4 @@
-interface Env {AI_SALES_ENABLED?:string;AI_SALES_API_KEY?:string;AI_SALES_MODEL?:string;AI_SALES_ENDPOINT?:string}
+interface Env {MINGEAGLE_DB?:D1Database;AI_SALES_ENABLED?:string;AI_SALES_API_KEY?:string;AI_SALES_MODEL?:string;AI_SALES_ENDPOINT?:string}
 type Message={role:'user'|'assistant';content:string};
 const allowOrigin='https://www.mingeagle.com';
 const cors={'access-control-allow-origin':allowOrigin,'access-control-allow-methods':'POST, OPTIONS','access-control-allow-headers':'content-type','vary':'Origin','cache-control':'no-store'};
@@ -18,6 +18,22 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  if(env.AI_SALES_ENABLED!=='true'||!env.AI_SALES_API_KEY)return response(503,{ok:false,code:'AI_NOT_CONFIGURED',error:'Automated FAQ remains available'});
  let body:{messages?:Message[]};try{body=await request.json()}catch{return response(400,{ok:false,error:'Invalid JSON'})}
  if(!Array.isArray(body.messages)||body.messages.length<1||body.messages.length>12||body.messages.some(m=>!m||!['user','assistant'].includes(m.role)||typeof m.content!=='string'||!m.content.trim()||m.content.length>700)||body.messages.at(-1)?.role!=='user')return response(400,{ok:false,error:'Invalid chat messages'});
+ // Public endpoint: enforce an atomic hourly and daily usage cap before any paid model call.
+ // Hash the IP with the secret key; do not persist raw addresses or chat messages.
+ if(!env.MINGEAGLE_DB)return response(503,{ok:false,error:'Rate protection unavailable'});
+ try{
+  const ip=request.headers.get('CF-Connecting-IP')||'unknown';
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(env.AI_SALES_API_KEY+':'+ip));
+  const ipHash=Array.from(new Uint8Array(digest)).map(v=>v.toString(16).padStart(2,'0')).join('');
+  const db=env.MINGEAGLE_DB;
+  await db.prepare(`CREATE TABLE IF NOT EXISTS sales_chat_usage (scope TEXT NOT NULL,window_key TEXT NOT NULL,used INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(scope,window_key))`).run();
+  const hourKey=new Date().toISOString().slice(0,13),dayKey=hourKey.slice(0,10);
+  for(const [scope,key,limit] of [['ip-hour:'+ipHash,hourKey,12],['global-day',dayKey,150]] as const){
+   await db.prepare('INSERT OR IGNORE INTO sales_chat_usage (scope,window_key,used) VALUES (?,?,0)').bind(scope,key).run();
+   const update=await db.prepare('UPDATE sales_chat_usage SET used=used+1 WHERE scope=? AND window_key=? AND used<?').bind(scope,key,limit).run();
+   if(!update.meta?.changes)return response(429,{ok:false,error:'Chat limit reached. Please use the inquiry form.'});
+  }
+ }catch{return response(503,{ok:false,error:'Rate protection unavailable'})}
  const endpoint=env.AI_SALES_ENDPOINT||'https://api.openai.com/v1/chat/completions';
  // Only the approved provider endpoint is supported; URL cannot be controlled by visitors.
  if(endpoint!=='https://api.openai.com/v1/chat/completions')return response(503,{ok:false,error:'AI provider configuration invalid'});
