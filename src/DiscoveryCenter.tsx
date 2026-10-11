@@ -81,6 +81,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
   const [searchType,setSearchType]=useState(recommendedType||'BASKETBALL_TRAINING');
   const [searchCity,setSearchCity]=useState('');
   const [websiteUrls,setWebsiteUrls]=useState('');
+  const [findingOfficial,setFindingOfficial]=useState(false);
   const [importing,setImporting]=useState(false);
   const [cleaning,setCleaning]=useState(false);
   const [websiteResults,setWebsiteResults]=useState<Array<{url:string;status:string;name?:string;reason?:string}>>([]);
@@ -141,6 +142,25 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
     } finally {
       setSearching(false);
     }
+  }
+
+  async function discoverOfficialWebsites(){
+    if(findingOfficial||importing)return;
+    setFindingOfficial(true);setError('');
+    try{
+      const response=await fetch('/api/admin/discovery-official-websites-v1',{method:'POST',
+        headers:{'content-type':'application/json','x-admin-key':accessKey},
+        body:JSON.stringify({stateCode:searchState,customerType:searchType,city:searchCity,targetCount:20,round:0})});
+      const contentType=response.headers.get('content-type')||'';
+      if(!contentType.includes('application/json'))throw new Error('来源接口返回 HTTP '+response.status+'，非 JSON 数据。');
+      const body=await response.json() as {ok?:boolean;error?:string;scanned?:number;websiteCount?:number;websites?:string[]};
+      if(!response.ok||!body.ok)throw new Error(body.error||'无法发现官网');
+      const existing=websiteUrls.split(/\r?\n/).map(v=>v.trim()).filter(Boolean);
+      const merged=[...new Set([...existing,...body.websites||[]])].slice(0,10);
+      setWebsiteUrls(merged.join('\n'));
+      setMessage(`Geoapify 发现 ${body.scanned||0} 条地图线索，其中 ${body.websiteCount||0} 个带有候选官网；已填入 ${merged.length} 个网址，仍需点击核验按钮。此步骤未入库。`);
+    }catch(e){setError(e instanceof Error?e.message:'官网发现失败。');}
+    finally{setFindingOfficial(false);}
   }
 
   async function importWebsites(event:FormEvent<HTMLFormElement>) {
@@ -417,6 +437,8 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
               一键填入 10 个 Austin 机构官网
             </button>
           </div>
+          <button className="button secondary small" type="button" disabled={findingOfficial||importing||searching||autoBusy||expandedBusy}
+            onClick={()=>void discoverOfficialWebsites()}>{findingOfficial?'正在读取 Geoapify…':'自动发现候选机构官网（Geoapify）'}</button>
           <label htmlFor="discovery-websites">待核验官网</label>
           <textarea id="discovery-websites" value={websiteUrls} onChange={e=>setWebsiteUrls(e.target.value)} rows={4} maxLength={11000} placeholder="https://www.example.com" required/>
           <button className="button secondary" disabled={autoBusy||expandedBusy||(importing||searching)}>{importing?'正在核验官网…':'核验并加入潜在客户'}</button>
