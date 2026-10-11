@@ -42,5 +42,5 @@ const inlineScripts=[...catalog.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)
 assert(inlineScripts.some(script=>script.includes('const retailPrices=')),'Retail reference price calculator must be present');
 for(const script of inlineScripts)assert.doesNotThrow(()=>new Function(script),'Inline catalog JavaScript must parse');
 assert(!catalog.includes('</html>+retailPrices'),'Detached price-calculator code after closing HTML');
-assert.equal((catalog.match(/<\\/html>/g)||[]).length,1,'Catalog must have exactly one closing HTML element');
+assert.equal(catalog.split('</html>').length-1,1,'Catalog must have exactly one closing HTML element');
 console.log('PASS: each catalog product carries its existing exact inquiry checkbox identity to quote/sample form.');
