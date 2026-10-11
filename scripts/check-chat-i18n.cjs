@@ -4,89 +4,28 @@ const langs=['en','es','pt','fr','de','it','nl','pl','ja'];
 for(const lang of langs){const a=sandbox.window.MINGEAGLE_CHAT_LANG[lang],b=sandbox.window.MINGEAGLE_CHAT_ANSWERS[lang];assert.equal(a.length,19,lang+' UI entries');assert.equal(b.length,9,lang+' FAQ entries');assert(a.every(x=>typeof x==='string'&&x.trim()),lang+' missing UI translation');assert(b.every(x=>typeof x==='string'&&x.trim()),lang+' missing FAQ translation')}
 for(const file of ['index.html','products.html','wholesale.html','wholesale-product-catalog.html','inquiry.html']){const page=fs.readFileSync('public/'+file,'utf8');assert(page.includes('sales-assistant-i18n.js'),file+' missing translations');assert(page.indexOf('sales-assistant-i18n.js')<page.indexOf('sales-assistant.js'),file+' wrong script order')}
 console.log('PASS: nine-language chat UI and FAQ dictionaries, correct script inclusion/order on five pages.');
-
-// Guard against accidentally double-escaped regex tokens in the quote qualification flow.
 const assistant=fs.readFileSync('public/sales-assistant.js','utf8');
 assert(!/\\\\[bsd]/.test(assistant),'Chat assistant contains double-escaped regex tokens');
 assert(assistant.includes('quoteState.active=true'),'Quote qualification flow missing');
 assert(assistant.includes('quoteState.zip=z[1]'),'ZIP capture flow missing');
-
-// multilingual quote intent regression: test extracted matcher against common buyer phrases.
-const quoteFunction=assistant.match(/function isQuoteIntent\(text\)\{[\s\S]*?\n\}/);
-assert(quoteFunction,'multilingual quote intent regression: matcher missing');
+const quoteFunction=assistant.match(/function isQuoteIntent\(text\)\{[\s\S]*?\n\}/);assert(quoteFunction,'multilingual quote intent regression: matcher missing');
 const quoteSandbox={};vm.runInNewContext(quoteFunction[0]+';this.quoteIntent=isQuoteIntent;',quoteSandbox);
 for(const phrase of ['wholesale quote','cotización mayorista','orçamento atacado','devis vente en gros','Großhandel Angebot','preventivo ingrosso','卸売 見積','groothandel offerte','wycena hurtowa'])assert(quoteSandbox.quoteIntent(phrase),'Missing quote intent: '+phrase);
 assert(assistant.includes('if(i===2){quoteState.active=true'),'Wholesale quick action must activate qualification');
 console.log('PASS: nine-language wholesale quote intent and quick action flow.');
-
 const inquiry=fs.readFileSync('public/inquiry.js','utf8');
 assert(inquiry.includes('Destination postal code|Destination ZIP'),'Inquiry must accept chat postal code keys');
 assert(inquiry.includes("assistantSummary.match(/Size: No\\."),'Inquiry must carry ball size');
 assert(inquiry.includes("if(units&&$('estimated_quantity'))"),'Inquiry must prefill quantity tier');
 console.log('PASS: sales assistant to inquiry form prefill contract.');
-
-
-
-// Check product-name recognition in all nine supported languages without touching the live CRM.
-const capture=assistant.match(/function captureDetails\(text\)\{[\s\S]*?\n\}/);
-assert(capture,'Product capture function must be present');
-const cases=[
- ['flocked basketball','Flocked Silent Basketball Set'],
- ['soccer ball','Flocked Silent Soccer Ball'],
- ['balón flocado','Flocked Silent Basketball Set'],
- ['futebol silencioso','Flocked Silent Soccer Ball'],
- ['basket lesté','Weighted Flocked Silent Basketball'],
- ['basket lestée','Weighted Flocked Silent Basketball'],
- ['Basketball aus Stoff','Fabric-Cover Silent Basketball Set'],
- ['basket appesantito','Weighted Flocked Silent Basketball'],
- ['geflockte basketbal','Flocked Silent Basketball Set'],
- ['piłka obciążona','Weighted Flocked Silent Basketball'],
- ['フロック バスケットボール','Flocked Silent Basketball Set'],
- ['静音サッカー','Flocked Silent Soccer Ball']
-];
-for(const [phrase,expected] of cases){
- const ctx={quoteState:{model:'',size:'',quantity:'',zip:''}};
- vm.runInNewContext(capture[0]+'; captureDetails('+JSON.stringify(phrase)+')',ctx);
- assert.equal(ctx.quoteState.model,expected,'Product recognition failed for '+phrase);
-}
+const capture=assistant.match(/function captureDetails\(text\)\{[\s\S]*?\n\}/);assert(capture,'Product capture function must be present');
+const cases=[['flocked basketball','Flocked Silent Basketball Set'],['soccer ball','Flocked Silent Soccer Ball'],['balón flocado','Flocked Silent Basketball Set'],['futebol silencioso','Flocked Silent Soccer Ball'],['basket lesté','Weighted Flocked Silent Basketball'],['basket lestée','Weighted Flocked Silent Basketball'],['Basketball aus Stoff','Fabric-Cover Silent Basketball Set'],['basket appesantito','Weighted Flocked Silent Basketball'],['geflockte basketbal','Flocked Silent Basketball Set'],['piłka obciążona','Weighted Flocked Silent Basketball'],['フロック バスケットボール','Flocked Silent Basketball Set'],['静音サッカー','Flocked Silent Soccer Ball']];
+for(const [phrase,expected] of cases){const ctx={quoteState:{model:'',size:'',quantity:'',zip:''}};vm.runInNewContext(capture[0]+'; captureDetails('+JSON.stringify(phrase)+')',ctx);assert.equal(ctx.quoteState.model,expected,'Product recognition failed for '+phrase)}
 console.log('PASS: multilingual product routing test cases.');
-
-
-// Multi-turn chat regression: quantity must not be interpreted as a postal code.
-const flowCtx={quoteState:{model:'',size:'',quantity:'',zip:''}};
-vm.runInNewContext(capture[0]+';this.captureDetails=captureDetails;',flowCtx);
-flowCtx.captureDetails('flocked basketball');
-assert.equal(flowCtx.quoteState.model,'Flocked Silent Basketball Set');
-flowCtx.captureDetails('5');
-assert.equal(flowCtx.quoteState.size,'5','Standalone size should be accepted');
-flowCtx.captureDetails('100');
-assert.equal(flowCtx.quoteState.quantity,'100','Standalone unit count should be accepted');
-assert.equal(flowCtx.quoteState.zip,'','Unit count must not double as ZIP');
-flowCtx.captureDetails('Orange');
-assert.equal(flowCtx.quoteState.zip,'','Color must not be confused with postal code');
-flowCtx.captureDetails('flocked');
-assert.equal(flowCtx.quoteState.zip,'','Product text must not be confused with postal code');
-flowCtx.captureDetails('75201');
-assert.equal(flowCtx.quoteState.zip,'75201','US postal code should be accepted at postal step');
-console.log('PASS: model → size → quantity → postal code stateful checkout.');
-
-assert(assistant.includes("if(isQuoteIntent(q)&&!quoteState.active){"),'New wholesale request must start a fresh quote');
-assert(assistant.includes("quoteState.model='';quoteState.size='';quoteState.quantity='';quoteState.zip=''"),'New quote must clear earlier customer choices');
-console.log('PASS: restart quote clears previously collected customer fields.');
-
-
-const sizeFunction=assistant.match(/function supportedSizes\(model\)\{[\s\S]*?\n\}/);
-assert(sizeFunction,'Product-specific size validation missing');
-const sizeCtx={};vm.runInNewContext(sizeFunction[0]+';this.supportedSizes=supportedSizes;',sizeCtx);
-const asPlain=x=>Array.from(x);
-assert.deepEqual(asPlain(sizeCtx.supportedSizes('Flocked Silent Basketball Set')),['3','5','7']);
-assert.deepEqual(asPlain(sizeCtx.supportedSizes('Fabric-Cover Silent Basketball Set')),['3','5','7']);
-assert.deepEqual(asPlain(sizeCtx.supportedSizes('Weighted Flocked Silent Basketball')),['3','4','6','7']);
-assert.deepEqual(asPlain(sizeCtx.supportedSizes('Flocked Silent Soccer Ball')),['5']);
-assert(assistant.includes('!supportedSizes(quoteState.model).includes(quoteState.size)'),'Invalid model and size pairs must be refused');
-console.log('PASS: assistant validates product-specific ball sizes.');
-
-const handoff=fs.readFileSync('public/inquiry.js','utf8');
-assert(handoff.includes("!message.value.includes(assistantSummary)"),'AI quote must not duplicate the handoff summary');
-assert(handoff.includes("[message.value,'Information collected by the automated website assistant"),'AI quote must preserve existing buyer message and exact details together');
-console.log('PASS: inquiry prefill retains buyer text and exact AI quote specifications.');
+const flowCtx={quoteState:{model:'',size:'',quantity:'',zip:''}};vm.runInNewContext(capture[0]+';this.captureDetails=captureDetails;',flowCtx);flowCtx.captureDetails('flocked basketball');assert.equal(flowCtx.quoteState.model,'Flocked Silent Basketball Set');flowCtx.captureDetails('5');assert.equal(flowCtx.quoteState.size,'5','Standalone size should be accepted');flowCtx.captureDetails('100');assert.equal(flowCtx.quoteState.quantity,'100','Standalone unit count should be accepted');assert.equal(flowCtx.quoteState.zip,'','Unit count must not double as ZIP');flowCtx.captureDetails('Orange');assert.equal(flowCtx.quoteState.zip,'','Color must not be confused with postal code');flowCtx.captureDetails('flocked');assert.equal(flowCtx.quoteState.zip,'','Product text must not be confused with postal code');flowCtx.captureDetails('75201');assert.equal(flowCtx.quoteState.zip,'75201','US postal code should be accepted at postal step');console.log('PASS: model → size → quantity → postal code stateful checkout.');
+assert(assistant.includes("if(isQuoteIntent(q)&&!quoteState.active){"),'New wholesale request must start a fresh quote');assert(assistant.includes("quoteState.model='';quoteState.size='';quoteState.quantity='';quoteState.zip=''"),'New quote must clear earlier customer choices');console.log('PASS: restart quote clears previously collected customer fields.');
+const sizeFunction=assistant.match(/function supportedSizes\(model\)\{[\s\S]*?\n\}/);assert(sizeFunction,'Product-specific size validation missing');const sizeCtx={};vm.runInNewContext(sizeFunction[0]+';this.supportedSizes=supportedSizes;',sizeCtx);const asPlain=x=>Array.from(x);assert.deepEqual(asPlain(sizeCtx.supportedSizes('Flocked Silent Basketball Set')),['3','5','7']);assert.deepEqual(asPlain(sizeCtx.supportedSizes('Fabric-Cover Silent Basketball Set')),['3','5','7']);assert.deepEqual(asPlain(sizeCtx.supportedSizes('Weighted Flocked Silent Basketball')),['3','4','6','7']);assert.deepEqual(asPlain(sizeCtx.supportedSizes('Flocked Silent Soccer Ball')),['5']);assert(assistant.includes('!supportedSizes(quoteState.model).includes(quoteState.size)'),'Invalid model and size pairs must be refused');console.log('PASS: assistant validates product-specific ball sizes.');
+const handoff=fs.readFileSync('public/inquiry.js','utf8');assert(handoff.includes("!message.value.includes(assistantSummary)"),'AI quote must not duplicate the handoff summary');assert(handoff.includes("[message.value,'Information collected by the automated website assistant"),'AI quote must preserve existing buyer message and exact details together');console.log('PASS: inquiry prefill retains buyer text and exact AI quote specifications.');
+assert(assistant.includes("if(!quoteState.size)quoteState.size='5'"),'Soccer quote should auto-select its only supported size');
+const soccerCtx={quoteState:{model:'',size:'',quantity:'',zip:''}};vm.runInNewContext(capture[0]+';captureDetails(\"100 silent soccer balls\");this.state=quoteState;',soccerCtx);assert.equal(soccerCtx.state.model,'Flocked Silent Soccer Ball');assert.equal(soccerCtx.state.size,'5');assert.equal(soccerCtx.state.quantity,'100');
+console.log('PASS: soccer quote auto-selects size No. 5.');
