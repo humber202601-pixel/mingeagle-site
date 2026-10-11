@@ -1,5 +1,5 @@
 // Public non-sensitive release marker to distinguish source CI from deployed Cloudflare Pages.
-const RELEASE_ID = 'discovery-contact-history-protection-20261011-v5';
+const RELEASE_ID = 'discovery-city-query-diversity-20261011-v6';
 export const onRequestGet: PagesFunction = async () => Response.json({
   ok: true,
   application: 'mingeagle-v2',
@@ -19,7 +19,8 @@ export const onRequestGet: PagesFunction = async () => Response.json({
     discoveryDirectoryOfficialSiteRecheck: true,
     discoveryCandidateWebsiteFiltering: true,
     discoveryPriorOutboundSuppression: true,
-    discoveryEditorialListFiltering: true
+    discoveryEditorialListFiltering: true,
+    discoveryCityQueryDiversity: true
   },
   note: 'Capabilities identify deployed code only. This does not verify credentials, database health or live payments.'
 }, {headers: {'cache-control': 'no-store, max-age=0','x-content-type-options':'nosniff'}});
