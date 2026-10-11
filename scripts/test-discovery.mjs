@@ -71,6 +71,10 @@ try{
   assert.equal(catalog.TYPE_OPTIONS.length,17);
   for(const state of Object.keys(catalog.STATE_NAMES))for(const type of catalog.COMMERCIAL_TYPES)assert.ok(catalog.queryPlan(state,type).length>0);
   assert.notDeepEqual(catalog.queryPlan('TX','BASKETBALL_TRAINING','',0,8),catalog.queryPlan('TX','BASKETBALL_TRAINING','',1,8));
+  const austinFirst=catalog.queryPlan('TX','BASKETBALL_TRAINING','Austin',0,8).map(x=>x.query);
+  const austinSecond=catalog.queryPlan('TX','BASKETBALL_TRAINING','Austin',1,8).map(x=>x.query);
+  assert.equal(new Set(austinFirst).size,8,'First city search must use 8 unique relevant queries');
+  assert(austinSecond.some(q=>!austinFirst.includes(q)),'Next city batch must introduce genuinely new search phrases');
   for(const input of [{stateCode:'ZZ',customerType:'SPORTS_STORE'},{stateCode:'TX',customerType:'UNKNOWN'},{stateCode:'TX',customerType:'SPORTS_STORE',targetCount:'NaN'},{stateCode:'TX',customerType:'SPORTS_STORE',round:-1}]){
     assert.equal((await post('discovery-search-v2',input)).status,400);
   }
