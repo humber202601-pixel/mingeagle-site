@@ -83,8 +83,8 @@ function introDraft(params:{company:string;greeting:string;location:string;fit:R
     [foundLine,roleLine].filter(Boolean).join(' '),
     `We make MING EAGLE silent basketballs for quieter indoor practice. Our silent basketball line has sold more than 30,000 sets in the U.S. market. ${fit.sentence}`,
     WEBSITE_INTRO,
-    `We can support sample evaluation, small wholesale quantities and repeat orders. If it looks relevant, I can send simple pricing for 20, 50 and 100 units together with shipping based on your ZIP code.`,
-    `Would it be useful if I sent a short wholesale quote?`,
+    `We can discuss a sample and a quantity-based wholesale quote if the products suit your program.`,
+    `Are you the right person for equipment purchasing, or could you point me to the colleague who handles it?`,
     OUTREACH_SIGNATURE,
   ].join('\n\n');
   return {subject,body,draftType:'INTRO'};
