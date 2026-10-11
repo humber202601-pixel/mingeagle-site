@@ -196,7 +196,8 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
     </div>}
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:10,marginTop:14}}>
       <div className="metric"><span>累计去重客户</span><strong>{overall?.companies??"—"}</strong><small>自动发现的 CRM 独立机构 · 活跃 {overall?.activeCompanies??"—"}</small></div>
-      <div className="metric"><span>累计公开邮箱机构</span><strong>{overall?.withEmail??"—"}</strong><small>CRM 联系人邮箱，不代表已验证送达</small></div>
+      <div className="metric"><span>可开发客户·有邮箱</span><strong>{overall?.withEmail??"—"}</strong><small>未标记退出的活跃客户；不代表邮箱已验证送达</small></div>
+      <div className="metric"><span>可开发客户·有电话</span><strong>{overall?.withPhoneOrWhatsapp??"—"}</strong><small>有电话或 WhatsApp 的活跃机构；可能与有邮箱客户重叠</small></div>
       <div className="metric"><span>本轮已确认入库</span><strong>{imported}</strong><small>核验通过，不等于已联系</small></div>
       <div className="metric"><span>本轮有可联系渠道</span><strong>{readyContacts}</strong><small>有效格式邮箱 {emailReady} · 官网联系页 {webContactOnly} · 仅电话或 WhatsApp {otherContactOnly}</small></div>
       <div className="metric"><span>待审核邮件</span><strong>{queueStats?.review??'—'}</strong><small>全部 CRM 邮件队列</small></div>
