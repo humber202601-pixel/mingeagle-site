@@ -25,8 +25,8 @@ try{
     };
     return prepared;
   }};
-  const run=async(type,mode='INTRO')=>{
-    row={...customer,customer_type:type};
+  const run=async(type,mode='INTRO',interest='')=>{
+    row={...customer,customer_type:type,product_interest:interest};
     const res=await api.onRequestPost({env:{MINGEAGLE_DB:db},
       request:new Request('https://app.mingeagle.com/api/admin/outreach-draft',{
         method:'POST',headers:{'content-type':'application/json'},
@@ -58,6 +58,10 @@ try{
     assert.equal(x.canContact,true);
     assert(!/\b(free shipping|guaranteed margin|shipping in 1 day)\b/i.test(x.body),'do not invent commercial terms');
   }
+  const soccer=await run('SPORTS_STORE','INTRO','flocked silent soccer ball');
+  assert(soccer.body.includes('flocked silent soccer ball'),'Known soccer interest is reflected in first-contact copy');
+  const weighted=await run('INDEPENDENT_COACH','INTRO','weighted silent basketball');
+  assert(weighted.body.includes('weighted flocked silent basketball'),'Known weighted ball interest is reflected accurately');
   row={...customer,lead_status:'NOT_INTERESTED'};
   const dnc=await api.onRequestPost({env:{MINGEAGLE_DB:db},request:new Request('https://app.mingeagle.com/api/admin/outreach-draft',{
     method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({leadId:'existing-lead',mode:'INTRO'})})});
