@@ -162,9 +162,18 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       return response({ok:true,alreadyConverted:true,candidateId:clue.candidate_id,intake});
     }
     const website=clean(input.website||clue.website,1000);if(!allowedWebsite(website))return response({ok:false,error:'请输入完整公开官网网址；社交主页及目录页保留为线索来源。'},400);
+    // Directory page headings may append a city and publisher; compare only the
+    // independently named organization. Generic category listings are never leads.
+    let identity=clean(clue.title,200).replace(/\s*[-–|]\s*(?:The Real Yellow Pages|Yellow Pages|Yelp|BBB|Chamber of Commerce)\s*$/i,'').trim();
+    const loc=clean(clue.city,80);
+    for(const suffix of [' - '+loc,' – '+loc,' | '+loc,' - '+loc+', TX',' - '+loc+', Texas']){
+      if(loc&&identity.toLowerCase().endsWith(suffix.toLowerCase())){identity=identity.slice(0,-suffix.length).trim();break;}
+    }
+    if(/^(?:basketball clubs?|youth basketball teams?|basketball training|sporting goods stores?|basketball academies)(?:\s+(?:in|near)\s+.+)?$/i.test(identity))
+      return response({ok:false,reason:'GENERIC_DIRECTORY_LIST',error:'此来源是分类目录页面，不是独立机构；保留待核验，未加入 CRM。'},422);
     const diagnostic:{reason?:string}={};
-    const hit=COMMERCIAL_TYPES.has(clue.customer_type)?await verifyHit({title:clue.title,url:website,snippet:'',query:'public source verification',city:clue.city||''},clue.customer_type,clue.state_region,diagnostic):await verifySchoolWebsite(website,clue.customer_type,clue.state_region,clue.city||'');
-    if(!hit||!clueMatches(hit.orgName,clue.title)){
+    const hit=COMMERCIAL_TYPES.has(clue.customer_type)?await verifyHit({title:identity,url:website,snippet:'',query:'public source verification',city:clue.city||''},clue.customer_type,clue.state_region,diagnostic):await verifySchoolWebsite(website,clue.customer_type,clue.state_region,clue.city||'');
+    if(!hit||!clueMatches(hit.orgName,identity)){
       const reason=!hit?diagnostic.reason||'SCHOOL_OR_WEBSITE_UNCONFIRMED':'ENTITY_NAME_MISMATCH';
       const explanations:Record<string,string>={
         'UNTRUSTED_SITE_URL':'官网网址不符合公开网站要求',
