@@ -19,6 +19,7 @@ const phaseNames:Record<string,string>={SEARCH:'搜索来源',SOURCE:'搜索来�
 export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onChanged,onCleared,initialType}:Props){
   const [state,setState]=useState('TX'),[type,setType]=useState(initialType||'BASKETBALL_TRAINING'),[city,setCity]=useState(''),[target,setTarget]=useState(20),[batches,setBatches]=useState(1);
   const [data,setData]=useState<Data>({}),[loading,setLoading]=useState(true),[working,setWorking]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
+  const [draftBusy,setDraftBusy]=useState(false);
   const [history,setHistory]=useState<History>({}),[historyOpen,setHistoryOpen]=useState(false),[historyBusy,setHistoryBusy]=useState(false);
   const [clockNow,setClockNow]=useState(()=>Date.now());
   const onChangedRef=useRef(onChanged);onChangedRef.current=onChanged;
@@ -62,6 +63,21 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
       if(actionName==='RECOVER')setMessage(String((result as Data&{recoveryNote?:string}).recoveryNote||'已请求安全恢复，请等待下一个任务步骤。'));
       onChangedRef.current();
     }catch(e){setError(e instanceof Error?e.message:'任务操作失败。');}finally{setWorking(false);}
+  }
+  async function prepareReviewDrafts(){
+    if(draftBusy)return;
+    setDraftBusy(true);setError('');setMessage('');
+    try{
+      const response=await fetch('/api/admin/email-queue',{method:'POST',headers:{
+        'x-admin-key':accessKey,'content-type':'application/json'
+      },body:JSON.stringify({action:'GENERATE'})});
+      const contentType=response.headers.get('content-type')||'';
+      if(!contentType.includes('application/json'))throw new Error('邮件队列响应 HTTP '+response.status+'，请检查后台状态。');
+      const body=await response.json() as {ok?:boolean;error?:string;created?:number;initialCreated?:number;followupCreated?:number;reviewed?:number};
+      if(!response.ok||!body.ok)throw new Error(body.error||'生成草稿失败。');
+      setMessage(`已生成 ${body.created||0} 份新草稿（首次开发 ${body.initialCreated||0}，跟进 ${body.followupCreated||0}）。首次陌生开发邮件需审核，不会因生成草稿而直接发送；原有草稿不会重复创建。`);
+    }catch(e){setError(e instanceof Error?e.message:'草稿准备失败。');}
+    finally{setDraftBusy(false);}
   }
   async function loadHistory(){
     const h=await discoveryRequest<History>(accessKey,undefined,undefined,undefined,20000,'/api/admin/discovery-history-v1');setHistory(h);
@@ -123,6 +139,16 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
       </div>}
       <details className="auto-discovery-details"><summary>查看来源进度与未完成信息（{data.exceptions?.length||0}）</summary><ul>{data.sources?.map(row=>{const result=sourceResult(row);return <li key={text(row.item_key)}><strong>{sourceNames[text(row.item_key).split(':')[0]]||text(row.item_key)}</strong> · {row.status==='DONE'?'查询完成':row.status==='REVIEW'?'来源受限 / 需检查':statusNames[text(row.status)]||text(row.status)}{row.status==='DONE'?` · 返回 ${Number(result.found||0)} 条线索`:''}{Boolean(result.note)&&<p>{text(result.note)}</p>}{Boolean(row.error)&&<p>{text(row.error)}</p>}</li>;})}</ul>{data.exceptions?.map(row=><p key={text(row.kind)+text(row.item_key)}><strong>{text(row.name)}</strong> · {text(row.error)}</p>)}</details>
     </div>}
+    <div className="panel" style={{marginTop:16,padding:16}}>
+      <strong>下一步 · 联系精准客户</strong>
+      <p>将已进入销售准备状态、具有业务邮箱且允许联系的客户整理为邮件草稿。首次陌生开发邮件必须人工审核后才能发送。</p>
+      <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center'}}>
+        <button type="button" className="button secondary" disabled={draftBusy} onClick={()=>void prepareReviewDrafts()}>
+          {draftBusy?'正在整理草稿…':'一键准备待审核邮件'}
+        </button>
+        <a className="button secondary" href="/email-queue.html">查看并审核邮件队列</a>
+      </div>
+    </div>
     {message&&<div className="form-status success" role="status">{message}</div>}
     {error&&<div className="form-status error" role="alert">{error}</div>}
     <details className="auto-discovery-history" open={historyOpen} onToggle={e=>{const open=e.currentTarget.open;setHistoryOpen(open);if(open)void loadHistory().catch(e=>setError(e.message));}}><summary>历史搜索与开发记录管理</summary><p>清空当前搜索任务、线索、候选及无业务关联的开发档案和跟进记录；已关联询盘、报价、订单或样品的业务档案保留。历史批次可从这里恢复。</p><div className="auto-history-counts"><span>搜索任务 {history.counts?.discovery_jobs||0}</span><span>线索 {history.counts?.discovery_clues||0}</span><span>候选 {history.counts?.discovery_candidates||0}</span><span>开发客户 {history.counts?.leads||0}</span></div><button type="button" className="button secondary small" disabled={busy||externalBusy} onClick={()=>void historyAction({action:'CLEAR'})}><Trash2 size={14}/>{historyBusy?'正在清理…':'清空历史搜索与开发记录（可恢复）'}</button><div className="auto-history-archives">{history.archives?.map(a=><div key={a.id}><span>{a.created_at} · {a.status==='RESTORED'?'已恢复':'可恢复历史批次'}</span>{a.status==='ARCHIVED'&&<button type="button" className="button secondary small" disabled={busy||externalBusy} onClick={()=>void historyAction({action:'RESTORE',archiveId:a.id})}>恢复此历史批次</button>}</div>)}</div></details>
