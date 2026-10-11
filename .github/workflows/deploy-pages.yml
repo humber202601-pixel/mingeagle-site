@@ -73,6 +73,12 @@ jobs:
       - name: Verify retail-to-wholesale quote calculations
         run: node scripts/check-quote-math.cjs
 
+      - name: Verify shared retail prices are packaged for deployment
+        run: |
+          test -s public/retail-reference-prices.json
+          test -s public/quote-math.js
+          node -e "const p=require('./public/retail-reference-prices.json'); if(p.currency!=='USD'||Object.keys(p.products||{}).length!==4)process.exit(1)"
+
       - name: Verify nine-language sales assistant before publishing
         run: |
           node --check public/sales-assistant.js
