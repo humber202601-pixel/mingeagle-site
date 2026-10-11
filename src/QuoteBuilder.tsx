@@ -72,6 +72,8 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   const [quoteDeliveryMessage, setQuoteDeliveryMessage] = useState('');
   const [editDetail, setEditDetail] = useState<EditDetail | null>(null);
   const [editMessage, setEditMessage] = useState('');
+  const [retailReviews,setRetailReviews]=useState<Record<string,{retail:string;source:string;confirmed:boolean}>>({});
+  const [retailReviewMessage,setRetailReviewMessage]=useState('');
   const [editPreviewTotal, setEditPreviewTotal] = useState<number | null>(null);
   const [createPreview, setCreatePreview] = useState<CreatePreview>({ subtotal: 0, shipping: 0, discount: 0, total: 0 });
   const [retailComparison,setRetailComparison]=useState<{retail:number;wholesale:number}|null>(null);
@@ -172,6 +174,19 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     }
   }
 
+  async function approveRetail(item:Row) {
+    if(!editDetail)return;
+    const quoteId=text(editDetail.quote.id),itemId=text(item.id),review=retailReviews[itemId];
+    if(!review?.confirmed||!review.retail||!review.source){setRetailReviewMessage('请填写同规格零售价、公开来源网址，并确认配置一致。');return;}
+    setBusyQuoteId(quoteId);setRetailReviewMessage('');
+    try{
+      const response=await fetch('/api/admin/quote-retail-approval',{method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},
+        body:JSON.stringify({quoteId,itemId,retailUSD:Number(review.retail),sourceUrl:review.source,confirmed:review.confirmed})});
+      const body=await response.json() as {ok?:boolean;error?:string};
+      if(!response.ok||!body.ok)throw new Error(body.error||'保存审核失败');
+      setRetailReviewMessage('零售价来源及审核记录已保存；仅报价明细保持一致时才可向客户显示优惠。');
+    }catch(e){setRetailReviewMessage(e instanceof Error?e.message:'审核保存失败');}finally{setBusyQuoteId('');}
+  }
   async function openEdit(quote: Row) {
     const quoteId = text(quote.id);
     if (!quoteId) return;
@@ -401,6 +416,17 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
         <div><h2>编辑报价草稿 · {text(editDetail.quote.reference)}</h2><span>仅草稿可修改；发送给客户后将锁定。</span></div>
         <button type="button" className="button secondary small" onClick={() => { setEditDetail(null); setEditMessage(''); setEditPreviewTotal(null); }}>关闭编辑</button>
       </div>
+      <div className="form-status"><strong>零售价优惠审核（按报价商品逐项确认）</strong><p>仅使用同型号、同尺寸、同套装配置的公开零售价。修改报价描述、单价或数量后，原审核记录自动失效，需重新审核。</p>
+      {editDetail.items.map(item=><div key={text(item.id)} style={{padding:'10px 0',borderBottom:'1px solid #ddd'}}>
+        <strong>{text(item.description)}</strong>
+        <div className="quote-form-grid">
+          <label>零售参考单价 USD<input type="number" min="0.01" step="0.01" value={retailReviews[text(item.id)]?.retail||''} onChange={e=>setRetailReviews(prev=>({...prev,[text(item.id)]:{retail:e.target.value,source:prev[text(item.id)]?.source||'',confirmed:false}}))} /></label>
+          <label>零售价来源 HTTPS 网址<input type="url" placeholder="https://..." value={retailReviews[text(item.id)]?.source||''} onChange={e=>setRetailReviews(prev=>({...prev,[text(item.id)]:{retail:prev[text(item.id)]?.retail||'',source:e.target.value,confirmed:false}}))} /></label>
+        </div>
+        <label><input type="checkbox" checked={retailReviews[text(item.id)]?.confirmed||false} onChange={e=>setRetailReviews(prev=>({...prev,[text(item.id)]:{retail:prev[text(item.id)]?.retail||'',source:prev[text(item.id)]?.source||'',confirmed:e.target.checked}}))}/> 我已核对该零售价与报价商品配置完全一致</label>
+        <button type="button" className="button secondary small" disabled={Boolean(busyQuoteId)} onClick={()=>void approveRetail(item)}>保存此商品优惠审核</button>
+      </div>)}
+      {retailReviewMessage&&<p role="status">{retailReviewMessage}</p>}</div>
       <form className="quote-form" onSubmit={saveEdit} onInput={updateEditPreview}>
         <div className="quote-form-grid">
           {editDetail.items.map((item, index) => <div className="span-2" key={text(item.id, String(index))}>
