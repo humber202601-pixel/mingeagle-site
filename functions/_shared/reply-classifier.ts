@@ -18,6 +18,12 @@ export function classifyReply(body: string): ReplyClassification {
   if (has('not interested', 'no thanks', 'no thank you', 'not for us', 'pass for now', 'not a fit', '不感兴趣')) {
     return { intent: 'NOT_INTERESTED', leadStatus: 'NOT_INTERESTED', nextBestAction: 'No further sales follow-up', taskTitle: '', taskDescription: '', priority: 'LOW', suggestedReply: 'Thank you for letting us know. We appreciate your time, and we will keep the door open if your needs change in the future.' };
   }
+  if (has('moq', 'minimum order', 'minimum quantity', 'minimum purchase', '起订量', '最小起订')) {
+    return { intent: 'MOQ_QUESTION', leadStatus: 'REPLIED', nextBestAction: 'Confirm quantity tiers and minimum order policy', taskTitle: 'Confirm MOQ with customer', taskDescription: 'Customer asked about minimum order quantity. Verify product, size, quantity tier and applicable MOQ before replying.', priority: 'HIGH', suggestedReply: 'Thanks for asking about minimum order quantities. Which silent ball model and size are you interested in, and approximately how many units are you considering? I will confirm the applicable minimum order and wholesale pricing for your configuration.' };
+  }
+  if (has('shipping cost', 'shipping fee', 'freight', 'delivery charge', 'postage', 'ship to', 'shipping to', '运费', '物流费用', '运到')) {
+    return { intent: 'SHIPPING_QUESTION', leadStatus: 'REPLIED', nextBestAction: 'Verify destination, quantity and shipping quotation', taskTitle: 'Confirm shipping cost and options', taskDescription: 'Customer asked about shipping or freight. Confirm delivery ZIP code, quantity and product configuration; do not invent freight or delivery promises.', priority: 'HIGH', suggestedReply: 'We can check shipping options. Please share your delivery ZIP code, the ball model and size, and the approximate quantity. I will confirm the available shipping methods, cost and estimated delivery time before providing a final quote.' };
+  }
   if (has('sample', 'try one', 'try it', 'test one', 'demo', '样品', '试用')) {
     return { intent: 'SAMPLE_INTEREST', leadStatus: 'SAMPLE', nextBestAction: 'Confirm sample requirements and shipping details', taskTitle: 'Confirm sample request', taskDescription: 'Customer mentioned a sample or product trial. Confirm quantity, shipping address and sample terms.', priority: 'HIGH', suggestedReply: 'Thanks for your interest. We can discuss a sample. Please send the preferred ball size/quantity and your shipping ZIP code, and we will confirm the best sample option and delivery cost.' };
   }
