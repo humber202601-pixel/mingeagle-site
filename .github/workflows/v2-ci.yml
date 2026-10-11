@@ -45,5 +45,8 @@ jobs:
       - name: Test Airwallex webhook safety
         run: node scripts/test-airwallex-webhook-safety.mjs
 
+      - name: Test opt-in AI sales assistant safety
+        run: node scripts/test-sales-chat.mjs
+
       - name: Bundle Cloudflare Functions
         run: npx wrangler pages functions build --outdir /tmp/mingeagle-functions
