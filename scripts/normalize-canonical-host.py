@@ -25,7 +25,7 @@ def keep_unique(match):
     if canonical in seen:return ''
     seen.add(canonical)
     return block
-xml=re.sub(r'<url>\\s*<loc>[^<]+</loc>[\\s\\S]*?</url>',keep_unique,xml)
+xml=re.sub(r'<url>\s*<loc>[^<]+</loc>[\s\S]*?</url>',keep_unique,xml)
 sitemap.write_text(xml,encoding='utf-8')
 
 print('Canonical, sitemap, robots URLs now match www.mingeagle.com.')
