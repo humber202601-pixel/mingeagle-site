@@ -13,9 +13,14 @@ const clean=(v:unknown,max=1000)=>String(v??'').trim().slice(0,max);
 // business's legal name. Strip only known publisher suffixes; never accept a
 // generic list page as a named customer.
 export function lookupOrganizationName(title:string,city:string){
-  let name=clean(title,200).replace(/\\s*[-–|]\\s*(?:The Real Yellow Pages|Yellow Pages|Yelp|BBB|Chamber of Commerce)\\s*$/i,'').trim();
-  const escape=(s:string)=>s.replace(/[.*+?^\x24{}()|[\]\\]/g,'\\const clean=(v:unknown,max=1000)=>String(v??'').trim().slice(0,max);');
-  if(city.trim())name=name.replace(new RegExp('\\s*[-–|]\\s*'+escape(city.trim())+'(?:,?\\s*(?:TX|Texas))?\\s*
+  let name=clean(title,200).replace(/\s*[-–|]\s*(?:The Real Yellow Pages|Yellow Pages|Yelp|BBB|Chamber of Commerce)\s*$/i,'').trim();
+  if(city.trim()){
+    const suffixes=[' - '+city,' – '+city,' | '+city,' - '+city+', TX',' - '+city+', Texas'];
+    for(const suffix of suffixes)if(name.toLowerCase().endsWith(suffix.toLowerCase())){name=name.slice(0,-suffix.length).trim();break;}
+  }
+  if(/^(?:basketball clubs?|youth basketball teams?|basketball training|sporting goods stores?|basketball academies)(?:\s+(?:in|near)\s+.+)?$/i.test(name))return '';
+  return name;
+}
 export type StepResult=Row&{continue?:boolean;payload?:Row;review?:boolean};
 export async function runAutoStep(env:AutoEnv,base:string,key:string,input:Row):Promise<StepResult>{
   const db=env.MINGEAGLE_DB,runId=clean(input.autoRunId),kind=clean(input.kind),id=clean(input.itemKey);
