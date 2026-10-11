@@ -218,12 +218,12 @@ try{
   assert.equal(scalar('SELECT COUNT(*) AS n FROM messages'),0);assert.equal(scalar('SELECT COUNT(*) AS n FROM tasks'),0);
   // Empty results and unavailable providers are different, with honest zero-customer messages.
   await post('discovery-history-v1',{action:'CLEAR'});alternateHits=false;
-  result=await post('discovery-auto-v1',{action:'START',...search});const emptyId=result.body.run.id;
+  result=await post('discovery-auto-v1',{action:'START',...search,city:'Fort Worth'});const emptyId=result.body.run.id;
   db.sqlite.prepare("DELETE FROM discovery_auto_items WHERE run_id=? AND item_key<>'CORE:0'").run(emptyId);
   for(let tick=0;tick<5;tick++){result=await post('discovery-auto-v1',{action:'ADVANCE',runId:emptyId});if(result.body.run.status!=='RUNNING')break;}
   assert.equal(result.body.run.status,'COMPLETED');assert(result.body.run.message.includes('本批未找到'));assert.equal(result.body.results.length,0);assert.equal(JSON.parse(result.body.sources[0].result_json).found,0);
   await post('discovery-history-v1',{action:'CLEAR'});failSources=true;
-  result=await post('discovery-auto-v1',{action:'START',...search});const unavailableId=result.body.run.id;
+  result=await post('discovery-auto-v1',{action:'START',...search,city:'Fort Worth'});const unavailableId=result.body.run.id;
   db.sqlite.prepare("DELETE FROM discovery_auto_items WHERE run_id=? AND item_key<>'CORE:0'").run(unavailableId);
   for(let tick=0;tick<5;tick++){result=await post('discovery-auto-v1',{action:'ADVANCE',runId:unavailableId});if(result.body.run.status!=='RUNNING')break;}
   assert.equal(result.body.run.status,'PARTIAL');assert.equal(result.body.sources[0].status,'FAILED');assert(result.body.exceptions[0].error.includes('均不可读取'));assert(result.body.run.message.includes('本批未找到'));
