@@ -42,7 +42,7 @@ function captureDetails(text){
  else if(quoteState.model&&quoteState.size&&!quoteState.quantity&&/^[1-9]\d{0,4}$/.test(text.trim()))quoteState.quantity=text.trim();
  const z=text.match(/\b(?:zip(?:\s*code)?|postal(?:\s*code)?|postcode|code\s*postal|c[oó]digo\s*postal|cep|plz|cap|郵便番号)\s*[:#-]?\s*([a-z0-9][a-z0-9 -]{1,10})/i);
  if(z)quoteState.zip=z[1].trim().toUpperCase();
- else if(hadQuantity&&!quoteState.zip&&/^(?=.{3,10}$)(?=.*[a-z0-9])[a-z0-9 -]+$/i.test(text.trim()))quoteState.zip=text.trim().toUpperCase();
+ else if(hadQuantity&&!quoteState.zip&&/^(?=.{3,10}$)(?=.*\d)[a-z0-9 -]+$/i.test(text.trim()))quoteState.zip=text.trim().toUpperCase();
  const n=text.match(/\b(?:size\s*|no\.?\s*)([34567])\b/i);
  if(n)quoteState.size=n[1];
  // Buyers often answer the size prompt with only a digit (e.g. "5").
