@@ -151,7 +151,14 @@ async function generateQueue(db: D1Database) {
           AND NOT EXISTS(SELECT 1 FROM messages m WHERE m.lead_id=l.id AND m.direction='OUTBOUND'))
         OR
         (l.next_action_at IS NOT NULL AND datetime(l.next_action_at) <= datetime('now')
-          AND l.status IN ('CONTACTED','INTERESTED','SAMPLE','QUOTE','NEGOTIATION','WON'))
+          AND l.status IN ('CONTACTED','INTERESTED','SAMPLE','QUOTE','NEGOTIATION','WON')
+          AND NOT (l.status='CONTACTED' AND EXISTS(
+            SELECT 1 FROM messages incoming WHERE incoming.lead_id=l.id AND incoming.direction='INBOUND'
+              AND datetime(incoming.sent_at) > COALESCE((
+                SELECT MAX(datetime(outgoing.sent_at)) FROM messages outgoing
+                WHERE outgoing.lead_id=l.id AND outgoing.direction='OUTBOUND'
+              ),datetime('1970-01-01'))
+          )))
       )
       AND COALESCE(ct.do_not_contact,0)=0
       AND ct.email IS NOT NULL AND ct.email<>''
@@ -251,6 +258,15 @@ async function sendQueueItem(db: D1Database, env: Env, queueId: string) {
         throw new Error('此获客邮箱域名与机构官网不一致，请先人工确认归属并更新 CRM 联系方式，暂不允许发送。');
       }
     }
+  }
+
+  if(String(row.lead_status)==='CONTACTED'&&String(row.queue_type)!=='OUTREACH_INITIAL'){
+    const reply=await db.prepare(`SELECT 1 AS replied FROM messages incoming WHERE incoming.lead_id=?
+      AND incoming.direction='INBOUND' AND datetime(incoming.sent_at)>COALESCE((
+        SELECT MAX(datetime(outgoing.sent_at)) FROM messages outgoing
+        WHERE outgoing.lead_id=? AND outgoing.direction='OUTBOUND'
+      ),datetime('1970-01-01')) LIMIT 1`).bind(String(row.lead_id),String(row.lead_id)).first();
+    if(reply)throw new Error('客户已经回复，请人工查看最新消息后再决定是否跟进。');
   }
 
   const clientId = env.GMAIL_CLIENT_ID || '';
