@@ -4,10 +4,10 @@ import {useEffect,useState} from 'react';
 import {ArrowUpRight,RefreshCcw} from 'lucide-react';
 
 type SourceRow={channel:string;audience:string;inquiries:number;quoted:number;ordered:number};
-type PageRow={entryPage:string;inquiries:number};
+type PageRow={entryPage:string;inquiries:number;quoted:number;ordered:number};
 type Data={ok:boolean;error?:string;summary:{inquiries:number;b2b:number;b2c:number;unknown:number;quoted:number;ordered:number};sources:SourceRow[];entryPages:PageRow[];generatedAt:string;limitations:string[]};
 const sources:Record<string,string>={GOOGLE:'Google',BING:'Bing',TIKTOK:'TikTok',YOUTUBE:'YouTube',INSTAGRAM:'Instagram',FACEBOOK:'Facebook',PARTNER:'合作推荐',OTHER_TAGGED:'其他带标签渠道',DIRECT_UNKNOWN:'未知 / 直接访问'};
-const pages:Record<string,string>={APARTMENT_GUIDE:'公寓家庭指南',CAMP_GUIDE:'篮球训练营采购指南',BULK_GUIDE:'批量采购指南',HOME:'首页',FOR_COACHES:'教练采购',FOR_SCHOOLS:'学校采购',WHOLESALE:'批发采购',PRODUCTS:'产品目录',PRODUCT_DETAIL:'产品详情',NOT_RECORDED:'未记录落地页',OTHER_PAGE:'其他页面'};
+const pages:Record<string,string>={APARTMENT_GUIDE:'公寓家庭指南',CAMP_GUIDE:'篮球训练营采购指南',BULK_GUIDE:'批量采购指南',WHOLESALE_CATALOG:'批发产品目录',TEAM_CUSTOM:'球队定制篮球',HOME:'首页',FOR_COACHES:'教练采购',FOR_SCHOOLS:'学校采购',WHOLESALE:'批发采购',PRODUCTS:'产品目录',PRODUCT_DETAIL:'产品详情',NOT_RECORDED:'未记录落地页',OTHER_PAGE:'其他页面'};
 const audiences:Record<string,string>={B2B:'B2B 批发 / 机构',B2C:'B2C 个人客户',UNKNOWN:'尚不能分类'};
 const num=(x:number)=>Number(x||0).toLocaleString('zh-CN');
 export default function InboundGrowth({accessKey}:{accessKey:string}){
@@ -48,8 +48,8 @@ export default function InboundGrowth({accessKey}:{accessKey:string}){
       {data.summary.inquiries===0?<div className="empty-row">当前筛选时间范围内没有已记录的官网询盘。不能据此判断网站没有访客。</div>:<div className="table-wrap"><table><thead><tr><th>渠道</th><th>客户身份</th><th>询盘</th><th>关联报价</th><th>关联订单</th></tr></thead><tbody>{data.sources.map((row,i)=><tr key={row.channel+row.audience+i}><td><strong>{sources[row.channel]||row.channel}</strong></td><td>{audiences[row.audience]||row.audience}</td><td>{num(row.inquiries)}</td><td>{num(row.quoted)}</td><td>{num(row.ordered)}</td></tr>)}</tbody></table></div>}
     </section>
     <section className="panel" style={{padding:18}}>
-      <div className="panel-head"><h2>询盘最初进入哪个页面？</h2><span>仅记录带有落地页字段的询盘</span></div>
-      <div className="table-wrap"><table><thead><tr><th>落地页类型</th><th>真实询盘</th></tr></thead><tbody>{data.entryPages.map(row=><tr key={row.entryPage}><td>{pages[row.entryPage]||row.entryPage}</td><td>{num(row.inquiries)}</td></tr>)}{!data.entryPages.length&&<tr><td colSpan={2}>尚无实际询盘数据。</td></tr>}</tbody></table></div>
+      <div className="panel-head"><h2>询盘最初进入哪个页面？</h2><span>缺失来源单独归类；报价与订单仅表示客户关联，不证明单次页面促成</span></div>
+      <div className="table-wrap"><table><thead><tr><th>落地页类型</th><th>真实询盘</th><th>关联报价</th><th>关联订单</th></tr></thead><tbody>{data.entryPages.map(row=><tr key={row.entryPage}><td>{pages[row.entryPage]||row.entryPage}</td><td>{num(row.inquiries)}</td><td>{num(row.quoted)}</td><td>{num(row.ordered)}</td></tr>)}{!data.entryPages.length&&<tr><td colSpan={4}>尚无实际询盘数据。</td></tr>}</tbody></table></div>
     </section>
     <section className="panel" style={{padding:18}}>
       <div className="panel-head"><h2>搜索曝光与访问量 · 尚待连接</h2><span>不显示虚构数据</span></div>

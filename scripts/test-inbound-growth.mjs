@@ -53,6 +53,8 @@ try{
  assert.equal(r.data.sources.find(x=>x.channel==='PARTNER').audience,'B2B');
  assert.equal(r.data.sources.find(x=>x.channel==='DIRECT_UNKNOWN').audience,'UNKNOWN');
  assert.equal(r.data.entryPages.find(x=>x.entryPage==='FOR_COACHES').inquiries,1);
+ assert.equal(r.data.entryPages.find(x=>x.entryPage==='FOR_COACHES').quoted,1);
+ assert.equal(r.data.entryPages.find(x=>x.entryPage==='FOR_COACHES').ordered,1);
  assert.equal(r.data.entryPages.find(x=>x.entryPage==='NOT_RECORDED').inquiries,1);
  assert.match(r.cache,/no-store/);
  assert(!JSON.stringify(r.data).includes('l1')&&!JSON.stringify(r.data).includes('example.test'),

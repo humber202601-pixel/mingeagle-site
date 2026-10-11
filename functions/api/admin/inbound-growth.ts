@@ -52,6 +52,8 @@ const attribution=`WITH inquiry_base AS (
   WHEN landing LIKE '%/silent-basketball-bulk-buying-guide.html' THEN 'BULK_GUIDE'
   WHEN landing LIKE '%/for-coaches.html' THEN 'FOR_COACHES'
   WHEN landing LIKE '%/for-schools.html' THEN 'FOR_SCHOOLS'
+  WHEN landing LIKE '%/wholesale-product-catalog.html' THEN 'WHOLESALE_CATALOG'
+  WHEN landing LIKE '%/custom-basketball-for-teams.html' THEN 'TEAM_CUSTOM'
   WHEN landing LIKE '%/wholesale.html' THEN 'WHOLESALE'
   WHEN landing LIKE '%/products.html' THEN 'PRODUCTS'
   WHEN landing LIKE '%/silent-basketball.html' OR landing LIKE '%/fabric-silent-basketball.html'
@@ -75,7 +77,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
    FROM buckets GROUP BY channel,audience ORDER BY inquiries DESC,channel,audience`)
    .bind(days,days).all<Row>()).results;
   const pages=(await db.prepare(`${attribution}
-   SELECT entry_page,COUNT(*) AS inquiries FROM buckets GROUP BY entry_page ORDER BY inquiries DESC,entry_page`)
+   SELECT entry_page,COUNT(*) AS inquiries,SUM(quoted) AS quoted,SUM(ordered) AS ordered FROM buckets GROUP BY entry_page ORDER BY inquiries DESC,entry_page`)
    .bind(days,days).all<Row>()).results;
   const summary={inquiries:0,b2b:0,b2c:0,unknown:0,quoted:0,ordered:0};
   const sources=sourceRows.map(r=>{
@@ -88,7 +90,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
    return row;
   });
   return json({ok:true,generatedAt:new Date().toISOString(),filters:{days},summary,sources,
-   entryPages:pages.map(p=>({entryPage:String(p.entry_page),inquiries:n(p.inquiries)})),
+   entryPages:pages.map(p=>({entryPage:String(p.entry_page),inquiries:n(p.inquiries),quoted:n(p.quoted),ordered:n(p.ordered)})),
    limitations:[
     '本页只计算已经进入 CRM 的真实网站询盘；没有 Google 曝光、网页访问、广告点击或购物车数据。',
     '渠道优先采用询盘提交时的 UTM，其次参考 Referrer；Direct/Unknown 包含缺失归因，不代表都来自直接访问。',
