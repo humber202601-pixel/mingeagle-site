@@ -70,6 +70,12 @@ jobs:
       - name: Verify shipping quote calculator
         run: node scripts/check-shipping.cjs
 
+      - name: Verify nine-language sales assistant before publishing
+        run: |
+          node --check public/sales-assistant.js
+          node --check public/sales-assistant-i18n.js
+          node scripts/check-chat-i18n.cjs
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
