@@ -9,6 +9,8 @@ const pipelineSource=readFileSync('lib/discovery-auto-step.ts','utf8');
 assert(!pipelineSource.includes("row.source_provider==='DIRECTORY'&&allowedWebsite(clean(row.source_url))"),'Directory listings must never be mistaken for an official institution website');
 assert(pipelineSource.includes('websites.filter(allowedWebsite)'),'All candidate verification websites must pass public domain checks');
 assert(pipelineSource.includes('allowedWebsite(hit.url)&&clueMatches(hit.title,name)'),'Primary index must filter nonofficial destinations before CRM verification');
+const webSource=readFileSync('functions/api/admin/discovery-web-v6.ts','utf8');
+assert(webSource.includes('const locations=[hit.city,ALL_STATE_NAMES[stateCode],stateCode].filter(Boolean)'), 'Search-result locality must check requested city AND state, without using the query itself as geographic evidence');
 const temp=mkdtempSync(join(tmpdir(),'mingeagle-auto-')),originalFetch=globalThis.fetch;
 class D1{
   constructor(){this.sqlite=new DatabaseSync(':memory:');this.sqlite.exec(readFileSync('migrations/0001_core.sql','utf8'));this.failBatch=false;}
