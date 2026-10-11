@@ -75,6 +75,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   const [editPreviewTotal, setEditPreviewTotal] = useState<number | null>(null);
   const [createPreview, setCreatePreview] = useState<CreatePreview>({ subtotal: 0, shipping: 0, discount: 0, total: 0 });
   const [retailComparison,setRetailComparison]=useState<{retail:number;wholesale:number}|null>(null);
+  const [retailMatchConfirmed,setRetailMatchConfirmed]=useState(false);
 
   const selected = available.find(item => text(item.reference) === selectedReference);
 
@@ -90,6 +91,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   useEffect(() => {
     setCreatePreview({ subtotal: 0, shipping: 0, discount: 0, total: 0 });
     setRetailComparison(null);
+    setRetailMatchConfirmed(false);
   }, [selectedReference]);
 
   async function loadQuotes() {
@@ -342,7 +344,8 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           <label>官网零售参考单价（USD，仅内部比较）
             <input name="retailReference" type="number" min="0.01" step="0.01" placeholder="请填写已核实的同规格零售价" />
           </label>
-          <div className="span-2 form-status"><strong>批发价与零售价对比（仅内部参考）</strong><p>{retailComparison ? (retailComparison.wholesale<retailComparison.retail ? `零售价 USD ${retailComparison.retail.toFixed(2)}；批发价 USD ${retailComparison.wholesale.toFixed(2)}；每件节省 USD ${(retailComparison.retail-retailComparison.wholesale).toFixed(2)}（${((retailComparison.retail-retailComparison.wholesale)/retailComparison.retail*100).toFixed(1)}%）。` : `批发价 USD ${retailComparison.wholesale.toFixed(2)} 未低于参考零售价 USD ${retailComparison.retail.toFixed(2)}，不能宣传优惠。`) : "待填写可核实的同型号、同规格零售价和批发价；不自动声称有折扣。"}</p><small>零售参考价仅用于本页面审核预览，不写入报价单或自动发送给客户。运费、税费及优惠折扣另行计算。</small></div>
+          <label className="span-2"><input type="checkbox" checked={retailMatchConfirmed} onChange={e=>setRetailMatchConfirmed(e.target.checked)} /> 已核实零售参考价来自相同产品型号、规格和套装配置（仅供内部审核）</label>
+          <div className="span-2 form-status"><strong>批发价与零售价对比（仅内部参考）</strong><p>{retailComparison && retailMatchConfirmed ? (retailComparison.wholesale<retailComparison.retail ? `零售价 USD ${retailComparison.retail.toFixed(2)}；批发价 USD ${retailComparison.wholesale.toFixed(2)}；每件节省 USD ${(retailComparison.retail-retailComparison.wholesale).toFixed(2)}（${((retailComparison.retail-retailComparison.wholesale)/retailComparison.retail*100).toFixed(1)}%）。` : `批发价 USD ${retailComparison.wholesale.toFixed(2)} 未低于参考零售价 USD ${retailComparison.retail.toFixed(2)}，不能宣传优惠。`) : "请先填写参考价，并确认产品型号、规格和套装配置一致；未核实前不计算或宣传优惠。"}</p><small>零售参考价仅用于本页面审核预览，不写入报价单或自动发送给客户。运费、税费及优惠折扣另行计算。</small></div>
           <label>运费（USD）
             <input name="shipping" type="number" min="0" step="0.01" placeholder="填写真实运费，包邮填 0" required />
           </label>
