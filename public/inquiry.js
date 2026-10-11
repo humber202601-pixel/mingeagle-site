@@ -13,6 +13,8 @@ const challengeReady=challenge?challenge.start():Promise.resolve({enabled:false,
 const $=id=>document.getElementById(id),c=root.MINGEAGLE_INQUIRY_CONFIG||{enabled:false},q=new URLSearchParams(location.search);
 const type=TYPE_MAP[(q.get('type')||'').toLowerCase()];if(type)$('request_type').value=type;
 // Prefill only non-sensitive product/quantity/ZIP details explicitly reviewed by the visitor.
+const assistantQuestion=(q.get('assistant_question')||'').slice(0,300);
+if(assistantQuestion&&$('message')&&!$('message').value){$('message').value='Question from automated website assistant (please review before submitting): '+assistantQuestion;}
 const assistantSummary=(q.get('assistant_summary')||'').slice(0,350);
 if(assistantSummary&&/^((Product|Size|Quantity|Destination ZIP): [A-Za-z0-9 .-]+)(; (Product|Size|Quantity|Destination ZIP): [A-Za-z0-9 .-]+)*$/.test(assistantSummary)){
  const message=$('message');if(message&&!message.value)message.value='Information collected by the automated website assistant (please confirm): '+assistantSummary;
