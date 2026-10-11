@@ -23,6 +23,29 @@ type VerifiedHit = SearchHit & {
 const clean=(v:unknown,max=1000)=>typeof v==='string'?v.trim().replace(/\s+/g,' ').slice(0,max):'';
 const allowedState=/^[A-Z]{2}$/;
 const allowedTypes=COMMERCIAL_TYPES;
+/** Publicly located institution-owned sites; these are discovery candidates, never preverified CRM customers. */
+const HOUSTON_BASKETBALL_SITE_SEEDS=[
+  ['Houston Basketball Academy','https://houstonbasketballacademy.org/'],
+  ['PUSH Sharks','https://www.pushsharks.com/'],
+  ["Star Plair's Academy",'https://www.starplairs.com/'],
+  ['No Limit Sports Academy','https://www.nolimitsportsacademy.com/'],
+  ['Hawk Athletics Academy','https://hawkacademy.org/'],
+  ['McMullen Basketball','https://www.mcmullenbball.com/'],
+  ['Reps Up Basketball Skill Development','https://www.getyourrepsup.com/'],
+  ['The Ark 1121','https://www.theark1121.com/'],
+  ['RUH Youth Sports Foundation','https://www.rusports.com/']
+] as const;
+function supplementalOfficialSites(stateCode:string,type:string,city:string,round:number):SearchHit[]{
+  if(stateCode!=='TX'||city.trim().toLowerCase()!=='houston'||
+    !['BASKETBALL_TRAINING','YOUTH_CLUB','BASKETBALL_GYM','INDEPENDENT_COACH','MULTISPORT_ACADEMY'].includes(type))return [];
+  const shuffled=[...HOUSTON_BASKETBALL_SITE_SEEDS];
+  const page=round%Math.ceil(shuffled.length/5);
+  return shuffled.slice(page*5,page*5+5).map(([title,url])=>({
+    title,url,city:'Houston',snippet:'Houston-area basketball training / youth basketball institution; independent official website needs verification.',
+    query:'Houston public official website seed (manual research; verify before CRM import)'
+  }));
+}
+
 
 const METROS:Record<string,string[]>={
   AL:['Birmingham','Mobile'],AK:['Anchorage'],AZ:['Phoenix','Tucson'],AR:['Little Rock'],CA:['Los Angeles','San Francisco','San Diego','Sacramento'],CO:['Denver','Colorado Springs'],CT:['Hartford','New Haven'],DE:['Wilmington'],FL:['Miami','Orlando','Tampa','Jacksonville'],GA:['Atlanta','Savannah'],HI:['Honolulu'],ID:['Boise'],IL:['Chicago','Springfield'],IN:['Indianapolis','Fort Wayne'],IA:['Des Moines','Iowa City'],KS:['Wichita','Topeka'],KY:['Louisville','Lexington'],LA:['New Orleans','Baton Rouge'],ME:['Portland'],MD:['Baltimore','Annapolis'],MA:['Boston','Worcester'],MI:['Detroit','Grand Rapids'],MN:['Minneapolis','Saint Paul'],MS:['Jackson','Gulfport'],MO:['St Louis','Kansas City'],MT:['Billings','Missoula'],NE:['Omaha','Lincoln'],NV:['Las Vegas','Reno'],NH:['Manchester'],NJ:['Newark','Trenton'],NM:['Albuquerque','Santa Fe'],NY:['New York City','Buffalo','Rochester','Albany'],NC:['Charlotte','Raleigh','Greensboro'],ND:['Fargo','Bismarck'],OH:['Columbus','Cleveland','Cincinnati'],OK:['Oklahoma City','Tulsa'],OR:['Portland','Eugene'],PA:['Philadelphia','Pittsburgh','Harrisburg'],RI:['Providence'],SC:['Columbia','Charleston','Greenville'],SD:['Sioux Falls','Rapid City'],TN:['Nashville','Memphis','Knoxville'],TX:['Dallas','Houston','Austin','San Antonio','Fort Worth'],UT:['Salt Lake City','Provo'],VT:['Burlington'],VA:['Richmond','Virginia Beach','Alexandria'],WA:['Seattle','Tacoma','Spokane'],WV:['Charleston','Morgantown'],WI:['Milwaukee','Madison'],WY:['Cheyenne']
@@ -224,7 +247,10 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
           const errors=fallback.filter(r=>r.status==='rejected').map(r=>r.reason instanceof Error?r.reason.message:String(r.reason));
           searchNote+=`备用公开索引返回可用官网 ${unique.length} 个。${errors[0]||''}`;
         }
-        if(searched.every(r=>r.status==='rejected')&&!fallbackReadable)throw new Error('公开搜索的主索引和备用索引本次均不可读取，请稍后重试。');
+        const supplemental=supplementalOfficialSites(stateCode,type,city,round);
+        for(const hit of supplemental){const domain=domainOf(hit.url);if(domain&&!domains.has(domain)){domains.add(domain);unique.push(hit);}}
+        if(supplemental.length)searchNote+=` 附加 ${supplemental.length} 个独立官网候选种子，后续逐一核验、去重（并非已经入库）。`;
+        if(searched.every(r=>r.status==='rejected')&&!fallbackReadable&&!unique.length)throw new Error('公开搜索的主索引和备用索引本次均不可读取，请稍后重试。');
       return {unique,searchNote,fallbackUsed,fallbackReadable};
     });
     const started=Date.now();
