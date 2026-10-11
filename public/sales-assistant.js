@@ -40,7 +40,7 @@ function captureDetails(text){
  const z=text.match(/\b(?:zip(?:\s*code)?|postal(?:\s*code)?|postcode|code\s*postal|c[oó]digo\s*postal|cep|plz|cap|郵便番号)\s*[:#-]?\s*([a-z0-9][a-z0-9 -]{1,10})/i);
  if(z)quoteState.zip=z[1].trim().toUpperCase();
  else if(quoteState.quantity&&!quoteState.zip&&/^(?=.{3,10}$)(?=.*[a-z0-9])[a-z0-9 -]+$/i.test(text.trim()))quoteState.zip=text.trim().toUpperCase();
- const n=text.match(/\b(?:size\s*|no\\.?\s*)([34567])\b/i);
+ const n=text.match(/\b(?:size\s*|no\.?\s*)([34567])\b/i);
  if(n)quoteState.size=n[1];
  if(/soccer|football/i.test(text))quoteState.model='Flocked Silent Soccer Ball';
  else if(/weighted/i.test(text))quoteState.model='Weighted Flocked Silent Basketball';
@@ -68,7 +68,7 @@ function salesReply(input){
   if(!quoteState.size)return [tr(12)];
   if(!quoteState.quantity)return [tr(13)];
   if(!quoteState.zip)return [tr(14)];
-  const summary='Thanks! I have '+quoteState.quantity+' units of '+quoteState.model+', No. '+quoteState.size+', shipping to postal code '+quoteState.zip+'. Please review the prefilled inquiry form and add your contact details. Our team will verify stock, shipping, MOQ and wholesale pricing.';
+  const summary=tr(16)+' '+quoteState.quantity+' '+quoteState.model+' — '+quoteState.size+' — '+quoteState.zip+'.';
   quoteState.active=false;return [faq(7)+' '+summary,quoteLink(),tr(16)];
  }
  return reply(q);
