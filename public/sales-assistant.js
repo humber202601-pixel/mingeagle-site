@@ -27,8 +27,10 @@ const quoteState={active:false,model:'',size:'',quantity:'',zip:''};
 function captureDetails(text){
  const m=text.match(/(?:^|\\s)([1-9]\\d{0,4})\\s*(?:sets?|pcs?|pieces?|balls?|units?)\\b/i);
  if(m)quoteState.quantity=m[1];
+ else if(quoteState.model&&quoteState.size&&!quoteState.quantity&&/^[1-9]\\d{0,4}$/.test(text.trim()))quoteState.quantity=text.trim();
  const z=text.match(/\\b(?:zip(?:\\s*code)?\\s*[:#-]?\\s*|ship(?:ping)?\\s+to\\s+)(\\d{5})(?:-\\d{4})?\\b/i);
  if(z)quoteState.zip=z[1];
+ else if(quoteState.quantity&&!quoteState.zip&&/^\\d{5}$/.test(text.trim()))quoteState.zip=text.trim();
  const n=text.match(/\\b(?:size\\s*|no\\.?\\s*)([34567])\\b/i);
  if(n)quoteState.size=n[1];
  if(/soccer|football/i.test(text))quoteState.model='Flocked Silent Soccer Ball';
