@@ -125,3 +125,21 @@ jobs:
                   raise SystemExit('FAIL: public site did not serve deployed revision')
               time.sleep(10)
           PY
+
+      - name: Verify live pricing JSON and calculator HTTP responses
+        run: |
+          python - <<'PY'
+          import json, urllib.request
+          base = 'https://www.mingeagle.com/'
+          for filename in ('retail-reference-prices.json', 'quote-math.js'):
+              with urllib.request.urlopen(urllib.request.Request(base+filename,headers={'Accept':'application/json' if filename.endswith('.json') else '*/*','User-Agent':'MING-EAGLE-verify/1.0'}), timeout=20) as response:
+                  body=response.read()
+                  if response.status!=200 or not body:
+                      raise SystemExit('FAIL '+filename+' status '+str(response.status))
+                  print('PASS live resource', filename, 'bytes', len(body), 'type', response.headers.get('Content-Type'))
+                  if filename.endswith('.json'):
+                      data=json.loads(body)
+                      assert data['currency']=='USD' and len(data['products'])==4
+                  else:
+                      assert b'calculateFromCatalog' in body
+          PY
