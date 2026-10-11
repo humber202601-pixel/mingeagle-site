@@ -56,9 +56,12 @@ function handoffUrl(type='quote'){
  return u.href;
 }
 function needsStaff(input){return /\b(custom(?:ize|ization)?|private label|own logo|certificat(?:e|ion)|compliance|payment terms|credit|invoice|refund|return policy|lead time|freight quotation|tracking issue|complaint|human|representative)\b/i.test(input)}
+function isQuoteIntent(text){
+ return /(?:quote|quotation|wholesale|bulk|pricing for|request price|cotizaci[oó]n|mayorista|por mayor|presupuesto|or[cç]amento|atacado|devis|vente en gros|gro[ßs]handel|angebot|preventivo|ingrosso|卸売|見積)/i.test(text);
+}
 function salesReply(input){
  const q=input.trim();
- if(/\b(quote|wholesale|bulk|pricing for|request price)\b/i.test(q))quoteState.active=true;
+ if(isQuoteIntent(q))quoteState.active=true;
  if(quoteState.active){
   captureDetails(q);
   if(!quoteState.model)return [tr(11)];
@@ -70,7 +73,7 @@ function salesReply(input){
  }
  return reply(q);
 }
-entries.forEach(([label,answer,url],i)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>{add('visitor',tr(5+i));add('assistant',faq(i),url,faq(8))};quick.appendChild(b)});
+entries.forEach(([label,answer,url],i)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>{add('visitor',tr(5+i));if(i===2){quoteState.active=true;quoteState.model='';quoteState.size='';quoteState.quantity='';quoteState.zip='';add('assistant',tr(11));}else add('assistant',faq(i),url,faq(8))};quick.appendChild(b)});
 function open(){panel.hidden=false;launch.setAttribute('aria-expanded','true');if(!log.children.length)add('assistant',tr(10));field.focus()}
 launch.addEventListener('click',()=>panel.hidden?open():close.click());close.addEventListener('click',()=>{panel.hidden=true;launch.setAttribute('aria-expanded','false');launch.focus()});
 const context=[];
@@ -80,7 +83,7 @@ async function answerQuestion(question){
     return [tr(15),handoffUrl('question'),tr(17)];
   }
   // Keep high-stakes commercial quotes deterministic and human-reviewed.
-  if(quoteState.active||/\b(wholesale|bulk|quote|pricing for|request price)\b/i.test(question))return salesReply(question);
+  if(quoteState.active||isQuoteIntent(question))return salesReply(question);
   const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),7000);
   try{
     const history=[...context.slice(-10),{role:'user',content:question}];
