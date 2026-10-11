@@ -284,7 +284,7 @@ export default function AdminApp() {
   </>;
   else content = <>
     <Top title="跟进任务" description="执行、延期或完成由销售和履约自动化产生的待办任务。"/>
-    <TaskManager tasks={data.tasks} accessKey={key} onChanged={() => void load(key)} />
+    <TaskManager tasks={data.tasks} inquiries={data.inquiries} accessKey={key} onChanged={() => void load(key)} />
   </>;
 
   return <Layout loading={loading} onRefresh={() => void load(key)} onLogout={() => { sessionStorage.removeItem('mingeagle_admin_key'); setKey(''); setAuthorized(false); setData(emptyData); }}>{error && <div role="alert" className="form-status error">{error}</div>}{content}</Layout>;

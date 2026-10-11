@@ -2,11 +2,11 @@ import { useMemo, useState } from 'react';
 import { priorityLabel, systemText, zhDate } from './adminI18n';
 
 type Row = Record<string, unknown>;
-type Props = { tasks: Row[]; accessKey: string; onChanged: () => void };
+type Props = { tasks: Row[]; inquiries: Row[]; accessKey: string; onChanged: () => void };
 
 const text = (value: unknown, fallback = '—') => value === null || value === undefined || value === '' ? fallback : String(value);
 
-export default function TaskManager({ tasks, accessKey, onChanged }: Props) {
+export default function TaskManager({ tasks, inquiries, accessKey, onChanged }: Props) {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [cleanupCount, setCleanupCount] = useState<number | null>(null);
@@ -81,10 +81,16 @@ export default function TaskManager({ tasks, accessKey, onChanged }: Props) {
     {tasks.length === 0 && <div className="empty-row">当前没有待处理跟进任务。</div>}
     {orderedTasks.map((task, index) => {
       const id = text(task.id, `task-${index}`);
+      const isQuoteTask = /quote|quotation|报价|批发询盘/i.test(String(task.title || '') + ' ' + String(task.type || ''));
+      const matchedInquiry = isQuoteTask ? inquiries.find(i =>
+        String(i.lead_id || '') !== '' && String(i.lead_id) === String(task.lead_id || '') &&
+        ['NEW','REVIEWING','RESPONDED','QUALIFIED'].includes(String(i.status || ''))) : undefined;
+      const quoteHref = matchedInquiry ? '/app/quotes?inquiry=' + encodeURIComponent(String(matchedInquiry.reference || '')) : '';
       return <div className="task-row" key={id}>
         <div className="task-main"><strong>{systemText(task.title)}</strong><p>{systemText(task.description)}</p><small>{text(task.related_to)} · 截止 {zhDate(task.due_at)}</small></div>
         <span className={`priority ${text(task.priority).toLowerCase()}`}>{priorityLabel(task.priority)}</span>
         <div className="task-actions">
+          {quoteHref && <Link className="table-action primary" to={quoteHref}>打开对应询盘并报价</Link>}
           {text(task.status) === 'OPEN' && <button className="table-action" disabled={busy !== ''} onClick={() => void act(id, 'START')}>开始处理</button>}
           <button className="table-action" disabled={busy !== ''} onClick={() => void act(id, 'SNOOZE_3')}>延后 3 天</button>
           <button className="table-action" disabled={busy !== ''} onClick={() => void act(id, 'SNOOZE_7')}>延后 7 天</button>
