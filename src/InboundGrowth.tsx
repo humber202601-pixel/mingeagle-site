@@ -10,6 +10,13 @@ const sources:Record<string,string>={GOOGLE:'Google',BING:'Bing',TIKTOK:'TikTok'
 const pages:Record<string,string>={APARTMENT_GUIDE:'公寓家庭指南',CAMP_GUIDE:'篮球训练营采购指南',BULK_GUIDE:'批量采购指南',WHOLESALE_CATALOG:'批发产品目录',TEAM_CUSTOM:'球队定制篮球',HOME:'首页',FOR_COACHES:'教练采购',FOR_SCHOOLS:'学校采购',WHOLESALE:'批发采购',PRODUCTS:'产品目录',PRODUCT_DETAIL:'产品详情',NOT_RECORDED:'未记录落地页',OTHER_PAGE:'其他页面'};
 const audiences:Record<string,string>={B2B:'B2B 批发 / 机构',B2C:'B2C 个人客户',UNKNOWN:'尚不能分类'};
 const num=(x:number)=>Number(x||0).toLocaleString('zh-CN');
+const pageAdvice=(row:PageRow)=>{
+ if(row.entryPage==='NOT_RECORDED'||row.entryPage==='OTHER_PAGE')return '先完善来源识别，不归因到具体页面';
+ if(row.ordered>0)return '有订单关联：优先检查该页面的搜索表现和询盘质量';
+ if(row.quoted>0)return '有报价关联：优化采购说明与报价入口';
+ if(row.inquiries>0)return '已有询盘：跟进客户需求，观察报价进展';
+ return '暂无有效询盘证据';
+};
 export default function InboundGrowth({accessKey}:{accessKey:string}){
  const [days,setDays]=useState(90),[refresh,setRefresh]=useState(0);
  const [data,setData]=useState<Data|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(true);
@@ -49,7 +56,19 @@ export default function InboundGrowth({accessKey}:{accessKey:string}){
     </section>
     <section className="panel" style={{padding:18}}>
       <div className="panel-head"><h2>询盘最初进入哪个页面？</h2><span>缺失来源单独归类；报价与订单仅表示客户关联，不证明单次页面促成</span></div>
-      <div className="table-wrap"><table><thead><tr><th>落地页类型</th><th>真实询盘</th><th>关联报价</th><th>关联订单</th></tr></thead><tbody>{data.entryPages.map(row=><tr key={row.entryPage}><td>{pages[row.entryPage]||row.entryPage}</td><td>{num(row.inquiries)}</td><td>{num(row.quoted)}</td><td>{num(row.ordered)}</td></tr>)}{!data.entryPages.length&&<tr><td colSpan={4}>尚无实际询盘数据。</td></tr>}</tbody></table></div>
+      <div className="table-wrap"><table><thead><tr><th>落地页类型</th><th>真实询盘</th><th>关联报价</th><th>关联订单</th><th>建议下一步</th></tr></thead><tbody>{data.entryPages.map(row=><tr key={row.entryPage}><td>{pages[row.entryPage]||row.entryPage}</td><td>{num(row.inquiries)}</td><td>{num(row.quoted)}</td><td>{num(row.ordered)}</td><td>{pageAdvice(row)}</td></tr>)}{!data.entryPages.length&&<tr><td colSpan={5}>尚无实际询盘数据。</td></tr>}</tbody></table></div>
+    </section>
+    <section className="panel" style={{padding:18}}>
+      <div className="panel-head"><h2>下一步优先优化哪些页面？</h2><span>只根据真实 CRM 询盘与后续业务记录</span></div>
+      {data.entryPages.filter(p=>!['NOT_RECORDED','OTHER_PAGE'].includes(p.entryPage)&&p.inquiries>0).length===0
+       ? <p>暂时没有足够的具体页面询盘证据。先积累真实客户来源，不推荐凭空选“爆款页面”。</p>
+       : <div className="table-wrap"><table><thead><tr><th>页面</th><th>业务依据</th><th>推荐动作</th></tr></thead><tbody>
+         {[...data.entryPages].filter(p=>!['NOT_RECORDED','OTHER_PAGE'].includes(p.entryPage)&&p.inquiries>0)
+           .sort((a,b)=>b.ordered-a.ordered||b.quoted-a.quoted||b.inquiries-a.inquiries)
+           .slice(0,3).map(p=><tr key={p.entryPage}><td><strong>{pages[p.entryPage]||p.entryPage}</strong></td>
+             <td>{num(p.inquiries)} 询盘 / {num(p.quoted)} 关联报价 / {num(p.ordered)} 关联订单</td><td>{pageAdvice(p)}</td></tr>)}
+         </tbody></table></div>}
+      <p style={{fontSize:12,color:'#667085'}}>仅供内容优化排序，不代表页面带来了全部关联订单，也不自动花费广告预算。</p>
     </section>
     <section className="panel" style={{padding:18}}>
       <div className="panel-head"><h2>搜索曝光与访问量 · 尚待连接</h2><span>不显示虚构数据</span></div>
