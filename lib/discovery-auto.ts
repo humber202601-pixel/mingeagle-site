@@ -42,8 +42,10 @@ async function initializeAuto(db:D1Database){
 export function ensureAuto(db:D1Database){let ready=schemas.get(db);if(!ready){ready=initializeAuto(db).catch(e=>{schemas.delete(db);throw e;});schemas.set(db,ready);}return ready;}
 
 export function autoSources(type:string){
+  // Prioritize structured location evidence before public search/social indexes:
+  // the latter frequently require manual verification and may return no usable results.
   const base=['CORE','DIRECTORY','FACEBOOK','TIKTOK','INSTAGRAM','LINKEDIN'];
-  if(COMMERCIAL_TYPES.has(type))return [...base,'GEOAPIFY','OSM'];
+  if(COMMERCIAL_TYPES.has(type))return ['GEOAPIFY','OSM',...base];
   return [...base,type==='SCHOOL_DISTRICT'?'NCES_DISTRICTS':type==='PRIVATE_CHARTER_SCHOOL'?'NCES_PRIVATE':'NCES'];
 }
 
