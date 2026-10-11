@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import { DatabaseSync } from 'node:sqlite';
+import { readFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { build } from 'esbuild';
+
+const tmp=mkdtempSync(join(tmpdir(),'mingeagle-reply-sales-'));
+try {
+  await build({entryPoints:['functions/_shared/reply-sales-actions.ts'],outfile:join(tmp,'reply.mjs'),bundle:true,platform:'node',format:'esm',logLevel:'silent'});
+  const {applyReplySalesAction,extractReplyQuantity,extractUsPostalCode}=await import(pathToFileURL(join(tmp,'reply.mjs')));
+  assert.equal(extractReplyQuantity('wholesale quotation for 50 silent basketball sets'),50);
+  assert.equal(extractUsPostalCode('shipping ZIP code: 75201'), '75201');
+  assert.equal(extractReplyQuantity('Need 1,000 sets'),1000);
+  const sqlite=new DatabaseSync(':memory:');
+  sqlite.exec(readFileSync('migrations/0001_core.sql','utf8'));
+  sqlite.exec("INSERT INTO companies(id,name,customer_type) VALUES ('c1','MING EAGLE TEST','BASKETBALL_TRAINING'); INSERT INTO leads(id,company_id,source,status) VALUES ('l1','c1','DISCOVERY','REPLIED');");
+  const db={prepare(sql){return {bind(...args){return {first:async()=>sqlite.prepare(sql).get(...args),run:async()=>({meta:{changes:sqlite.prepare(sql).run(...args).changes}})}}}}};
+  const base={leadId:'l1',companyId:'c1',contactId:null,intent:'PRICE_QUOTE',body:'Please quote 50 silent basketball sets. Shipping ZIP code: 75201',messageId:'m1'};
+  const first=await applyReplySalesAction(db,base);
+  assert.equal(first.kind,'QUOTE_INQUIRY');assert.equal(first.quantity,50);assert.equal(first.postalCode,'75201');assert.equal(first.created,true);
+  let rows=sqlite.prepare("SELECT estimated_quantity,shipping_postal_code,status FROM inquiries WHERE lead_id='l1'").all();
+  assert.equal(rows.length,1);assert.equal(rows[0].estimated_quantity,'50');assert.equal(rows[0].shipping_postal_code,'75201');
+  await applyReplySalesAction(db,{...base,body:'Now quote 80 sets shipped to ZIP 10001',messageId:'m2'});
+  rows=sqlite.prepare("SELECT estimated_quantity,shipping_postal_code FROM inquiries WHERE lead_id='l1'").all();
+  assert.equal(rows.length,1,'new email updates existing open inquiry instead of duplicate');assert.equal(rows[0].estimated_quantity,'80');assert.equal(rows[0].shipping_postal_code,'10001');
+  const sample=await applyReplySalesAction(db,{...base,intent:'SAMPLE_INTEREST',body:'Can I try 2 sets?',messageId:'m3'});
+  assert.equal(sample.kind,'SAMPLE_REQUEST');assert.equal(sqlite.prepare("SELECT count(*) AS n FROM samples WHERE lead_id='l1'").get().n,1);
+  assert.equal(sqlite.prepare("SELECT count(*) AS n FROM messages").get().n,0,'CRM sales action must never send email');
+  console.log('PASS: quote quantity, ZIP, reuse of existing inquiry, sample request and no outbound email.');
+} finally {rmSync(tmp,{recursive:true,force:true});}
