@@ -10,6 +10,13 @@ const tmp=mkdtempSync(join(tmpdir(),'mingeagle-reply-sales-'));
 try {
   await build({entryPoints:['functions/_shared/reply-sales-actions.ts'],outfile:join(tmp,'reply.mjs'),bundle:true,platform:'node',format:'esm',logLevel:'silent'});
   const {applyReplySalesAction,extractReplyQuantity,extractUsPostalCode}=await import(pathToFileURL(join(tmp,'reply.mjs')));
+  await build({entryPoints:['functions/_shared/reply-classifier.ts'],outfile:join(tmp,'classify.mjs'),bundle:true,platform:'node',format:'esm',logLevel:'silent'});
+  const {classifyReply}=await import(pathToFileURL(join(tmp,'classify.mjs')));
+  assert.equal(classifyReply('What is the MOQ for your silent basketball?').intent,'MOQ_QUESTION');
+  assert.equal(classifyReply('What is shipping cost to Texas?').intent,'SHIPPING_QUESTION');
+  assert.equal(classifyReply('Could you quote 100 units?').intent,'PRICE_QUOTE');
+  assert.equal(classifyReply('Please unsubscribe, what is your MOQ?').intent,'DO_NOT_CONTACT');
+  assert(!/\$\d|free shipping|guaranteed/i.test(classifyReply('What is the shipping fee?').suggestedReply),'shipping draft does not invent pricing');
   assert.equal(extractReplyQuantity('wholesale quotation for 50 silent basketball sets'),50);
   assert.equal(extractUsPostalCode('shipping ZIP code: 75201'), '75201');
   assert.equal(extractReplyQuantity('Need 1,000 sets'),1000);
