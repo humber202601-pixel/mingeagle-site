@@ -183,7 +183,14 @@ export function osmQuery(input:SourceInput,bounds?:[number,number,number,number]
   // Many real basketball academies have a website and a recognisable name,
   // but no OSM sport tag. Add a narrow name+website route; courts and unrelated
   // venues still fail the existing map and official-site verification checks.
-  if(basketballOnly)filters.push('["name"~"basketball|hoops|hoopers|aau",i]["website"]','["name"~"basketball|hoops|hoopers|aau",i]["contact:website"]');
+  if(basketballOnly)filters.push(
+    '["name"~"basketball|hoops|hoopers|aau",i]["website"]',
+    '["name"~"basketball|hoops|hoopers|aau",i]["contact:website"]',
+    '["club"="sport"]["website"]',
+    '["club"="sport"]["contact:website"]',
+    '["sport"~"basketball",i]["website"]',
+    '["sport"~"basketball",i]["contact:website"]'
+  );
   return `[out:json][timeout:8][maxsize:16777216];${bounds?'':`area["ISO3166-2"="US-${input.stateCode}"]->.state;`}(${filters.map(f=>`nwr${scope}${f};`).join('')});out tags ${Math.min(50,input.targetCount)};`;
 }
 export async function osmClues(input:SourceInput,geoapifyKey?:string,db?:D1Database){
@@ -211,7 +218,7 @@ export async function osmClues(input:SourceInput,geoapifyKey?:string,db?:D1Datab
   const clues:Clue[]=[];
   for(const e of data.elements){const t=e.tags||{},title=clean(t.name,200),explicitCity=clean(t['addr:city'],80),city=explicitCity||input.city;
     if(!title||(explicitCity&&city.toLowerCase()!==input.city.toLowerCase())||(!explicitCity&&!bounds)||!['node','way','relation'].includes(e.type)||!Number.isSafeInteger(e.id)||/drinking fountain|basketball hoop|basketball court$/i.test(title)||!mapBuyerMatch(title,input.customerType,String(t.sport||'')))continue;
-    let website=clean(t.website||t['contact:website'],1000).split(';')[0];if(website&&!/^https?:\/\//i.test(website))website='https://'+website;if(!publicUrl(website))website='';
+    let website=clean(t.website||t['contact:website']||t.url||t['contact:url'],1000).split(';')[0];if(website&&!/^https?:\/\//i.test(website))website='https://'+website;if(!publicUrl(website))website='';
     const customerType=t.amenity==='kindergarten'?'PRESCHOOL_KINDERGARTEN':t.amenity==='school'?'PUBLIC_SCHOOL':mapBuyerType(title,input.customerType);
     clues.push({key:`osm:${e.type}:${e.id}`,title,source:'OSM',customerType,url:`https://www.openstreetmap.org/${e.type}/${e.id}`,city,website,address:clean([t['addr:housenumber'],t['addr:street'],city,input.stateCode,t['addr:postcode']].filter(Boolean).join(' '),500),snippet:clean(`OpenStreetMap 地点资料 · ${t['addr:street']||''} ${t['addr:housenumber']||''}, ${city} · ${explicitCity?'地图明确标注城市':'位于搜索城市边界；城市归属待核实'} · ${t.shop||t.leisure||t.club||t.amenity||t.office||''}。地图分类仅提供机构线索，业务及联系信息需官网核验。`)});
   }return {clues,note:`${input.city} · OSM 地图返回 ${clues.length} 条具名机构线索；${boundsNote}未填城市时轮换所选州的主要城市。普通球场、篮球架和饮水点不入库。`,partial:false};
