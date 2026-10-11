@@ -1,7 +1,7 @@
 // V37: deterministic, idempotent, SEO-safe additions to the existing static website.
 // Running in GitHub Pages build after approved content builders; no external API.
 const fs=require('node:fs'),path=require('node:path');
-const root=path.resolve(process.argv[2]||'public'),base='https://mingeagle.com/';
+const root=path.resolve(process.argv[2]||'public'),base='https://www.mingeagle.com/';
 const retail=JSON.parse(fs.readFileSync(path.join(root,'retail-prices.json'),'utf8'));
 const productKeys={'silent-basketball.html':'p1','fabric-silent-basketball.html':'p2','weighted-flocked-basketball.html':'p3','silent-soccer.html':'p4'};
 const settings={

@@ -4,4 +4,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://mingeagle.com/sitemap.xml
+Sitemap: https://www.mingeagle.com/sitemap.xml
