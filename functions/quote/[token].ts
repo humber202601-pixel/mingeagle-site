@@ -126,7 +126,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
         VALUES (?, 'QUOTE', ?, 'QUOTE_VIEWED', 'Quote viewed', ?)`).bind(crypto.randomUUID(), quoteId, `${String(quote.reference)} viewed by customer`).run();
     }
 
-    const itemsResult = await db.prepare(`SELECT description, quantity, unit_price, line_total, sort_order
+    const itemsResult = await db.prepare(`SELECT id, description, quantity, unit_price, line_total, sort_order
       FROM quote_items WHERE quote_id=? ORDER BY sort_order, id`).bind(quoteId).all<Row>();
     const items = itemsResult.results || [];
     const order = await getOrder(db, quoteId);
@@ -135,7 +135,23 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
     // Public discount claims require a persisted, auditable approval record.
     // The internal retail comparison checkbox is not stored on the quote; do not
     // expose automatic savings until that review workflow is implemented.
-    const itemRows = items.map(item => `<tr><td>${esc(item.description)}</td><td>${esc(item.quantity)}</td><td>${esc(money(item.unit_price,currency))}</td><td>${esc(money(item.line_total,currency))}</td></tr>`).join('');
+    // A public saving claim must match a saved, source-backed staff approval.
+    await db.prepare(`CREATE TABLE IF NOT EXISTS quote_retail_approvals (
+      quote_id TEXT NOT NULL,item_id TEXT NOT NULL,retail_usd REAL NOT NULL,
+      source_url TEXT NOT NULL,approved_description TEXT NOT NULL,
+      approved_unit_price REAL NOT NULL,approved_quantity INTEGER NOT NULL,
+      approved_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(quote_id,item_id))`).run();
+    const approved=(await db.prepare('SELECT item_id,retail_usd,source_url,approved_description,approved_unit_price,approved_quantity FROM quote_retail_approvals WHERE quote_id=?').bind(quoteId).all<Row>()).results||[];
+    const approvedById=new Map(approved.map(a=>[String(a.item_id),a]));
+    const itemRows = items.map(item => {
+      const record=approvedById.get(String(item.id));
+      const retail=Number(record?.retail_usd||0),unit=Number(item.unit_price||0),quantity=Number(item.quantity||0);
+      const verified=currency==='USD'&&!!record&&record.approved_description===item.description&&Number(record.approved_unit_price)===unit&&Number(record.approved_quantity)===quantity&&retail>unit&&unit>0&&quantity>0;
+      const saving=verified?Math.round((retail-unit)*quantity*100)/100:0;
+      const comparison=verified?`<div style="font-size:12px;color:#067647">Retail reference: USD ${retail.toFixed(2)} / unit · Save ${((1-unit/retail)*100).toFixed(1)}% (${money(saving,currency)} on this line)</div>`:'';
+      return `<tr><td>${esc(item.description)}${comparison}</td><td>${esc(item.quantity)}</td><td>${esc(money(item.unit_price,currency))}</td><td>${esc(money(item.line_total,currency))}</td></tr>`;
+    }).join('');
     const paymentReturned = new URL(request.url).searchParams.get('payment_return') === '1';
     const paymentReturnBanner = paymentReturned
       ? `<div class="notice info" id="paymentReturnNotice"><strong>Payment submitted.</strong> We are confirming it securely with Airwallex. This page will update automatically.</div>`
