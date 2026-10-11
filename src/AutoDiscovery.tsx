@@ -20,6 +20,7 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
   const [state,setState]=useState('TX'),[type,setType]=useState(initialType||'BASKETBALL_TRAINING'),[city,setCity]=useState(''),[target,setTarget]=useState(20),[batches,setBatches]=useState(1);
   const [data,setData]=useState<Data>({}),[loading,setLoading]=useState(true),[working,setWorking]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
   const [draftBusy,setDraftBusy]=useState(false);
+  const [overall,setOverall]=useState<{companies:number;activeCompanies:number;withEmail:number;withPhoneOrWhatsapp:number}|null>(null);
   const autoDraftRun=useRef('');
   const [queueStats,setQueueStats]=useState<{review:number;ready:number;sent:number}|null>(null);
   const [history,setHistory]=useState<History>({}),[historyOpen,setHistoryOpen]=useState(false),[historyBusy,setHistoryBusy]=useState(false);
@@ -66,6 +67,15 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
       onChangedRef.current();
     }catch(e){setError(e instanceof Error?e.message:'任务操作失败。');}finally{setWorking(false);}
   }
+  async function refreshOverview(){
+    try{
+      const response=await fetch('/api/admin/discovery-overview-v1',{headers:{'x-admin-key':accessKey},cache:'no-store'});
+      if(!response.ok)return;
+      const body=await response.json() as {ok?:boolean;stats?:{companies:number;activeCompanies:number;withEmail:number;withPhoneOrWhatsapp:number}};
+      if(body.ok&&body.stats)setOverall(body.stats);
+    }catch{/* Overview is optional; discovery must continue working. */}
+  }
+  useEffect(()=>{void refreshOverview();},[accessKey,data.run?.id,data.run?.status]);
   async function refreshQueueStats(){
     try{
       const response=await fetch('/api/admin/email-queue',{headers:{'x-admin-key':accessKey},cache:'no-store'});
@@ -172,6 +182,8 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
       <details className="auto-discovery-details"><summary>查看来源进度与未完成信息（{data.exceptions?.length||0}）</summary><ul>{data.sources?.map(row=>{const result=sourceResult(row);return <li key={text(row.item_key)}><strong>{sourceNames[text(row.item_key).split(':')[0]]||text(row.item_key)}</strong> · {row.status==='DONE'?'查询完成':row.status==='REVIEW'?'来源受限 / 需检查':statusNames[text(row.status)]||text(row.status)}{row.status==='DONE'?` · 返回 ${Number(result.found||0)} 条线索`:''}{Boolean(result.note)&&<p>{text(result.note)}</p>}{Boolean(row.error)&&<p>{text(row.error)}</p>}</li>;})}</ul>{data.exceptions?.map(row=><p key={text(row.kind)+text(row.item_key)}><strong>{text(row.name)}</strong> · {text(row.error)}</p>)}</details>
     </div>}
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:10,marginTop:14}}>
+      <div className="metric"><span>累计去重客户</span><strong>{overall?.companies??"—"}</strong><small>自动发现的 CRM 独立机构 · 活跃 {overall?.activeCompanies??"—"}</small></div>
+      <div className="metric"><span>累计公开邮箱机构</span><strong>{overall?.withEmail??"—"}</strong><small>CRM 联系人邮箱，不代表已验证送达</small></div>
       <div className="metric"><span>本轮已确认入库</span><strong>{imported}</strong><small>核验通过，不等于已联系</small></div>
       <div className="metric"><span>本轮有可联系渠道</span><strong>{readyContacts}</strong><small>有效格式邮箱 {emailReady} · 仅电话或 WhatsApp {otherContactOnly}</small></div>
       <div className="metric"><span>待审核邮件</span><strong>{queueStats?.review??'—'}</strong><small>全部 CRM 邮件队列</small></div>
