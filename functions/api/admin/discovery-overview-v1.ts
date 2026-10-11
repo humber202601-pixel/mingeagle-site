@@ -6,8 +6,8 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
     const rows=await db.prepare(`SELECT
       COUNT(DISTINCT c.id) AS companies,
       COUNT(DISTINCT CASE WHEN l.status NOT IN ('LOST','NOT_FIT','DO_NOT_CONTACT','NOT_INTERESTED') THEN c.id END) AS active_companies,
-      COUNT(DISTINCT CASE WHEN l.status NOT IN ('LOST','NOT_FIT','DO_NOT_CONTACT','NOT_INTERESTED') AND ct.email IS NOT NULL AND trim(ct.email)<>'' AND COALESCE(ct.do_not_contact,0)=0 THEN c.id END) AS with_email,
-      COUNT(DISTINCT CASE WHEN l.status NOT IN ('LOST','NOT_FIT','DO_NOT_CONTACT','NOT_INTERESTED') AND (COALESCE(ct.phone,'')<>'' OR COALESCE(ct.whatsapp,'')<>'') AND COALESCE(ct.do_not_contact,0)=0 THEN c.id END) AS with_phone_or_whatsapp
+      COUNT(DISTINCT CASE WHEN l.status NOT IN ('LOST','NOT_FIT','DO_NOT_CONTACT','NOT_INTERESTED') AND ct.email IS NOT NULL AND instr(trim(ct.email),'@')>1 AND instr(substr(trim(ct.email),instr(trim(ct.email),'@')+1),'.')>1 AND COALESCE(ct.do_not_contact,0)=0 THEN c.id END) AS with_email,
+      COUNT(DISTINCT CASE WHEN l.status NOT IN ('LOST','NOT_FIT','DO_NOT_CONTACT','NOT_INTERESTED') AND (trim(COALESCE(ct.phone,''))<>'' OR trim(COALESCE(ct.whatsapp,''))<>'') AND COALESCE(ct.do_not_contact,0)=0 THEN c.id END) AS with_phone_or_whatsapp
       FROM leads l JOIN companies c ON c.id=l.company_id
       LEFT JOIN contacts ct ON ct.company_id=c.id
       WHERE l.source='DISCOVERY'`).first<Record<string,number>>();
