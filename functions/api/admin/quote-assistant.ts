@@ -76,7 +76,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
       return {
         ...row,
         customer_text: customerText,
-        extracted_quantity: extractQuantity(customerText) || (row.inquiry_quantity ? Number(row.inquiry_quantity) || null : null),
+        extracted_quantity: /\b\d{1,6}\s*(?:,|\/|\bor\b|\band\b)\s*\d{1,6}(?:\s*(?:,|\/|\bor\b|\band\b)\s*\d{1,6})*\s*(?:units?|pcs?|pieces?|balls?|sets?)\b/i.test(customerText) ? null : (extractQuantity(customerText) || (row.inquiry_quantity ? Number(row.inquiry_quantity) || null : null)),
       };
     });
 
