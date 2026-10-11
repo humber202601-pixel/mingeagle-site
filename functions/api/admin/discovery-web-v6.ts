@@ -114,7 +114,16 @@ const phonesOf=publicPhones;
 function hrefs(html:string,base:string){const out:string[]=[];const re=/href\s*=\s*["']([^"']+)["']/gi;let m:RegExpExecArray|null;while((m=re.exec(html))){const raw=decode(m[1]).trim();if(!raw||raw.startsWith('#')||/^(javascript|data):/i.test(raw))continue;try{out.push(new URL(raw,base).toString())}catch{}}return [...new Set(out)]}
 function firstSocial(links:string[],domains:string[]){return links.find(link=>{try{const h=new URL(link).hostname.toLowerCase();return domains.some(d=>h===d||h.endsWith(`.${d}`))}catch{return false}})||''}
 function whatsappOf(links:string[]){const link=firstSocial(links,['wa.me','whatsapp.com']);if(!link)return '';try{const u=new URL(link);return u.hostname.toLowerCase()==='wa.me'?u.pathname.replace(/\D/g,'').slice(0,20)||link:u.searchParams.get('phone')?.replace(/\D/g,'').slice(0,20)||link}catch{return link}}
-function chooseEmail(emails:string[],host:string){const domain=host.toLowerCase().replace(/^www\./,'');return emails.find(e=>e.endsWith(`@${domain}`))||emails.find(e=>/^(sales|info|contact|hello|office|admin|coach|training|orders|director)@/i.test(e))||emails[0]||''}
+function chooseEmail(emails:string[],host:string){
+  const domain=host.toLowerCase().replace(/^www\\./,'');
+  const sameSite=emails.find(e=>e.toLowerCase().endsWith(`@${domain}`));
+  if(sameSite)return sameSite;
+  // Generic mailbox services are commonly used by small clubs and coaches;
+  // do not borrow a different business domain from third-party page content.
+  const publicMail=/^(gmail\\.com|googlemail\\.com|outlook\\.com|hotmail\\.com|yahoo\\.com|icloud\\.com|aol\\.com|live\\.com)$/i;
+  const personal=emails.find(e=>publicMail.test(e.split('@')[1]||''));
+  return personal||'';
+}
 const validPersonName=publicPersonName;
 function extractPerson(text:string){const roles='Owner|Founder|Co-Founder|Executive Director|Program Director|Basketball Director|Training Director|Head Coach|General Manager|Operations Director|Purchasing Manager|Procurement Manager|Athletic Director|Director|Coach|Manager|President|CEO';const name="([A-Z][A-Za-z'’-]{1,30}(?:\\s+[A-Z][A-Za-z'’-]{1,30}){1,2})";const patterns=[new RegExp(`${name}\\s*(?:[-–—|,:]|\\bis\\s+(?:the\\s+)?)\\s*(${roles})`),new RegExp(`(${roles})\\s*(?:[-–—|,:])?\\s*${name}`)];for(let i=0;i<patterns.length;i++){for(const m of text.matchAll(new RegExp(patterns[i].source,'g'))){const person=i===0?m[1]:m[2];const title=i===0?m[2]:m[1];const candidates=[person,...(person.split(/\s+/).length===3?[person.split(/\s+/).slice(1).join(' ')]:[])];for(const candidate of candidates)if(validPersonName(candidate))return {name:clean(candidate,120),title:clean(title,120)}}}return {name:'',title:''}}
 

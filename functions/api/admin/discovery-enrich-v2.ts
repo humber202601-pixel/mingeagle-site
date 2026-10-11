@@ -49,7 +49,16 @@ function emailsOf(html:string){const d=decode(html);const set=new Set<string>();
 const phonesOf=publicPhones;
 function firstSocial(links:string[],domains:string[]){return links.find(link=>{try{const h=new URL(link).hostname.toLowerCase();return domains.some(d=>h===d||h.endsWith(`.${d}`))}catch{return false}})||''}
 function whatsappOf(links:string[]){const link=firstSocial(links,['wa.me','whatsapp.com']);if(!link)return '';try{const u=new URL(link);return u.hostname==='wa.me'?u.pathname.replace(/\D/g,'').slice(0,20)||link:u.searchParams.get('phone')?.replace(/\D/g,'').slice(0,20)||link}catch{return link}}
-function chooseEmail(emails:string[],host:string){const domain=host.toLowerCase().replace(/^www\./,'');return emails.find(e=>e.endsWith(`@${domain}`))||emails.find(e=>/^(sales|info|contact|hello|office|admin|coach|training|orders)@/i.test(e))||emails[0]||''}
+function chooseEmail(emails:string[],host:string){
+  const domain=host.toLowerCase().replace(/^www\\./,'');
+  const sameSite=emails.find(e=>e.toLowerCase().endsWith(`@${domain}`));
+  if(sameSite)return sameSite;
+  // Generic mailbox services are commonly used by small clubs and coaches;
+  // do not borrow a different business domain from third-party page content.
+  const publicMail=/^(gmail\\.com|googlemail\\.com|outlook\\.com|hotmail\\.com|yahoo\\.com|icloud\\.com|aol\\.com|live\\.com)$/i;
+  const personal=emails.find(e=>publicMail.test(e.split('@')[1]||''));
+  return personal||'';
+}
 
 const BAD_NAME_WORDS=new Set(['at','the','new','our','your','basketball','academy','training','program','programs','team','teams','contact','about','director','coach','manager','owner','founder','staff','membership','sports','adult','youth']);
 const validPersonName=publicPersonName;
