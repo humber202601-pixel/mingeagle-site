@@ -28,7 +28,7 @@ try{
   const get=async(name)=>{const r=await handlers[name].onRequestGet({request:new Request(base+name,{headers}),env});return await r.json();};
   const scalar=(sql)=>db.sqlite.prepare(sql).get().n;
   let failContact=false,failEnrich=false,missingContacts=false,failSources=false,emptyIndex=false,alternateHits=false,manyCoreHits=false,coreIndexRequests=0,websiteCalls=[],placeDetailCalls=0;
-  const html=()=>`<html><head><title>Northstar Basketball Academy — Dallas Texas Basketball Training</title><meta property="og:site_name" content="Northstar Basketball Academy"/><script type="application/ld+json">{"@type":"Organization","name":"Northstar Basketball Academy"}</script></head><body><h1>Northstar Basketball Academy</h1><p>Dallas Texas basketball academy private lessons youth club AAU training basketball summer camp and recreation programs. Register for training classes. Membership. Contact us.</p><a href="/contact">Contact</a><a href="/staff">Staff</a><a href="/coaches">Coaches</a><a href="/procurement">Procurement</a><p>Alex Morgan - Head Coach.</p>${missingContacts?'':'<a href="mailto:hello@academy.example">hello@academy.example</a><a href="tel:2145550186">214-555-0186</a>'}<a href="https://www.facebook.com/northstaracademy/">Facebook</a><a href="https://www.instagram.com/northstaracademy/">Instagram</a><a href="https://www.tiktok.com/@northstaracademy">TikTok</a><a href="https://www.linkedin.com/company/northstaracademy/">LinkedIn</a></body></html>`;
+  const html=()=>`<html><head><title>Northstar Basketball Academy — Fort Worth Texas Basketball Training</title><meta property="og:site_name" content="Northstar Basketball Academy"/><script type="application/ld+json">{"@type":"Organization","name":"Northstar Basketball Academy"}</script></head><body><h1>Northstar Basketball Academy</h1><p>Fort Worth Texas basketball academy private lessons youth club AAU training basketball summer camp and recreation programs. Register for training classes. Membership. Contact us.</p><a href="/contact">Contact</a><a href="/staff">Staff</a><a href="/coaches">Coaches</a><a href="/procurement">Procurement</a><p>Alex Morgan - Head Coach.</p>${missingContacts?'':'<a href="mailto:hello@academy.example">hello@academy.example</a><a href="tel:2145550186">214-555-0186</a>'}<a href="https://www.facebook.com/northstaracademy/">Facebook</a><a href="https://www.instagram.com/northstaracademy/">Instagram</a><a href="https://www.tiktok.com/@northstaracademy">TikTok</a><a href="https://www.linkedin.com/company/northstaracademy/">LinkedIn</a></body></html>`;
   globalThis.fetch=async(input,init={})=>{
     const url=new URL(String(input));
     if(url.pathname.endsWith('/discovery-enrich-v2')&&failEnrich)return Response.json({ok:false,error:'Fixture temporary enrichment service failure'},{status:503});
@@ -36,22 +36,22 @@ try{
     if(url.hostname==='www.bing.com'){
       coreIndexRequests++;
       if(failSources)return new Response('Unavailable',{status:503});
-      if(manyCoreHits)return new Response('<rss><channel>'+Array.from({length:13},(_,i)=>'<item><title>Northstar Basketball Academy Dallas Texas '+i+'</title><link>https://pilot'+i+'.example</link><description>Dallas Texas basketball training academy private lessons.</description></item>').join('')+'</channel></rss>');
+      if(manyCoreHits)return new Response('<rss><channel>'+Array.from({length:13},(_,i)=>'<item><title>Northstar Basketball Academy Fort Worth Texas '+i+'</title><link>https://pilot'+i+'.example</link><description>Fort Worth Texas basketball training academy private lessons.</description></item>').join('')+'</channel></rss>');
       if(emptyIndex)return new Response('<rss><channel></channel></rss>');
       const query=url.searchParams.get('q')||'';let link='https://academy.example';
-      if(query.includes('Northstar Independent School'))return new Response('<rss><channel><item><title>Northstar Independent School Dallas Texas</title><link>https://school.example</link><description>Private school education in Dallas Texas.</description></item></channel></rss>');
+      if(query.includes('Northstar Independent School'))return new Response('<rss><channel><item><title>Northstar Independent School Fort Worth Texas</title><link>https://school.example</link><description>Private school education in Fort Worth Texas.</description></item></channel></rss>');
       if(/site:facebook/.test(query))link='https://www.facebook.com/northstaracademy/';
       else if(/site:tiktok/.test(query))link='https://www.tiktok.com/@northstaracademy';
       else if(/site:instagram/.test(query))link='https://www.instagram.com/northstaracademy/';
       else if(/site:linkedin/.test(query))link='https://www.linkedin.com/company/northstaracademy/';
-      return new Response(`<rss><channel><item><title>Northstar Basketball Academy Dallas Texas</title><link>${link}</link><description>Basketball training academy, private coach lessons and registration in Dallas Texas.</description></item></channel></rss>`);
+      return new Response(`<rss><channel><item><title>Northstar Basketball Academy Fort Worth Texas</title><link>${link}</link><description>Basketball training academy, private coach lessons and registration in Fort Worth Texas.</description></item></channel></rss>`);
     }
     if(url.hostname==='html.duckduckgo.com'){
       if(failSources)return new Response('Unavailable',{status:503});
       if(!alternateHits)return new Response('<div class="no-results">No results</div>');
-      return new Response('<h2><a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Facademy.example">Northstar Basketball Academy Dallas Texas</a></h2><a class="result__snippet">Dallas Texas youth basketball training academy private lessons.</a>');
+      return new Response('<h2><a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Facademy.example">Northstar Basketball Academy Fort Worth Texas</a></h2><a class="result__snippet">Fort Worth Texas youth basketball training academy private lessons.</a>');
     }
-    if(url.hostname==='school.example')return new Response('<html><head><title>Northstar Independent School</title><meta property="og:site_name" content="Northstar Independent School"/><script type="application/ld+json">{"@type":"Organization","name":"Northstar Independent School"}</script></head><body><h1>Northstar Independent School</h1><p>Dallas Texas private school education, students, athletics and physical education. Contact our school office.</p><a href="mailto:office@school.example">office@school.example</a><a href="tel:2145550102">214-555-0102</a></body></html>',{headers:{'content-type':'text/html'}});
+    if(url.hostname==='school.example')return new Response('<html><head><title>Northstar Independent School</title><meta property="og:site_name" content="Northstar Independent School"/><script type="application/ld+json">{"@type":"Organization","name":"Northstar Independent School"}</script></head><body><h1>Northstar Independent School</h1><p>Fort Worth Texas private school education, students, athletics and physical education. Contact our school office.</p><a href="mailto:office@school.example">office@school.example</a><a href="tel:2145550102">214-555-0102</a></body></html>',{headers:{'content-type':'text/html'}});
     if(url.hostname==='academy.example'){
       websiteCalls.push(url.pathname);
       if(failContact&&url.pathname==='/')return new Response('Temporary error',{status:503});
@@ -61,9 +61,9 @@ try{
       if(url.pathname==='/v2/place-details'){
         placeDetailCalls++;
         assert.equal(url.searchParams.get('id'),'fixture-academy','look up the returned place ID, not an invented entity');
-        return Response.json({features:[{properties:{feature_type:'details',name:'Northstar Basketball Academy',city:'Dallas',state_code:'TX',contact:{website:'https://academy.example'}}}]});
+        return Response.json({features:[{properties:{feature_type:'details',name:'Northstar Basketball Academy',city:'Fort Worth',state_code:'TX',contact:{website:'https://academy.example'}}}]});
       }
-      return Response.json({features:[{properties:{name:'Northstar Basketball Academy',place_id:'fixture-academy',country_code:'us',state_code:'TX',city:'Dallas',formatted:'100 Hoops Street, Dallas, TX',categories:['sport.sports_centre'],datasource:{raw:{osm_type:'way',osm_id:42,sport:'basketball'}}}}],results:[{place_id:'fixture-city',state_code:'TX',country_code:'us',bbox:{lat1:32,lon1:-97,lat2:33,lon2:-96}}]});
+      return Response.json({features:[{properties:{name:'Northstar Basketball Academy',place_id:'fixture-academy',country_code:'us',state_code:'TX',city:'Fort Worth',formatted:'100 Hoops Street, Fort Worth, TX',categories:['sport.sports_centre'],datasource:{raw:{osm_type:'way',osm_id:42,sport:'basketball'}}}}],results:[{place_id:'fixture-city',state_code:'TX',country_code:'us',bbox:{lat1:32,lon1:-97,lat2:33,lon2:-96}}]});
     }
     if(url.hostname.startsWith('overpass'))return Response.json({elements:[]});
     if(url.hostname==='nces.ed.gov')return Response.json({features:[]});
@@ -73,7 +73,7 @@ try{
   assert(!auto.autoSources('PRIVATE_CHARTER_SCHOOL').includes('NCES'));
   assert(auto.autoSources('SCHOOL_DISTRICT').includes('NCES_DISTRICTS'));
   assert(auto.autoSources('BASKETBALL_TRAINING').includes('GEOAPIFY'));
-  const search={stateCode:'TX',customerType:'BASKETBALL_TRAINING',city:'Dallas',targetCount:20,batches:1};
+  const search={stateCode:'TX',customerType:'BASKETBALL_TRAINING',city:'Fort Worth',targetCount:20,batches:1};
   assert.equal((await post('discovery-auto-v1',{action:'START',...search,stateCode:'ZZ'})).status,500);
   let result=await post('discovery-auto-v1',{action:'START',...search});assert.equal(result.body.run.status,'RUNNING');const runId=result.body.run.id;
   assert.equal((await post('discovery-auto-v1',{action:'START',...search})).body.run.id,runId,'repeated click resumes existing run');
@@ -89,7 +89,7 @@ try{
   assert.equal(JSON.parse(enrichedMap.raw_json).placeId,'fixture-academy','store provider place ID through source ingestion');
   assert.equal(new URL(enrichedMap.website).hostname,'academy.example','accept verified provider website from matching place details');
   const contact=db.sqlite.prepare('SELECT * FROM contacts').get();assert.equal(contact.email,'hello@academy.example');assert.equal(contact.phone,'2145550186');assert.equal(contact.full_name,'Alex Morgan');
-  assert.equal(db.sqlite.prepare("SELECT address FROM companies WHERE domain='academy.example'").get().address,'100 Hoops Street, Dallas, TX','late map verification preserves address in existing CRM');
+  assert.equal(db.sqlite.prepare("SELECT address FROM companies WHERE domain='academy.example'").get().address,'100 Hoops Street, Fort Worth, TX','late map verification preserves address in existing CRM');
   assert(contact.facebook_url.includes('facebook.com'));assert(contact.tiktok_url.includes('tiktok.com'));
   assert(websiteCalls.includes('/staff')&&websiteCalls.includes('/coaches')&&websiteCalls.includes('/procurement'),'enrichment covers relevant public pages, beyond contact and home');
   assert.equal(scalar('SELECT COUNT(*) AS n FROM messages'),0,'one-click intake never sends messages');
@@ -152,7 +152,7 @@ try{
   result=await post('discovery-auto-v1',{action:'START',...search,customerType:'PRIVATE_CHARTER_SCHOOL'});const schoolId=result.body.run.id;
   db.sqlite.prepare('DELETE FROM discovery_auto_items WHERE run_id=?').run(schoolId);
   for(const [id,name,website] of [['school-good','Northstar Independent School',null],['school-wrong','Wrong School','https://academy.example'],['school-missing','Unindexed School',null]]){
-    db.sqlite.prepare("INSERT INTO discovery_candidates(id,source_key,source_provider,name,customer_type,state_region,city,website,source_url) VALUES(?,?,'GEOAPIFY_SCHOOL_V1',?,'PRIVATE_CHARTER_SCHOOL','TX','Dallas',?,'https://map.example')").run(id,id,name,website);
+    db.sqlite.prepare("INSERT INTO discovery_candidates(id,source_key,source_provider,name,customer_type,state_region,city,website,source_url) VALUES(?,?,'GEOAPIFY_SCHOOL_V1',?,'PRIVATE_CHARTER_SCHOOL','TX','Fort Worth',?,'https://map.example')").run(id,id,name,website);
     db.sqlite.prepare("INSERT INTO discovery_auto_items(run_id,kind,item_key) VALUES(?,'CANDIDATE',?)").run(schoolId,id);
   }
   for(let tick=0;tick<15;tick++){result=await post('discovery-auto-v1',{action:'ADVANCE',runId:schoolId});if(result.body.run.status!=='RUNNING')break;}
@@ -233,7 +233,7 @@ try{
   result=await post('discovery-auto-v1',{action:'START',...search});
   const sourceFirstId=result.body.run.id;
   db.sqlite.prepare('DELETE FROM discovery_auto_items WHERE run_id=?').run(sourceFirstId);
-  db.sqlite.prepare("INSERT INTO discovery_clues(id,source_key,title,source_provider,source_url,customer_type,state_region,city,status) VALUES('pending-geo-clue','osm:way:901','Northstar Basketball Academy','OSM','https://www.openstreetmap.org/way/901','BASKETBALL_TRAINING','TX','Dallas','PENDING')").run();
+  db.sqlite.prepare("INSERT INTO discovery_clues(id,source_key,title,source_provider,source_url,customer_type,state_region,city,status) VALUES('pending-geo-clue','osm:way:901','Northstar Basketball Academy','OSM','https://www.openstreetmap.org/way/901','BASKETBALL_TRAINING','TX','Fort Worth','PENDING')").run();
   db.sqlite.prepare("INSERT INTO discovery_auto_items(run_id,kind,item_key,payload_json) VALUES(?,'SOURCE','GEOAPIFY:0','{}')").run(sourceFirstId);
   db.sqlite.prepare("INSERT INTO discovery_auto_items(run_id,kind,item_key) VALUES(?,'CLUE','pending-geo-clue')").run(sourceFirstId);
   const sourceWork=await auto.claimAuto(db,sourceFirstId);
