@@ -21,6 +21,7 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
   const [data,setData]=useState<Data>({}),[loading,setLoading]=useState(true),[working,setWorking]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
   const [draftBusy,setDraftBusy]=useState(false);
   const [overall,setOverall]=useState<{companies:number;activeCompanies:number;withEmail:number;withPhoneOrWhatsapp:number}|null>(null);
+  const [contactFilter,setContactFilter]=useState('ALL');
   const autoDraftRun=useRef('');
   const [queueStats,setQueueStats]=useState<{review:number;ready:number;sent:number}|null>(null);
   const [history,setHistory]=useState<History>({}),[historyOpen,setHistoryOpen]=useState(false),[historyBusy,setHistoryBusy]=useState(false);
