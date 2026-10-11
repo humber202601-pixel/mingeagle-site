@@ -1,5 +1,5 @@
 export const COMPANY_WEBSITE = 'https://www.mingeagle.com';
-export const WEBSITE_INTRO = `You can explore our silent basketball range, available sizes and colors, and custom logo options on our website: ${COMPANY_WEBSITE}. If a model looks suitable for your program, I’d be happy to discuss samples or a wholesale quote.`;
+export const WEBSITE_INTRO = `You can compare our actual product models, sizes and published retail reference prices in the wholesale catalog: ${COMPANY_WEBSITE}/wholesale-product-catalog.html. We can then confirm sample options and an individual bulk quote based on the quantities and destination.`;
 export const OUTREACH_SIGNATURE = `Best regards,\nMING EAGLE\n${COMPANY_WEBSITE}`;
 
 export function customerGreeting(target: { company?: unknown; contact?: unknown; first_name?: unknown }) {
