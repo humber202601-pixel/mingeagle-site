@@ -76,6 +76,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   const [createPreview, setCreatePreview] = useState<CreatePreview>({ subtotal: 0, shipping: 0, discount: 0, total: 0 });
   const [retailComparison,setRetailComparison]=useState<{retail:number;wholesale:number}|null>(null);
   const [retailMatchConfirmed,setRetailMatchConfirmed]=useState(false);
+  const [quoteChecklist,setQuoteChecklist]=useState<Record<string,boolean>>({});
 
   const selected = available.find(item => text(item.reference) === selectedReference);
 
@@ -92,6 +93,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     setCreatePreview({ subtotal: 0, shipping: 0, discount: 0, total: 0 });
     setRetailComparison(null);
     setRetailMatchConfirmed(false);
+    setQuoteChecklist({});
   }, [selectedReference]);
 
   async function loadQuotes() {
@@ -119,6 +121,14 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     const retailRaw=String(data.get('retailReference')||'').trim();
     const retail=Number(retailRaw);
     setRetailComparison(retailRaw!==''&&Number.isFinite(retail)&&retail>0&&unitPrice>0?{retail,wholesale:unitPrice}:null);
+    setQuoteChecklist({
+      product:String(data.get('description')||'').trim().length>0,
+      quantity:Number.isSafeInteger(Number(data.get('quantity')))&&Number(data.get('quantity'))>0,
+      unitPrice:unitPrice>0,
+      shipping:String(data.get('shipping')??'').trim()!==''&&Number(data.get('shipping'))>=0,
+      payment:String(data.get('paymentTerms')||'').trim().length>0,
+      terms:String(data.get('shippingTerms')||'').trim().length>0,
+    });
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -324,6 +334,9 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           ].filter(Boolean).join('；')}</p>
           {text(selected.message) && <details><summary style={{cursor:'pointer'}}>查看客户原始需求</summary><p style={{whiteSpace:'pre-wrap'}}>{text(selected.message)}</p></details>}
         </div>}
+        <div className="form-status"><strong>报价资料核对（预览，不等于价格已审核）</strong><p>{[
+          ["产品描述",quoteChecklist.product],["采购数量",quoteChecklist.quantity],["批发单价",quoteChecklist.unitPrice],["运费金额",quoteChecklist.shipping],["付款条款",quoteChecklist.payment],["运输条款",quoteChecklist.terms],["客户 ZIP",Boolean(text(selected?.shipping_postal_code))],["零售价同规格核实（选填）",retailMatchConfirmed && Boolean(retailComparison)]
+        ].map(([label,ok])=>`${label}：${ok?"已填写":"待确认"}`).join(" · ")}</p><small>此清单仅检查填写情况，不验证运费报价、价格成本或付款渠道的真实性；正式发送仍须人工审核。</small></div>
         <div className="quote-form-grid">
           <label>关联询盘
             <select name="inquiryReference" value={selectedReference} onChange={e => setSelectedReference(e.target.value)} required>
