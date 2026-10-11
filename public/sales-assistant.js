@@ -46,7 +46,7 @@ function captureDetails(text){
  if(n)quoteState.size=n[1];
  const normalized=text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  if(/(?:soccer|football|futbol|futebol|futbolowa|futbolowe|fussball|fußball|voetbal|calcio|サッカー|足球)/i.test(normalized))quoteState.model='Flocked Silent Soccer Ball';
- else if(/(?:weighted|weight|lest[ée]|gewicht|gewichtet|appesantit|obciazon|verzwaard|加重|重い)/i.test(normalized))quoteState.model='Weighted Flocked Silent Basketball';
+ else if(/(?:weighted|weight|leste|gewicht|gewichtet|appesantit|obciazon|verzwaard|加重|重い)/i.test(normalized))quoteState.model='Weighted Flocked Silent Basketball';
  else if(/(?:fabric|cloth|tela|tecido|tissu|stoff|tessuto|stof|material|pokrow|布カバー|布製)/i.test(normalized))quoteState.model='Fabric-Cover Silent Basketball Set';
  else if(/(?:flocked|flock|flocado|flocad|floqu|beflock|floccat|geflockt|flokowan|フロック|植绒)/i.test(normalized))quoteState.model='Flocked Silent Basketball Set';
 
