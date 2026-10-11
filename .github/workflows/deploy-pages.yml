@@ -70,6 +70,9 @@ jobs:
       - name: Verify shipping quote calculator
         run: node scripts/check-shipping.cjs
 
+      - name: Verify retail-to-wholesale quote calculations
+        run: node scripts/check-quote-math.cjs
+
       - name: Verify nine-language sales assistant before publishing
         run: |
           node --check public/sales-assistant.js
