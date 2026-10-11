@@ -18,3 +18,10 @@ const quoteSandbox={};vm.runInNewContext(quoteFunction[0]+';this.quoteIntent=isQ
 for(const phrase of ['wholesale quote','cotización mayorista','orçamento atacado','devis vente en gros','Großhandel Angebot','preventivo ingrosso','卸売 見積'])assert(quoteSandbox.quoteIntent(phrase),'Missing quote intent: '+phrase);
 assert(assistant.includes('if(i===2){quoteState.active=true'),'Wholesale quick action must activate qualification');
 console.log('PASS: seven-language wholesale quote intent and quick action flow.');
+
+const inquiry=fs.readFileSync('public/inquiry.js','utf8');
+assert(inquiry.includes('Destination postal code|Destination ZIP'),'Inquiry must accept chat postal code keys');
+assert(inquiry.includes("assistantSummary.match(/Size: No\\."),'Inquiry must carry ball size');
+assert(inquiry.includes("if(units&&$('estimated_quantity'))"),'Inquiry must prefill quantity tier');
+console.log('PASS: sales assistant to inquiry form prefill contract.');
+
