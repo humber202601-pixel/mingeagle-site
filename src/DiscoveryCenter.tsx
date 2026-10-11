@@ -148,13 +148,32 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
     try {
       const urls=websiteUrls.split(/\r?\n/).map(url=>url.trim()).filter(Boolean);
       if(!urls.length||urls.length>10)throw new Error('请输入 1–10 个官网网址，每行一个。');
-      const response=await fetch('/api/admin/discovery-website-v1',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':accessKey},body:JSON.stringify({stateCode:searchState,customerType:searchType,city:searchCity,websiteUrls:urls})});
-      const body=await response.json() as {ok?:boolean;error?:string;found?:number;added?:number;updated?:number;verified?:number;intake?:IntakeResult;results?:Array<{url:string;status:string;name?:string;reason?:string}>};
-      if(!response.ok||!body.ok)throw new Error(body.error||'官网核验失败。');
-      setWebsiteResults(body.results||[]);setMessage(`官网核验完成：通过业务和地区核验 ${body.verified||0} 个，新增 ${body.added||0} 个，更新已有 ${body.updated||0} 个。${intakeMessage(body.intake)}已忽略的客户保持原状态。`);
-      if (body.intake?.warnings.length) setError(body.intake.warnings.join(' '));
+      const combined:Array<{url:string;status:string;name?:string;reason?:string}>=[];
+      let verified=0,added=0,updated=0,imported=0,matched=0,review=0,failed=0;
+      const warnings:string[]=[];
+      // Each site requires remote HTML verification and several D1 writes.
+      // Limit each request to 2 sites to avoid platform timeouts and HTML error responses.
+      for(let index=0;index<urls.length;index+=2){
+        const portion=urls.slice(index,index+2);
+        setMessage(`正在核验第 ${index+1}–${index+portion.length} / ${urls.length} 个官网，已完成 ${combined.length} 个…`);
+        const response=await fetch('/api/admin/discovery-website-v1',{method:'POST',
+          headers:{'Content-Type':'application/json','x-admin-key':accessKey},
+          body:JSON.stringify({stateCode:searchState,customerType:searchType,city:searchCity,websiteUrls:portion})});
+        const contentType=response.headers.get('content-type')||'';
+        if(!contentType.toLowerCase().includes('application/json')){
+          throw new Error(`第 ${index+1}–${index+portion.length} 个官网请求返回 HTTP ${response.status}（非 JSON）。已完成 ${combined.length} 个；可能是 Cloudflare 超时或错误页，请稍后重试尚未完成的网址。已处理部分会保留。`);
+        }
+        const body=await response.json() as {ok?:boolean;error?:string;verified?:number;added?:number;updated?:number;intake?:IntakeResult;results?:Array<{url:string;status:string;name?:string;reason?:string}>};
+        if(!response.ok||!body.ok)throw new Error(`第 ${index+1}–${index+portion.length} 个官网请求失败 (HTTP ${response.status})：${body.error||'官网核验失败'}。已处理部分保留。`);
+        combined.push(...body.results||[]);verified+=body.verified||0;added+=body.added||0;updated+=body.updated||0;
+        imported+=body.intake?.imported||0;matched+=body.intake?.matched||0;review+=body.intake?.review||0;failed+=body.intake?.failed||0;warnings.push(...body.intake?.warnings||[]);
+        setWebsiteResults([...combined]);
+      }
+      setMessage(`官网核验完成：检查 ${combined.length} 个，通过核验 ${verified} 个，新增 ${added} 个，更新 ${updated} 个；CRM 入库 ${imported} 个、匹配已有 ${matched} 个，待复核 ${review} 个、入库失败 ${failed} 个。`);
+      if(warnings.length)setError([...new Set(warnings)].join(' '));
       setReloadVersion(value=>value+1);onChanged();
-    }catch(err){setError(err instanceof Error?err.message:'官网核验失败。')}finally{setImporting(false)}
+    }catch(err){setError(err instanceof Error?err.message:'官网核验失败。');setReloadVersion(value=>value+1);onChanged();}
+    finally{setImporting(false)}
   }
 
   async function cleanupInvalid() {
