@@ -44,10 +44,12 @@ function captureDetails(text){
  else if(quoteState.quantity&&!quoteState.zip&&/^(?=.{3,10}$)(?=.*[a-z0-9])[a-z0-9 -]+$/i.test(text.trim()))quoteState.zip=text.trim().toUpperCase();
  const n=text.match(/\b(?:size\s*|no\.?\s*)([34567])\b/i);
  if(n)quoteState.size=n[1];
- if(/soccer|football/i.test(text))quoteState.model='Flocked Silent Soccer Ball';
- else if(/weighted/i.test(text))quoteState.model='Weighted Flocked Silent Basketball';
- else if(/fabric|cloth/i.test(text))quoteState.model='Fabric-Cover Silent Basketball Set';
- else if(/flocked/i.test(text))quoteState.model='Flocked Silent Basketball Set';
+ const normalized=text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ if(/(?:soccer|football|futbol|futebol|futbolowa|futbolowe|fussball|fußball|voetbal|calcio|サッカー|足球)/i.test(normalized))quoteState.model='Flocked Silent Soccer Ball';
+ else if(/(?:weighted|weight|lest[ée]|gewicht|gewichtet|appesantit|obciazon|verzwaard|加重|重い)/i.test(normalized))quoteState.model='Weighted Flocked Silent Basketball';
+ else if(/(?:fabric|cloth|tela|tecido|tissu|stoff|tessuto|stof|material|pokrow|布カバー|布製)/i.test(normalized))quoteState.model='Fabric-Cover Silent Basketball Set';
+ else if(/(?:flocked|flock|flocado|flocad|floqu|beflock|floccat|geflockt|flokowan|フロック|植绒)/i.test(normalized))quoteState.model='Flocked Silent Basketball Set';
+
 }
 function quoteLink(){const u=new URL('inquiry.html',location.href);u.searchParams.set('type','quote');const summary=[quoteState.model&&'Product: '+quoteState.model,quoteState.size&&'Size: No. '+quoteState.size,quoteState.quantity&&'Quantity: '+quoteState.quantity+' units',quoteState.zip&&'Destination postal code: '+quoteState.zip].filter(Boolean).join('; ');if(summary)u.searchParams.set('assistant_summary',summary);return u.href}
 // Keep an optional, local-only commercial question summary for explicit form handoff.
