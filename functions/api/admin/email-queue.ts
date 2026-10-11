@@ -225,6 +225,23 @@ async function sendQueueItem(db: D1Database, env: Env, queueId: string) {
   if (String(row.status) !== 'READY') throw new Error('Approve this draft before sending.');
   if (Number(row.do_not_contact || 0) === 1 || ['DO_NOT_CONTACT','NOT_INTERESTED','NOT_FIT'].includes(String(row.lead_status || '').toUpperCase())) throw new Error('This contact is marked DO NOT CONTACT.');
 
+  // Older discovery records may predate the stricter first-party mailbox extraction.
+  // Block a suspicious cross-business-domain destination before any Gmail API call.
+  if(String(row.queue_type)==='OUTREACH_INITIAL'){
+    const provenance=await db.prepare(`SELECT l.source, c.website
+      FROM leads l LEFT JOIN companies c ON c.id=l.company_id WHERE l.id=? LIMIT 1`)
+      .bind(String(row.lead_id)).first<{source?:string;website?:string}>();
+    if(String(provenance?.source||'').toUpperCase()==='DISCOVERY'&&provenance?.website){
+      let siteHost='';
+      try{siteHost=new URL(provenance.website).hostname.toLowerCase().replace(/^www\\./,'');}catch{}
+      const recipientDomain=clean(row.email,320).toLowerCase().split('@')[1]||'';
+      const consumerMailbox=/^(?:gmail|googlemail|outlook|hotmail|yahoo|icloud|aol|live)\\.com$/i.test(recipientDomain);
+      if(siteHost&&recipientDomain&&!consumerMailbox&&recipientDomain!==siteHost){
+        throw new Error('此获客邮箱域名与机构官网不一致，请先人工确认归属并更新 CRM 联系方式，暂不允许发送。');
+      }
+    }
+  }
+
   const clientId = env.GMAIL_CLIENT_ID || '';
   const clientSecret = env.GMAIL_CLIENT_SECRET || '';
   const refreshToken = env.GMAIL_REFRESH_TOKEN || '';
