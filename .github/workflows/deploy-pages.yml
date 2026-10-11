@@ -92,3 +92,27 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Confirm live site serves this exact revision
+        env:
+          EXPECTED_REVISION: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import json, os, time, urllib.request
+          url = 'https://www.mingeagle.com/deployment-version.json'
+          expected = os.environ['EXPECTED_REVISION']
+          for attempt in range(12):
+              try:
+                  req = urllib.request.Request(url, headers={'Cache-Control': 'no-cache', 'User-Agent':'MING-EAGLE-deploy-check/1.0'})
+                  with urllib.request.urlopen(req, timeout=12) as response:
+                      data = json.load(response)
+                  if data.get('revision') == expected:
+                      print('PASS: public website serves deployed revision', expected)
+                      break
+                  print('Still serving', data.get('revision'), 'expected', expected)
+              except Exception as exc:
+                  print('Waiting for live deployment:', str(exc))
+              if attempt == 11:
+                  raise SystemExit('FAIL: public site did not serve deployed revision')
+              time.sleep(10)
+          PY
