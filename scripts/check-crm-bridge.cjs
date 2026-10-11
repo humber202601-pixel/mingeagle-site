@@ -43,6 +43,7 @@ const submit=async(responseData,responseStatus=200)=>{
  assert(source.includes("await sendCrmInquiry(c,d,context,undefined,challenge?challenge.token():'')"));
  assert(source.includes('await sendPayload(c,buildPayload(d,c,context))'),'HubSpot should remain available when D1 is down');
  assert(source.includes('synchronization to the customer management system has not yet been confirmed'),'fallback never falsely asserts CRM success');
+ assert(source.includes('Inquiry origin: Website AI sales assistant (customer-reviewed handoff).'),'assist-origin tag should be preserved in CRM inquiry message');
  assert(source.indexOf('await sendCrmInquiry')<source.indexOf('await sendPayload(c,buildPayload(d,c,context),undefined,4500)'),'CRM is primary; HubSpot optional mirror');
  console.log('PASS: public form maps all five request types, passes source attribution, preserves exact references, rejects mismatched CRM confirmations, never sends admin keys and retains honest HubSpot fallback.');
 })().catch(e=>{console.error(e);process.exitCode=1});
