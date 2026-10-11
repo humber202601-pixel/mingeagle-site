@@ -13,6 +13,8 @@ try {
   assert.equal(extractReplyQuantity('wholesale quotation for 50 silent basketball sets'),50);
   assert.equal(extractUsPostalCode('shipping ZIP code: 75201'), '75201');
   assert.equal(extractReplyQuantity('Need 1,000 sets'),1000);
+  assert.equal(extractReplyQuantity('Please quote 20, 50 and 100 units'),null,'multiple tiers are not a confirmed quantity');
+  assert.equal(extractReplyQuantity('Could you price 20/50/100 sets?'),null,'slash-separated tiers are ambiguous');
   const sqlite=new DatabaseSync(':memory:');
   sqlite.exec(readFileSync('migrations/0001_core.sql','utf8'));
   sqlite.exec("INSERT INTO companies(id,name,customer_type) VALUES ('c1','MING EAGLE TEST','BASKETBALL_TRAINING'); INSERT INTO leads(id,company_id,source,status) VALUES ('l1','c1','DISCOVERY','REPLIED');");
