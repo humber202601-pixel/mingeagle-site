@@ -10,3 +10,11 @@ const assistant=fs.readFileSync('public/sales-assistant.js','utf8');
 assert(!/\\\\[bsd]/.test(assistant),'Chat assistant contains double-escaped regex tokens');
 assert(assistant.includes('quoteState.active=true'),'Quote qualification flow missing');
 assert(assistant.includes('quoteState.zip=z[1]'),'ZIP capture flow missing');
+
+// multilingual quote intent regression: test extracted matcher against common buyer phrases.
+const quoteFunction=assistant.match(/function isQuoteIntent\(text\)\{[\s\S]*?\n\}/);
+assert(quoteFunction,'multilingual quote intent regression: matcher missing');
+const quoteSandbox={};vm.runInNewContext(quoteFunction[0]+';this.quoteIntent=isQuoteIntent;',quoteSandbox);
+for(const phrase of ['wholesale quote','cotización mayorista','orçamento atacado','devis vente en gros','Großhandel Angebot','preventivo ingrosso','卸売 見積'])assert(quoteSandbox.quoteIntent(phrase),'Missing quote intent: '+phrase);
+assert(assistant.includes('if(i===2){quoteState.active=true'),'Wholesale quick action must activate qualification');
+console.log('PASS: seven-language wholesale quote intent and quick action flow.');
