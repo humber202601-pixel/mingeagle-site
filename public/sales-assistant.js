@@ -66,6 +66,11 @@ function needsStaff(input){return /\b(custom(?:ize|ization)?|private label|own l
 function isQuoteIntent(text){
  return /(?:quote|quotation|wholesale|bulk|pricing for|request price|cotizaci[oó]n|mayorista|por mayor|presupuesto|or[cç]amento|atacado|devis|vente en gros|gro[ßs]handel|angebot|preventivo|ingrosso|groothandel|offerte|hurtow[aey]|wycen[aey]|卸売|見積)/i.test(text);
 }
+function supportedSizes(model){
+ if(model==='Weighted Flocked Silent Basketball')return ['3','4','6','7'];
+ if(model==='Flocked Silent Soccer Ball')return ['5'];
+ return ['3','5','7'];
+}
 function salesReply(input){
  const q=input.trim();
  if(isQuoteIntent(q)&&!quoteState.active){
@@ -75,7 +80,10 @@ function salesReply(input){
  if(quoteState.active){
   captureDetails(q);
   if(!quoteState.model)return [tr(11)];
-  if(!quoteState.size)return [tr(12)];
+  if(!quoteState.size)return [tr(12)+' ('+supportedSizes(quoteState.model).join(' / ')+')'];
+  if(!supportedSizes(quoteState.model).includes(quoteState.size)){
+   quoteState.size='';return [tr(12)+' ('+supportedSizes(quoteState.model).join(' / ')+')'];
+  }
   if(!quoteState.quantity)return [tr(13)];
   if(!quoteState.zip)return [tr(14)];
   const summary=tr(16)+' '+quoteState.quantity+' '+quoteState.model+' — '+quoteState.size+' — '+quoteState.zip+'.';
