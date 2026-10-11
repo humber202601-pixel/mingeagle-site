@@ -20,6 +20,7 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
   const [state,setState]=useState('TX'),[type,setType]=useState(initialType||'BASKETBALL_TRAINING'),[city,setCity]=useState(''),[target,setTarget]=useState(20),[batches,setBatches]=useState(1);
   const [data,setData]=useState<Data>({}),[loading,setLoading]=useState(true),[working,setWorking]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
   const [draftBusy,setDraftBusy]=useState(false);
+  const [queueStats,setQueueStats]=useState<{review:number;ready:number;sent:number}|null>(null);
   const [history,setHistory]=useState<History>({}),[historyOpen,setHistoryOpen]=useState(false),[historyBusy,setHistoryBusy]=useState(false);
   const [clockNow,setClockNow]=useState(()=>Date.now());
   const onChangedRef=useRef(onChanged);onChangedRef.current=onChanged;
@@ -64,6 +65,18 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
       onChangedRef.current();
     }catch(e){setError(e instanceof Error?e.message:'任务操作失败。');}finally{setWorking(false);}
   }
+  async function refreshQueueStats(){
+    try{
+      const response=await fetch('/api/admin/email-queue',{headers:{'x-admin-key':accessKey},cache:'no-store'});
+      if(!response.ok)return;
+      const body=await response.json() as {ok?:boolean;counts?:Array<{status:string;count:number}>};
+      if(body.ok){
+        const count=(status:string)=>(body.counts||[]).filter(x=>x.status===status).reduce((sum,x)=>sum+Number(x.count||0),0);
+        setQueueStats({review:count('REVIEW_REQUIRED'),ready:count('READY'),sent:count('SENT')});
+      }
+    }catch{/* The prospect discovery panel remains functional if queue stats fail. */}
+  }
+  useEffect(()=>{void refreshQueueStats();},[accessKey]);
   async function prepareReviewDrafts(){
     if(draftBusy)return;
     setDraftBusy(true);setError('');setMessage('');
@@ -75,6 +88,7 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
       if(!contentType.includes('application/json'))throw new Error('邮件队列响应 HTTP '+response.status+'，请检查后台状态。');
       const body=await response.json() as {ok?:boolean;error?:string;created?:number;initialCreated?:number;followupCreated?:number;reviewed?:number};
       if(!response.ok||!body.ok)throw new Error(body.error||'生成草稿失败。');
+      void refreshQueueStats();
       setMessage(`已生成 ${body.created||0} 份新草稿（首次开发 ${body.initialCreated||0}，跟进 ${body.followupCreated||0}）。首次陌生开发邮件需审核，不会因生成草稿而直接发送；原有草稿不会重复创建。`);
     }catch(e){setError(e instanceof Error?e.message:'草稿准备失败。');}
     finally{setDraftBusy(false);}
@@ -139,6 +153,12 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
       </div>}
       <details className="auto-discovery-details"><summary>查看来源进度与未完成信息（{data.exceptions?.length||0}）</summary><ul>{data.sources?.map(row=>{const result=sourceResult(row);return <li key={text(row.item_key)}><strong>{sourceNames[text(row.item_key).split(':')[0]]||text(row.item_key)}</strong> · {row.status==='DONE'?'查询完成':row.status==='REVIEW'?'来源受限 / 需检查':statusNames[text(row.status)]||text(row.status)}{row.status==='DONE'?` · 返回 ${Number(result.found||0)} 条线索`:''}{Boolean(result.note)&&<p>{text(result.note)}</p>}{Boolean(row.error)&&<p>{text(row.error)}</p>}</li>;})}</ul>{data.exceptions?.map(row=><p key={text(row.kind)+text(row.item_key)}><strong>{text(row.name)}</strong> · {text(row.error)}</p>)}</details>
     </div>}
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:10,marginTop:14}}>
+      <div className="metric"><span>本轮已确认入库</span><strong>{imported}</strong><small>核验通过，不等于已联系</small></div>
+      <div className="metric"><span>本轮有联系方式</span><strong>{readyContacts}</strong><small>邮箱 / 电话 / WhatsApp</small></div>
+      <div className="metric"><span>待审核邮件</span><strong>{queueStats?.review??'—'}</strong><small>全部 CRM 邮件队列</small></div>
+      <div className="metric"><span>历史已发邮件</span><strong>{queueStats?.sent??'—'}</strong><small>队列累计，非本轮</small></div>
+    </div>
     <div className="panel" style={{marginTop:16,padding:16}}>
       <strong>下一步 · 联系精准客户</strong>
       <p>将已进入销售准备状态、具有业务邮箱且允许联系的客户整理为邮件草稿。首次陌生开发邮件必须人工审核后才能发送。</p>
