@@ -8,7 +8,8 @@ type Source='ALL'|'DISCOVERY'|'WEBSITE';
 type Segment={category:string;total:number;withContact:number;contactable:number;emailReady:number;blocked:number;contacted:number;replied:number;quoted:number;ordered:number;paid:number;readyToReview:number};
 type Prospect={id:string;company:string;category:string;city:string;state:string;email:string;phone:string;whatsapp:string;score:number;status:string};
 type QuotePerformance={sent:number;viewed:number;accepted:number;declined:number;expired:number;withOrder:number};
-type Funnel={ok:boolean;error?:string;generatedAt?:string;summary:Omit<Segment,'category'>;quotePerformance?:QuotePerformance;segments:Segment[];prospects:Prospect[];limitations?:string[]};
+type ProductPerformance={product:string;quoted:number;viewed:number;accepted:number;withOrder:number;quotedUnits:number;quotedMerchandiseUSD:number};
+type Funnel={ok:boolean;error?:string;generatedAt?:string;summary:Omit<Segment,'category'>;quotePerformance?:QuotePerformance;products?:ProductPerformance[];segments:Segment[];prospects:Prospect[];limitations?:string[]};
 const names=new Map<string,string>(TYPE_OPTIONS.map(([key,label])=>[key,label]));
 const number=(v:number)=>Number(v||0).toLocaleString('zh-CN');
 const pct=(numerator:number,denominator:number)=>!denominator?'—':(numerator*100/denominator).toFixed(1)+'%';
@@ -95,6 +96,11 @@ export default function ConversionFunnel({accessKey}:{accessKey:string}){
           ] as const).map(([key,label])=><div className="conversion-metric" key={key}><span>{label}</span><strong>{number(data.quotePerformance![key])}</strong></div>)}
         </div>
         <p className="conversion-muted">报价查看率 {pct(data.quotePerformance.viewed,data.quotePerformance.sent)} · 报价接受率 {pct(data.quotePerformance.accepted,data.quotePerformance.sent)} · 订单关联率 {pct(data.quotePerformance.withOrder,data.quotePerformance.sent)}。这些指标为报价单数量，不是独立客户人数；查看率依赖追踪记录，不能解释为客户实际阅读时长，订单关联也不代表付款到账。</p>
+      </section>}
+      {data.products&&<section className="panel conversion-segments"><div className="panel-head"><div><h2>按产品规格查看真实报价表现</h2><span>根据报价明细描述统计，组合报价中的商品分别计入；并非实际销量</span></div></div>
+        {!data.products.length?<p className="conversion-muted">目前没有符合筛选条件的非草稿 USD 产品报价记录。</p>:<div className="table-wrap"><table><thead><tr><th>产品规格</th><th>报价单数</th><th>记录查看</th><th>已接受</th><th>关联订单</th><th>接受率</th><th>报价数量</th><th>商品报价金额</th></tr></thead>
+          <tbody>{data.products.map(p=><tr key={p.product}><td>{p.product}</td><td>{number(p.quoted)}</td><td>{number(p.viewed)}</td><td>{number(p.accepted)}</td><td>{number(p.withOrder)}</td><td>{pct(p.accepted,p.quoted)}</td><td>{number(p.quotedUnits)}</td><td>USD {Number(p.quotedMerchandiseUSD).toFixed(2)}</td></tr>)}</tbody></table></div>}
+        <p className="conversion-muted">接受率的分母是含该商品的非草稿报价单数。商品报价金额未扣除整单优惠、运费或税费，不等同于实际成交额。按描述归类，同一商品不同命名可能分开统计。</p>
       </section>}
       <section className="panel conversion-recommendations">
         <div className="panel-head"><div><h2>V34 · 下一批开发范围建议</h2>
