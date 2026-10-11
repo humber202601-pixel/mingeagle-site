@@ -22,7 +22,16 @@ function calculate(input){
  discountPercent:retail?Number(((retail-wholesale)/retail*100).toFixed(2)):0,
  shippingAndTaxIncluded:false,approved:false};
 }
-const api={calculate};
+function calculateFromCatalog(catalog,input){
+ if(!catalog||catalog.currency!=='USD'||!catalog.products)throw new Error('INVALID_PRICE_SOURCE');
+ const product=String(input.productId||'');
+ const size=String(input.size||'').replace(/^No\.\s*/i,'');
+ if(!/^p[1-4]$/.test(product)||!/^\d$/.test(size))throw new Error('INVALID_VARIANT');
+ const retail=catalog.products[product]?.[size];
+ if(retail===undefined)throw new Error('UNKNOWN_VARIANT');
+ return {...calculate({retailUnitPrice:retail,wholesaleUnitPrice:input.wholesaleUnitPrice,quantity:input.quantity}),productId:product,size:'No. '+size};
+}
+const api={calculate,calculateFromCatalog};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 else root.MingEagleQuoteMath=api;
 })(typeof window==='undefined'?globalThis:window);
