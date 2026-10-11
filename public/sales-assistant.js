@@ -6,7 +6,7 @@ root.innerHTML='<button type="button" class="me-chat-launch" aria-label="Open in
 document.body.appendChild(root);
 const launch=root.querySelector('.me-chat-launch'),panel=root.querySelector('.me-chat-panel'),close=root.querySelector('.me-chat-close'),log=root.querySelector('.me-chat-log'),quick=root.querySelector('.me-chat-quick'),form=root.querySelector('form'),field=root.querySelector('input');
 const askUrl='inquiry.html?type=quote',sampleUrl='inquiry.html?type=sample';
-const languageCodes=['en','es','pt','fr','de','it','ja'];
+const languageCodes=['en','es','pt','fr','de','it','nl','pl','ja'];
 const languageIndex={button:0,subtitle:1,placeholder:2,send:3,contact:4};
 let activeLanguage='en';
 function currentLanguage(){const selected=document.querySelector('#langSelect')?.value||document.documentElement.lang||'en';return languageCodes.includes(selected)?selected:'en'}
@@ -57,7 +57,7 @@ function handoffUrl(type='quote'){
 }
 function needsStaff(input){return /\b(custom(?:ize|ization)?|private label|own logo|certificat(?:e|ion)|compliance|payment terms|credit|invoice|refund|return policy|lead time|freight quotation|tracking issue|complaint|human|representative)\b/i.test(input)}
 function isQuoteIntent(text){
- return /(?:quote|quotation|wholesale|bulk|pricing for|request price|cotizaci[oó]n|mayorista|por mayor|presupuesto|or[cç]amento|atacado|devis|vente en gros|gro[ßs]handel|angebot|preventivo|ingrosso|卸売|見積)/i.test(text);
+ return /(?:quote|quotation|wholesale|bulk|pricing for|request price|cotizaci[oó]n|mayorista|por mayor|presupuesto|or[cç]amento|atacado|devis|vente en gros|gro[ßs]handel|angebot|preventivo|ingrosso|groothandel|offerte|hurtow[aey]|wycen[aey]|卸売|見積)/i.test(text);
 }
 function salesReply(input){
  const q=input.trim();
