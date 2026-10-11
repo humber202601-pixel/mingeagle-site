@@ -288,6 +288,25 @@ export async function syncCrm(db: D1Database, candidateId: string) {
   const instagram = clean(candidate.instagram_url, 1000);
   const linkedin = clean(candidate.linkedin_url, 1000);
 
+  // Repair the narrow legacy case where a website copyright footer was
+  // incorrectly stored as part of an already-imported organization name.
+  // Only change a matching CRM company, never replace a manually edited name.
+  if (companyId && website) {
+    const company = await db.prepare(`SELECT name,website FROM companies WHERE id=? LIMIT 1`)
+      .bind(companyId).first<{name:string;website:string|null}>();
+    const oldName=clean(company?.name,200);
+    const withoutCopyright=oldName.replace(/^Copyright\\s+(?:(?:19|20)\\d{2}\\s+)?/i,'').trim();
+    const candidateName=clean(candidate.name,200).replace(/^Copyright\\s+(?:(?:19|20)\\d{2}\\s+)?/i,'').trim();
+    const sameWebsite=(()=>{try{return new URL(website).hostname.replace(/^www\\./i,'').toLowerCase()===new URL(company?.website||website).hostname.replace(/^www\\./i,'').toLowerCase();}catch{return false;}})();
+    if(withoutCopyright!==oldName&&withoutCopyright.length>=4&&
+       candidateName.toLowerCase()===withoutCopyright.toLowerCase()&&sameWebsite){
+      await db.prepare(`UPDATE companies SET name=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND name=?`)
+        .bind(withoutCopyright,companyId,oldName).run();
+      await db.prepare(`UPDATE discovery_candidates SET name=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND name=?`)
+        .bind(withoutCopyright,candidateId,clean(candidate.name,200)).run();
+    }
+  }
+
   if (companyId) {
     await db.prepare(`UPDATE companies SET
       website=CASE WHEN COALESCE(website,'')='' THEN ? ELSE website END,
