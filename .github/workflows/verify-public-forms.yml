@@ -4,6 +4,9 @@ on:
     branches: [main]
     paths:
       - 'public/inquiry.js'
+      - 'public/sales-assistant.js'
+      - 'public/sales-assistant-i18n.js'
+      - 'scripts/check-chat-i18n.cjs'
       - 'public/turnstile-client.js'
       - 'public/forms-core.js'
       - 'public/inquiry-config.js'
