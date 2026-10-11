@@ -163,6 +163,18 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
     finally{setFindingOfficial(false);}
   }
 
+  async function findIndependentWebsites(){
+    if(findingOfficial||importing)return;setFindingOfficial(true);setError('');
+    try{
+      const response=await fetch('/api/admin/discovery-independent-websites-v1',{method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},body:JSON.stringify({stateCode:searchState,customerType:searchType,city:searchCity,round:0,targetCount:20})});
+      if(!(response.headers.get('content-type')||'').includes('application/json'))throw new Error('搜索接口返回 HTTP '+response.status+'，非 JSON 响应。');
+      const body=await response.json() as {ok?:boolean;error?:string;rawCount?:number;websiteCount?:number;websites?:string[];limited?:boolean;primary?:string;secondary?:string};
+      if(!response.ok||!body.ok)throw new Error(body.error||'官网搜索失败');
+      const current=websiteUrls.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+      const merged=[...new Set([...current,...body.websites||[]])].slice(0,10);setWebsiteUrls(merged.join('\n'));
+      setMessage('独立官网搜索：返回 '+(body.rawCount||0)+' 条，候选官网 '+(body.websiteCount||0)+' 个；主来源 '+body.primary+'，备用来源 '+body.secondary+'。'+(body.limited?'两个来源均受限，请稍后重试。':'已填入待核验框，不会自动入库。'));
+    }catch(e){setError(e instanceof Error?e.message:'官网搜索请求失败');}finally{setFindingOfficial(false);}
+  }
   async function importWebsites(event:FormEvent<HTMLFormElement>) {
     event.preventDefault();setImporting(true);setError('');setMessage('');setWebsiteResults([]);
     try {
@@ -439,6 +451,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
           </div>
           <button className="button secondary small" type="button" disabled={findingOfficial||importing||searching||autoBusy||expandedBusy}
             onClick={()=>void discoverOfficialWebsites()}>{findingOfficial?'正在读取 Geoapify…':'自动发现候选机构官网（Geoapify）'}</button>
+          <button className="button secondary small" type="button" disabled={findingOfficial||importing||searching||autoBusy||expandedBusy} onClick={()=>void findIndependentWebsites()}>{findingOfficial?'正在寻找官网…':'搜索独立机构官网（公开索引）'}</button>
           <label htmlFor="discovery-websites">待核验官网</label>
           <textarea id="discovery-websites" value={websiteUrls} onChange={e=>setWebsiteUrls(e.target.value)} rows={4} maxLength={11000} placeholder="https://www.example.com" required/>
           <button className="button secondary" disabled={autoBusy||expandedBusy||(importing||searching)}>{importing?'正在核验官网…':'核验并加入潜在客户'}</button>
