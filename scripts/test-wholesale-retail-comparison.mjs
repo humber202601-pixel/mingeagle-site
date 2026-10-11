@@ -11,9 +11,9 @@ for(let i=0;i<names.length;i++)assert.deepEqual(RETAIL_USD[names[i]],expected['p
 assert.equal(retailReference('Weighted Flocked Silent Basketball | No. 6 | Brown'),18.9);
 assert.equal(retailReference('Unknown product | No. 5 | Blue'),null);
 const quote=fs.readFileSync('functions/quote/[token].ts','utf8');
-assert(!quote.includes('Retail reference: USD'),'Unreviewed retail reference must not appear on public quote');
-assert(!quote.includes('Save ${'),'Unapproved savings must not be calculated or claimed on public quote');
-assert(quote.includes('Public discount claims require a persisted'),'Public quote must document the mandatory approval gate');
+assert(quote.includes('quote_retail_approvals'),'Public quote must load persisted retail approvals');
+assert(quote.includes('approved_description')&&quote.includes('approved_unit_price')&&quote.includes('approved_quantity'),'Public discount must match approved item snapshot');
+assert(quote.includes('const comparison=verified?'),'Public savings require valid staff approval');
 const admin=fs.readFileSync('src/AdminDetail.tsx','utf8');
 assert(admin.includes('RETAIL_USD[line.product]'),'Admin must show the per-size retail reference');
-console.log('PASS: retail reference remains available for internal reviews, with no unapproved customer-facing savings claims.');
+console.log('PASS: published retail catalog is consistent and customer discounts require per-item persisted approvals and unchanged quote values.');
