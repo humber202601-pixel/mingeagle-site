@@ -7,7 +7,8 @@ import './conversion-funnel.css';
 type Source='ALL'|'DISCOVERY'|'WEBSITE';
 type Segment={category:string;total:number;withContact:number;contactable:number;emailReady:number;blocked:number;contacted:number;replied:number;quoted:number;ordered:number;paid:number;readyToReview:number};
 type Prospect={id:string;company:string;category:string;city:string;state:string;email:string;phone:string;whatsapp:string;score:number;status:string};
-type Funnel={ok:boolean;error?:string;generatedAt?:string;summary:Omit<Segment,'category'>;segments:Segment[];prospects:Prospect[];limitations?:string[]};
+type QuotePerformance={sent:number;viewed:number;accepted:number;declined:number;expired:number;withOrder:number};
+type Funnel={ok:boolean;error?:string;generatedAt?:string;summary:Omit<Segment,'category'>;quotePerformance?:QuotePerformance;segments:Segment[];prospects:Prospect[];limitations?:string[]};
 const names=new Map<string,string>(TYPE_OPTIONS.map(([key,label])=>[key,label]));
 const number=(v:number)=>Number(v||0).toLocaleString('zh-CN');
 const pct=(numerator:number,denominator:number)=>!denominator?'—':(numerator*100/denominator).toFixed(1)+'%';
@@ -85,6 +86,16 @@ export default function ConversionFunnel({accessKey}:{accessKey:string}){
         {columns.map(([key,label])=><div className="panel conversion-metric" key={key}><span>{label}</span><strong>{number(data.summary[key])}</strong><small>{key==='readyToReview'?'已公开联系方式、未被禁止联系且暂无发信记录':key==='paid'?'订单标记已付，未核对银行到账':key==='replied'?'实际消息时间晚于首次发信':key==='ordered'?'不含订单草稿及取消订单':'已保存的 CRM 真实记录'}</small></div>)}
       </section>
       {data.summary.total===0&&<section className="panel"><div className="empty-row">当前筛选范围内没有 CRM 客户。可切换到全部历史客户，或返回客户发现搜索并核验公开机构。</div><Link to="/app/discovery">打开客户发现</Link></section>}
+      {data.quotePerformance&&<section className="panel conversion-segments">
+        <div className="panel-head"><div><h2>报价单真实转化表现</h2><span>按所选来源和报价创建时间统计；未发送草稿不计入</span></div></div>
+        <div className="conversion-metrics">
+          {([
+            ['sent','非草稿报价'],['viewed','已记录查看'],['accepted','已接受'],['withOrder','已关联订单'],
+            ['declined','已拒绝'],['expired','已过期']
+          ] as const).map(([key,label])=><div className="conversion-metric" key={key}><span>{label}</span><strong>{number(data.quotePerformance![key])}</strong></div>)}
+        </div>
+        <p className="conversion-muted">报价查看率 {pct(data.quotePerformance.viewed,data.quotePerformance.sent)} · 报价接受率 {pct(data.quotePerformance.accepted,data.quotePerformance.sent)} · 订单关联率 {pct(data.quotePerformance.withOrder,data.quotePerformance.sent)}。这些指标为报价单数量，不是独立客户人数；查看率依赖追踪记录，不能解释为客户实际阅读时长，订单关联也不代表付款到账。</p>
+      </section>}
       <section className="panel conversion-recommendations">
         <div className="panel-head"><div><h2>V34 · 下一批开发范围建议</h2>
           <span>仅基于本页已读取的主动发现客户记录；建议不会自动开始搜索，也不会自动发送开发信</span></div></div>
