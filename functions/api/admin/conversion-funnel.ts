@@ -98,6 +98,22 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
       AND (?=0 OR q.created_at>=datetime('now','-'||?||' days'))
       AND (?='ALL' OR l.source=?)`).bind(days,days,source,source,days,days,source,source).first<FunnelRow>())||{};
     const quotePerformance={sent:n(q.sent),viewed:n(q.viewed),accepted:n(q.accepted),declined:n(q.declined),expired:n(q.expired),withOrder:n(q.with_order)};
+    // Item-level figures reflect actual non-draft quotes; one quote can contain multiple items.
+    const productRows=(await db.prepare(`SELECT qi.description AS product,
+      COUNT(DISTINCT q.id) AS quoted,
+      COUNT(DISTINCT CASE WHEN q.first_viewed_at IS NOT NULL OR q.status IN ('VIEWED','ACCEPTED','CONVERTED') THEN q.id END) AS viewed,
+      COUNT(DISTINCT CASE WHEN q.accepted_at IS NOT NULL OR q.status IN ('ACCEPTED','CONVERTED') THEN q.id END) AS accepted,
+      COUNT(DISTINCT CASE WHEN EXISTS(SELECT 1 FROM orders o WHERE o.quote_id=q.id AND o.status NOT IN ('DRAFT','CANCELLED')) THEN q.id END) AS with_order,
+      SUM(qi.quantity) AS quoted_units,
+      SUM(qi.line_total) AS quoted_merchandise_usd
+    FROM quote_items qi JOIN quotes q ON q.id=qi.quote_id
+      LEFT JOIN leads l ON l.id=q.lead_id
+    WHERE q.status NOT IN ('DRAFT','CANCELLED') AND q.currency='USD'
+      AND (?=0 OR q.created_at>=datetime('now','-'||?||' days'))
+      AND (?='ALL' OR l.source=?)
+    GROUP BY qi.description ORDER BY quoted DESC,quoted_units DESC,qi.description ASC LIMIT 25`)
+      .bind(days,days,source,source).all<FunnelRow>()).results||[];
+    const products=productRows.map(p=>({product:String(p.product||''),quoted:n(p.quoted),viewed:n(p.viewed),accepted:n(p.accepted),withOrder:n(p.with_order),quotedUnits:n(p.quoted_units),quotedMerchandiseUSD:n(p.quoted_merchandise_usd)}));
     const segments=groups.map(g=>({
       category:String(g.category||'UNCLASSIFIED'),total:n(g.total),withContact:n(g.withContact),
       contactable:n(g.contactable),emailReady:n(g.emailReady),blocked:n(g.blocked),
@@ -109,7 +125,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
     for(const seg of segments)for(const key of Object.keys(summary) as Array<keyof typeof summary>)
       summary[key]+=seg[key];
     return response({ok:true,generatedAt:new Date().toISOString(),
-      filters:{days,source},summary,quotePerformance,segments,prospects:prospects.map(p=>({
+      filters:{days,source},summary,quotePerformance,products,segments,prospects:prospects.map(p=>({
         id:String(p.id),company:String(p.company_name||'未填写机构名称'),
         category:String(p.category||'UNCLASSIFIED'),city:String(p.city||''),state:String(p.state_region||''),
         email:String(p.email||''),phone:String(p.contact_phone||''),whatsapp:String(p.whatsapp||''),
@@ -119,6 +135,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
         '已联系=CRM中实际存在发出消息；已回复=发出消息后收到非网站渠道消息，不推断离线沟通。',
         '报价=已有非草稿报价；订单=非草稿及未取消订单；付款=订单标记已付，并非银行流水核验。',
         '报价表现按报价创建日期筛选，查看与接受依据实际报价记录；订单关联不代表款项到账。',
+        '产品表现按报价明细描述分组；只统计非草稿 USD 报价，报价商品金额不代表收入，组合报价中的每个产品可计入一次。',
         '未获取联系方式不会猜测联系方式；已退订、不感兴趣和不匹配的客户不进入待开发名单。',
       ]});
   }catch(error){
