@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { statusLabel } from './adminI18n';
+import {RETAIL_USD,retailReference} from '../lib/retail-reference';
 
 type Row = Record<string, unknown>;
 
@@ -78,6 +79,9 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   const [createPreview, setCreatePreview] = useState<CreatePreview>({ subtotal: 0, shipping: 0, discount: 0, total: 0 });
   const [retailComparison,setRetailComparison]=useState<{retail:number;wholesale:number}|null>(null);
   const [retailMatchConfirmed,setRetailMatchConfirmed]=useState(false);
+  const [catalogVariant,setCatalogVariant]=useState('');
+  const [wholesaleValue,setWholesaleValue]=useState(0);
+  const [quoteQuantity,setQuoteQuantity]=useState(0);
   const [quoteChecklist,setQuoteChecklist]=useState<Record<string,boolean>>({});
 
   const selected = available.find(item => text(item.reference) === selectedReference);
@@ -95,6 +99,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     setCreatePreview({ subtotal: 0, shipping: 0, discount: 0, total: 0 });
     setRetailComparison(null);
     setRetailMatchConfirmed(false);
+    setCatalogVariant('');
     setQuoteChecklist({});
   }, [selectedReference]);
 
@@ -119,6 +124,8 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     const shipping = Math.max(0, safeNumber(data.get('shipping')));
     const discount = Math.max(0, safeNumber(data.get('discount')));
     const subtotal = quantity * unitPrice;
+    setWholesaleValue(unitPrice);
+    setQuoteQuantity(quantity);
     setCreatePreview({ subtotal, shipping, discount, total: Math.max(0, subtotal - discount + shipping) });
     const retailRaw=String(data.get('retailReference')||'').trim();
     const retail=Number(retailRaw);
@@ -363,8 +370,21 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           <label>数量
             <input name="quantity" type="number" min="1" defaultValue={text(selected?.estimated_quantity)} key={`qty-${selectedReference}`} placeholder="请确认客户数量" required />
           </label>
+          <label className="span-2">选择产品规格（自动匹配零售价）
+            <select value={catalogVariant} onChange={e=>setCatalogVariant(e.target.value)}>
+              <option value="">手工填写（不自动对比）</option>
+              {Object.entries(RETAIL_USD).flatMap(([product,sizes])=>Object.entries(sizes).map(([size,retail])=>
+                <option key={product+size} value={product+' | No. '+size+' | Standard'}>{product} · {size}号 · 零售价 USD {retail.toFixed(2)}</option>))}
+            </select>
+          </label>
+          {catalogVariant&&<div className="span-2 form-status">
+            <strong>目录零售价 USD {retailReference(catalogVariant)?.toFixed(2)}</strong>
+            <p>{wholesaleValue>0&&retailReference(catalogVariant)!==null&&wholesaleValue<retailReference(catalogVariant)!
+              ? '每件节省 USD '+(retailReference(catalogVariant)!-wholesaleValue).toFixed(2)+'；本项节省 USD '+((retailReference(catalogVariant)!-wholesaleValue)*quoteQuantity).toFixed(2)
+              : '请输入低于零售价的批发价格，才会显示优惠。'}</p>
+          </div>}
           <label className="span-2">产品描述（客户可见，建议英文）
-            <input name="description" defaultValue={defaultDescription(selected)} key={`desc-${selectedReference}`} required />
+            <input name="description" defaultValue={catalogVariant||defaultDescription(selected)} key={`desc-${selectedReference}-${catalogVariant}`} required />
           </label>
           <label>单价（USD）
             <input name="unitPrice" type="number" min="0.01" step="0.01" placeholder="请确认后填写" required />
