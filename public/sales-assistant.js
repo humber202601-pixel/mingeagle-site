@@ -39,6 +39,14 @@ function captureDetails(text){
  else if(/flocked/i.test(text))quoteState.model='Flocked Silent Basketball Set';
 }
 function quoteLink(){const u=new URL('inquiry.html',location.href);u.searchParams.set('type','quote');const summary=[quoteState.model&&'Product: '+quoteState.model,quoteState.size&&'Size: No. '+quoteState.size,quoteState.quantity&&'Quantity: '+quoteState.quantity+' units',quoteState.zip&&'Destination ZIP: '+quoteState.zip].filter(Boolean).join('; ');if(summary)u.searchParams.set('assistant_summary',summary);return u.href}
+// Keep an optional, local-only commercial question summary for explicit form handoff.
+let handoffQuestion='';
+function handoffUrl(type='quote'){
+ const u=new URL('inquiry.html',location.href);u.searchParams.set('type',type);
+ if(handoffQuestion)u.searchParams.set('assistant_question',handoffQuestion.slice(0,300));
+ return u.href;
+}
+function needsStaff(input){return /\\b(custom(?:ize|ization)?|private label|own logo|certificat(?:e|ion)|compliance|payment terms|credit|invoice|refund|return policy|lead time|freight quotation|tracking issue|complaint|human|representative)\\b/i.test(input)}
 function salesReply(input){
  const q=input.trim();
  if(/\\b(quote|wholesale|bulk|pricing for|request price)\\b/i.test(q))quoteState.active=true;
@@ -58,6 +66,10 @@ function open(){panel.hidden=false;launch.setAttribute('aria-expanded','true');i
 launch.addEventListener('click',()=>panel.hidden?open():close.click());close.addEventListener('click',()=>{panel.hidden=true;launch.setAttribute('aria-expanded','false');launch.focus()});
 const context=[];
 async function answerQuestion(question){
+  if(needsStaff(question)){
+    handoffQuestion=question;
+    return ['This needs confirmation from our sales team. Please send your question through the inquiry form so we can review the details and reply accurately.',handoffUrl('question'),'Send question to our team →'];
+  }
   // Keep high-stakes commercial quotes deterministic and human-reviewed.
   if(quoteState.active||/\\b(wholesale|bulk|quote|pricing for|request price)\\b/i.test(question))return salesReply(question);
   const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),7000);
