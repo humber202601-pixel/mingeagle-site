@@ -14,6 +14,8 @@ function tr(index){const table=window.MINGEAGLE_CHAT_LANG||{};return (table[acti
 function faq(index){const table=window.MINGEAGLE_CHAT_ANSWERS||{};return (table[activeLanguage]||table.en||[])[index]||(table.en||[])[index]||''}
 function translateUi(){activeLanguage=currentLanguage();launch.querySelector('span').textContent=tr(0);root.querySelector('.me-chat-head small').textContent=tr(1);field.placeholder=tr(2);form.querySelector('button').textContent=tr(3);root.querySelector('.me-chat-foot a').textContent=tr(4);root.querySelector('.me-chat-foot').firstChild.textContent=tr(18)+' ';const names=[5,6,7,8,9];quick.querySelectorAll('button').forEach((b,i)=>{b.textContent=tr(names[i])});root.querySelector('.me-chat-launch').setAttribute('aria-label',tr(0));}
 window.addEventListener('mingeagle:language',translateUi);
+// Update immediately when the shared website language selector changes.
+document.querySelector('#langSelect')?.addEventListener('change',translateUi);
 
 const entries=[
  ['Basketball sizes','Our flocked and fabric-cover silent basketball sets come in sizes No. 3, 5 and 7. The weighted flocked silent basketball is available in No. 3, 4, 6 and 7.','products.html'],
