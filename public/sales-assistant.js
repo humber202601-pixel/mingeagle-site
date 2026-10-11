@@ -22,8 +22,37 @@ if(/(sample|trial|test one)/.test(q))return [entries[3][1],sampleUrl,'Request a 
 if(/(soccer|basketball|size|color|model|product|weighted|flocked|fabric)/.test(q))return [entries[0][1],entries[0][2],'Browse products →'];
 if(/(retail|price|cost|how much)/.test(q))return ['Our current reference retail prices depend on the ball model and size. Please check the published catalog; wholesale pricing is quoted separately.', 'wholesale-product-catalog.html','View product prices →'];
 return ['I can help with product models, sizes, samples, retail references, bulk quotes and shipping questions. For anything else, please send an inquiry so our team can provide a verified answer.',askUrl,'Ask our team →']}
+// Multi-turn, client-side quote qualification: no visitor text is transmitted or stored.
+const quoteState={active:false,model:'',size:'',quantity:'',zip:''};
+function captureDetails(text){
+ const m=text.match(/(?:^|\\s)([1-9]\\d{0,4})\\s*(?:sets?|pcs?|pieces?|balls?|units?)\\b/i);
+ if(m)quoteState.quantity=m[1];
+ const z=text.match(/\\b(?:zip(?:\\s*code)?\\s*[:#-]?\\s*|ship(?:ping)?\\s+to\\s+)(\\d{5})(?:-\\d{4})?\\b/i);
+ if(z)quoteState.zip=z[1];
+ const n=text.match(/\\b(?:size\\s*|no\\.?\\s*)([34567])\\b/i);
+ if(n)quoteState.size=n[1];
+ if(/soccer|football/i.test(text))quoteState.model='Flocked Silent Soccer Ball';
+ else if(/weighted/i.test(text))quoteState.model='Weighted Flocked Silent Basketball';
+ else if(/fabric|cloth/i.test(text))quoteState.model='Fabric-Cover Silent Basketball Set';
+ else if(/flocked/i.test(text))quoteState.model='Flocked Silent Basketball Set';
+}
+function quoteLink(){const u=new URL('inquiry.html',location.href);u.searchParams.set('type','quote');const summary=[quoteState.model&&'Product: '+quoteState.model,quoteState.size&&'Size: No. '+quoteState.size,quoteState.quantity&&'Quantity: '+quoteState.quantity+' units',quoteState.zip&&'Destination ZIP: '+quoteState.zip].filter(Boolean).join('; ');if(summary)u.searchParams.set('assistant_summary',summary);return u.href}
+function salesReply(input){
+ const q=input.trim();
+ if(/\\b(quote|wholesale|bulk|pricing for|request price)\\b/i.test(q))quoteState.active=true;
+ if(quoteState.active){
+  captureDetails(q);
+  if(!quoteState.model)return ['Happy to help with a wholesale quote. Which model do you need: flocked basketball, fabric-cover basketball, weighted basketball or silent soccer ball?'];
+  if(!quoteState.size)return ['Thanks! Which ball size would you prefer? Please enter a number such as size 3, 5 or 7.'];
+  if(!quoteState.quantity)return ['Got it. Approximately how many sets or balls do you need? For example: 100 units.'];
+  if(!quoteState.zip)return ['What is the U.S. delivery ZIP code? Example: ZIP 75201. We will confirm freight separately.'];
+  const summary='Thanks! I have '+quoteState.quantity+' units of '+quoteState.model+', No. '+quoteState.size+', shipping to ZIP '+quoteState.zip+'. Please review the prefilled inquiry form and add your contact details. Our team will verify stock, shipping, MOQ and wholesale pricing.';
+  quoteState.active=false;return [summary,quoteLink(),'Continue with quote request →'];
+ }
+ return reply(q);
+}
 entries.forEach(([label,answer,url])=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>{add('visitor',label);add('assistant',answer,url,'Learn more →')};quick.appendChild(b)});
 function open(){panel.hidden=false;launch.setAttribute('aria-expanded','true');if(!log.children.length)add('assistant','Welcome! I am MING EAGLE’s automated sales assistant. Ask me about silent basketballs, soccer balls, wholesale quotes, samples or delivery.');field.focus()}
 launch.addEventListener('click',()=>panel.hidden?open():close.click());close.addEventListener('click',()=>{panel.hidden=true;launch.setAttribute('aria-expanded','false');launch.focus()});
-form.addEventListener('submit',e=>{e.preventDefault();const q=field.value.trim();if(!q)return;add('visitor',q);field.value='';const [message,url,label]=reply(q);add('assistant',message,url,label)});
+form.addEventListener('submit',e=>{e.preventDefault();const q=field.value.trim();if(!q)return;add('visitor',q);field.value='';const [message,url,label]=salesReply(q);add('assistant',message,url,label)});
 })();
