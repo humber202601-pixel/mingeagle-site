@@ -129,7 +129,7 @@ function scoreBusiness(hit:SearchHit,body:string,type:string,stateCode:string,en
   if(pair.test(searchText)){score+=6;cues.push('pair-in-search')}
   if(COMMERCE_OR_SERVICE.test(body)){score+=8;cues.push('commercial-or-service-language')}
   if(/contact|about|team|coach|staff|director|owner|founder|leadership/i.test(body)){score+=4;cues.push('organization-language')}
-  const locations=(hit.city?[hit.city]:[ALL_STATE_NAMES[stateCode],stateCode]).filter(Boolean);const local=locations.some(x=>new RegExp('\\b'+x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','i').test(body));if(local){score+=6;cues.push('local-match')}else if(type==='SPORTS_DISTRIBUTOR'&&/nationwide|all 50 states|ship.*united states/i.test(body)){cues.push('national-supplier')}else{return {score:0,cues:['location-unconfirmed']}}
+  const locations=[hit.city,ALL_STATE_NAMES[stateCode],stateCode].filter(Boolean);const local=locations.some(x=>new RegExp('\\b'+x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','i').test(body));if(local){score+=6;cues.push('local-match')}else if(type==='SPORTS_DISTRIBUTOR'&&/nationwide|all 50 states|ship.*united states/i.test(body)){cues.push('national-supplier')}else{return {score:0,cues:['location-unconfirmed']}}
   if(['SPORTS_STORE','SPORTS_DISTRIBUTOR'].includes(type)&&!/shop|store|retail|add to cart|buy now|product|inventory|sporting goods/i.test(body))return {score:0,cues:['store-commerce-unconfirmed']};
   return {score:Math.max(0,Math.min(100,score)),cues};
 }
