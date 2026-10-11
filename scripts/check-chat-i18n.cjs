@@ -36,6 +36,7 @@ const cases=[
  ['balón flocado','Flocked Silent Basketball Set'],
  ['futebol silencioso','Flocked Silent Soccer Ball'],
  ['basket lesté','Weighted Flocked Silent Basketball'],
+ ['basket lestée','Weighted Flocked Silent Basketball'],
  ['Basketball aus Stoff','Fabric-Cover Silent Basketball Set'],
  ['basket appesantito','Weighted Flocked Silent Basketball'],
  ['geflockte basketbal','Flocked Silent Basketball Set'],
