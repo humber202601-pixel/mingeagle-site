@@ -37,9 +37,9 @@ function captureDetails(text){
  const m=text.match(/(?:^|\s)([1-9]\d{0,4})\s*(?:sets?|pcs?|pieces?|balls?|units?)\b/i);
  if(m)quoteState.quantity=m[1];
  else if(quoteState.model&&quoteState.size&&!quoteState.quantity&&/^[1-9]\d{0,4}$/.test(text.trim()))quoteState.quantity=text.trim();
- const z=text.match(/\b(?:zip(?:\s*code)?\s*[:#-]?\s*|ship(?:ping)?\s+to\s+)(\d{5})(?:-\d{4})?\b/i);
- if(z)quoteState.zip=z[1];
- else if(quoteState.quantity&&!quoteState.zip&&/^\d{5}$/.test(text.trim()))quoteState.zip=text.trim();
+ const z=text.match(/\b(?:zip(?:\s*code)?|postal(?:\s*code)?|postcode|code\s*postal|c[oó]digo\s*postal|cep|plz|cap|郵便番号)\s*[:#-]?\s*([a-z0-9][a-z0-9 -]{1,10})/i);
+ if(z)quoteState.zip=z[1].trim().toUpperCase();
+ else if(quoteState.quantity&&!quoteState.zip&&/^(?=.{3,10}$)(?=.*[a-z0-9])[a-z0-9 -]+$/i.test(text.trim()))quoteState.zip=text.trim().toUpperCase();
  const n=text.match(/\b(?:size\s*|no\\.?\s*)([34567])\b/i);
  if(n)quoteState.size=n[1];
  if(/soccer|football/i.test(text))quoteState.model='Flocked Silent Soccer Ball';
@@ -47,7 +47,7 @@ function captureDetails(text){
  else if(/fabric|cloth/i.test(text))quoteState.model='Fabric-Cover Silent Basketball Set';
  else if(/flocked/i.test(text))quoteState.model='Flocked Silent Basketball Set';
 }
-function quoteLink(){const u=new URL('inquiry.html',location.href);u.searchParams.set('type','quote');const summary=[quoteState.model&&'Product: '+quoteState.model,quoteState.size&&'Size: No. '+quoteState.size,quoteState.quantity&&'Quantity: '+quoteState.quantity+' units',quoteState.zip&&'Destination ZIP: '+quoteState.zip].filter(Boolean).join('; ');if(summary)u.searchParams.set('assistant_summary',summary);return u.href}
+function quoteLink(){const u=new URL('inquiry.html',location.href);u.searchParams.set('type','quote');const summary=[quoteState.model&&'Product: '+quoteState.model,quoteState.size&&'Size: No. '+quoteState.size,quoteState.quantity&&'Quantity: '+quoteState.quantity+' units',quoteState.zip&&'Destination postal code: '+quoteState.zip].filter(Boolean).join('; ');if(summary)u.searchParams.set('assistant_summary',summary);return u.href}
 // Keep an optional, local-only commercial question summary for explicit form handoff.
 let handoffQuestion='';
 function handoffUrl(type='quote'){
@@ -68,7 +68,7 @@ function salesReply(input){
   if(!quoteState.size)return [tr(12)];
   if(!quoteState.quantity)return [tr(13)];
   if(!quoteState.zip)return [tr(14)];
-  const summary='Thanks! I have '+quoteState.quantity+' units of '+quoteState.model+', No. '+quoteState.size+', shipping to ZIP '+quoteState.zip+'. Please review the prefilled inquiry form and add your contact details. Our team will verify stock, shipping, MOQ and wholesale pricing.';
+  const summary='Thanks! I have '+quoteState.quantity+' units of '+quoteState.model+', No. '+quoteState.size+', shipping to postal code '+quoteState.zip+'. Please review the prefilled inquiry form and add your contact details. Our team will verify stock, shipping, MOQ and wholesale pricing.';
   quoteState.active=false;return [faq(7)+' '+summary,quoteLink(),tr(16)];
  }
  return reply(q);
