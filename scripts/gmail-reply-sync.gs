@@ -1,4 +1,4 @@
-const MING_EAGLE_ENDPOINT = 'https://app.mingeagle.com/api/inbound/gmail-reply';
+const MING_EAGLE_ENDPOINT = 'https://app.mingeagle.com/api/inbound/gmail-reply-v2';
 const SYNC_LOOKBACK_DAYS = 7;
 const MAX_MESSAGES_PER_RUN = 50;
 const PROCESSED_IDS_KEY = 'MING_EAGLE_PROCESSED_MESSAGE_IDS';
