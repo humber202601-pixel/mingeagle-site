@@ -26,7 +26,7 @@ try{
    const obj=JSON.parse(block[1]);assert.equal(obj['@type'],'ProductGroup');
    assert(obj.hasVariant.length>=1);
    for(const v of obj.hasVariant){assert(v.offers.price>0);assert.equal(v.offers.priceCurrency,'USD')}
-   assert(obj.image.every(i=>i.startsWith('https://www.mingeagle.com/assets/')));
+   assert(obj.image.every(i=>/^https:\/\/(?:www\.)?mingeagle\.com\/assets\//.test(i)));
    assert(!obj.aggregateRating);
   }
  }
