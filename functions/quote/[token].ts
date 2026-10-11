@@ -149,9 +149,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
       const retail=Number(record?.retail_usd||0),unit=Number(item.unit_price||0),quantity=Number(item.quantity||0);
       const verified=currency==='USD'&&!!record&&record.approved_description===item.description&&Number(record.approved_unit_price)===unit&&Number(record.approved_quantity)===quantity&&retail>unit&&unit>0&&quantity>0;
       const saving=verified?Math.round((retail-unit)*quantity*100)/100:0;
-      const comparison=verified?`<div style="font-size:12px;color:#067647">Retail reference: USD ${retail.toFixed(2)} / unit · Save ${((1-unit/retail)*100).toFixed(1)}% (${money(saving,currency)} on this line)</div>`:'';
+      const comparison=verified?`<div style="font-size:12px;color:#067647">Retail reference: USD ${retail.toFixed(2)} / unit · Wholesale: USD ${unit.toFixed(2)} / unit · Save USD ${(retail-unit).toFixed(2)} / unit (${((1-unit/retail)*100).toFixed(1)}%) · Product savings ${money(saving,currency)} for this line</div>`:'';
       return `<tr><td>${esc(item.description)}${comparison}</td><td>${esc(item.quantity)}</td><td>${esc(money(item.unit_price,currency))}</td><td>${esc(money(item.line_total,currency))}</td></tr>`;
     }).join('');
+    // Savings compare merchandise unit prices only. Shipping and quote-level discount are not counted again.
     const paymentReturned = new URL(request.url).searchParams.get('payment_return') === '1';
     const paymentReturnBanner = paymentReturned
       ? `<div class="notice info" id="paymentReturnNotice"><strong>Payment submitted.</strong> We are confirming it securely with Airwallex. This page will update automatically.</div>`
