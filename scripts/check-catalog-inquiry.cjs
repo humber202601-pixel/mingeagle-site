@@ -31,7 +31,7 @@ const images=[...catalog.matchAll(/<img[^>]*src="([^"]+)"/g)].map(m=>m[1]);
 assert.equal(images.length,4,'Catalog must show precisely four approved product images');
 assert(images.every(src=>Object.values(master).some(p=>p.hero===src.split('?')[0])),'Catalog contains an unapproved or external product image');
 
-const inlineScripts=[...catalog.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/g)].map(match=>match[1]).filter(Boolean).filter(script=>!script.includes('application/ld+json'));
+const inlineScripts=[...catalog.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)].filter(match=>!/\btype=["']application\/ld\+json["']/i.test(match[1])).map(match=>match[2]).filter(Boolean);
 assert(inlineScripts.some(script=>script.includes('const retailPrices=')),'Retail reference price calculator must be present');
 for(const script of inlineScripts)assert.doesNotThrow(()=>new Function(script),'Inline catalog JavaScript must parse');
 assert(!catalog.includes('</html>+retailPrices'),'Detached price-calculator code after closing HTML');
