@@ -20,7 +20,7 @@ const clean = (value: unknown, max = 12000) => typeof value === 'string' ? value
 export function extractReplyQuantity(value: unknown) {
   const text = clean(value).replace(/,/g, '');
   const patterns = [
-    /(?:for|need|want|order|buy|pricing\s+for|quote\s+for|quantity\s*(?:is|:)?|qty\s*(?:is|:)?)\s+(\d{1,6})\s*(?:units?|pcs?|pieces?|balls?|sets?)?/i,
+    /(?:for|need|want|order|buy|pricing\s+for|quote(?:\s+for)?|quotation\s+for|quantity\s*(?:is|:)?|qty\s*(?:is|:)?)\s+(\d{1,6})\s*(?:units?|pcs?|pieces?|balls?|sets?)?/i,
     /(\d{1,6})\s*(?:units?|pcs?|pieces?|balls?|sets?)/i,
     /数量\s*[:：]?\s*(\d{1,6})/i,
     /(\d{1,6})\s*(?:个|件|套|只)/i,
