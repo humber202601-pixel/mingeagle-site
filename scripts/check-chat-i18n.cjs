@@ -69,3 +69,15 @@ console.log('PASS: model → size → quantity → postal code stateful checkout
 assert(assistant.includes("if(isQuoteIntent(q)&&!quoteState.active){"),'New wholesale request must start a fresh quote');
 assert(assistant.includes("quoteState.model='';quoteState.size='';quoteState.quantity='';quoteState.zip=''"),'New quote must clear earlier customer choices');
 console.log('PASS: restart quote clears previously collected customer fields.');
+
+
+const sizeFunction=assistant.match(/function supportedSizes\(model\)\{[\s\S]*?\n\}/);
+assert(sizeFunction,'Product-specific size validation missing');
+const sizeCtx={};vm.runInNewContext(sizeFunction[0]+';this.supportedSizes=supportedSizes;',sizeCtx);
+const asPlain=x=>Array.from(x);
+assert.deepEqual(asPlain(sizeCtx.supportedSizes('Flocked Silent Basketball Set')),['3','5','7']);
+assert.deepEqual(asPlain(sizeCtx.supportedSizes('Fabric-Cover Silent Basketball Set')),['3','5','7']);
+assert.deepEqual(asPlain(sizeCtx.supportedSizes('Weighted Flocked Silent Basketball')),['3','4','6','7']);
+assert.deepEqual(asPlain(sizeCtx.supportedSizes('Flocked Silent Soccer Ball')),['5']);
+assert(assistant.includes('!supportedSizes(quoteState.model).includes(quoteState.size)'),'Invalid model and size pairs must be refused');
+console.log('PASS: assistant validates product-specific ball sizes.');
