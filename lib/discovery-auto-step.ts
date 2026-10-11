@@ -105,6 +105,9 @@ export async function runAutoStep(env:AutoEnv,base:string,key:string,input:Row):
   const domain=new URL(clean(row.website)).hostname.toLowerCase().replace(/^www\./,'');
   const exclusion=await db.prepare(`SELECT l.id FROM leads l JOIN companies c ON c.id=l.company_id LEFT JOIN contacts ct ON ct.id=l.primary_contact_id WHERE c.domain=? AND (l.status IN ('DO_NOT_CONTACT','NOT_INTERESTED','NOT_FIT') OR ct.do_not_contact=1) LIMIT 1`).bind(domain).first();
   if(exclusion)return {skipped:true,reason:'保留不联系 / 不匹配客户的既有状态'};
+  const previouslyContacted=await db.prepare(`SELECT l.id FROM leads l JOIN companies c ON c.id=l.company_id WHERE c.domain=? AND (l.status IN ('CONTACTED','REPLIED','QUALIFIED','QUOTED') OR EXISTS(SELECT 1 FROM messages m WHERE m.lead_id=l.id AND m.direction='OUTBOUND')) LIMIT 1`).bind(domain).first();
+  if(previouslyContacted)return {skipped:true,reason:'机构已有联系记录；保留原客户跟进状态，避免作为新客户再次进入首次开发'};
+
   if(stage==='ENRICH'){
     await autoApi(base,key,'discovery-enrich-v2',{candidateId:id,skipSync:true,autoRunId:runId,autoToken:input.autoToken});await guard();return again({stage:'IMPORT'});
   }
