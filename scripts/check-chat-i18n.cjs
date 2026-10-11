@@ -65,3 +65,7 @@ assert.equal(flowCtx.quoteState.zip,'','Unit count must not double as ZIP');
 flowCtx.captureDetails('75201');
 assert.equal(flowCtx.quoteState.zip,'75201','US postal code should be accepted at postal step');
 console.log('PASS: model → size → quantity → postal code stateful checkout.');
+
+assert(assistant.includes("if(isQuoteIntent(q)&&!quoteState.active){"),'New wholesale request must start a fresh quote');
+assert(assistant.includes("quoteState.model='';quoteState.size='';quoteState.quantity='';quoteState.zip=''"),'New quote must clear earlier customer choices');
+console.log('PASS: restart quote clears previously collected customer fields.');
