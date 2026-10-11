@@ -32,9 +32,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const input = await request.json() as QuoteInput;
     const inquiryReference = clean(input.inquiryReference, 120);
     const description = clean(input.description, 500) || 'MING EAGLE Silent Basketball products';
-    const quantity = Math.max(1, Math.round(num(input.quantity, 1)));
+    const quantityRaw = num(input.quantity, NaN);
+    const quantity = quantityRaw;
     const unitPrice = num(input.unitPrice, 0);
-    const shipping = Math.max(0, num(input.shipping, 0));
+    const shipping = num(input.shipping, NaN);
     const discount = Math.max(0, num(input.discount, 0));
     const validDays = Math.min(90, Math.max(1, Math.round(num(input.validDays, 14))));
     const paymentTerms = clean(input.paymentTerms, 500) || 'Payment terms to be confirmed before sending.';
@@ -43,6 +44,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (!inquiryReference) {
       return Response.json({ ok: false, error: 'Inquiry reference is required.' }, { status: 400 });
+    }
+    if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 100000) {
+      return Response.json({ ok: false, error: 'Confirm an explicit whole-number quantity before creating a quote draft.' }, { status: 400 });
+    }
+    if (input.shipping === '' || input.shipping === null || input.shipping === undefined || !Number.isFinite(shipping) || shipping < 0) {
+      return Response.json({ ok: false, error: 'Confirm the USD shipping amount explicitly (enter 0 only when shipping is included).' }, { status: 400 });
     }
     if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
       return Response.json({ ok: false, error: 'Unit price must be greater than 0 before creating a quote draft.' }, { status: 400 });
