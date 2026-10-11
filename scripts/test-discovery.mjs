@@ -134,7 +134,7 @@ try{
   assert.equal((await post('discovery',{...search,action:'SEARCH'})).body.release,'DISCOVERY_V13_1_QUALIFIED_BUYERS_2026-10-07','legacy search must use the verified orchestrator');
   failedGeo=true;result=await post('discovery-search-v2',search);
   assert.equal(result.status,200);assert.equal(result.body.partial,true);assert.ok(result.body.errors.geoapify);
-  failedWeb=true;result=await post('discovery-search-v2',search);assert.equal(result.status,502);assert.equal(result.body.sources.web,false);
+  failedWeb=true;result=await post('discovery-search-v2',{...search,city:'Fort Worth'});assert.equal(result.status,502);assert.equal(result.body.sources.web,false);
   failedGeo=failedWeb=false;
   for(let i=0;i<70;i++)db.sqlite.prepare("INSERT INTO discovery_candidates(id,source_key,name,customer_type,state_region,lead_score,grade,status,source_url,email) VALUES(?,?,?,?,?,85,'A','NEW',?,?)").run('p'+i,'test:'+i,'Page Prospect '+i,'INDEPENDENT_COACH','TX','https://fixture.example/'+i,'buyer'+i+'@fixture.example');
   let list=await get('status=NEW&type=INDEPENDENT_COACH&page=2&pageSize=50');
