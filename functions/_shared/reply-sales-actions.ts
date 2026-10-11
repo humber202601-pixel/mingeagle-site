@@ -19,6 +19,10 @@ const clean = (value: unknown, max = 12000) => typeof value === 'string' ? value
 
 export function extractReplyQuantity(value: unknown) {
   const text = clean(value).replace(/,/g, '');
+  // Multiple requested tiers are not a single confirmed order quantity.
+  // E.g. "quote 20, 50 and 100 units" must remain blank for human review.
+  const tierList = /\b\d{1,6}\s*(?:,|\/|\bor\b|\band\b)\s*\d{1,6}(?:\s*(?:,|\/|\bor\b|\band\b)\s*\d{1,6})*\s*(?:units?|pcs?|pieces?|balls?|sets?)\b/i;
+  if (tierList.test(text)) return null;
   const patterns = [
     /(?:for|need|want|order|buy|pricing\s+for|quote(?:\s+for)?|quotation\s+for|quantity\s*(?:is|:)?|qty\s*(?:is|:)?)\s+(\d{1,6})\s*(?:units?|pcs?|pieces?|balls?|sets?)?/i,
     /(\d{1,6})\s*(?:units?|pcs?|pieces?|balls?|sets?)/i,
