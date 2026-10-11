@@ -50,3 +50,18 @@ for(const [phrase,expected] of cases){
  assert.equal(ctx.quoteState.model,expected,'Product recognition failed for '+phrase);
 }
 console.log('PASS: multilingual product routing test cases.');
+
+
+// Multi-turn chat regression: quantity must not be interpreted as a postal code.
+const flowCtx={quoteState:{model:'',size:'',quantity:'',zip:''}};
+vm.runInNewContext(capture[0]+';this.captureDetails=captureDetails;',flowCtx);
+flowCtx.captureDetails('flocked basketball');
+assert.equal(flowCtx.quoteState.model,'Flocked Silent Basketball Set');
+flowCtx.captureDetails('5');
+assert.equal(flowCtx.quoteState.size,'5','Standalone size should be accepted');
+flowCtx.captureDetails('100');
+assert.equal(flowCtx.quoteState.quantity,'100','Standalone unit count should be accepted');
+assert.equal(flowCtx.quoteState.zip,'','Unit count must not double as ZIP');
+flowCtx.captureDetails('75201');
+assert.equal(flowCtx.quoteState.zip,'75201','US postal code should be accepted at postal step');
+console.log('PASS: model → size → quantity → postal code stateful checkout.');
