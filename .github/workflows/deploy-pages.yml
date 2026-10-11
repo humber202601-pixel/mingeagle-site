@@ -76,6 +76,11 @@ jobs:
           node --check public/sales-assistant-i18n.js
           node scripts/check-chat-i18n.cjs
 
+      - name: Stamp publicly verifiable deployment revision
+        run: |
+          printf '{"revision":"%s","builtAt":"%s","workflow":"github-pages"}\n' "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > public/deployment-version.json
+          test -s public/deployment-version.json
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
