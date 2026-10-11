@@ -25,3 +25,27 @@ assert(inquiry.includes("assistantSummary.match(/Size: No\\."),'Inquiry must car
 assert(inquiry.includes("if(units&&$('estimated_quantity'))"),'Inquiry must prefill quantity tier');
 console.log('PASS: sales assistant to inquiry form prefill contract.');
 
+
+
+// Check product-name recognition in all nine supported languages without touching the live CRM.
+const capture=assistant.match(/function captureDetails\(text\)\{[\s\S]*?\n\}/);
+assert(capture,'Product capture function must be present');
+const cases=[
+ ['flocked basketball','Flocked Silent Basketball Set'],
+ ['soccer ball','Flocked Silent Soccer Ball'],
+ ['balón flocado','Flocked Silent Basketball Set'],
+ ['futebol silencioso','Flocked Silent Soccer Ball'],
+ ['basket lesté','Weighted Flocked Silent Basketball'],
+ ['Basketball aus Stoff','Fabric-Cover Silent Basketball Set'],
+ ['basket appesantito','Weighted Flocked Silent Basketball'],
+ ['geflockte basketbal','Flocked Silent Basketball Set'],
+ ['piłka obciążona','Weighted Flocked Silent Basketball'],
+ ['フロック バスケットボール','Flocked Silent Basketball Set'],
+ ['静音サッカー','Flocked Silent Soccer Ball']
+];
+for(const [phrase,expected] of cases){
+ const ctx={quoteState:{model:'',size:'',quantity:'',zip:''}};
+ vm.runInNewContext(capture[0]+'; captureDetails('+JSON.stringify(phrase)+')',ctx);
+ assert.equal(ctx.quoteState.model,expected,'Product recognition failed for '+phrase);
+}
+console.log('PASS: multilingual product routing test cases.');
