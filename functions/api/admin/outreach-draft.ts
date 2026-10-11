@@ -65,13 +65,23 @@ function fitCopy(customerType:string){
   };
 }
 
+function productCopy(interest:string,customerType:string){
+  const v=interest.toLowerCase(),t=customerType.toUpperCase();
+  if(/soccer|football/.test(v))return 'Our flocked silent soccer ball is another indoor-play option; we can discuss bulk quantities for your program.';
+  if(/weighted|加重/.test(v))return 'Our weighted flocked silent basketball is one option for buyers looking to evaluate a different training feel.';
+  if(/fabric|cloth|布面/.test(v))return 'Our fabric-cover silent basketball set is one of the models available for wholesale evaluation.';
+  if(/flocked|植绒/.test(v))return 'Our flocked silent basketball set is available in different sizes for wholesale evaluation.';
+  if(['SPORTS_RETAILER','SPORTS_STORE','SPORTS_DISTRIBUTOR','EDUCATION_SUPPLIER'].includes(t))return 'We offer multiple silent-ball models and sizes; you can compare the catalog before choosing a wholesale assortment.';
+  return 'We can help identify a suitable silent-ball size and model for your program before quoting.';
+}
+
 function locationText(city:string,state:string){
   if(city&&state)return `${city}, ${state}`;
   return city||state||'';
 }
 
-function introDraft(params:{company:string;greeting:string;location:string;fit:ReturnType<typeof fitCopy>;customerType:string;roleLine:string}){
-  const {company,greeting,location,fit,customerType,roleLine}=params;
+function introDraft(params:{company:string;greeting:string;location:string;fit:ReturnType<typeof fitCopy>;customerType:string;roleLine:string;productLine:string}){
+  const {company,greeting,location,fit,customerType,roleLine,productLine}=params;
   const foundLine=location
     ? `I came across ${company} while researching basketball organizations in ${location}.`
     : `I came across ${company} while looking at organizations that work with basketball players and programs.`;
@@ -82,6 +92,7 @@ function introDraft(params:{company:string;greeting:string;location:string;fit:R
     greeting,
     [foundLine,roleLine].filter(Boolean).join(' '),
     `We make MING EAGLE silent basketballs for quieter indoor practice. Our silent basketball line has sold more than 30,000 sets in the U.S. market. ${fit.sentence}`,
+    productLine,
     WEBSITE_INTRO,
     `We can discuss a sample and a quantity-based wholesale quote if the products suit your program.`,
     `Are you the right person for equipment purchasing, or could you point me to the colleague who handles it?`,
@@ -167,8 +178,9 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     const status=clean(row.lead_status,80).toUpperCase();
     const resolvedMode=requestedMode==='AUTO'?(outboundCount>0||['CONTACTED','REPLIED','INTERESTED','SAMPLE','QUOTE','NEGOTIATION'].includes(status)?'FOLLOWUP':'INTRO'):requestedMode;
 
+    const productLine=productCopy(clean(row.product_interest,300),customerType);
     const draft=resolvedMode==='INTRO'
-      ? introDraft({company,greeting,location,fit,customerType,roleLine})
+      ? introDraft({company,greeting,location,fit,customerType,roleLine,productLine})
       : followupDraft({company,greeting,fit,status,outboundCount,lastSubject});
 
     const evidence=[
@@ -176,6 +188,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       location?`location: ${location}`:'',
       named?`contact: ${contact}${contactTitle?` · ${contactTitle}`:''}`:'team greeting used',
       `lead status: ${status||'UNKNOWN'}`,
+      clean(row.product_interest,200)?`product interest: ${clean(row.product_interest,200)}`:'product interest not recorded',
       `previous outbound emails: ${outboundCount}`,
       clean(row.discovery_provider,120)?`source: ${clean(row.discovery_provider,120)}`:'',
     ].filter(Boolean);
