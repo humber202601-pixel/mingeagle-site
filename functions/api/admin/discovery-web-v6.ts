@@ -35,14 +35,37 @@ const HOUSTON_BASKETBALL_SITE_SEEDS=[
   ['The Ark 1121','https://www.theark1121.com/'],
   ['RUH Youth Sports Foundation','https://www.rusports.com/']
 ] as const;
+const DALLAS_BASKETBALL_SITE_SEEDS=[
+  ['JD Skills Academy','https://jdskillsacademy.com/'],
+  ['SYA Hoops Academy','https://www.syahoops.com/'],
+  ['Wilson Elite Training','https://www.wilsonelitetraining.com/'],
+  ['Yancy Academy','https://www.yancyacademy.com/'],
+  ['Elite Baller Academy','https://www.ballerdreamteam.com/'],
+  ['MMB Elite Basketball','https://mmbelite.com/'],
+  ['Be Elite Basketball','https://www.beelitebasketball.com/skills-academy'],
+  ['3Di Athletics Dallas','https://www.3diathletics.com/']
+] as const;
+const SAN_ANTONIO_BASKETBALL_SITE_SEEDS=[
+  ['Deuce Academy','https://www.deuceacademy.com/'],
+  ['San Antonio AAU Basketball','https://sanantonioaaubasketball.com/'],
+  ['Pro Skills Basketball San Antonio','https://proskillsbasketball.com/san-antonio/academies/'],
+  ['ABS Basketball','https://absbasketball.com/'],
+  ['Dockery Basketball Academy','https://www.dockerybasketball.com/'],
+  ['Succeed Academy','https://succeedsa.com/'],
+  ['Factory of Champions','https://factoryofchampions.com/'],
+  ['Spurs Sports Academy','https://www.spurssportsacademy.com/connect']
+] as const;
 function supplementalOfficialSites(stateCode:string,type:string,city:string,round:number):SearchHit[]{
-  if(stateCode!=='TX'||city.trim().toLowerCase()!=='houston'||
+  if(stateCode!=='TX'||
     !['BASKETBALL_TRAINING','YOUTH_CLUB','BASKETBALL_GYM','INDEPENDENT_COACH','MULTISPORT_ACADEMY'].includes(type))return [];
-  const shuffled=[...HOUSTON_BASKETBALL_SITE_SEEDS];
+  const cityKey=city.trim().toLowerCase();
+  const citySeeds=cityKey==='houston'?HOUSTON_BASKETBALL_SITE_SEEDS:cityKey==='dallas'?DALLAS_BASKETBALL_SITE_SEEDS:cityKey==='san antonio'?SAN_ANTONIO_BASKETBALL_SITE_SEEDS:[];
+  if(!citySeeds.length)return [];
+  const shuffled=[...citySeeds];
   const page=round%Math.ceil(shuffled.length/5);
   return shuffled.slice(page*5,page*5+5).map(([title,url])=>({
-    title,url,city:'Houston',snippet:'Houston-area basketball training / youth basketball institution; independent official website needs verification.',
-    query:'Houston public official website seed (manual research; verify before CRM import)'
+    title,url,city,snippet:`${city}-area basketball training / youth basketball institution; independent official website needs verification.`,
+    query:`${city} public official website seed (public research; verify before CRM import)`
   }));
 }
 
