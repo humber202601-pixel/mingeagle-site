@@ -85,3 +85,8 @@ assert.deepEqual(asPlain(sizeCtx.supportedSizes('Weighted Flocked Silent Basketb
 assert.deepEqual(asPlain(sizeCtx.supportedSizes('Flocked Silent Soccer Ball')),['5']);
 assert(assistant.includes('!supportedSizes(quoteState.model).includes(quoteState.size)'),'Invalid model and size pairs must be refused');
 console.log('PASS: assistant validates product-specific ball sizes.');
+
+const handoff=fs.readFileSync('public/inquiry.js','utf8');
+assert(handoff.includes("!message.value.includes(assistantSummary)"),'AI quote must not duplicate the handoff summary');
+assert(handoff.includes("[message.value,'Information collected by the automated website assistant"),'AI quote must preserve existing buyer message and exact details together');
+console.log('PASS: inquiry prefill retains buyer text and exact AI quote specifications.');
