@@ -34,13 +34,13 @@ return [faq(6),askUrl,tr(17)]}
 // Multi-turn, client-side quote qualification: no visitor text is transmitted or stored.
 const quoteState={active:false,model:'',size:'',quantity:'',zip:''};
 function captureDetails(text){
- const m=text.match(/(?:^|\\s)([1-9]\\d{0,4})\\s*(?:sets?|pcs?|pieces?|balls?|units?)\\b/i);
+ const m=text.match(/(?:^|\s)([1-9]\d{0,4})\s*(?:sets?|pcs?|pieces?|balls?|units?)\b/i);
  if(m)quoteState.quantity=m[1];
- else if(quoteState.model&&quoteState.size&&!quoteState.quantity&&/^[1-9]\\d{0,4}$/.test(text.trim()))quoteState.quantity=text.trim();
- const z=text.match(/\\b(?:zip(?:\\s*code)?\\s*[:#-]?\\s*|ship(?:ping)?\\s+to\\s+)(\\d{5})(?:-\\d{4})?\\b/i);
+ else if(quoteState.model&&quoteState.size&&!quoteState.quantity&&/^[1-9]\d{0,4}$/.test(text.trim()))quoteState.quantity=text.trim();
+ const z=text.match(/\b(?:zip(?:\s*code)?\s*[:#-]?\s*|ship(?:ping)?\s+to\s+)(\d{5})(?:-\d{4})?\b/i);
  if(z)quoteState.zip=z[1];
- else if(quoteState.quantity&&!quoteState.zip&&/^\\d{5}$/.test(text.trim()))quoteState.zip=text.trim();
- const n=text.match(/\\b(?:size\\s*|no\\.?\\s*)([34567])\\b/i);
+ else if(quoteState.quantity&&!quoteState.zip&&/^\d{5}$/.test(text.trim()))quoteState.zip=text.trim();
+ const n=text.match(/\b(?:size\s*|no\\.?\s*)([34567])\b/i);
  if(n)quoteState.size=n[1];
  if(/soccer|football/i.test(text))quoteState.model='Flocked Silent Soccer Ball';
  else if(/weighted/i.test(text))quoteState.model='Weighted Flocked Silent Basketball';
@@ -55,10 +55,10 @@ function handoffUrl(type='quote'){
  if(handoffQuestion)u.searchParams.set('assistant_question',handoffQuestion.slice(0,300));
  return u.href;
 }
-function needsStaff(input){return /\\b(custom(?:ize|ization)?|private label|own logo|certificat(?:e|ion)|compliance|payment terms|credit|invoice|refund|return policy|lead time|freight quotation|tracking issue|complaint|human|representative)\\b/i.test(input)}
+function needsStaff(input){return /\b(custom(?:ize|ization)?|private label|own logo|certificat(?:e|ion)|compliance|payment terms|credit|invoice|refund|return policy|lead time|freight quotation|tracking issue|complaint|human|representative)\b/i.test(input)}
 function salesReply(input){
  const q=input.trim();
- if(/\\b(quote|wholesale|bulk|pricing for|request price)\\b/i.test(q))quoteState.active=true;
+ if(/\b(quote|wholesale|bulk|pricing for|request price)\b/i.test(q))quoteState.active=true;
  if(quoteState.active){
   captureDetails(q);
   if(!quoteState.model)return [tr(11)];
@@ -80,7 +80,7 @@ async function answerQuestion(question){
     return [tr(15),handoffUrl('question'),tr(17)];
   }
   // Keep high-stakes commercial quotes deterministic and human-reviewed.
-  if(quoteState.active||/\\b(wholesale|bulk|quote|pricing for|request price)\\b/i.test(question))return salesReply(question);
+  if(quoteState.active||/\b(wholesale|bulk|quote|pricing for|request price)\b/i.test(question))return salesReply(question);
   const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),7000);
   try{
     const history=[...context.slice(-10),{role:'user',content:question}];
