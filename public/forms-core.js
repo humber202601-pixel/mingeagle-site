@@ -11,6 +11,7 @@ function crmPayload(d,ctx){
  const names={'Sample request':'SAMPLE','Wholesale quote':'WHOLESALE','Retail partnership':'RETAIL_PARTNERSHIP','Order support':'ORDER_SUPPORT','General product question':'GENERAL'};
  const requestType=names[d.requestType]||'GENERAL';
  const campaign=new URLSearchParams((ctx.campaign||'').replace(/ \| /g,'&'));
+ const aiAssisted=/automated website assistant|website assistant/i.test(String(d.message||''));
  return {
   originalReference:d.reference,requestType,requestLabel:d.requestType,
   firstName:d.firstname,lastName:'',email:d.email,phone:d.phone||'',whatsapp:d.phone||'',
@@ -19,7 +20,7 @@ function crmPayload(d,ctx){
   products:d.products?d.products.split('\n').filter(Boolean):[],
   customization:d.customization||'',orderTiming:d.timing||'',
   message:[d.message||'',d.orderReference?'Order / quote reference: '+d.orderReference:''].filter(Boolean).join('\n'),
-  leadSource:'MING EAGLE official website',landingPage:ctx.landingPage||ctx.pageUri,
+  leadSource:aiAssisted?'Website AI Assistant':'MING EAGLE official website',landingPage:ctx.landingPage||ctx.pageUri,
   referrer:ctx.referrer||'',utmSource:campaign.get('utm_source')||'',
   utmMedium:campaign.get('utm_medium')||'',utmCampaign:campaign.get('utm_campaign')||'',
   utmContent:campaign.get('utm_content')||'',privacyAck:true,marketingConsent:false,_honey:''
@@ -32,7 +33,6 @@ async function sendCrmInquiry(c,d,ctx,fetcher=fetch,turnstileToken=''){
  try{
   const res=await fetcher(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:controller.signal});
   let answer;try{answer=await res.json()}catch{throw new Error('CRM_UNCERTAIN')}
-  // CAPTCHA failures must NEVER fall through to the direct HubSpot backup form.
   if(answer&&typeof answer.code==='string'&&answer.code.startsWith('TURNSTILE_')){
    throw new Error(answer.code==='TURNSTILE_UNAVAILABLE'||answer.code==='TURNSTILE_MISCONFIGURED'?'CRM_VERIFICATION_UNAVAILABLE':'CRM_CHALLENGE');
   }
