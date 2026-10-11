@@ -68,7 +68,10 @@ function isQuoteIntent(text){
 }
 function salesReply(input){
  const q=input.trim();
- if(isQuoteIntent(q))quoteState.active=true;
+ if(isQuoteIntent(q)&&!quoteState.active){
+  quoteState.active=true;
+  quoteState.model='';quoteState.size='';quoteState.quantity='';quoteState.zip='';
+ }
  if(quoteState.active){
   captureDetails(q);
   if(!quoteState.model)return [tr(11)];
