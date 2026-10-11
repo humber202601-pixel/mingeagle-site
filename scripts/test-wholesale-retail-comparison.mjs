@@ -11,8 +11,9 @@ for(let i=0;i<names.length;i++)assert.deepEqual(RETAIL_USD[names[i]],expected['p
 assert.equal(retailReference('Weighted Flocked Silent Basketball | No. 6 | Brown'),18.9);
 assert.equal(retailReference('Unknown product | No. 5 | Blue'),null);
 const quote=fs.readFileSync('functions/quote/[token].ts','utf8');
-assert(quote.includes("wholesale<retail"),'Customer quote must show savings only when actual wholesale is lower than retail');
-assert(quote.includes("Retail reference: USD"),'Public quote must explain retail reference');
+assert(!quote.includes('Retail reference: USD'),'Unreviewed retail reference must not appear on public quote');
+assert(!quote.includes('Save ${'),'Unapproved savings must not be calculated or claimed on public quote');
+assert(quote.includes('Public discount claims require a persisted'),'Public quote must document the mandatory approval gate');
 const admin=fs.readFileSync('src/AdminDetail.tsx','utf8');
 assert(admin.includes('RETAIL_USD[line.product]'),'Admin must show the per-size retail reference');
-console.log('PASS: B2B admin and customer quote retail reference agree with published retail prices; savings shown only when below retail.');
+console.log('PASS: retail reference remains available for internal reviews, with no unapproved customer-facing savings claims.');
