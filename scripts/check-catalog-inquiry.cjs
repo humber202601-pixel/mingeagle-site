@@ -3,6 +3,13 @@ const catalog=fs.readFileSync('public/wholesale-product-catalog.html','utf8');
 const form=fs.readFileSync('public/inquiry.html','utf8');
 const logic=fs.readFileSync('public/inquiry.js','utf8');
 const master=JSON.parse(fs.readFileSync('public/product-master.json','utf8'));
+const reference=JSON.parse(fs.readFileSync('public/retail-reference-prices.json','utf8'));
+assert.equal(reference.currency,'USD');
+assert.equal(Object.keys(reference.products).length,4);
+const embeddedPrices=catalog.match(/const retailPrices=(\[[^;]+\]);/);
+assert(embeddedPrices,'Catalog needs pricing fallback while loading the shared source');
+const prices=JSON.parse(embeddedPrices[1]);
+for(let i=0;i<4;i++)assert.deepEqual(prices[i],reference.products['p'+(i+1)],'Embedded fallback must match unified price source for product '+(i+1));
 const names=['Flocked Silent Basketball Set','Fabric-Cover Silent Basketball Set','Weighted Flocked Silent Basketball','Flocked Silent Soccer Ball'];
 for(const name of names){
  assert(form.includes('value="'+name+'"'),'Inquiry checkbox missing: '+name);
