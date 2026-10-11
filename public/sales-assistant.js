@@ -6,6 +6,15 @@ root.innerHTML='<button type="button" class="me-chat-launch" aria-label="Open in
 document.body.appendChild(root);
 const launch=root.querySelector('.me-chat-launch'),panel=root.querySelector('.me-chat-panel'),close=root.querySelector('.me-chat-close'),log=root.querySelector('.me-chat-log'),quick=root.querySelector('.me-chat-quick'),form=root.querySelector('form'),field=root.querySelector('input');
 const askUrl='inquiry.html?type=quote',sampleUrl='inquiry.html?type=sample';
+const languageCodes=['en','es','pt','fr','de','it','ja'];
+const languageIndex={button:0,subtitle:1,placeholder:2,send:3,contact:4};
+let activeLanguage='en';
+function currentLanguage(){const selected=document.querySelector('#langSelect')?.value||document.documentElement.lang||'en';return languageCodes.includes(selected)?selected:'en'}
+function tr(index){const table=window.MINGEAGLE_CHAT_LANG||{};return (table[activeLanguage]||table.en||[])[index]||(table.en||[])[index]||''}
+function faq(index){const table=window.MINGEAGLE_CHAT_ANSWERS||{};return (table[activeLanguage]||table.en||[])[index]||(table.en||[])[index]||''}
+function translateUi(){activeLanguage=currentLanguage();launch.querySelector('span').textContent=tr(0);root.querySelector('.me-chat-head small').textContent=tr(1);field.placeholder=tr(2);form.querySelector('button').textContent=tr(3);root.querySelector('.me-chat-foot a').textContent=tr(4);root.querySelector('.me-chat-foot').firstChild.textContent=tr(18)+' ';const names=[5,6,7,8,9];quick.querySelectorAll('button').forEach((b,i)=>{b.textContent=tr(names[i])});root.querySelector('.me-chat-launch').setAttribute('aria-label',tr(0));}
+window.addEventListener('mingeagle:language',translateUi);
+
 const entries=[
  ['Basketball sizes','Our flocked and fabric-cover silent basketball sets come in sizes No. 3, 5 and 7. The weighted flocked silent basketball is available in No. 3, 4, 6 and 7.','products.html'],
  ['Silent soccer','Our flocked silent soccer ball is available in size No. 5 with several color options.','silent-soccer.html'],
@@ -14,14 +23,14 @@ const entries=[
  ['Shipping & MOQ','Freight, minimum order quantity, stock and lead time depend on the exact configuration and destination. We will confirm them in a personalized quote.',askUrl]
 ];
 function add(who,message,url,label){const block=document.createElement('div');block.className='me-chat-msg '+who;const p=document.createElement('p');p.textContent=message;block.appendChild(p);if(url){const a=document.createElement('a');a.href=url;a.textContent=label||'Continue →';block.appendChild(a)}log.appendChild(block);log.scrollTop=log.scrollHeight}
-function reply(query){const q=query.toLowerCase();if(/(human|agent|representative|person|email|contact|whatsapp|talk to)/.test(q))return ['Our sales team can help with individual quotes and special requests. You can send an inquiry or contact mingeaglecommerce@gmail.com.',askUrl,'Contact our team →'];
-if(/(soccer|football)/.test(q))return [entries[1][1],entries[1][2],'Explore soccer →'];
-if(/(wholesale|bulk|quotation|quote|pricing for|discount|buy [0-9]|[0-9]+ (units|pcs|sets))/i.test(q))return [entries[2][1],askUrl,'Request a quote →'];
-if(/(shipping|freight|delivery|zip|lead time|moq|minimum order|inventory|stock)/.test(q))return [entries[4][1],askUrl,'Ask for confirmed terms →'];
-if(/(sample|trial|test one)/.test(q))return [entries[3][1],sampleUrl,'Request a sample →'];
-if(/(soccer|basketball|size|color|model|product|weighted|flocked|fabric)/.test(q))return [entries[0][1],entries[0][2],'Browse products →'];
-if(/(retail|price|cost|how much)/.test(q))return ['Our current reference retail prices depend on the ball model and size. Please check the published catalog; wholesale pricing is quoted separately.', 'wholesale-product-catalog.html','View product prices →'];
-return ['I can help with product models, sizes, samples, retail references, bulk quotes and shipping questions. For anything else, please send an inquiry so our team can provide a verified answer.',askUrl,'Ask our team →']}
+function reply(query){const q=query.toLowerCase();if(/(human|agent|representative|person|email|contact|whatsapp|talk to)/.test(q))return [faq(6),askUrl,tr(17)];
+if(/(soccer|football)/.test(q))return [faq(1),entries[1][2],faq(8)];
+if(/(wholesale|bulk|quotation|quote|pricing for|discount|buy [0-9]|[0-9]+ (units|pcs|sets))/i.test(q))return [faq(2),askUrl,tr(16)];
+if(/(shipping|freight|delivery|zip|lead time|moq|minimum order|inventory|stock)/.test(q))return [faq(4),askUrl,tr(17)];
+if(/(sample|trial|test one)/.test(q))return [faq(3),sampleUrl,faq(8)];
+if(/(soccer|basketball|size|color|model|product|weighted|flocked|fabric)/.test(q))return [faq(0),entries[0][2],faq(8)];
+if(/(retail|price|cost|how much)/.test(q))return [faq(5),'wholesale-product-catalog.html',faq(8)];
+return [faq(6),askUrl,tr(17)]}
 // Multi-turn, client-side quote qualification: no visitor text is transmitted or stored.
 const quoteState={active:false,model:'',size:'',quantity:'',zip:''};
 function captureDetails(text){
@@ -52,30 +61,30 @@ function salesReply(input){
  if(/\\b(quote|wholesale|bulk|pricing for|request price)\\b/i.test(q))quoteState.active=true;
  if(quoteState.active){
   captureDetails(q);
-  if(!quoteState.model)return ['Happy to help with a wholesale quote. Which model do you need: flocked basketball, fabric-cover basketball, weighted basketball or silent soccer ball?'];
-  if(!quoteState.size)return ['Thanks! Which ball size would you prefer? Please enter a number such as size 3, 5 or 7.'];
-  if(!quoteState.quantity)return ['Got it. Approximately how many sets or balls do you need? For example: 100 units.'];
-  if(!quoteState.zip)return ['What is the U.S. delivery ZIP code? Example: ZIP 75201. We will confirm freight separately.'];
+  if(!quoteState.model)return [tr(11)];
+  if(!quoteState.size)return [tr(12)];
+  if(!quoteState.quantity)return [tr(13)];
+  if(!quoteState.zip)return [tr(14)];
   const summary='Thanks! I have '+quoteState.quantity+' units of '+quoteState.model+', No. '+quoteState.size+', shipping to ZIP '+quoteState.zip+'. Please review the prefilled inquiry form and add your contact details. Our team will verify stock, shipping, MOQ and wholesale pricing.';
-  quoteState.active=false;return [summary,quoteLink(),'Continue with quote request →'];
+  quoteState.active=false;return [faq(7)+' '+summary,quoteLink(),tr(16)];
  }
  return reply(q);
 }
-entries.forEach(([label,answer,url])=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>{add('visitor',label);add('assistant',answer,url,'Learn more →')};quick.appendChild(b)});
-function open(){panel.hidden=false;launch.setAttribute('aria-expanded','true');if(!log.children.length)add('assistant','Welcome! I am MING EAGLE’s automated sales assistant. Ask me about silent basketballs, soccer balls, wholesale quotes, samples or delivery.');field.focus()}
+entries.forEach(([label,answer,url],i)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>{add('visitor',tr(5+i));add('assistant',faq(i),url,faq(8))};quick.appendChild(b)});
+function open(){panel.hidden=false;launch.setAttribute('aria-expanded','true');if(!log.children.length)add('assistant',tr(10));field.focus()}
 launch.addEventListener('click',()=>panel.hidden?open():close.click());close.addEventListener('click',()=>{panel.hidden=true;launch.setAttribute('aria-expanded','false');launch.focus()});
 const context=[];
 async function answerQuestion(question){
   if(needsStaff(question)){
     handoffQuestion=question;
-    return ['This needs confirmation from our sales team. Please send your question through the inquiry form so we can review the details and reply accurately.',handoffUrl('question'),'Send question to our team →'];
+    return [tr(15),handoffUrl('question'),tr(17)];
   }
   // Keep high-stakes commercial quotes deterministic and human-reviewed.
   if(quoteState.active||/\\b(wholesale|bulk|quote|pricing for|request price)\\b/i.test(question))return salesReply(question);
   const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),7000);
   try{
     const history=[...context.slice(-10),{role:'user',content:question}];
-    const response=await fetch('https://app.mingeagle.com/api/sales-chat',{method:'POST',mode:'cors',signal:controller.signal,headers:{'content-type':'application/json'},body:JSON.stringify({messages:history})});
+    const response=await fetch('https://app.mingeagle.com/api/sales-chat',{method:'POST',mode:'cors',signal:controller.signal,headers:{'content-type':'application/json'},body:JSON.stringify({messages:history,language:activeLanguage})});
     if(!response.ok)throw Error('AI unavailable');
     const data=await response.json();
     if(!data.ok||typeof data.answer!=='string')throw Error('Invalid AI answer');
@@ -86,4 +95,5 @@ async function answerQuestion(question){
 form.addEventListener('submit',async e=>{e.preventDefault();const q=field.value.trim();if(!q)return;add('visitor',q);field.value='';field.disabled=true;
   try{const [message,url,label]=await answerQuestion(q);add('assistant',message,url,label)}finally{field.disabled=false;field.focus()}
 });
+translateUi();
 })();
