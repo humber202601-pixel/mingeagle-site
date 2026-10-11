@@ -2,7 +2,7 @@
 (()=>{'use strict';
 if(document.getElementById('me-chat-root'))return;
 const root=document.createElement('div');root.id='me-chat-root';
-root.innerHTML='<button type="button" class="me-chat-launch" aria-label="Open instant sales assistant" aria-expanded="false">✦ <span>Ask MING EAGLE</span></button><section class="me-chat-panel" role="dialog" aria-label="MING EAGLE automated sales assistant" hidden><header class="me-chat-head"><div><strong>MING EAGLE Assistant</strong><small>Instant answers · 24/7 · Automated</small></div><button type="button" class="me-chat-close" aria-label="Close assistant">×</button></header><div class="me-chat-log" role="log" aria-live="polite"></div><div class="me-chat-quick"></div><form class="me-chat-form"><label for="me-chat-input" class="me-chat-sr">Your question</label><input id="me-chat-input" maxlength="600" placeholder="Ask about products, sizes, wholesale…" autocomplete="off" required><button type="submit">Send</button></form><p class="me-chat-foot">Automated FAQ, not a live human. Prices exclude shipping unless confirmed. <a href="inquiry.html?type=quote">Contact sales</a></p></section>';
+root.innerHTML='<button type="button" class="me-chat-launch" aria-label="Open instant sales assistant" aria-expanded="false">✦ <span>Ask MING EAGLE</span></button><section class="me-chat-panel" role="dialog" aria-label="MING EAGLE automated sales assistant" hidden><header class="me-chat-head"><div><strong>MING EAGLE Assistant</strong><small>24/7 automated support · AI when available</small></div><button type="button" class="me-chat-close" aria-label="Close assistant">×</button></header><div class="me-chat-log" role="log" aria-live="polite"></div><div class="me-chat-quick"></div><form class="me-chat-form"><label for="me-chat-input" class="me-chat-sr">Your question</label><input id="me-chat-input" maxlength="600" placeholder="Ask about products, sizes, wholesale…" autocomplete="off" required><button type="submit">Send</button></form><p class="me-chat-foot">Automated assistant. Questions may be processed by an AI provider when enabled. Do not enter sensitive details. Prices exclude shipping unless confirmed. <a href="inquiry.html?type=quote">Contact sales</a></p></section>';
 document.body.appendChild(root);
 const launch=root.querySelector('.me-chat-launch'),panel=root.querySelector('.me-chat-panel'),close=root.querySelector('.me-chat-close'),log=root.querySelector('.me-chat-log'),quick=root.querySelector('.me-chat-quick'),form=root.querySelector('form'),field=root.querySelector('input');
 const askUrl='inquiry.html?type=quote',sampleUrl='inquiry.html?type=sample';
@@ -56,5 +56,22 @@ function salesReply(input){
 entries.forEach(([label,answer,url])=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>{add('visitor',label);add('assistant',answer,url,'Learn more →')};quick.appendChild(b)});
 function open(){panel.hidden=false;launch.setAttribute('aria-expanded','true');if(!log.children.length)add('assistant','Welcome! I am MING EAGLE’s automated sales assistant. Ask me about silent basketballs, soccer balls, wholesale quotes, samples or delivery.');field.focus()}
 launch.addEventListener('click',()=>panel.hidden?open():close.click());close.addEventListener('click',()=>{panel.hidden=true;launch.setAttribute('aria-expanded','false');launch.focus()});
-form.addEventListener('submit',e=>{e.preventDefault();const q=field.value.trim();if(!q)return;add('visitor',q);field.value='';const [message,url,label]=salesReply(q);add('assistant',message,url,label)});
+const context=[];
+async function answerQuestion(question){
+  // Keep high-stakes commercial quotes deterministic and human-reviewed.
+  if(quoteState.active||/\\b(wholesale|bulk|quote|pricing for|request price)\\b/i.test(question))return salesReply(question);
+  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),7000);
+  try{
+    const history=[...context.slice(-10),{role:'user',content:question}];
+    const response=await fetch('https://app.mingeagle.com/api/sales-chat',{method:'POST',mode:'cors',signal:controller.signal,headers:{'content-type':'application/json'},body:JSON.stringify({messages:history})});
+    if(!response.ok)throw Error('AI unavailable');
+    const data=await response.json();
+    if(!data.ok||typeof data.answer!=='string')throw Error('Invalid AI answer');
+    context.push({role:'user',content:question},{role:'assistant',content:data.answer});
+    return [data.answer];
+  }catch{return salesReply(question)}finally{clearTimeout(timeout)}
+}
+form.addEventListener('submit',async e=>{e.preventDefault();const q=field.value.trim();if(!q)return;add('visitor',q);field.value='';field.disabled=true;
+  try{const [message,url,label]=await answerQuestion(q);add('assistant',message,url,label)}finally{field.disabled=false;field.focus()}
+});
 })();
