@@ -31,4 +31,9 @@ const images=[...catalog.matchAll(/<img[^>]*src="([^"]+)"/g)].map(m=>m[1]);
 assert.equal(images.length,4,'Catalog must show precisely four approved product images');
 assert(images.every(src=>Object.values(master).some(p=>p.hero===src.split('?')[0])),'Catalog contains an unapproved or external product image');
 
+const inlineScripts=[...catalog.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/g)].map(match=>match[1]).filter(Boolean).filter(script=>!script.includes('application/ld+json'));
+assert(inlineScripts.some(script=>script.includes('const retailPrices=')),'Retail reference price calculator must be present');
+for(const script of inlineScripts)assert.doesNotThrow(()=>new Function(script),'Inline catalog JavaScript must parse');
+assert(!catalog.includes('</html>+retailPrices'),'Detached price-calculator code after closing HTML');
+assert.equal((catalog.match(/<\\/html>/g)||[]).length,1,'Catalog must have exactly one closing HTML element');
 console.log('PASS: each catalog product carries its existing exact inquiry checkbox identity to quote/sample form.');
