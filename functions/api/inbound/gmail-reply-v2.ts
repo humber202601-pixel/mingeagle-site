@@ -1,5 +1,6 @@
 import { verifyInboundKey } from '../../_shared/inbound-auth';
 import { classifyReply, type ReplyClassification } from '../../_shared/reply-classifier';
+import { applyReplySalesAction } from '../../_shared/reply-sales-actions';
 
 interface Env {
   MINGEAGLE_DB: D1Database;
@@ -119,12 +120,34 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         WHERE lead_id=? AND status IN ('OPEN','IN_PROGRESS') AND type IN ('REPLY_ACTION','OUTREACH_FOLLOW_UP')`).bind(leadId).run();
     }
 
+    // Convert recognized pricing/sample replies into existing CRM inquiry/sample records.
+    // This prepares an internal sales opportunity only; it never sends a quotation.
+    // A failure in the sales stage must be visible to the operator and retryable;
+    // inbound email itself has already been safely recorded above.
+    let salesAction: Awaited<ReturnType<typeof applyReplySalesAction>> | null = null;
+    let salesActionError = false;
+    if (['PRICE_QUOTE','NEGOTIATION','SAMPLE_INTEREST'].includes(classification.intent)) {
+      try {
+        salesAction = await applyReplySalesAction(db, {
+          leadId, companyId, contactId, intent: classification.intent,
+          body, messageId: crmMessageId,
+        });
+      } catch (error) {
+        salesActionError = true;
+        console.error('reply_sales_action_failed', { leadId, gmailMessageId, error });
+        await db.prepare(`UPDATE tasks SET description=description || ' Automatic sales inquiry creation needs manual review.',
+          priority='HIGH', updated_at=CURRENT_TIMESTAMP
+          WHERE lead_id=? AND type='REPLY_ACTION' AND status IN ('OPEN','IN_PROGRESS')`)
+          .bind(leadId).run().catch(() => undefined);
+      }
+    }
+
     await db.prepare(`INSERT INTO activities (id, entity_type, entity_id, activity_type, title, description, metadata_json)
       VALUES (?, 'LEAD', ?, 'MESSAGE_INBOUND', 'Customer Gmail reply imported automatically', ?, ?)`)
       .bind(
         crypto.randomUUID(), leadId,
         `EMAIL from ${fromEmail}: ${body.slice(0, 300)}`,
-        JSON.stringify({ crmMessageId, gmailMessageId, gmailThreadId: gmailThreadId || null, intent: classification.intent, leadStatus: classification.leadStatus, suggestedReply: classification.suggestedReply }),
+        JSON.stringify({ crmMessageId, gmailMessageId, gmailThreadId: gmailThreadId || null, intent: classification.intent, leadStatus: classification.leadStatus, suggestedReply: classification.suggestedReply, salesAction, salesActionError }),
       ).run();
 
     return Response.json({
@@ -137,6 +160,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       leadStatus: classification.leadStatus,
       nextBestAction: classification.nextBestAction,
       suggestedReply: classification.suggestedReply,
+      salesAction,
+      salesActionError,
     }, { status: 201 });
   } catch (error) {
     console.error('gmail_inbound_reply_v2_failed', error);
