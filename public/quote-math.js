@@ -31,7 +31,20 @@ function calculateFromCatalog(catalog,input){
  if(retail===undefined)throw new Error('UNKNOWN_VARIANT');
  return {...calculate({retailUnitPrice:retail,wholesaleUnitPrice:input.wholesaleUnitPrice,quantity:input.quantity}),productId:product,size:'No. '+size};
 }
-const api={calculate,calculateFromCatalog};
+function calculateOrder(catalog,lines){
+ if(!Array.isArray(lines)||lines.length<1||lines.length>20)throw new Error('INVALID_LINES');
+ const items=lines.map(line=>calculateFromCatalog(catalog,line));
+ const quantity=items.reduce((n,item)=>n+item.quantity,0);
+ const totalCents=key=>items.reduce((n,item)=>n+cents(item[key]),0);
+ const retailTotal=totalCents('retailTotal'),wholesaleTotal=totalCents('wholesaleTotal');
+ if(!Number.isSafeInteger(retailTotal)||!Number.isSafeInteger(wholesaleTotal))throw new Error('INVALID_TOTAL');
+ const saved=retailTotal-wholesaleTotal;
+ return {currency:'USD',items,quantity,retailTotal:money(retailTotal),
+  wholesaleTotal:money(wholesaleTotal),savingsTotal:money(saved),
+  discountPercent:retailTotal?Number((saved/retailTotal*100).toFixed(2)):0,
+  shippingAndTaxIncluded:false,approved:false};
+}
+const api={calculate,calculateFromCatalog,calculateOrder};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 else root.MingEagleQuoteMath=api;
 })(typeof window==='undefined'?globalThis:window);
