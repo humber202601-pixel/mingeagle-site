@@ -20,6 +20,7 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
   const [state,setState]=useState('TX'),[type,setType]=useState(initialType||'BASKETBALL_TRAINING'),[city,setCity]=useState(''),[target,setTarget]=useState(20),[batches,setBatches]=useState(1);
   const [data,setData]=useState<Data>({}),[loading,setLoading]=useState(true),[working,setWorking]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
   const [draftBusy,setDraftBusy]=useState(false);
+  const autoDraftRun=useRef('');
   const [queueStats,setQueueStats]=useState<{review:number;ready:number;sent:number}|null>(null);
   const [history,setHistory]=useState<History>({}),[historyOpen,setHistoryOpen]=useState(false),[historyBusy,setHistoryBusy]=useState(false);
   const [clockNow,setClockNow]=useState(()=>Date.now());
@@ -77,6 +78,21 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
     }catch{/* The prospect discovery panel remains functional if queue stats fail. */}
   }
   useEffect(()=>{void refreshQueueStats();},[accessKey]);
+  // A completed discovery run can prepare drafts for already-qualified leads.
+  // The queue performs its own deduplication and keeps first-contact mail under review.
+  useEffect(()=>{
+    const run=data.run;
+    if(!run||!['COMPLETED','PARTIAL'].includes(run.status)||autoDraftRun.current===run.id)return;
+    autoDraftRun.current=run.id;
+    void (async()=>{
+      try{
+        const response=await fetch('/api/admin/email-queue',{method:'POST',
+          headers:{'x-admin-key':accessKey,'content-type':'application/json'},
+          body:JSON.stringify({action:'GENERATE'})});
+        if(response.ok)void refreshQueueStats();
+      }catch{/* Draft generation is best-effort; manual button remains available. */}
+    })();
+  },[data.run?.id,data.run?.status,accessKey]);
   async function prepareReviewDrafts(){
     if(draftBusy)return;
     setDraftBusy(true);setError('');setMessage('');
