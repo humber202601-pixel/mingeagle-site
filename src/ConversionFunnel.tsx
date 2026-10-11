@@ -6,7 +6,7 @@ import {discoveryPriorities} from './discovery-priorities';
 import './conversion-funnel.css';
 type Source='ALL'|'DISCOVERY'|'WEBSITE';
 type Segment={category:string;total:number;withContact:number;contactable:number;emailReady:number;blocked:number;contacted:number;replied:number;quoted:number;ordered:number;paid:number;readyToReview:number};
-type Prospect={id:string;company:string;category:string;city:string;state:string;email:string;phone:string;whatsapp:string;score:number;status:string};
+type Prospect={id:string;company:string;category:string;city:string;state:string;email:string;phone:string;whatsapp:string;score:number;emailReady?:boolean;status:string};
 type QuotePerformance={sent:number;viewed:number;accepted:number;declined:number;expired:number;withOrder:number};
 type ProductPerformance={product:string;quoted:number;viewed:number;accepted:number;withOrder:number;quotedUnits:number;quotedMerchandiseUSD:number};
 type Funnel={ok:boolean;error?:string;generatedAt?:string;summary:Omit<Segment,'category'>;quotePerformance?:QuotePerformance;products?:ProductPerformance[];segments:Segment[];prospects:Prospect[];limitations?:string[]};
@@ -157,13 +157,13 @@ export default function ConversionFunnel({accessKey}:{accessKey:string}){
         <p className="conversion-muted">样本太少的类别不宜凭回复率判断优劣。可优先审核「可联系但未联系」客户，再根据实际报价和订单选择重点开发的类别。</p>
       </section>
       <section className="panel conversion-prospects">
-        <div className="panel-head"><div><h2>优先审核 · 尚未首次联系的客户</h2><span>有联系方式、未禁止联系、尚无出站消息；最多展示前30个高分客户</span></div>
+        <div className="panel-head"><div><h2>优先审核 · 尚未首次联系的客户</h2><span>有联系方式、未禁止联系且尚无发信记录；优先列出有邮箱的客户，再按评分排列，最多30个</span></div>
           <label>筛选类别<select value={selected} onChange={e=>setSelected(e.target.value)}><option value="ALL">全部类别</option>{data.segments.map(s=><option key={s.category} value={s.category}>{name(s.category)}</option>)}</select></label>
         </div>
         {!prospects.length?<p className="empty-row">当前展示范围无待首次联系客户。若某类别显示有待开发客户，可到潜在客户列表查看其完整档案；本处仅展示评分靠前的30个。</p>:
           <div className="conversion-prospect-grid">{prospects.map(p=><div className="conversion-prospect" key={p.id}>
             <div><strong>{p.company}</strong><small>{name(p.category)} · {[p.city,p.state].filter(Boolean).join(', ')||'地区未公开'} · 评分 {p.score}</small>
-              <small>{p.email||p.phone||p.whatsapp?'有公开联系方式，发送前请核实':'联系方式未公开'}</small></div>
+              <small>{p.emailReady?'优先方式：邮箱（发送前仍需核实）':p.phone||p.whatsapp?'仅电话或 WhatsApp：需人工选择合适渠道':'联系方式待补充'}</small></div>
             <Link to={'/app/leads/'+encodeURIComponent(p.id)}>打开档案并拟稿 <ExternalLink size={13}/></Link>
           </div>)}</div>}
       </section>
