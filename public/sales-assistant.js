@@ -44,6 +44,8 @@ function captureDetails(text){
  else if(quoteState.quantity&&!quoteState.zip&&/^(?=.{3,10}$)(?=.*[a-z0-9])[a-z0-9 -]+$/i.test(text.trim()))quoteState.zip=text.trim().toUpperCase();
  const n=text.match(/\b(?:size\s*|no\.?\s*)([34567])\b/i);
  if(n)quoteState.size=n[1];
+ // Buyers often answer the size prompt with only a digit (e.g. "5").
+ else if(quoteState.model&&!quoteState.size&&/^[34567]$/.test(text.trim()))quoteState.size=text.trim();
  const normalized=text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  if(/(?:soccer|football|futbol|futebol|futbolowa|futbolowe|fussball|fußball|voetbal|calcio|サッカー|足球)/i.test(normalized))quoteState.model='Flocked Silent Soccer Ball';
  else if(/(?:weighted|weight|leste|gewicht|gewichtet|appesantit|obciazon|verzwaard|加重|重い)/i.test(normalized))quoteState.model='Weighted Flocked Silent Basketball';
