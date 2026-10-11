@@ -84,10 +84,10 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
     // A quote may have been viewed or accepted before its status subsequently changed.
     const q=(await db.prepare(`SELECT
       COUNT(*) AS sent,
-      SUM(CASE WHEN first_viewed_at IS NOT NULL OR status IN ('VIEWED','ACCEPTED','CONVERTED') THEN 1 ELSE 0 END) AS viewed,
-      SUM(CASE WHEN accepted_at IS NOT NULL OR status IN ('ACCEPTED','CONVERTED') THEN 1 ELSE 0 END) AS accepted,
-      SUM(CASE WHEN status='DECLINED' THEN 1 ELSE 0 END) AS declined,
-      SUM(CASE WHEN status='EXPIRED' THEN 1 ELSE 0 END) AS expired,
+      SUM(CASE WHEN first_viewed_at IS NOT NULL OR q.status IN ('VIEWED','ACCEPTED','CONVERTED') THEN 1 ELSE 0 END) AS viewed,
+      SUM(CASE WHEN accepted_at IS NOT NULL OR q.status IN ('ACCEPTED','CONVERTED') THEN 1 ELSE 0 END) AS accepted,
+      SUM(CASE WHEN q.status='DECLINED' THEN 1 ELSE 0 END) AS declined,
+      SUM(CASE WHEN q.status='EXPIRED' THEN 1 ELSE 0 END) AS expired,
       (SELECT COUNT(DISTINCT o.quote_id) FROM orders o
        JOIN quotes qi ON qi.id=o.quote_id
        WHERE o.status NOT IN ('DRAFT','CANCELLED') AND qi.status NOT IN ('DRAFT','CANCELLED')
