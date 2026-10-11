@@ -162,6 +162,11 @@ async function generateQueue(db: D1Database) {
       )
       AND COALESCE(ct.do_not_contact,0)=0
       AND ct.email IS NOT NULL AND ct.email<>''
+      AND (l.status='READY_TO_CONTACT' OR NOT EXISTS (
+        SELECT 1 FROM messages inbound WHERE inbound.lead_id=l.id AND inbound.direction='INBOUND'
+          AND inbound.sent_at >= COALESCE((SELECT MAX(outbound.sent_at) FROM messages outbound
+            WHERE outbound.lead_id=l.id AND outbound.direction='OUTBOUND'), '1970-01-01')
+      ))
     ORDER BY CASE WHEN l.status='READY_TO_CONTACT' THEN 0 ELSE 1 END, datetime(COALESCE(l.next_action_at,l.created_at)) ASC
     LIMIT 250`).all<DueLead>();
 
@@ -242,6 +247,16 @@ async function sendQueueItem(db: D1Database, env: Env, queueId: string) {
   if (['SENT','SKIPPED'].includes(String(row.status))) throw new Error('This queue item is already closed.');
   if (String(row.status) !== 'READY') throw new Error('Approve this draft before sending.');
   if (Number(row.do_not_contact || 0) === 1 || ['DO_NOT_CONTACT','NOT_INTERESTED','NOT_FIT'].includes(String(row.lead_status || '').toUpperCase())) throw new Error('This contact is marked DO NOT CONTACT.');
+  // Never send a scheduled follow-up once a reply has already been recorded.
+  // A fresh reply must be handled as a conversation, not as no-response outreach.
+  if(String(row.queue_type)!=='OUTREACH_INITIAL'){
+    const reply=await db.prepare(`SELECT 1 AS found FROM messages inbound WHERE inbound.lead_id=?
+      AND inbound.direction='INBOUND'
+      AND inbound.sent_at >= COALESCE((SELECT MAX(outbound.sent_at) FROM messages outbound
+        WHERE outbound.lead_id=? AND outbound.direction='OUTBOUND'), '1970-01-01') LIMIT 1`)
+      .bind(String(row.lead_id),String(row.lead_id)).first<{found:number}>();
+    if(reply)throw new Error('Customer replied; review the conversation before sending a follow-up.');
+  }
 
   // Older discovery records may predate the stricter first-party mailbox extraction.
   // Block a suspicious cross-business-domain destination before any Gmail API call.
@@ -367,7 +382,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         return Response.json({ ok: true, ...sent });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unable to send queued email.';
-        const validationError = message === 'Approve this draft before sending.' || message === 'This queue item is already closed.' || message === 'This contact is marked DO NOT CONTACT.' || message === 'Queue item not found.';
+        const validationError = message === 'Approve this draft before sending.' || message === 'This queue item is already closed.' || message === 'This contact is marked DO NOT CONTACT.' || message === 'Queue item not found.' || message === 'Customer replied; review the conversation before sending a follow-up.';
         if (!validationError) {
           await db.prepare(`UPDATE email_queue SET status='FAILED', last_error=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='READY'`).bind(message, queueId).run();
         }
