@@ -11,6 +11,7 @@ on:
       - 'public/forms-core.js'
       - 'public/inquiry-config.js'
       - 'scripts/check-crm-bridge.cjs'
+      - 'scripts/check-forms-core.cjs'
       - 'scripts/check-turnstile.cjs'
       - 'scripts/check-conversion.cjs'
       - 'scripts/check-growth.cjs'
@@ -39,6 +40,7 @@ jobs:
           node scripts/check-growth.cjs
           node scripts/check-conversion.cjs
           node scripts/check-crm-bridge.cjs
+          node scripts/check-forms-core.cjs
           node scripts/check-turnstile.cjs
           node scripts/check-seo-v37.cjs
           node --check public/sales-assistant.js
