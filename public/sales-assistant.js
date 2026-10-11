@@ -36,12 +36,13 @@ return [faq(6),askUrl,tr(17)]}
 // Multi-turn, client-side quote qualification: no visitor text is transmitted or stored.
 const quoteState={active:false,model:'',size:'',quantity:'',zip:''};
 function captureDetails(text){
+ const hadQuantity=!!quoteState.quantity;
  const m=text.match(/(?:^|\s)([1-9]\d{0,4})\s*(?:sets?|pcs?|pieces?|balls?|units?)\b/i);
  if(m)quoteState.quantity=m[1];
  else if(quoteState.model&&quoteState.size&&!quoteState.quantity&&/^[1-9]\d{0,4}$/.test(text.trim()))quoteState.quantity=text.trim();
  const z=text.match(/\b(?:zip(?:\s*code)?|postal(?:\s*code)?|postcode|code\s*postal|c[oó]digo\s*postal|cep|plz|cap|郵便番号)\s*[:#-]?\s*([a-z0-9][a-z0-9 -]{1,10})/i);
  if(z)quoteState.zip=z[1].trim().toUpperCase();
- else if(quoteState.quantity&&!quoteState.zip&&/^(?=.{3,10}$)(?=.*[a-z0-9])[a-z0-9 -]+$/i.test(text.trim()))quoteState.zip=text.trim().toUpperCase();
+ else if(hadQuantity&&!quoteState.zip&&/^(?=.{3,10}$)(?=.*[a-z0-9])[a-z0-9 -]+$/i.test(text.trim()))quoteState.zip=text.trim().toUpperCase();
  const n=text.match(/\b(?:size\s*|no\.?\s*)([34567])\b/i);
  if(n)quoteState.size=n[1];
  // Buyers often answer the size prompt with only a digit (e.g. "5").
