@@ -11,11 +11,11 @@ type PageResult = { url:string; html:string };
 
 const clean=(v:unknown,max=1000)=>typeof v==='string'?v.trim().slice(0,max):'';
 function classifyEnrichmentFailure(message:string){
-  if(/HTTP (?:401|403|429)|timeout|timed out|abort|network|fetch failed|HTTP 5\\d\\d/i.test(message))
+  if(/HTTP (?:401|403|429)|timeout|timed out|abort|network|fetch failed|HTTP 5[0-9][0-9]/i.test(message))
     return {category:'TEMPORARILY_UNAVAILABLE',retryable:true,note:'官网限制访问或暂时不可用，建议稍后重试。'};
   if(/HTTP 404|HTTP 410/i.test(message))
     return {category:'PAGE_NOT_FOUND',retryable:false,note:'官网地址可能已失效，需重新核实。'};
-  if(/not return HTML|Only public|Private\\/local|Non-standard website ports|Website URL is invalid/i.test(message))
+  if(/not return HTML|Only public|Private.local|Non-standard website ports|Website URL is invalid/i.test(message))
     return {category:'UNSUPPORTED_WEBSITE',retryable:false,note:'官网格式或公开访问要求不满足，需人工核对地址。'};
   return {category:'WEBSITE_CHECK_FAILED',retryable:true,note:'官网补全未完成，需核对详细错误。'};
 }
