@@ -131,7 +131,7 @@ async function generateQueue(db: D1Database) {
   await ensureTable(db);
   const due = await db.prepare(`SELECT
       l.id, l.status, l.source, l.company_id, l.primary_contact_id, l.last_contact_at, l.next_action_at,
-      COALESCE(c.name, 'Individual buyer') AS company, c.customer_type, c.city, c.state_region,
+      COALESCE(c.name, 'Individual buyer') AS company, c.website AS company_website, c.customer_type, c.city, c.state_region,
       COALESCE(ct.full_name, ct.email, 'Customer') AS contact,
       ct.first_name, ct.email, COALESCE(ct.do_not_contact,0) AS do_not_contact,
       COALESCE((julianday('now') - julianday(l.last_contact_at)), 0) AS days_since_contact,
@@ -159,12 +159,23 @@ async function generateQueue(db: D1Database) {
     LIMIT 250`).all<DueLead>();
 
   let created = 0;
+  let heldForReview = 0;
   let initialCreated = 0;
   let followupCreated = 0;
   for (const row of due.results) {
     const leadId = String(row.id);
     const email = clean(row.email, 320);
-    if (!email.includes('@')) continue;
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) continue;
+    // A legacy extracted address on an unrelated company domain is not a
+    // verified business recipient. Keep the CRM lead, but do not make a sendable
+    // draft until its association with this organization is corrected.
+    if(String(row.source||'').toUpperCase()==='DISCOVERY'&&String(row.status)==='READY_TO_CONTACT'&&row.company_website){
+      let host='';
+      try{host=new URL(String(row.company_website)).hostname.toLowerCase().replace(/^www\\./,'');}catch{}
+      const emailHost=email.toLowerCase().split('@')[1]||'';
+      const consumer=/^(gmail|googlemail|outlook|hotmail|yahoo|icloud|aol|live)\\.com$/i.test(emailHost);
+      if(host&&emailHost!==host&&!consumer){heldForReview++;continue;}
+    }
     const tmpl = templateFor(row);
     const isInitial = String(row.status) === 'READY_TO_CONTACT';
     const nextAt = clean(row.next_action_at, 100) || new Date().toISOString();
@@ -186,7 +197,7 @@ async function generateQueue(db: D1Database) {
       if (isInitial) initialCreated += 1; else followupCreated += 1;
     }
   }
-  return { reviewed: due.results.length, created, initialCreated, followupCreated };
+  return { reviewed: due.results.length, created, initialCreated, followupCreated, heldForReview };
 }
 
 function base64Url(bytes: Uint8Array) {
