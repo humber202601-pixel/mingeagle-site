@@ -270,7 +270,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
           const errors=fallback.filter(r=>r.status==='rejected').map(r=>r.reason instanceof Error?r.reason.message:String(r.reason));
           searchNote+=`备用公开索引返回可用官网 ${unique.length} 个。${errors[0]||''}`;
         }
-        const supplemental=supplementalOfficialSites(stateCode,type,city,round);
+        const supplemental=input.autoSourceOnly?supplementalOfficialSites(stateCode,type,city,round):[];
         for(const hit of supplemental){const domain=domainOf(hit.url);if(domain&&!domains.has(domain)){domains.add(domain);unique.push(hit);}}
         if(supplemental.length)searchNote+=` 附加 ${supplemental.length} 个独立官网候选种子，后续逐一核验、去重（并非已经入库）。`;
         if(searched.every(r=>r.status==='rejected')&&!fallbackReadable&&!unique.length)throw new Error('公开搜索的主索引和备用索引本次均不可读取，请稍后重试。');
