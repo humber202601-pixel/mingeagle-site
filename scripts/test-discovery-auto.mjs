@@ -5,6 +5,10 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {build} from 'esbuild';
+const pipelineSource=readFileSync('lib/discovery-auto-step.ts','utf8');
+assert(!pipelineSource.includes("row.source_provider==='DIRECTORY'&&allowedWebsite(clean(row.source_url))"),'Directory listings must never be mistaken for an official institution website');
+assert(pipelineSource.includes('websites.filter(allowedWebsite)'),'All candidate verification websites must pass public domain checks');
+assert(pipelineSource.includes('allowedWebsite(hit.url)&&clueMatches(hit.title,name)'),'Primary index must filter nonofficial destinations before CRM verification');
 const temp=mkdtempSync(join(tmpdir(),'mingeagle-auto-')),originalFetch=globalThis.fetch;
 class D1{
   constructor(){this.sqlite=new DatabaseSync(':memory:');this.sqlite.exec(readFileSync('migrations/0001_core.sql','utf8'));this.failBatch=false;}
