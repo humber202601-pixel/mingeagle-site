@@ -379,6 +379,25 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
         <summary>官网批量核验 · 补充搜索、展会和行业目录中的潜在客户</summary>
         <p>使用上方的州、客户类型和城市条件。填写公开官网完整网址，每行一个，最多 10 个；系统核验机构、业务及地区，提取公开联系方式、去重并自动加入潜在客户列表。城市仅表示官网提及的服务范围，不代表已核实的注册地址。</p>
         {COMMERCIAL_TYPES.has(searchType)?<form onSubmit={importWebsites}>
+          <div style={{margin:'10px 0',padding:12,border:'1px solid #d7dde6',borderRadius:8}}>
+            <strong>Austin · 官方官网试点清单</strong>
+            <p>已通过公开网页搜索找到的篮球训练机构官网，以下仅预填网址，不直接入库。仍由本系统重新核验机构、地区和联系方式。</p>
+            <button className="button secondary small" type="button" disabled={importing||searching||autoBusy||expandedBusy}
+              onClick={()=>{setSearchState('TX');setSearchCity('Austin');setSearchType('BASKETBALL_TRAINING');setWebsiteUrls([
+                'https://www.ball-hard.com/',
+                'https://www.courtvisionskills.com/',
+                'https://www.evloofficial.com/',
+                'https://www.sweathoops.com/',
+                'https://austinyouthsports.com/',
+                'https://www.atxfuture.org/',
+                'https://www.austinyouthbasketball.com/',
+                'https://westlakehoopsbasketball.com/',
+                'https://texasproacademy.com/',
+                'https://proskillsbasketball.com/austin/academies/'
+              ].join('\\n'));setMessage('已填入 10 个 Austin 篮球机构公开官网，请确认内容后点击核验。');}}>
+              一键填入 10 个 Austin 机构官网
+            </button>
+          </div>
           <label htmlFor="discovery-websites">待核验官网</label>
           <textarea id="discovery-websites" value={websiteUrls} onChange={e=>setWebsiteUrls(e.target.value)} rows={4} maxLength={11000} placeholder="https://www.example.com" required/>
           <button className="button secondary" disabled={autoBusy||expandedBusy||(importing||searching)}>{importing?'正在核验官网…':'核验并加入潜在客户'}</button>
