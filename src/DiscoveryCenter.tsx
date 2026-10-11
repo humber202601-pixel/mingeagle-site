@@ -394,7 +394,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
                 'https://westlakehoopsbasketball.com/',
                 'https://texasproacademy.com/',
                 'https://proskillsbasketball.com/austin/academies/'
-              ].join('\\n'));setMessage('已填入 10 个 Austin 篮球机构公开官网，请确认内容后点击核验。');}}>
+              ].join('\n'));setMessage('已填入 10 个 Austin 篮球机构公开官网，请确认内容后点击核验。');}}>
               一键填入 10 个 Austin 机构官网
             </button>
           </div>
