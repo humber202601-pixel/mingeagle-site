@@ -141,11 +141,24 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
   const run=data.run,frozen=busy||run?.status==='PAUSED';
   const stall=discoveryStall(data,clockNow);
   const diagnosis=diagnoseDiscovery(data);
-  const contactReady=(row:Row)=>Boolean(String(row.email||'').trim()||String(row.phone||'').trim()||String(row.whatsapp||'').trim());
+  const validEmail=(value:unknown)=>/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(value||'').trim());
+  const validContactPage=(row:Row)=>{
+    const value=String(row.website_contact_url||'').trim();
+    if(!/^https:\/\//i.test(value))return false;
+    try{
+      const host=new URL(value).hostname.toLowerCase().replace(/^www\\./,'');
+      const websiteHost=new URL(String(row.website||'')).hostname.toLowerCase().replace(/^www\\./,'');
+      return host===websiteHost;
+    }catch{return false;}
+  };
+  const contactChannel=(row:Row)=>validEmail(row.email)?'EMAIL':validContactPage(row)?'WEB_FORM':
+    (String(row.phone||'').trim()||String(row.whatsapp||'').trim())?'PHONE':'RESEARCH';
+  const contactReady=(row:Row)=>contactChannel(row)!=='RESEARCH';
   const readyContacts=importedRows.filter(contactReady).length;
-  const emailReady=importedRows.filter(row=>/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(row.email||'').trim())).length;
-  const otherContactOnly=importedRows.filter(row=>!String(row.email||'').trim()&&Boolean(String(row.phone||'').trim()||String(row.whatsapp||'').trim())).length;
-  const needEnrichment=importedRows.length-readyContacts;
+  const emailReady=importedRows.filter(row=>contactChannel(row)==='EMAIL').length;
+  const webContactOnly=importedRows.filter(row=>contactChannel(row)==='WEB_FORM').length;
+  const otherContactOnly=importedRows.filter(row=>contactChannel(row)==='PHONE').length;
+  const needEnrichment=importedRows.filter(row=>contactChannel(row)==='RESEARCH').length;
   const zeroResult=Boolean(run&&['COMPLETED','PARTIAL'].includes(run.status)&&imported===0);
   const runMessage=zeroResult?'本批未找到通过核验并入库的客户；请查看各来源返回数量和待核验原因。':run?.message;
   return <section className="panel auto-discovery-panel">
@@ -173,7 +186,7 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
         <p style={{margin:'7px 0',color:'#475467'}}>下一步：{diagnosis.action}</p>
       </div>}
       {!!importedRows.length&&<p className="auto-discovery-help" role="status"><strong>客户联系准备度：</strong>已入库 {importedRows.length} 家 · 有公开邮箱/电话/WhatsApp 可供人工核实 {readyContacts} 家 · 暂缺直接联系方式 {needEnrichment} 家。公开信息不等于已确认送达，联系前请核实来源并遵守退订要求。</p>}
-      {!!importedRows.length&&<div className="table-wrap"><table><thead><tr><th>机构 / 地区</th><th>公开联系方式</th><th>联系准备度</th><th>负责人 / 社交账号</th><th>结果</th></tr></thead><tbody>{importedRows.map(row=><tr key={text(row.item_key)}><td><strong>{text(row.name)}</strong><small>{text(row.city,'')} {text(row.state_region,'')} · {text(row.grade)} {text(row.lead_score,'0')}/100</small>{Boolean(row.address)&&<small>{text(row.address)}</small>}{Boolean(row.website)&&<a href={text(row.website)} target="_blank" rel="noreferrer">官网 <ExternalLink size={12}/></a>}{typeof row.website_contact_url==='string'&&/^https:\/\//i.test(row.website_contact_url)&&<a href={row.website_contact_url} target="_blank" rel="noopener noreferrer" style={{marginLeft:10}}>联系页面 <ExternalLink size={12}/></a>}</td><td><div>{text(row.email,'邮箱未公开')}</div><div>{text(row.phone,'电话未公开')}</div><small>{row.whatsapp?'WhatsApp: '+text(row.whatsapp):'WhatsApp 未公开'}</small></td><td><strong>{contactReady(row)?'有直接联系渠道':'待补全联系方式'}</strong><small>{contactReady(row)?'联系前核实官网来源、收件人和发送合规性':'可保留研究，不应自动发送邀约'}</small></td><td><strong>{text(row.contact_person_name,'负责人未公开')}</strong><small>{text(row.contact_person_title,'')}</small><div className="discovery-socials">{[['Instagram','instagram_url'],['Facebook','facebook_url'],['TikTok','tiktok_url'],['LinkedIn','linkedin_url']].map(([label,key])=>row[key]?<a key={key} href={text(row[key])} target="_blank" rel="noreferrer">{label}</a>:null)}</div></td><td>{row.status==='DONE'&&row.crm_lead_id?<><span className="auto-discovery-imported">已加入待开发客户</span><Link to={'/app/leads/'+text(row.crm_lead_id)}>查看客户档案</Link></>:<span>{statusNames[text(row.status)]||text(row.status)}</span>}{Boolean(row.error)&&<small>{text(row.error)}</small>}</td></tr>)}</tbody></table></div>}
+      {!!importedRows.length&&<div className="table-wrap"><table><thead><tr><th>机构 / 地区</th><th>公开联系方式</th><th>联系准备度</th><th>负责人 / 社交账号</th><th>结果</th></tr></thead><tbody>{importedRows.map(row=><tr key={text(row.item_key)}><td><strong>{text(row.name)}</strong><small>{text(row.city,'')} {text(row.state_region,'')} · {text(row.grade)} {text(row.lead_score,'0')}/100</small>{Boolean(row.address)&&<small>{text(row.address)}</small>}{Boolean(row.website)&&<a href={text(row.website)} target="_blank" rel="noreferrer">官网 <ExternalLink size={12}/></a>}{typeof row.website_contact_url==='string'&&/^https:\/\//i.test(row.website_contact_url)&&<a href={row.website_contact_url} target="_blank" rel="noopener noreferrer" style={{marginLeft:10}}>联系页面 <ExternalLink size={12}/></a>}</td><td><div>{text(row.email,'邮箱未公开')}</div><div>{text(row.phone,'电话未公开')}</div><small>{row.whatsapp?'WhatsApp: '+text(row.whatsapp):'WhatsApp 未公开'}</small></td><td><strong>{contactChannel(row)==='EMAIL'?'可准备邮件草稿':contactChannel(row)==='WEB_FORM'?'优先官网联系页':contactChannel(row)==='PHONE'?'电话 / WhatsApp 联系':'待补全联系方式'}</strong><small>{contactChannel(row)==='EMAIL'?'邮件发送前核实收件人和来源':contactChannel(row)==='WEB_FORM'?'请确认页面提供业务联系渠道':contactChannel(row)==='PHONE'?'请核实号码归属，勿视作邮箱可发':'保留研究，不自动发送邀约'}</small></td><td><strong>{text(row.contact_person_name,'负责人未公开')}</strong><small>{text(row.contact_person_title,'')}</small><div className="discovery-socials">{[['Instagram','instagram_url'],['Facebook','facebook_url'],['TikTok','tiktok_url'],['LinkedIn','linkedin_url']].map(([label,key])=>row[key]?<a key={key} href={text(row[key])} target="_blank" rel="noreferrer">{label}</a>:null)}</div></td><td>{row.status==='DONE'&&row.crm_lead_id?<><span className="auto-discovery-imported">已加入待开发客户</span><Link to={'/app/leads/'+text(row.crm_lead_id)}>查看客户档案</Link></>:<span>{statusNames[text(row.status)]||text(row.status)}</span>}{Boolean(row.error)&&<small>{text(row.error)}</small>}</td></tr>)}</tbody></table></div>}
       {(data.exceptions||[]).length>0&&<div className="auto-discovery-diagnosis" style={{marginTop:16,paddingTop:14,borderTop:'1px solid #e4e7ec'}} role="status">
         <strong>尚未转入客户库的核验记录 · {data.exceptions?.length||0} 项</strong>
         <p style={{margin:'7px 0'}}>这些记录不是已确认客户，不会被自动发送首次邀约；可以查看明确原因后再重试或人工核对官网。</p>
@@ -185,13 +198,13 @@ export default function AutoDiscovery({accessKey,externalBusy,onBusyChange,onCha
       <div className="metric"><span>累计去重客户</span><strong>{overall?.companies??"—"}</strong><small>自动发现的 CRM 独立机构 · 活跃 {overall?.activeCompanies??"—"}</small></div>
       <div className="metric"><span>累计公开邮箱机构</span><strong>{overall?.withEmail??"—"}</strong><small>CRM 联系人邮箱，不代表已验证送达</small></div>
       <div className="metric"><span>本轮已确认入库</span><strong>{imported}</strong><small>核验通过，不等于已联系</small></div>
-      <div className="metric"><span>本轮有可联系渠道</span><strong>{readyContacts}</strong><small>有效格式邮箱 {emailReady} · 仅电话或 WhatsApp {otherContactOnly}</small></div>
+      <div className="metric"><span>本轮有可联系渠道</span><strong>{readyContacts}</strong><small>有效格式邮箱 {emailReady} · 官网联系页 {webContactOnly} · 仅电话或 WhatsApp {otherContactOnly}</small></div>
       <div className="metric"><span>待审核邮件</span><strong>{queueStats?.review??'—'}</strong><small>全部 CRM 邮件队列</small></div>
       <div className="metric"><span>历史已发邮件</span><strong>{queueStats?.sent??'—'}</strong><small>队列累计，非本轮</small></div>
     </div>
     <div className="panel" style={{marginTop:16,padding:16}}>
       <strong>下一步 · 联系精准客户</strong>
-      <p>本轮已入库机构中，有 {emailReady} 家具有可用格式的邮箱，可参与邮件草稿准备；另有 {otherContactOnly} 家只具备电话或 WhatsApp，需在客户档案中选择合适渠道联系。邮件队列也可能包含其他批次客户，首次陌生开发邮件必须人工审核。</p>
+      <p>本轮已入库机构中，有 {emailReady} 家具有可用格式的邮箱，可参与邮件草稿准备；另有 {webContactOnly} 家优先通过官网联系页、{otherContactOnly} 家只有电话或 WhatsApp，需在客户档案中选择合适渠道联系。邮件队列也可能包含其他批次客户，首次陌生开发邮件必须人工审核。</p>
       <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center'}}>
         <button type="button" className="button secondary" disabled={draftBusy} onClick={()=>void prepareReviewDrafts()}>
           {draftBusy?'正在整理草稿…':'一键准备待审核邮件'}
