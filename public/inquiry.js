@@ -12,6 +12,15 @@ const challenge=root.MingEagleTurnstile;
 const challengeReady=challenge?challenge.start():Promise.resolve({enabled:false,unavailable:false});
 const $=id=>document.getElementById(id),c=root.MINGEAGLE_INQUIRY_CONFIG||{enabled:false},q=new URLSearchParams(location.search);
 const type=TYPE_MAP[(q.get('type')||'').toLowerCase()];if(type)$('request_type').value=type;
+// Prefill only non-sensitive product/quantity/ZIP details explicitly reviewed by the visitor.
+const assistantSummary=(q.get('assistant_summary')||'').slice(0,350);
+if(assistantSummary&&/^((Product|Size|Quantity|Destination ZIP): [A-Za-z0-9 .-]+)(; (Product|Size|Quantity|Destination ZIP): [A-Za-z0-9 .-]+)*$/.test(assistantSummary)){
+ const message=$('message');if(message&&!message.value)message.value='Information collected by the automated website assistant (please confirm): '+assistantSummary;
+ const zip=assistantSummary.match(/Destination ZIP: (\d{5})/);if(zip&&$('zip'))$('zip').value=zip[1];
+ const units=assistantSummary.match(/Quantity: (\d{1,5}) units/);const qty=document.querySelector('[name="quantity"]');if(units&&qty&&!qty.value)qty.value=units[1];
+ const product=assistantSummary.match(/Product: ([A-Za-z -]+)/);if(product)form.querySelectorAll('[name="products[]"]').forEach(cb=>{if(cb.value===product[1])cb.checked=true});
+}
+
 form.querySelectorAll('[name="products[]"]').forEach(cb=>{if(cb.value===q.get('product'))cb.checked=true});
 if(q.get('type')==='retail'&&q.get('cart')){
  const raw=String(q.get('cart')||'');
