@@ -390,9 +390,9 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
             <input name="unitPrice" type="number" min="0.01" step="0.01" placeholder="请确认后填写" required />
           </label>
           <label>官网零售参考单价（USD，仅内部比较）
-            <input name="retailReference" type="number" min="0.01" step="0.01" placeholder="请填写已核实的同规格零售价" />
+            {catalogVariant ? <input name="retailReference" value={retailReference(catalogVariant)?.toFixed(2)||""} readOnly /> : <input name="retailReference" type="number" min="0.01" step="0.01" placeholder="非目录商品：手工输入已核实零售价" />}
           </label>
-          <label className="span-2"><input type="checkbox" checked={retailMatchConfirmed} onChange={e=>setRetailMatchConfirmed(e.target.checked)} /> 已核实零售参考价来自相同产品型号、规格和套装配置（仅供内部审核）</label>
+          <label className="span-2"><input type="checkbox" disabled={Boolean(catalogVariant)} checked={Boolean(catalogVariant)||retailMatchConfirmed} onChange={e=>setRetailMatchConfirmed(e.target.checked)} /> 已核实零售参考价来自相同产品型号、规格和套装配置（仅供内部审核）</label>
           <div className="span-2 form-status"><strong>批发价与零售价对比（仅内部参考）</strong><p>{retailComparison && retailMatchConfirmed ? (retailComparison.wholesale<retailComparison.retail ? `零售价 USD ${retailComparison.retail.toFixed(2)}；批发价 USD ${retailComparison.wholesale.toFixed(2)}；每件节省 USD ${(retailComparison.retail-retailComparison.wholesale).toFixed(2)}（${((retailComparison.retail-retailComparison.wholesale)/retailComparison.retail*100).toFixed(1)}%）。` : `批发价 USD ${retailComparison.wholesale.toFixed(2)} 未低于参考零售价 USD ${retailComparison.retail.toFixed(2)}，不能宣传优惠。`) : "请先填写参考价，并确认产品型号、规格和套装配置一致；未核实前不计算或宣传优惠。"}</p><small>零售参考价仅用于本页面审核预览，不写入报价单或自动发送给客户。运费、税费及优惠折扣另行计算。</small></div>
           <label>运费（USD）
             <input name="shipping" type="number" min="0" step="0.01" placeholder="填写真实运费，包邮填 0" required />
