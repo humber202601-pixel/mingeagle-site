@@ -16,14 +16,14 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
    const impressions=get(row.impressions),clicks=get(row.clicks),ctr=get(row.ctr),position=get(row.position);
    if(impressions<20||position<=0)continue;
    let reason='',action='',priority=0;
-   if(position>=5&&position<=20&&impressions>=30){
+   if(impressions>=100&&ctr<0.02&&position<=15){
+    reason='有较多展示但点击率偏低，需要结合搜索词和排名检查';
+    action='核对页面的标题与描述是否准确回答采购意图，并完善产品或批发入口';
+    priority=4;
+   }else if(position>=5&&position<=20&&impressions>=30){
     reason='搜索结果已有一定可见度，平均排名仍有提升空间';
     action=kind==='queries'?'核对搜索意图，完善匹配页面的实物证据、FAQ 和相关内链':'审查页面内容深度、标题与站内链接，补充真实演示';
     priority=3;
-   }else if(impressions>=100&&ctr<0.02&&position<=15){
-    reason='有较多展示但点击率偏低，需要结合搜索词和排名检查';
-    action='人工核对搜索结果标题与描述是否准确，避免只追求点击而夸大效果';
-    priority=2;
    }else if(clicks>=5){
     reason='已获得搜索点击，值得检查询盘引导和客户信任材料';
     action='查看对应页面的表单入口、样品说明、定制和交付信息，并与 CRM 落地页询盘对照';

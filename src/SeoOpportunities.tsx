@@ -12,9 +12,9 @@ export default function SeoOpportunities({accessKey}:{accessKey:string}){
  <p style={{fontSize:12,color:'#667085'}}>建议由手动导入的 Google Search Console 报表生成，仅供人工筛选。不会自动发布内容、投广告或伪造访问量。</p>
  {error&&<p role="alert">{error}</p>}
  {data?.reports?.length?<p style={{fontSize:12,color:'#667085'}}>最近报表：{data.reports.map(r=>`${r.kind==='queries'?'关键词':'页面'} ${r.start_date}～${r.end_date}`).join('；')}</p>:<p>尚无 Google Search Console 报表，请先导入官方 CSV。</p>}
- <div className="table-wrap"><table><thead><tr><th>搜索词 / 页面</th><th>展示</th><th>点击</th><th>平均排名</th><th>发现的问题</th><th>建议采取的动作</th></tr></thead><tbody>
- {(data?.suggestions||[]).map((r,i)=><tr key={r.kind+r.target+i}><td style={{overflowWrap:'anywhere',maxWidth:220}}><strong>{r.target}</strong><small style={{display:'block'}}>{r.kind==='queries'?'搜索关键词':'网站页面'}</small></td><td>{r.impressions}</td><td>{r.clicks}</td><td>{r.position.toFixed(1)}</td><td>{r.reason}</td><td>{r.action}</td></tr>)}
- {!data?.suggestions?.length&&<tr><td colSpan={6}>暂时没有符合筛选条件的机会；这不代表网站没有搜索需求。</td></tr>}
+ <div className="table-wrap"><table><thead><tr><th>搜索词 / 页面</th><th>展示</th><th>点击</th><th>点击率</th><th>平均排名</th><th>发现的问题</th><th>建议采取的动作</th></tr></thead><tbody>
+ {(data?.suggestions||[]).map((r,i)=><tr key={r.kind+r.target+i}><td style={{overflowWrap:'anywhere',maxWidth:220}}><strong>{r.target}</strong><small style={{display:'block'}}>{r.kind==='queries'?'搜索关键词':'网站页面'}</small></td><td>{r.impressions}</td><td>{r.clicks}</td><td>{(r.ctr*100).toFixed(1)}%</td><td>{r.position.toFixed(1)}</td><td>{r.reason}</td><td>{r.action}</td></tr>)}
+ {!data?.suggestions?.length&&<tr><td colSpan={7}>暂时没有符合筛选条件的机会；这不代表网站没有搜索需求。</td></tr>}
  </tbody></table></div>
  {(data?.limitations||[]).map((x,i)=><p key={i} style={{fontSize:12,color:'#667085',margin:0}}>{x}</p>)}
  </section>
