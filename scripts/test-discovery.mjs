@@ -65,6 +65,9 @@ try{
     return {status:r.status,body:await r.json()};
   };
   const get=async(params='')=>{const r=await handlers.discovery.onRequestGet({request:new Request('https://test.example/api/admin/discovery?'+params),env});return {status:r.status,body:await r.json()}};
+  const webVerifier=handlers['discovery-web-v6'];
+  assert.equal(webVerifier.eligibleSearchHit({title:'4 Best Youth Basketball Programs in Dallas, TX (2026)',url:'https://sampleacademy.example/blog/top-programs',snippet:'Basketball training programs near Houston',city:'Houston'},'BASKETBALL_TRAINING','TX'),false,'Best-of editorial list must never become a training academy lead');
+  assert.equal(webVerifier.eligibleSearchHit({title:'Northstar Basketball Academy',url:'https://academy.example',snippet:'Youth basketball training academy in Houston',city:'Houston'},'BASKETBALL_TRAINING','TX'),true,'Genuine academy search results remain eligible');
   assert.equal(catalog.TYPE_OPTIONS.length,17);
   for(const state of Object.keys(catalog.STATE_NAMES))for(const type of catalog.COMMERCIAL_TYPES)assert.ok(catalog.queryPlan(state,type).length>0);
   assert.notDeepEqual(catalog.queryPlan('TX','BASKETBALL_TRAINING','',0,8),catalog.queryPlan('TX','BASKETBALL_TRAINING','',1,8));
