@@ -66,7 +66,11 @@ try{
   };
   const r=await load();
   assert.equal(r.status,200,JSON.stringify(r.data));
-  assert.equal(r.reads,2,'page fetch must use only 2 aggregated/read queries');
+  assert.equal(r.reads,3,'page fetch uses only 3 bounded aggregate/read queries');
+  assert.equal(r.data.quotePerformance.sent,2,'only non-draft quotes count as sent');
+  assert.equal(r.data.quotePerformance.expired,1,'expired quote status is measured');
+  assert.equal(r.data.quotePerformance.viewed,0,'no view event is not a view');
+  assert.equal(r.data.quotePerformance.withOrder,0,'orders without linked quote ids must not count');
   assert.equal(r.writes,0,'dashboard is strictly read-only');
   assert.equal(r.data.summary.total,4,'90 day DISCOVERY cohort excludes older record and website leads');
   assert.equal(r.data.summary.withContact,4,'organization phone counts as actual reachable business contact');
@@ -106,5 +110,5 @@ try{
   const serialized=JSON.stringify(r.data);
   assert(!serialized.includes('out1')&&!serialized.includes('Q-2'),'aggregate stats must not leak email bodies or quote identifiers');
   assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM leads').get().n,7,'dashboard must never modify CRM records');
-  console.log('PASS: real conversion cohort by date/source/category; distinct contact/outbound/reply/quote/order/paid facts; opt-out exclusion, no duplicate stage inflation, 2 read queries and no D1 writes.');
+  console.log('PASS: real conversion cohort by date/source/category; distinct contact/outbound/reply/quote/order/paid facts; opt-out exclusion, no duplicate stage inflation, 3 read queries and no D1 writes.');
 }finally{rmSync(dir,{recursive:true,force:true})}
