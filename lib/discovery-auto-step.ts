@@ -87,6 +87,21 @@ export async function runAutoStep(env:AutoEnv,base:string,key:string,input:Row):
     const name=lookupOrganizationName(originalName,clean(row.city,80)),websites:string[]=[];
     if(!name)return {review:true,reason:'来源是行业列表页而非独立机构，保留为待核验线索，不生成虚假客户。'};
     if(allowedWebsite(clean(row.website)))websites.push(clean(row.website));
+    // Reuse a previously verified official site for exactly the same institution
+    // in the same city/state, avoiding another blocked public-index lookup.
+    if(!websites.length&&clean(row.city)&&clean(row.state_region)){
+      const known=await db.prepare(`SELECT name,website FROM discovery_candidates
+        WHERE lower(trim(name))=lower(trim(?)) AND lower(trim(city))=lower(trim(?))
+          AND upper(trim(state_region))=upper(trim(?))
+          AND website IS NOT NULL AND website<>'' AND status NOT IN ('IGNORED','REVIEW')
+        ORDER BY CASE WHEN crm_lead_id IS NOT NULL THEN 0 ELSE 1 END, updated_at DESC LIMIT 3`)
+        .bind(name,clean(row.city,80),clean(row.state_region,30)).all<{name:string;website:string}>();
+      await guard();
+      for(const found of known.results||[])if(
+        lookupOrganizationName(found.name,clean(row.city,80)).toLowerCase()===name.toLowerCase()&&
+        allowedWebsite(found.website)
+      )websites.push(found.website);
+    }
     // Directory results are evidence for discovering names, NOT the organization's website.
     // Always resolve a separate official domain rather than verifying the directory itself.
     let lookupWarning='';
