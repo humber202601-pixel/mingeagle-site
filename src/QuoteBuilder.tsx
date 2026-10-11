@@ -74,6 +74,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   const [editMessage, setEditMessage] = useState('');
   const [editPreviewTotal, setEditPreviewTotal] = useState<number | null>(null);
   const [createPreview, setCreatePreview] = useState<CreatePreview>({ subtotal: 0, shipping: 0, discount: 0, total: 0 });
+  const [retailComparison,setRetailComparison]=useState<{retail:number;wholesale:number}|null>(null);
 
   const selected = available.find(item => text(item.reference) === selectedReference);
 
@@ -88,6 +89,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
 
   useEffect(() => {
     setCreatePreview({ subtotal: 0, shipping: 0, discount: 0, total: 0 });
+    setRetailComparison(null);
   }, [selectedReference]);
 
   async function loadQuotes() {
@@ -112,6 +114,9 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     const discount = Math.max(0, safeNumber(data.get('discount')));
     const subtotal = quantity * unitPrice;
     setCreatePreview({ subtotal, shipping, discount, total: Math.max(0, subtotal - discount + shipping) });
+    const retailRaw=String(data.get('retailReference')||'').trim();
+    const retail=Number(retailRaw);
+    setRetailComparison(retailRaw!==''&&Number.isFinite(retail)&&retail>0&&unitPrice>0?{retail,wholesale:unitPrice}:null);
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -334,6 +339,10 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           <label>单价（USD）
             <input name="unitPrice" type="number" min="0.01" step="0.01" placeholder="请确认后填写" required />
           </label>
+          <label>官网零售参考单价（USD，仅内部比较）
+            <input name="retailReference" type="number" min="0.01" step="0.01" placeholder="请填写已核实的同规格零售价" />
+          </label>
+          <div className="span-2 form-status"><strong>批发价与零售价对比（仅内部参考）</strong><p>{retailComparison ? (retailComparison.wholesale<retailComparison.retail ? `零售价 USD ${retailComparison.retail.toFixed(2)}；批发价 USD ${retailComparison.wholesale.toFixed(2)}；每件节省 USD ${(retailComparison.retail-retailComparison.wholesale).toFixed(2)}（${((retailComparison.retail-retailComparison.wholesale)/retailComparison.retail*100).toFixed(1)}%）。` : `批发价 USD ${retailComparison.wholesale.toFixed(2)} 未低于参考零售价 USD ${retailComparison.retail.toFixed(2)}，不能宣传优惠。`) : "待填写可核实的同型号、同规格零售价和批发价；不自动声称有折扣。"}</p><small>零售参考价仅用于本页面审核预览，不写入报价单或自动发送给客户。运费、税费及优惠折扣另行计算。</small></div>
           <label>运费（USD）
             <input name="shipping" type="number" min="0" step="0.01" placeholder="填写真实运费，包邮填 0" required />
           </label>
