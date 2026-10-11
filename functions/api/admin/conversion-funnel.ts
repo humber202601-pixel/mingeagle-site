@@ -80,6 +80,24 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
       WHERE has_contact=1 AND blocked=0 AND contacted=0
       ORDER BY lead_score DESC,id ASC LIMIT 30`)
       .bind(...bind).all<FunnelRow>()).results;
+    // Quote engagement is measured from actual quote records, not lead status labels.
+    // A quote may have been viewed or accepted before its status subsequently changed.
+    const q=(await db.prepare(`SELECT
+      COUNT(*) AS sent,
+      SUM(CASE WHEN first_viewed_at IS NOT NULL OR status IN ('VIEWED','ACCEPTED','CONVERTED') THEN 1 ELSE 0 END) AS viewed,
+      SUM(CASE WHEN accepted_at IS NOT NULL OR status IN ('ACCEPTED','CONVERTED') THEN 1 ELSE 0 END) AS accepted,
+      SUM(CASE WHEN status='DECLINED' THEN 1 ELSE 0 END) AS declined,
+      SUM(CASE WHEN status='EXPIRED' THEN 1 ELSE 0 END) AS expired,
+      (SELECT COUNT(DISTINCT o.quote_id) FROM orders o
+       JOIN quotes qi ON qi.id=o.quote_id
+       WHERE o.status NOT IN ('DRAFT','CANCELLED') AND qi.status NOT IN ('DRAFT','CANCELLED')
+         AND (?=0 OR qi.created_at>=datetime('now','-'||?||' days'))
+         AND (?='ALL' OR EXISTS(SELECT 1 FROM leads l2 WHERE l2.id=qi.lead_id AND l2.source=?))) AS with_order
+    FROM quotes q LEFT JOIN leads l ON l.id=q.lead_id
+    WHERE q.status NOT IN ('DRAFT','CANCELLED')
+      AND (?=0 OR q.created_at>=datetime('now','-'||?||' days'))
+      AND (?='ALL' OR l.source=?)`).bind(days,days,source,source,days,days,source,source).first<FunnelRow>())||{};
+    const quotePerformance={sent:n(q.sent),viewed:n(q.viewed),accepted:n(q.accepted),declined:n(q.declined),expired:n(q.expired),withOrder:n(q.with_order)};
     const segments=groups.map(g=>({
       category:String(g.category||'UNCLASSIFIED'),total:n(g.total),withContact:n(g.withContact),
       contactable:n(g.contactable),emailReady:n(g.emailReady),blocked:n(g.blocked),
@@ -91,7 +109,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
     for(const seg of segments)for(const key of Object.keys(summary) as Array<keyof typeof summary>)
       summary[key]+=seg[key];
     return response({ok:true,generatedAt:new Date().toISOString(),
-      filters:{days,source},summary,segments,prospects:prospects.map(p=>({
+      filters:{days,source},summary,quotePerformance,segments,prospects:prospects.map(p=>({
         id:String(p.id),company:String(p.company_name||'未填写机构名称'),
         category:String(p.category||'UNCLASSIFIED'),city:String(p.city||''),state:String(p.state_region||''),
         email:String(p.email||''),phone:String(p.contact_phone||''),whatsapp:String(p.whatsapp||''),
@@ -100,6 +118,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
         '按客户创建日期建立同批样本，指标为当前累计状态，不是各环节严格嵌套的人数。',
         '已联系=CRM中实际存在发出消息；已回复=发出消息后收到非网站渠道消息，不推断离线沟通。',
         '报价=已有非草稿报价；订单=非草稿及未取消订单；付款=订单标记已付，并非银行流水核验。',
+        '报价表现按报价创建日期筛选，查看与接受依据实际报价记录；订单关联不代表款项到账。',
         '未获取联系方式不会猜测联系方式；已退订、不感兴趣和不匹配的客户不进入待开发名单。',
       ]});
   }catch(error){
