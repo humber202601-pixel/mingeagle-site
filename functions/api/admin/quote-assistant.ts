@@ -16,7 +16,7 @@ const clean = (value: unknown, max = 1000) => typeof value === 'string' ? value.
 function extractQuantity(value: unknown) {
   const text = clean(value, 12000).replace(/,/g, '');
   const patterns = [
-    /(?:for|need|want|order|buy|pricing\s+for|quote\s+for)\s+(\d{1,6})\s*(?:units?|pcs?|pieces?|balls?|sets?)?/i,
+    /(?:for|need|want|order|buy|pricing\s+for|quote(?:\s+for)?|quotation\s+for)\s+(\d{1,6})\s*(?:units?|pcs?|pieces?|balls?|sets?)?/i,
     /(\d{1,6})\s*(?:units?|pcs?|pieces?|balls?|sets?)/i,
     /数量\s*[:：]?\s*(\d{1,6})/i,
     /(\d{1,6})\s*(?:个|件|套|只)/i,
