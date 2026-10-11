@@ -15,6 +15,8 @@ const clean = (value: unknown, max = 1000) => typeof value === 'string' ? value.
 
 function extractQuantity(value: unknown) {
   const text = clean(value, 12000).replace(/,/g, '');
+  // A list of price tiers is not a confirmed purchase quantity.
+  if (/\b\d{1,6}\s*(?:,|\/|\bor\b|\band\b)\s*\d{1,6}(?:\s*(?:,|\/|\bor\b|\band\b)\s*\d{1,6})*\s*(?:units?|pcs?|pieces?|balls?|sets?)\b/i.test(text)) return null;
   const patterns = [
     /(?:for|need|want|order|buy|pricing\s+for|quote(?:\s+for)?|quotation\s+for)\s+(\d{1,6})\s*(?:units?|pcs?|pieces?|balls?|sets?)?/i,
     /(\d{1,6})\s*(?:units?|pcs?|pieces?|balls?|sets?)/i,
