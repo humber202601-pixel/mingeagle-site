@@ -71,12 +71,18 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
       ?`SELECT COUNT(*) AS total,
          SUM(CASE WHEN i.created_at>=datetime('now','-1 day') THEN 1 ELSE 0 END) AS last24h,
          SUM(CASE WHEN i.status='NEW' THEN 1 ELSE 0 END) AS newCount,
+         SUM(CASE WHEN i.status='NEW' AND i.created_at<datetime('now','-4 hours') THEN 1 ELSE 0 END) AS newOver4h,
+         SUM(CASE WHEN i.status='NEW' AND i.created_at<datetime('now','-1 day') THEN 1 ELSE 0 END) AS newOver24h,
+         SUM(CASE WHEN i.status='REVIEWING' AND i.created_at<datetime('now','-1 day') THEN 1 ELSE 0 END) AS reviewingOver24h,
          SUM(CASE WHEN i.lead_id IS NULL OR l.id IS NULL THEN 1 ELSE 0 END) AS orphanLeadLinks,
          MAX(i.created_at) AS latestAt
          FROM inquiries i LEFT JOIN leads l ON l.id=i.lead_id`
       :`SELECT COUNT(*) AS total,
          SUM(CASE WHEN created_at>=datetime('now','-1 day') THEN 1 ELSE 0 END) AS last24h,
          SUM(CASE WHEN status='NEW' THEN 1 ELSE 0 END) AS newCount,
+         SUM(CASE WHEN status='NEW' AND created_at<datetime('now','-4 hours') THEN 1 ELSE 0 END) AS newOver4h,
+         SUM(CASE WHEN status='NEW' AND created_at<datetime('now','-1 day') THEN 1 ELSE 0 END) AS newOver24h,
+         SUM(CASE WHEN status='REVIEWING' AND created_at<datetime('now','-1 day') THEN 1 ELSE 0 END) AS reviewingOver24h,
          MAX(created_at) AS latestAt FROM inquiries`).first<Row>():null;
   const lastHubspotSync=String(recovery?.last_synced_at||'');
   const lastHubspotMs=Date.parse(lastHubspotSync.replace(' ','T')+'Z');
@@ -140,6 +146,8 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
       stages,
     }:null,
     inquiries:inquiry?{total:num(inquiry.total),last24h:num(inquiry.last24h),newCount:num(inquiry.newCount),
+      newOver4h:num(inquiry.newOver4h),newOver24h:num(inquiry.newOver24h),
+      reviewingOver24h:num(inquiry.reviewingOver24h),
       orphanLeadLinks:include(tables,'leads')?num(inquiry.orphanLeadLinks):null,
       latestAt:inquiry.latestAt||null}:null,
     // D1 query metrics are NOT available from the database binding. Show
