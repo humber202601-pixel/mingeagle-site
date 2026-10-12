@@ -55,6 +55,14 @@ test('真实报价界面：精确数量、金额、修改审核、批准与客�
  await edit.getByRole('checkbox',{name:'我已核对该零售价与报价商品配置完全一致',exact:true}).check();
  await edit.getByRole('button',{name:'保存此商品优惠审核',exact:true}).click();
  await expect(edit.getByText(/零售价来源及审核记录已保存/)).toBeVisible();
+ const preflightUrl='/api/admin/quote-procurement-preflight?quoteId='+created.quoteId;
+ const preview=await request.get(preflightUrl,{headers:auth});
+ expect(preview.status()).toBe(200);
+ const review=(await preview.json()).review;
+ expect(review.safeForManualRelease).toBe(true);
+ expect(review.unverifiedSkuBaselines).toBe(1);
+ expect(review.supplierConfirmationRequired).toBe(true);
+ expect((await request.get(preflightUrl)).status()).toBe(401,'Anonymous caller cannot read supplier review');
  page.once('dialog',dialog=>dialog.accept());
  const blockedEmailResponse=page.waitForResponse(r=>r.url().endsWith('/api/admin/quote-send')&&r.request().method()==='POST');
  await row.getByRole('button',{name:'Gmail发送报价',exact:true}).click();
