@@ -87,9 +87,12 @@ export default function InboundGrowth({accessKey}:{accessKey:string}){
       <p style={{fontSize:12,color:'#667085'}}>仅供内容优化排序，不代表页面带来了全部订单，也不自动花费广告预算。若出现活动记录重复，系统不会因此增加询盘计数。</p>
     </section>
     <section className="panel" style={{padding:18}}>
-      <div className="panel-head"><h2>搜索曝光与访问量 · 尚待连接</h2><span>不显示虚构数据</span></div>
+      <div className="panel-head"><h2>网站访问统计与搜索曝光</h2><span>Cloudflare 已部署采集 · CRM 尚未授权读取流量报表</span></div>
+      <p style={{color:'#475467',fontSize:13,lineHeight:1.7}}>MING EAGLE 官网已通过 GitHub Pages 安装 Cloudflare Web Analytics 访问和性能统计。真实报表可从 Cloudflare 控制台查看；安装以前的访问历史无法补采。CRM 当前没有读取 Cloudflare 统计 API 的单独授权，因此本页的“网站访问量”仍显示未连接，**不是 0 次访问**，不能拿 CRM 询盘除以未知访问量计算网站转化率。</p>
+      <p style={{fontSize:12,color:'#667085'}}>请在 Cloudflare Web Analytics 中选择 mingeagle.com；这是浏览器采集的数据，可能受广告拦截、脚本禁用和采样影响，不能直接等同于自然人唯一访客数。</p>
       <p style={{color:'#475467',fontSize:13,lineHeight:1.7}}>网站目前已有 sitemap.xml、robots.txt 和询盘 UTM 归因。Google Search Console 需要先由域名持有人验证所有权；Bing Webmaster Tools 也需要验证。验证后才能获取搜索展现、点击及实际收录表现。</p>
       <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
+       <a href="https://dash.cloudflare.com/?to=/:account/web-analytics/sites" target="_blank" rel="noopener noreferrer">查看 Cloudflare Web Analytics 真实访问报表 <ArrowUpRight size={13}/></a>
        <a href="https://search.google.com/search-console/" target="_blank" rel="noreferrer">打开 Google Search Console <ArrowUpRight size={13}/></a>
        <a href="https://www.bing.com/webmasters/" target="_blank" rel="noreferrer">打开 Bing Webmaster Tools <ArrowUpRight size={13}/></a>
        <a href="https://www.mingeagle.com/sitemap.xml" target="_blank" rel="noreferrer">查看官网站点地图 <ArrowUpRight size={13}/></a>
