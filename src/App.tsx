@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, Route, Routes } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 import AdminApp from './AdminApp';
+import {safeReorderReference,reorderMessage} from './reorderIntent';
 import {useInquiryTurnstile} from './useInquiryTurnstile';
 
 type ProductCard = {
@@ -86,6 +87,8 @@ function HomePage() {
 }
 
 function WholesalePage({ sample = false }: { sample?: boolean }) {
+  const reorderRef=sample?null:safeReorderReference(new URLSearchParams(window.location.search).get('reorderOf'));
+  const reorderPrefill=reorderMessage(reorderRef);
   const [status,setStatus] = useState<'idle'|'submitting'|'success'|'error'>('idle');
   const [result,setResult] = useState<InquiryResult|null>(null);
   const [errorMessage,setErrorMessage] = useState('');
@@ -117,7 +120,8 @@ function WholesalePage({ sample = false }: { sample?: boolean }) {
   }
 
   return <div className="public-shell"><PublicHeader/><main className="form-page"><div className="form-intro"><span className="eyebrow">{sample?'SAMPLE REQUEST':'WHOLESALE / BULK ORDER'}</span><h1>{sample?'TRY THE PRODUCT BEFORE A BIGGER ORDER.':'TELL US WHAT YOU NEED. WE’LL BUILD THE RIGHT QUOTE.'}</h1><p>{sample?'Your request becomes a tracked sales record so sample follow-up does not get lost.':'Your request enters the MING EAGLE sales workflow so quote, follow-up and reorder history stay connected.'}</p></div>
-    <form className="lead-form" onSubmit={submitInquiry}><div className="form-grid"><label>First name *<input name="firstName" required placeholder="First name"/></label><label>Last name *<input name="lastName" required placeholder="Last name"/></label><label>Email *<input name="email" required type="email" placeholder="you@company.com"/></label><label>Phone<input name="phone" type="tel" placeholder="+1 555 123 4567"/></label><label>WhatsApp<input name="whatsapp" type="tel" placeholder="+1 555 123 4567"/></label><label>Company / organization<input name="company" placeholder="Academy, retailer, club…"/></label><label>Customer type<select name="customerType" defaultValue="Academy"><option>Academy</option><option>Coach / trainer</option><option>Retailer</option><option>Camp / program</option><option>Distributor</option><option>Family / consumer</option></select></label><label>Estimated quantity<input name="estimatedQuantity" type="number" min="1" placeholder={sample?'1':'100'}/></label><label>Country *<input name="country" required defaultValue="United States"/></label><label>ZIP / postal code<input name="postalCode" placeholder="75201"/></label></div><label>What are you looking for?<textarea name="message" rows={5} placeholder="Product, sizes, colors, timing, delivery needs…"/></label><div ref={captcha.container} aria-label="Security verification"/>
+    {reorderRef&&<p className="form-note" role="status"><strong>Repeat-order quote request:</strong> {reorderRef}. Review your products, quantities and destination below. This sends a new inquiry only; it does not create an order or charge any payment.</p>}
+    <form className="lead-form" onSubmit={submitInquiry}><div className="form-grid"><label>First name *<input name="firstName" required placeholder="First name"/></label><label>Last name *<input name="lastName" required placeholder="Last name"/></label><label>Email *<input name="email" required type="email" placeholder="you@company.com"/></label><label>Phone<input name="phone" type="tel" placeholder="+1 555 123 4567"/></label><label>WhatsApp<input name="whatsapp" type="tel" placeholder="+1 555 123 4567"/></label><label>Company / organization<input name="company" placeholder="Academy, retailer, club…"/></label><label>Customer type<select name="customerType" defaultValue="Academy"><option>Academy</option><option>Coach / trainer</option><option>Retailer</option><option>Camp / program</option><option>Distributor</option><option>Family / consumer</option></select></label><label>Estimated quantity<input name="estimatedQuantity" type="number" min="1" placeholder={sample?'1':'100'}/></label><label>Country *<input name="country" required defaultValue="United States"/></label><label>ZIP / postal code<input name="postalCode" placeholder="75201"/></label></div><label>What are you looking for?<textarea name="message" rows={5} defaultValue={reorderPrefill} placeholder="Product, sizes, colors, timing, delivery needs…"/></label><div ref={captcha.container} aria-label="Security verification"/>
       {captcha.mode==='required'&&!captcha.token&&<p className="form-note">Complete the security verification before sending.</p>}
       {captcha.mode==='unavailable'&&<p className="form-note">Security verification is temporarily unavailable. Please email {SALES_EMAIL}.</p>}
       <button className="button" type="submit" disabled={status==='submitting'||captcha.mode==='loading'||captcha.mode==='unavailable'}>{status==='submitting'?'Submitting…':sample?'Request sample':'Request wholesale quote'}{status!=='submitting'&&<ArrowRight size={18}/>}</button>
