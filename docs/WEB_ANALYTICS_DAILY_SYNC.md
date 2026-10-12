@@ -7,3 +7,5 @@
 部署需单独审查并执行 wrangler deploy --config wrangler.analytics.toml。实际 Cron 使用 UTC 03:30，仅查询最近7个完整 UTC 日期，每日对延迟到达的数据做幂等覆盖。GraphQL 必须匹配账户、站点标签以及主机名 mingeagle.com / www.mingeagle.com；不允许把其它站点或当前不完整日期写入。GraphQL 错误、无权限、结果截断、计数非法会直接失败；未返回的日期保持未知而非0。Cloudflare 提供的 Visits 及采样页载入量不等于独立访客，也不等于询盘；不得据此推算虚假漏斗转化率。
 
 测试：node scripts/test-web-analytics-sync.mjs。仅允许 SQL 写 web_analytics_daily；无客户 PII、邮件、公开可调用的写 API。部署后需要分别核查 Cron 日志、D1 实际日期数据以及管理员只读 API /api/admin/web-analytics-daily?days=30，三者一致才可标记自动同步完成。
+
+在现有 V2 CI 内执行 Wrangler dry-run Worker 打包检查；正式同步写入采用 D1 `batch()` 事务，防止跨多个日期中途失败时只更新部分统计行。
