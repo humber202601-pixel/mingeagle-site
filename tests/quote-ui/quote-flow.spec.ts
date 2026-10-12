@@ -14,7 +14,7 @@ async function login(page:Page,reference:string){
  await page.getByLabel('管理员访问密码').fill(FIXTURE_KEY);
  await page.getByRole('button',{name:'进入后台',exact:true}).click();
  await expect(page.getByRole('heading',{name:'报价单',exact:true})).toBeVisible();
- await expect(page.getByLabel('关联询盘',{exact:true})).toHaveValue(reference);
+ await expect(page.getByRole('combobox',{name:'关联询盘',exact:true})).toHaveValue(reference);
 }
 async function noPageOverflow(page:Page){
  const dimensions=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,viewport:window.innerWidth}));
