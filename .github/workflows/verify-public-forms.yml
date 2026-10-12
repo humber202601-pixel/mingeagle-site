@@ -21,6 +21,9 @@ on:
       - 'scripts/build-conversion.py'
       - 'scripts/build-seo-v37.cjs'
       - 'scripts/check-seo-v37.cjs'
+      - 'scripts/build-seo-discovery-links.cjs'
+      - 'scripts/check-seo-discovery-links.cjs'
+      - '.github/workflows/deploy-pages.yml'
       - '.github/workflows/verify-public-forms.yml'
   push:
     branches: [main]
@@ -52,5 +55,6 @@ jobs:
           node scripts/check-forms-core.cjs
           node scripts/check-turnstile.cjs
           node scripts/check-seo-v37.cjs
+          node scripts/check-seo-discovery-links.cjs
           node --check public/sales-assistant.js
           node scripts/check-chat-i18n.cjs
