@@ -19,16 +19,20 @@ function reply(query){const q=query.toLowerCase();if(/(human|agent|representativ
 const quoteState={active:false,model:'',size:'',quantity:'',zip:''};
 function captureDetails(text){
  const hadQuantity=!!quoteState.quantity;
- const n=text.match(/\b(?:size\s*|no\.?\s*)([34567])\b/i);
- // Allow product words between the count and unit, without treating a size or ZIP as a count.
- const quantities=text.matchAll(/(?:^|\s)([1-9]\d{0,4})\s*(?:(?:silent|flocked|weighted|fabric(?:[- ]cover)?|basketball|soccer|football)\s+){0,5}(?:sets?|pcs?|pieces?|balls?|units?)\b/gi);
- const m=Array.from(quantities).find(candidate=>!/(?:\b(?:size|no\.?|zip(?:\s*code)?|postal(?:\s*code)?|postcode)|\d\s*(?:-|to))\s*[:#-]?\s*$/i.test(text.slice(0,candidate.index)));
- if(m)quoteState.quantity=m[1];else if(quoteState.model&&quoteState.size&&!quoteState.quantity&&/^[1-9]\d{0,4}$/.test(text.trim()))quoteState.quantity=text.trim();
- const z=text.match(/\b(?:zip(?:\s*code)?|postal(?:\s*code)?|postcode|code\s*postal|c[oó]digo\s*postal|cep|plz|cap|郵便番号)\s*[:#-]?\s*([a-z0-9][a-z0-9 -]{1,10})/i);
- if(z)quoteState.zip=z[1].trim().toUpperCase();else if(hadQuantity&&!m&&!n&&!quoteState.zip&&/^(?=.{3,10}$)(?=.*\d)[a-z0-9 -]+$/i.test(text.trim()))quoteState.zip=text.trim().toUpperCase();
- if(n)quoteState.size=n[1];else if(quoteState.model&&!quoteState.size&&/^[34567]$/.test(text.trim()))quoteState.size=text.trim();
- const normalized=text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
- if(/(?:soccer|football|futbol|futebol|futbolowa|futbolowe|fussball|fußball|voetbal|calcio|サッカー|足球)/i.test(normalized)){quoteState.model='Flocked Silent Soccer Ball';if(!quoteState.size)quoteState.size='5';}
+ const normalized=text.normalize('NFKC').normalize('NFD').replace(/[\u0300-\u036f]/g,'').normalize('NFC').replace(/[−﹣－]/g,'-').replace(/⁄/g,'/').replace(/ł/g,'l').replace(/Ł/g,'L').replace(/ß/g,'ss').toLowerCase();
+ const n=normalized.match(/(?:\b(?:size|no\.?|talla|tamanho|taille|grosse|groesse|taglia|maat|rozmiar)|サイズ)\s*[:#-]?\s*([34567])(?=\b|号|$)/i);
+ const z=normalized.match(/(?:\b(?:zip(?:\s*code)?|postal(?:\s*code)?|postcode|code\s*postal|codigo\s*postal|cep|plz|cap|kod\s*pocztowy)|郵便番号)\s*[:#-]?\s*([a-z0-9][a-z0-9 -]{1,10})/i);
+ // Recognize bounded product descriptions and count nouns in the nine site languages.
+ const quantities=normalized.matchAll(/(?:^|\s|(?<=[\u3040-\u30ff\u3400-\u9fff])|(?<=\d[-~/]))([+-]?\d+(?:[.,]\d+)?\+?)\s*(?:(?:silent|flocked|weighted|fabric(?:[- ]cover)?|basketball|soccer|football|silencios[oa]s?|silencieux|silencieuses?|leise|stille|cich(?:e|ych)|flocad[oa]s?|floques?|geflockte|floccati)\s+){0,5}(?:(?:sets?|pcs?|pieces?|balls?|units?|balon(?:es)?|pelotas?|unidades?|unidad|conjuntos?|bolas?|pecas?|ballons?|balles?|unites?|ensembles?|balle|baelle|fussballe|fussballballe|basketballe|basketballballe|stucke?|pallon[ei]|palle|pezzi|unita|ballen|voetbalballen|basketballen|stuks?|eenheden|pilek|pilki|pilka|pilke|sztuk(?:i)?|zestaw(?:y|ow))\b|(?:静音)?(?:サッカー|バスケット)?ボール|個|球|セット)/gi);
+ const candidates=Array.from(quantities);
+ const matches=candidates.filter(candidate=>!/(?:\b(?:size|no\.?|talla|tamanho|taille|grosse|groesse|taglia|maat|rozmiar|zip(?:\s*code)?|postal(?:\s*code)?|postcode|code\s*postal|codigo\s*postal|cep|plz|cap|kod\s*pocztowy)|サイズ|郵便番号|\d\s*(?:[-–—~/]|to|or|a|ate|bis|al|do|tot|y|ou|o|oder|of|lub))\s*[:#-]?\s*$/i.test(normalized.slice(0,candidate.index)));
+ const counts=new Set(matches.map(candidate=>candidate[1]));
+ const m=counts.size===1&&/^[1-9]\d{0,4}$/.test(matches[0][1])?matches[0]:null;
+ const quantityText=candidates.length>0;
+ if(m)quoteState.quantity=m[1];else if(quantityText&&!n&&!z)quoteState.quantity='';else if(quoteState.model&&quoteState.size&&!quoteState.quantity&&/^[1-9]\d{0,4}$/.test(normalized.trim()))quoteState.quantity=normalized.trim();
+ if(z)quoteState.zip=z[1].trim().toUpperCase();else if(hadQuantity&&!quantityText&&!m&&!n&&!quoteState.zip&&/^(?=.{3,10}$)(?=.*\d)[a-z0-9 -]+$/i.test(normalized.trim()))quoteState.zip=normalized.trim().toUpperCase();
+ if(n)quoteState.size=n[1];else if(quoteState.model&&!quoteState.size&&/^[34567]$/.test(normalized.trim()))quoteState.size=normalized.trim();
+ if(/(?:soccer|football|futbol|futebol|futbolowa|futbolowe|(?:pilek|pilki)\s+noz|fussball|voetbal|calcio|サッカー|足球)/i.test(normalized)){quoteState.model='Flocked Silent Soccer Ball';if(!quoteState.size)quoteState.size='5';}
  else if(/(?:weighted|weight|leste|gewicht|gewichtet|appesantit|obciazon|verzwaard|加重|重い)/i.test(normalized))quoteState.model='Weighted Flocked Silent Basketball';
  else if(/(?:fabric|cloth|tela|tecido|tissu|stoff|tessuto|stof|material|pokrow|布カバー|布製)/i.test(normalized))quoteState.model='Fabric-Cover Silent Basketball Set';
  else if(/(?:flocked|flock|flocado|flocad|floqu|beflock|floccat|geflockt|flokowan|フロック|植绒)/i.test(normalized))quoteState.model='Flocked Silent Basketball Set';
