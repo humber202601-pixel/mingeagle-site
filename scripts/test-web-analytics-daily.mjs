@@ -22,7 +22,7 @@ try{
     async all(){return {results:sqlite.prepare(sql).all(...stmt.params)}},
     async first(){return sqlite.prepare(sql).get(...stmt.params)||null},
     async run(){
-     if(/^(CREATE (TABLE|INDEX) IF NOT EXISTS admin_auth_|INSERT INTO admin_auth_|DELETE FROM admin_auth_)/i.test(sql.trim()))
+     if(/^(CREATE TABLE IF NOT EXISTS admin_auth_|CREATE INDEX IF NOT EXISTS idx_admin_auth_|INSERT INTO admin_auth_|DELETE FROM admin_auth_)/i.test(sql.trim()))
       return {success:true,meta:{changes:Number(sqlite.prepare(sql).run(...stmt.params).changes)}};
      businessWrites++;throw Error('READ_ONLY_DATA_ROUTE_MUST_NOT_WRITE');
     }
