@@ -13,7 +13,7 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
   const present=await db.prepare(`SELECT name FROM sqlite_master
     WHERE type='table' AND name IN
     ('scheduler_heartbeat','hubspot_inquiry_recovery_state','discovery_auto_runs',
-     'discovery_auto_items','discovery_candidates','inquiries','leads')`)
+     'discovery_auto_items','discovery_candidates','inquiries','leads','hubspot_recovery_job_status')`)
     .all<{name:string}>();
   const tables=new Set(present.results.map(x=>x.name));
   const scheduler=include(tables,'scheduler_heartbeat')
@@ -24,6 +24,11 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
     ?await db.prepare(`SELECT offset,imported_total,last_synced_at
        FROM hubspot_inquiry_recovery_state WHERE id='public-form'`)
        .first<{offset:number;imported_total:number;last_synced_at:string|null}>():null;
+  const recoveryJob=include(tables,'hubspot_recovery_job_status')
+    ?await db.prepare(`SELECT last_attempt_at,last_success_at,last_status,last_http_status,
+        consecutive_failures FROM hubspot_recovery_job_status WHERE id='hourly'`)
+       .first<{last_attempt_at:string;last_success_at:string|null;last_status:string;
+         last_http_status:number|null;consecutive_failures:number}>():null;
   const run=include(tables,'discovery_auto_runs')
     ?await db.prepare(`SELECT id,status,phase,updated_at,created_at,
       completed_at,steps_completed FROM discovery_auto_runs
@@ -86,6 +91,13 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
       nextOffset:recovery?num(recovery.offset):null,
       stateKnown:Boolean(recovery),
       status:hubspotRecoveryStatus,
+      job:recoveryJob?{
+        lastAttemptAt:recoveryJob.last_attempt_at,
+        lastSuccessAt:recoveryJob.last_success_at,
+        status:recoveryJob.last_status,
+        httpStatus:recoveryJob.last_http_status,
+        consecutiveFailures:num(recoveryJob.consecutive_failures),
+      }:null,
       // A cron heartbeat proves invocation, not provider fetch success.
       actualHubspotSubmissions:null,
     },

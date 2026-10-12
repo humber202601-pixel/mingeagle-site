@@ -39,6 +39,54 @@ try {
   const heartbeats=await read();
   assert.equal(heartbeats.length,2,'separate discovery and follow-up triggers');
   assert(heartbeats.some(x=>x.id==='FOLLOWUP'),'daily follow-up cron is observed without sending mail');
+  // The first hourly tick has no worker credential: record a skip, never
+  // contact the provider or create customer data.
+  const originalFetch=globalThis.fetch;
+  let remoteCalls=0;
+  globalThis.fetch=async()=>{remoteCalls++;return Response.json({ok:true,configured:true})};
+  try {
+    await worker.scheduled({cron:'0 * * * *'},env,context);await context.task;
+    let job=sqlite.prepare("SELECT * FROM hubspot_recovery_job_status WHERE id='hourly'").get();
+    assert.equal(job.last_status,'SKIPPED_NO_WORKER_KEY');
+    assert.equal(job.consecutive_failures,0);
+    assert.equal(job.last_success_at,null);
+    assert.equal(remoteCalls,0,'Missing admin secret must not call remote recovery API');
+
+    const enabledEnv={...env,ADMIN_ACCESS_KEY:'synthetic-admin-key'};
+    globalThis.fetch=async(url,options)=>{
+      remoteCalls++;
+      assert.equal(url,'https://app.mingeagle.com/api/admin/hubspot-inquiry-recovery');
+      assert.equal(options.headers['x-admin-key'],'synthetic-admin-key');
+      return Response.json({ok:true,configured:false,disabled:true});
+    };
+    await worker.scheduled({cron:'0 * * * *'},enabledEnv,context);await context.task;
+    job=sqlite.prepare("SELECT * FROM hubspot_recovery_job_status WHERE id='hourly'").get();
+    assert.equal(job.last_status,'SKIPPED_NO_PROVIDER_KEY');
+    assert.equal(job.last_success_at,null);
+    assert.equal(job.consecutive_failures,0);
+
+    globalThis.fetch=async()=>Response.json({ok:true,configured:true,processed:0,imported:0});
+    await worker.scheduled({cron:'0 * * * *'},enabledEnv,context);await context.task;
+    job=sqlite.prepare("SELECT * FROM hubspot_recovery_job_status WHERE id='hourly'").get();
+    assert.equal(job.last_status,'SUCCEEDED');
+    assert(job.last_success_at,'Only provider-confirmed success persists success timestamp');
+
+    globalThis.fetch=async()=>Response.json({ok:false,error:'blocked'},{status:401});
+    await worker.scheduled({cron:'0 * * * *'},enabledEnv,context);await context.task;
+    job=sqlite.prepare("SELECT * FROM hubspot_recovery_job_status WHERE id='hourly'").get();
+    assert.equal(job.last_status,'AUTH_FAILED');
+    assert.equal(job.consecutive_failures,1);
+    assert(job.last_success_at,'Failures must not erase last success');
+
+    globalThis.fetch=async()=>{throw Error('Synthetic network failure')};
+    await worker.scheduled({cron:'0 * * * *'},enabledEnv,context);await context.task;
+    job=sqlite.prepare("SELECT * FROM hubspot_recovery_job_status WHERE id='hourly'").get();
+    assert.equal(job.last_status,'NETWORK_FAILED');
+    assert.equal(job.consecutive_failures,2);
+    assert(job.last_success_at);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM hubspot_recovery_job_status").get().n,1);
+  } finally {globalThis.fetch=originalFetch;}
+
   assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM messages').get().n,0,'passive monitoring never sends customer messages');
   sqlite.close();
   console.log('PASS: real cron trigger evidence, never-reported-unseen state, 15-minute throttling, two independent schedules and zero outreach.');
