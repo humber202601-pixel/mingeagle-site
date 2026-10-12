@@ -42,6 +42,12 @@ jobs:
       - name: Normalize contact helper across generated pages
         run: python scripts/normalize-contact-helper.py
 
+      - name: Enable privacy-focused Cloudflare Web Analytics across built HTML
+        run: |
+          node scripts/enable-web-analytics.cjs
+          node scripts/check-web-analytics.cjs
+          node scripts/enable-web-analytics.cjs --check
+
       - name: Verify confirmation build
         run: |
           test -f public/index.html

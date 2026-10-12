@@ -3,6 +3,9 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'public/**'
+      - 'scripts/enable-web-analytics.cjs'
+      - 'scripts/check-web-analytics.cjs'
       - 'public/inquiry.js'
       - 'public/sales-assistant.js'
       - 'public/sales-assistant-i18n.js'
@@ -35,6 +38,12 @@ jobs:
         run: python scripts/normalize-canonical-host.py
       - name: Normalize built public form scripts
         run: python scripts/normalize-contact-helper.py
+      - name: Ensure analytics tags and privacy disclosure are packaged
+        run: |
+          node scripts/enable-web-analytics.cjs
+          node scripts/check-web-analytics.cjs
+          node scripts/enable-web-analytics.cjs --check
+
       - name: Check public inquiry / CRM mapping and site attribution
         run: |
           node scripts/check-growth.cjs
