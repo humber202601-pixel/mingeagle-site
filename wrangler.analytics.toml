@@ -1,0 +1,14 @@
+name = "mingeagle-web-analytics-sync"
+main = "workers/web-analytics-sync.mjs"
+compatibility_date = "2026-10-04"
+
+# Dedicated scheduled worker, not the CRM Pages process. Requires encrypted
+# Worker secret CF_ANALYTICS_GRAPHQL_TOKEN (Cloudflare account Analytics Read).
+[[d1_databases]]
+binding = "MINGEAGLE_DB"
+database_name = "mingeagle-v2"
+database_id = "8dfddbe8-f4ff-4f5e-bb5d-063ec3933814"
+preview_database_id = "ecd66556-ea9b-492f-99df-079c3db24221"
+
+[triggers]
+crons = ["30 3 * * *"]
