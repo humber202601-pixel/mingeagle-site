@@ -68,7 +68,7 @@ try{
   assert.equal(filled.data.discovery.sourceFailures,1);
   assert.equal(filled.data.discovery.candidates,2);
   assert.equal(filled.data.discovery.imported,1,'actual CRM foreign key determines imported count');
-  assert.equal(filled.data.inquiries.last24h,1);
+  assert.equal(filled.data.inquiries.last24h,2,'Both synthetic inquiries were created in the past 24 hours');
   assert.equal(filled.data.scheduler.length,2);
   assert.equal(filled.data.quota.actualD1RowsWritten,null);
   assert.equal(filled.writes,0,'no database writes from dashboard');
