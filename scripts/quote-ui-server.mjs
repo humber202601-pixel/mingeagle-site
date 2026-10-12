@@ -12,7 +12,7 @@ const folder=mkdtempSync(join(tmpdir(),'mingeagle-quote-ui-'));
 const load=async(name,file)=>{const out=join(folder,name+'.mjs');await build({entryPoints:[file],outfile:out,bundle:true,platform:'node',format:'esm',logLevel:'silent'});return import(pathToFileURL(out));};
 const root=await load('root','functions/_middleware.ts');
 const auth=await load('auth','functions/api/admin/_middleware.ts');
-const paths=['inquiries','quote-reference','admin/session','admin/data','admin/quotes','admin/quote-edit','admin/quote-retail-approval','admin/quote-send'];
+const paths=['inquiries','quote-reference','admin/session','admin/data','admin/quotes','admin/quote-edit','admin/quote-retail-approval','admin/quote-send','admin/quote-document'];
 const routes=new Map();
 for(const path of paths)routes.set('/api/'+path,await load(path.replaceAll('/','-'),'functions/api/'+path+'.ts'));
 const customer=await load('customer','functions/quote/[token].ts');

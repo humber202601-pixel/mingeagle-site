@@ -68,6 +68,16 @@ test('真实报价界面：精确数量、金额、修改审核、批准与客�
  const releasedResponse=page.waitForResponse(r=>r.url().endsWith('/api/admin/quote-send')&&r.request().method()==='POST');
  await row.getByRole('button',{name:'仅生成安全链接',exact:true}).click();
  const released=await (await releasedResponse).json();expect(released.emailed).toBe(false);
+ const pdfResponse=await request.get('/api/admin/quote-document?kind=quotation&quoteId='+created.quoteId,{headers:auth});
+ expect(pdfResponse.status()).toBe(200);
+ expect(pdfResponse.headers()['content-type']).toBe('application/pdf');
+ const exported=await pdfResponse.body();
+ expect(exported.subarray(0,8).toString()).toBe('%PDF-1.4');
+ expect(exported.toString()).toContain('QT-'+created.reference);
+ const noPrematurePI=await request.get('/api/admin/quote-document?kind=pi&quoteId='+created.quoteId,{headers:auth});
+ expect(noPrematurePI.status()).toBe(409);
+ const unauthorized=await request.get('/api/admin/quote-document?kind=quotation&quoteId='+created.quoteId);
+ expect(unauthorized.status()).toBe(401);
  await expect(page.getByText(/客户安全报价链接已生成/).first()).toBeVisible();
  await page.goto(released.publicPath);
  await expect(page.getByText(/Save USD 3\.83/)).toBeVisible();

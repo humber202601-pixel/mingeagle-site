@@ -337,6 +337,31 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     }
   }
 
+  async function downloadCommercialDocument(quote:Row,kind:'quotation'|'pi'){
+    const id=text(quote.id);
+    setBusyQuoteId(id);setError('');
+    try{
+      const q=new URLSearchParams({quoteId:id,kind});
+      const response=await fetch('/api/admin/quote-document?'+q.toString(),
+        {headers:{'x-admin-key':accessKey},cache:'no-store'});
+      if(!response.ok){
+        const json=await response.json().catch(()=>({})) as {error?:string};
+        throw new Error(json.error||'Unable to download commercial document.');
+      }
+      if(response.headers.get('content-type')!=='application/pdf')
+        throw new Error('Invalid PDF response; document has not been downloaded.');
+      const blob=await response.blob(),href=URL.createObjectURL(blob);
+      const anchor=document.createElement('a');
+      const disposition=response.headers.get('content-disposition')||'';
+      const filename=/filename="([^"]+\.pdf)"/i.exec(disposition)?.[1]||
+        'MING-EAGLE-'+(kind==='pi'?'Proforma-Invoice':'Quotation')+'.pdf';
+      anchor.href=href;anchor.download=filename;document.body.appendChild(anchor);anchor.click();anchor.remove();
+      window.setTimeout(()=>URL.revokeObjectURL(href),30000);
+      setQuoteDeliveryMessage((kind==='pi'?'PI':'Quotation')+' PDF 已生成并下载。请人工核实客户名称、收款指示与商业条款；系统未发送邮件，也未修改订单或付款状态。');
+    }catch(error){
+      setError(error instanceof Error?error.message:'文档下载失败。');
+    }finally{setBusyQuoteId('')}
+  }
   async function copyLink() {
     if (customerLink) await navigator.clipboard.writeText(customerLink.url);
   }
@@ -512,6 +537,8 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
               {status === 'DRAFT' && <button type="button" className="table-action" disabled={busyQuoteId === id} onClick={() => void openEdit(quote)}>{busyQuoteId === id ? '加载中…' : '编辑草稿'}</button>}
               {canSend && <button type="button" className="table-action primary" disabled={busyQuoteId === id} onClick={() => void deliverQuote(quote, true)}>{busyQuoteId === id ? '处理中…' : status === 'DRAFT' ? 'Gmail发送报价' : '重新邮件发送'}</button>}
               {canSend && <button type="button" className="table-action" disabled={busyQuoteId === id} onClick={() => void deliverQuote(quote, false)}>{busyQuoteId === id ? '处理中…' : status === 'DRAFT' ? '仅生成安全链接' : '重新生成链接'}</button>}
+              {['SENT','VIEWED','ACCEPTED','CONVERTED'].includes(status) && <button type="button" className="table-action" disabled={Boolean(busyQuoteId)} onClick={() => void downloadCommercialDocument(quote,'quotation')}>下载英文 Quotation PDF</button>}
+              {status==='CONVERTED' && <button type="button" className="table-action" disabled={Boolean(busyQuoteId)} onClick={() => void downloadCommercialDocument(quote,'pi')}>下载英文 PI PDF</button>}
               {canRevise && <button type="button" className="table-action" disabled={busyQuoteId === id} onClick={() => void createRevision(quote)}>{busyQuoteId === id ? '处理中…' : '创建修订版'}</button>}
               {!canSend && !canRevise && <span>{status === 'CONVERTED' ? '已生成订单' : '不可操作'}</span>}
             </div></td>
