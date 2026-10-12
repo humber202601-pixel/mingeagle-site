@@ -68,8 +68,7 @@ try{
     assert.equal(u.searchParams.get('offset'),'0');
     assert([2,50].includes(limit));
     return Response.json({results:Array.from({length:limit===2?2:11},
-      (_,i)=>({values:[{name:'email',value:'private-email-'+i+'@example.test'}]})),
-      hasMore:false,offset:0});
+      (_,i)=>({values:[{name:'email',value:'private-email-'+i+'@example.test'}]}))});
   };
   const auditResponse=await api.onRequestPost({request:new Request(
     'https://app.mingeagle.com/api/admin/hubspot-inquiry-recovery',
@@ -78,8 +77,8 @@ try{
   assert.equal(auditResponse.status,200);
   assert.equal(audited.inventory.limit2.count,2);
   assert.equal(audited.inventory.limit50.count,11);
-  assert.equal(audited.inventory.limit2.hasMore,false);
-  assert.equal(audited.inventory.limit50.hasMore,false);
+  assert.equal(audited.inventory.limit2.hasMore,null,'Omitted HubSpot pagination flag must remain unknown');
+  assert.equal(audited.inventory.limit50.hasMore,null,'Large-page diagnostics must expose omitted flag');
   assert(!JSON.stringify(audited).includes('@example.test'),'No submission fields in diagnostic response');
   assert.equal(count('inquiries'),0,'Read-only audit cannot create CRM records');
   assert.equal(externalCalls,0,'Audit must not invoke original CRM recovery paths');
@@ -96,15 +95,41 @@ try{
   assert.equal(second.status,200,JSON.stringify(second));
   assert.equal(second.payload.reused,1);
   assert.equal(second.payload.skipped,1);
-  assert.equal(second.payload.nextOffset,0);
+  assert.equal(second.payload.nextOffset,2,'Full pages must continue even if HubSpot reports false');
   assert.equal(count('inquiries'),2,'no duplicate CRM leads or inquiries');
+  // HubSpot returned exactly two entries and the old code falsely reset to 0.
+  // A subsequent empty offset=4 page must close the pass safely.
   const third=await doSync(env);
   assert.equal(third.payload.imported,0);
-  assert.equal(third.payload.reused,2);
+  assert.equal(third.payload.reused,1);
+  assert.equal(third.payload.skipped,1);
+  assert.equal(third.payload.nextOffset,4);
+  const finalEmpty=await doSync(env);
+  assert.equal(finalEmpty.payload.processed,0);
+  assert.equal(finalEmpty.payload.nextOffset,0);
   assert.equal(count('leads'),2);
   assert.equal(mailCalls,0);
-  assert.equal(externalCalls,3);
+  assert.equal(externalCalls,4);
+  // The real 11-versus-2 failure mode: pagination metadata entirely omitted.
+  // Offset progression must use response length, with the final 1-item page
+  // resetting to 0, without duplicating the earlier two inquiry references.
+  pages[0]={results:[mk(ref1,'dana@example.test'),mk(ref2,'sample@example.test','Sample request')]};
+  pages[2]={results:[mk(ref1,'dana@example.test'),
+    mk('ME-20261010-BAD00003','ignore@example.test','Wholesale quote','false')]};
+  pages[4]={results:[mk('ME-20261010-AABBAA04','new@example.test','General product question')]};
+  const noFlag1=await doSync(env);
+  assert.equal(noFlag1.payload.nextOffset,2);
+  const noFlag2=await doSync(env);
+  assert.equal(noFlag2.payload.nextOffset,4);
+  const noFlagLast=await doSync(env);
+  assert.equal(noFlagLast.payload.processed,1);
+  assert.equal(noFlagLast.payload.imported,1);
+  assert.equal(noFlagLast.payload.hasMore,false);
+  assert.equal(noFlagLast.payload.nextOffset,0);
+  assert.equal(count('inquiries'),3,'Last valid inquiry imported once after missing metadata');
+  assert.equal(count('leads'),3);
+  assert.equal(mailCalls,0);
   assert.equal(dbsql.prepare("SELECT request_type FROM inquiries WHERE reference=?").get(ref2).request_type,'SAMPLE');
   assert.equal(count('messages'),0,'recovered enquiries do not send cold sales emails');
-  console.log('PASS: HubSpot exact form fields, privacy, hourly bounded 2-item replay, D1 cursor, one customer per reference, sample workflow, 50-query limit and no duplicate notifications.');
+  console.log('PASS: HubSpot historical pagination without metadata, final short/empty pages, bounded 2-item replay, cursor progression, reference dedupe, sample workflow, read quota and no duplicate notifications.');
 }finally{globalThis.fetch=oldFetch;rmSync(temp,{recursive:true,force:true})}
