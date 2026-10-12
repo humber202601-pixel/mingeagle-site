@@ -67,6 +67,20 @@ try{
   assert.equal(spam.status,400,'honeypot excludes bots from D1 writes');
   assert.equal(count('inquiries'),3);
   assert.equal(count('messages'),0,'web inquiry never starts outreach');
+  // A failed D1 write must not leak raw driver/SQL diagnostics in the public response.
+  const brokenDb={prepare(){throw Error('PRIVATE_D1_SQL_ERROR customer_secret_table')}};
+  const failed=await api.receiveRecoveredInquiry({MINGEAGLE_DB:brokenDb},{
+    originalReference:'ME-20261010-FA1L00FF',firstName:'Fixture',
+    email:'fixture@example.test',country:'US',requestType:'WHOLESALE'
+  });
+  assert.equal(failed.status,500);
+  const failedBody=await failed.json();
+  assert.equal(failedBody.ok,false);
+  assert.equal(failedBody.code,'INQUIRY_SAVE_FAILED');
+  assert(!JSON.stringify(failedBody).includes('PRIVATE_D1_SQL_ERROR'),'Raw SQL errors cannot reach buyers');
+  assert(!JSON.stringify(failedBody).includes('customer_secret_table'),'Internal table names cannot reach buyers');
+  assert.equal(failed.headers.get('cache-control'),'no-store');
+
   assert.equal(forwards,3,'inquiry emails only forward for accepted new records, not retries');
   // The same Cloudflare-facing IP may submit up to 12 requests within a
   // 15-minute window; the 13th is rejected without creating a new record.
