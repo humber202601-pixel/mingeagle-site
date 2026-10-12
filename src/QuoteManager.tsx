@@ -20,6 +20,7 @@ export default function QuoteManager({ quotes, inquiries, accessKey, onRefresh }
   async function createCustomerLink(quote: Row) {
     const quoteId = text(quote.id, '');
     if (!quoteId) return;
+    if (!window.confirm(`批准报价 ${text(quote.reference)}，确认商品、数量、运费和条款后生成客户链接？`)) return;
     setBusyId(quoteId);
     setError('');
     setLink(null);
@@ -27,7 +28,7 @@ export default function QuoteManager({ quotes, inquiries, accessKey, onRefresh }
       const response = await fetch('/api/admin/quote-send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
-        body: JSON.stringify({ quoteId }),
+        body: JSON.stringify({ quoteId, approved: true }),
       });
       const body = await response.json() as { ok?: boolean; reference?: string; publicPath?: string; error?: string };
       if (!response.ok || !body.ok || !body.publicPath || !body.reference) throw new Error(body.error || 'Unable to create customer link.');
@@ -51,7 +52,7 @@ export default function QuoteManager({ quotes, inquiries, accessKey, onRefresh }
     {link && <section className="panel secure-link-panel">
       <div><strong>Customer quote link ready · {link.reference}</strong><p>{link.url}</p></div>
       <div className="secure-link-actions"><button className="button secondary small" onClick={copyLink}>Copy link</button><a className="button small" href={link.url} target="_blank" rel="noreferrer">Open quote</a></div>
-      <small>Creating a new secure link for the same quote invalidates the previous link.</small>
+      <small>Previous secure links remain valid until the quote is revised or revoked.</small>
     </section>}
     {error && <div className="form-status error quote-action-error"><strong>Quote action failed.</strong><p>{error}</p></div>}
     <section className="panel table-panel">

@@ -1,6 +1,6 @@
 interface Env {MINGEAGLE_DB:D1Database}
 type R=Record<string,unknown>;
-const prices:Record<string,number>={'P1-S3':9.9,'P1-S5':11.9,'P1-S7':14.9,'P2-S3':10.9,'P2-S5':12.9,'P2-S7':15.9,'P3-S3':12.9,'P3-S4':14.9,'P3-S6':18.9,'P3-S7':21.9,'P4-S5':17.9};
+import {SKU_USD as prices} from '../../../lib/retail-reference';
 const bad=(message:string,status=400)=>Response.json({ok:false,error:message},{status});
 export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  if(!env.MINGEAGLE_DB)return bad('Database unavailable',503);

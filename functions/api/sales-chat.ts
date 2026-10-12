@@ -1,13 +1,11 @@
+import {PRODUCT_NAMES, RETAIL_USD} from '../../lib/retail-reference';
 interface Env {MINGEAGLE_DB?:D1Database;AI_SALES_ENABLED?:string;AI_SALES_API_KEY?:string;AI_SALES_MODEL?:string;AI_SALES_ENDPOINT?:string}
 type Message={role:'user'|'assistant';content:string};
 const allowOrigin='https://www.mingeagle.com';
 const cors={'access-control-allow-origin':allowOrigin,'access-control-allow-methods':'POST, OPTIONS','access-control-allow-headers':'content-type','vary':'Origin','cache-control':'no-store'};
 const response=(status:number,obj:Record<string,unknown>)=>Response.json(obj,{status,headers:cors});
 const catalog=`MING EAGLE COMMERCE LLC product catalog. USD published retail reference (not wholesale pricing):
-Flocked Silent Basketball Set: No.3 $9.90, No.5 $11.90, No.7 $14.90. Colors Orange, Blue, Green, Yellow.
-Fabric-Cover Silent Basketball Set: No.3 $10.90, No.5 $12.90, No.7 $15.90. Colors Orange, Green.
-Weighted Flocked Silent Basketball: No.3 $12.90, No.4 $14.90, No.6 $18.90, No.7 $21.90. Colors Orange, Brown, Black, Aqua Blue.
-Flocked Silent Soccer Ball: No.5 $17.90. Colors Black/White, Black/Green, Black/Red, Yellow/Green, Black/Gold.
+${PRODUCT_NAMES.map((name,index)=>name+': '+Object.entries(RETAIL_USD[name]).map(([size,price])=>'No.'+size+' $'+price.toFixed(2)).join(', ')+'. Colors '+['Orange, Blue, Green, Yellow','Orange, Green','Orange, Brown, Black, Aqua Blue','Black/White, Black/Green, Black/Red, Yellow/Green, Black/Gold'][index]+'.').join('\n')}
 Website https://www.mingeagle.com ; wholesale inquiries https://www.mingeagle.com/inquiry.html?type=quote ; sample request https://www.mingeagle.com/inquiry.html?type=sample.
 Wholesale unit prices, MOQ, shipping, stock, lead times, customization and payments are NOT confirmed by the catalog. Do not invent them.`;
 export const onRequestOptions:PagesFunction<Env>=async({request})=>request.headers.get('Origin')===allowOrigin?new Response(null,{status:204,headers:cors}):new Response(null,{status:403});

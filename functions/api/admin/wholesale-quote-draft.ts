@@ -1,4 +1,5 @@
-import {retailReference} from '../../../lib/retail-reference';
+import {retailReference, RETAIL_SOURCE_URL} from '../../../lib/retail-reference';
+import {quoteTotals} from '../../../lib/quote-totals';
 // Admin-only, manually priced B2B draft. Never assume retail prices are wholesale prices.
 interface Env {MINGEAGLE_DB?:D1Database}
 type R=Record<string,unknown>;
@@ -12,7 +13,7 @@ const variants:Record<string,{sizes:string[];colors:string[]}>={
 };
 export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  const db=env.MINGEAGLE_DB;if(!db)return bad('Database unavailable',503);
- let input:{inquiryReference?:string;unitPrices?:number[];shippingUSD?:number;paymentTerms?:string;shippingTerms?:string};
+ let input:{inquiryReference?:string;unitPrices?:Array<number|string>;shippingUSD?:number|string;paymentTerms?:string;shippingTerms?:string};
  try{input=await request.json()}catch{return bad('Invalid JSON')}
  const ref=String(input.inquiryReference||'').trim();
  if(!/^[A-Z0-9-]{5,100}$/.test(ref))return bad('Invalid inquiry reference');
@@ -30,14 +31,13 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   lines.push({description:m[1]+' | No. '+m[2]+' | '+m[3],quantity});if(lines.length>20)return bad('Too many RFQ lines',409);
  }
  if(!lines.length)return bad('Missing RFQ line items',409);
- if(!Array.isArray(input.unitPrices)||input.unitPrices.length!==lines.length||input.unitPrices.some(v=>typeof v!=='number'||!Number.isFinite(v)||v<=0||v>100000||Math.round(v*100)!==v*100))return bad('Enter verified USD unit price for each line');
- const shipping=input.shippingUSD;
- if(typeof shipping!=='number'||!Number.isFinite(shipping)||shipping<0||shipping>1000000||Math.round(shipping*100)!==shipping*100)return bad('Enter verified USD shipping amount (0 if included)');
+ if(!Array.isArray(input.unitPrices)||input.unitPrices.length!==lines.length)return bad('Enter verified USD unit price for each line');
+ let calculation:ReturnType<typeof quoteTotals>;
+ try{calculation=quoteTotals(lines.map((line,i)=>({quantity:line.quantity,unitPrice:input.unitPrices![i]})),input.shippingUSD)}catch{return bad('Enter valid USD prices and explicit shipping with at most two decimal places; review quantity and total limits');}
+ const shipping=calculation.shipping;
  const payment=String(input.paymentTerms||'').trim(),terms=String(input.shippingTerms||'').trim();
  if(!payment||!terms||payment.length>500||terms.length>500)return bad('Confirm payment and shipping terms');
- const cents=lines.map((line,i)=>Math.round(input.unitPrices![i]*100)*line.quantity);
- const subtotalCents=cents.reduce((a,b)=>a+b,0),totalCents=subtotalCents+Math.round(shipping*100);
- if(!Number.isSafeInteger(totalCents)||totalCents>100000000)return bad('Quote total outside review limits');
+ const cents=calculation.lineCents,subtotalCents=calculation.subtotalCents,totalCents=calculation.totalCents;
  const id=crypto.randomUUID(),quoteRef='ME-Q-'+Date.now().toString(36).toUpperCase()+'-'+crypto.randomUUID().slice(0,4).toUpperCase();
  // Catalog reference is already published and keyed by product + size.
  // Persist the exact per-line snapshot so the customer quotation can show verified savings.
@@ -47,11 +47,11 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  approved_unit_price REAL NOT NULL,approved_quantity INTEGER NOT NULL,
  approved_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
  PRIMARY KEY(quote_id,item_id))`).run();
- const lineItems=lines.map((line,i)=>({ ...line,itemId:crypto.randomUUID(),wholesale:input.unitPrices![i],retail:retailReference(line.description) }));
+ const lineItems=lines.map((line,i)=>({ ...line,itemId:crypto.randomUUID(),wholesale:calculation.lines[i].unitCents/100,retail:retailReference(line.description) }));
  const sql=db.prepare("INSERT INTO quotes (id,reference,lead_id,inquiry_id,company_id,contact_id,status,currency,subtotal,discount,shipping,tax,total,payment_terms,shipping_terms,notes,valid_until) VALUES (?,?,?,?,?,?,'DRAFT','USD',?,0,?,0,?,?,?,?,datetime('now','+14 days'))").bind(id,quoteRef,inquiry.lead_id,inquiry.id,inquiry.company_id,inquiry.contact_id,subtotalCents/100,shipping,totalCents/100,payment,terms,'Wholesale draft. Manually priced by staff; verify freight, duties, stock and terms before sending. Source inquiry '+ref);
  const stmts=[sql,...lineItems.map((line,i)=>db.prepare('INSERT INTO quote_items (id,quote_id,description,quantity,unit_price,line_total,sort_order) VALUES (?,?,?,?,?,?,?)').bind(line.itemId,id,line.description,line.quantity,line.wholesale,cents[i]/100,i)),
  ...lineItems.filter(line=>line.retail!==null&&line.wholesale<line.retail!).map(line=>db.prepare(`INSERT INTO quote_retail_approvals (quote_id,item_id,retail_usd,source_url,approved_description,approved_unit_price,approved_quantity)
- VALUES (?,?,?,?,?,?,?)`).bind(id,line.itemId,line.retail,'https://app.mingeagle.com/retail-prices.json',line.description,line.wholesale,line.quantity)),
+ VALUES (?,?,?,?,?,?,?)`).bind(id,line.itemId,line.retail,RETAIL_SOURCE_URL,line.description,line.wholesale,line.quantity)),
  db.prepare("UPDATE inquiries SET status='QUOTED',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(inquiry.id)];
  await db.batch(stmts);
  return Response.json({ok:true,quoteReference:quoteRef,status:'DRAFT',items:lines.length,subtotalUSD:subtotalCents/100,shippingUSD:shipping,totalUSD:totalCents/100,reviewRequired:true,sent:false},{headers:{'cache-control':'no-store'}});

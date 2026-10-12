@@ -2,6 +2,7 @@ import {publicInquiryRateLimit} from '../../lib/public-inquiry-guard';
 import {verifyInquiryTurnstile,type TurnstileEnv} from '../../lib/turnstile-inquiry';
 interface Env {
   MINGEAGLE_DB: D1Database;
+  OUTBOUND_EMAIL_DISABLED?: string;
   TURNSTILE_SITE_KEY?:TurnstileEnv['TURNSTILE_SITE_KEY'];
   TURNSTILE_SECRET_KEY?:TurnstileEnv['TURNSTILE_SECRET_KEY'];
   TURNSTILE_ENABLED?:TurnstileEnv['TURNSTILE_ENABLED'];
@@ -238,6 +239,7 @@ function successResponse(nativeForm: boolean, reference: string, payload: Record
 
 async function processInquiryPost(context:Parameters<PagesFunction<Env>>[0],notify=true):Promise<Response>{
   const {request,env}=context;
+  notify = notify && env.OUTBOUND_EMAIL_DISABLED !== 'true';
   try {
     if (!env.MINGEAGLE_DB) {
       return Response.json({ error: 'Database is not configured.' }, { status: 503 });

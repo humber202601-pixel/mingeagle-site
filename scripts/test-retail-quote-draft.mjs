@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {transform} from 'esbuild';
+import {build} from 'esbuild';
 import {webcrypto} from 'node:crypto';
 
 if(!globalThis.crypto)globalThis.crypto=webcrypto;
 const source=await readFile(new URL('../functions/api/admin/retail-quote-draft.ts',import.meta.url),'utf8');
-const compiled=await transform(source,{loader:'ts',format:'esm',target:'es2022'});
-const {onRequestPost}=await import('data:text/javascript;base64,'+Buffer.from(compiled.code).toString('base64'));
+const compiled=await build({entryPoints:['functions/api/admin/retail-quote-draft.ts'],bundle:true,write:false,platform:'node',format:'esm',target:'es2022',logLevel:'silent'});
+const {onRequestPost}=await import('data:text/javascript;base64,'+Buffer.from(compiled.outputFiles[0].text).toString('base64'));
 
 function fakeDatabase(message,{inquiryStatus='NEW',existingQuote=false,minimum=1}={}){
  const writes=[];

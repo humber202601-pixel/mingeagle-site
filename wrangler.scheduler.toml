@@ -6,6 +6,17 @@ compatibility_date = "2026-10-04"
 binding = "MINGEAGLE_DB"
 database_name = "mingeagle-v2"
 database_id = "8dfddbe8-f4ff-4f5e-bb5d-063ec3933814"
+preview_database_id = "ecd66556-ea9b-492f-99df-079c3db24221"
 
 [triggers]
 crons = ["0 13 * * *", "* * * * *", "0 * * * *"]
+
+[previews.vars]
+TEST_ENVIRONMENT = "preview"
+OUTBOUND_EMAIL_DISABLED = "true"
+AUTO_EMAIL_ENABLED = "false"
+
+[[previews.d1_databases]]
+binding = "MINGEAGLE_DB"
+database_name = "mingeagle-crm-preview"
+database_id = "ecd66556-ea9b-492f-99df-079c3db24221"

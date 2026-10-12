@@ -1,4 +1,5 @@
-import {retailReference} from '../../../lib/retail-reference';
+import {retailReference, RETAIL_SOURCE_URL} from '../../../lib/retail-reference';
+import {quoteTotals} from '../../../lib/quote-totals';
 interface Env {
   MINGEAGLE_DB: D1Database;
 }
@@ -35,9 +36,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const description = clean(input.description, 500) || 'MING EAGLE Silent Basketball products';
     const quantityRaw = num(input.quantity, NaN);
     const quantity = quantityRaw;
-    const unitPrice = num(input.unitPrice, 0);
-    const shipping = num(input.shipping, NaN);
-    const discount = Math.max(0, num(input.discount, 0));
+    let calculation: ReturnType<typeof quoteTotals>;
+    try {
+      calculation = quoteTotals([{ quantity: input.quantity, unitPrice: input.unitPrice }], input.shipping, input.discount ?? 0);
+    } catch {
+      return Response.json({ ok: false, error: 'Confirm a whole-number quantity, positive USD price, explicit shipping and valid discount. Amounts must have at most two decimal places and the quote total must be positive and within review limits.' }, { status: 400 });
+    }
+    const unitPrice = calculation.lines[0].unitCents / 100;
+    const shipping = calculation.shipping;
+    const discount = calculation.discount;
     const validDays = Math.min(90, Math.max(1, Math.round(num(input.validDays, 14))));
     const paymentTerms = clean(input.paymentTerms, 500) || 'Payment terms to be confirmed before sending.';
     const shippingTerms = clean(input.shippingTerms, 500) || 'Shipping terms to be confirmed before sending.';
@@ -81,10 +88,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     const quoteId = crypto.randomUUID();
     const quoteItemId = crypto.randomUUID();
-    const lineTotal = quantity * unitPrice;
-    const subtotal = lineTotal;
-    const total = Math.max(0, subtotal - discount + shipping);
-    const reference = `ME-Q-${Date.now().toString(36).toUpperCase()}`;
+    const lineTotal = calculation.lineCents[0] / 100;
+    const subtotal = calculation.subtotal;
+    const total = calculation.total;
+    const reference = `ME-Q-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0,4).toUpperCase()}`;
 
     await db.prepare(`INSERT INTO quotes (
       id, reference, lead_id, inquiry_id, company_id, contact_id, status, currency,
@@ -126,7 +133,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       await db.prepare(`INSERT INTO quote_retail_approvals
         (quote_id,item_id,retail_usd,source_url,approved_description,approved_unit_price,approved_quantity)
         VALUES (?,?,?,?,?,?,?)`)
-        .bind(quoteId,quoteItemId,retail,'https://app.mingeagle.com/retail-prices.json',description,unitPrice,quantity).run();
+        .bind(quoteId,quoteItemId,retail,RETAIL_SOURCE_URL,description,unitPrice,quantity).run();
     }
 
     await db.prepare(`UPDATE inquiries SET status = 'QUOTED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`)

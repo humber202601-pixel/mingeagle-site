@@ -4,9 +4,10 @@ interface Env {
   GMAIL_CLIENT_SECRET?: string;
   GMAIL_REFRESH_TOKEN?: string;
   GMAIL_FROM?: string;
+  OUTBOUND_EMAIL_DISABLED?: string;
 }
 
-type Input = { quoteId?: string; sendEmail?: boolean };
+type Input = { quoteId?: string; sendEmail?: boolean; approved?: boolean };
 
 type QuoteRow = {
   id: string;
@@ -140,7 +141,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.MINGEAGLE_DB) return Response.json({ ok: false, error: 'Database is not configured.' }, { status: 503 });
 
   try {
-    const { quoteId = '', sendEmail = false } = await request.json() as Input;
+    const { quoteId = '', sendEmail = false, approved = false } = await request.json() as Input;
+    if (sendEmail && env.OUTBOUND_EMAIL_DISABLED === 'true') return Response.json({ok:false,code:'OUTBOUND_DISABLED',error:'Customer email sending is disabled in this test environment.'},{status:403});
     if (!quoteId) return Response.json({ ok: false, error: 'Quote id is required.' }, { status: 400 });
 
     const db = env.MINGEAGLE_DB;
@@ -157,6 +159,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       WHERE q.id = ? LIMIT 1`).bind(quoteId).first<QuoteRow>();
 
     if (!quote) return Response.json({ ok: false, error: 'Quote not found.' }, { status: 404 });
+    if (quote.status === 'DRAFT' && approved !== true) return Response.json({ok:false,error:'Staff approval of quantities, prices, freight and terms is required before releasing a draft.'},{status:409});
     if (['ACCEPTED','CONVERTED','DECLINED','EXPIRED'].includes(quote.status)) {
       return Response.json({ ok: false, error: `Quote cannot be sent from status ${quote.status}.` }, { status: 409 });
     }
@@ -202,6 +205,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     await db.prepare(`UPDATE quotes
       SET status='SENT', public_token_hash=?, sent_at=COALESCE(sent_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP
       WHERE id=?`).bind(tokenHash, quote.id).run();
+
+    if (quote.status === 'DRAFT') await db.prepare(`INSERT INTO activities (id,entity_type,entity_id,activity_type,title,description,metadata_json)
+      VALUES (?,'QUOTE',?,'QUOTE_APPROVED','Quote approved by staff',?,?)`).bind(crypto.randomUUID(),quote.id,`Staff approved ${quote.reference} for customer review`,JSON.stringify({total:quote.total,currency:quote.currency,sendEmail,approved:true})).run();
 
     if (quote.lead_id) {
       await db.prepare(`UPDATE leads SET status='QUOTE', last_contact_at=CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE last_contact_at END,

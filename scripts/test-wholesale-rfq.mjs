@@ -35,6 +35,24 @@ assert.equal(x.status,200,JSON.stringify(x));assert.equal(x.result.items,3);
 assert.equal(x.result.subtotalUSD,1200);assert.equal(x.result.totalUSD,1220);
 assert.equal(saved.filter(s=>s.sql.startsWith('INSERT INTO quote_items')).length,3);
 assert.equal(saved.filter(s=>s.sql.includes('INSERT INTO quote_retail_approvals')).length,3,'Three discounted lines must persist matching approved catalog retail values');
+for(const prices of [[8.03,1.1,0.29],['8.03','1.10','0.29']]){
+ saved.length=0;
+ const good=await call({unitPrices:prices,shippingUSD:'19.90',paymentTerms:'Terms',shippingTerms:'Terms'});
+ assert.equal(good.status,200,JSON.stringify(good));
+ assert.equal(good.result.subtotalUSD,569.5);
+ assert.equal(good.result.totalUSD,589.4);
+ assert.equal(saved.filter(s=>s.sql.startsWith('INSERT INTO quote_items')).length,3);
+}
+for(const badPrices of [[1.001,3,4],[-1,3,4],['',3,4],[true,3,4],[100001,3,4]]){
+ saved.length=0;
+ const bad=await call({unitPrices:badPrices,shippingUSD:20,paymentTerms:'Terms',shippingTerms:'Terms'});
+ assert.equal(bad.status,400);assert.equal(saved.length,0,'Invalid amount must not create any quote');
+}
+for(const shipping of ['',null,-1,'19.901',1000001]){
+ saved.length=0;
+ const bad=await call({unitPrices:[2,3,4],shippingUSD:shipping,paymentTerms:'Terms',shippingTerms:'Terms'});
+ assert.equal(bad.status,400);assert.equal(saved.length,0);
+}
 saved.length=0;
 x=await call({unitPrices:[0,3,4],shippingUSD:20,paymentTerms:'Terms',shippingTerms:'Terms'});
 assert.equal(x.status,400);assert.equal(saved.length,0,'Bad prices must never create draft');

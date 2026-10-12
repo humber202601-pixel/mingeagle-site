@@ -1,3 +1,4 @@
+import {calculate, type Comparison} from '../../lib/quote-math-core.mjs';
 interface Env {
   MINGEAGLE_DB: D1Database;
   AIRWALLEX_CLIENT_ID?: string;
@@ -147,9 +148,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
     const itemRows = items.map(item => {
       const record=approvedById.get(String(item.id));
       const retail=Number(record?.retail_usd||0),unit=Number(item.unit_price||0),quantity=Number(item.quantity||0);
-      const verified=currency==='USD'&&!!record&&record.approved_description===item.description&&Number(record.approved_unit_price)===unit&&Number(record.approved_quantity)===quantity&&retail>unit&&unit>0&&quantity>0;
-      const saving=verified?Math.round((retail-unit)*quantity*100)/100:0;
-      const comparison=verified?`<div style="font-size:12px;color:#067647">Retail reference: USD ${retail.toFixed(2)} / unit · Wholesale: USD ${unit.toFixed(2)} / unit · Save USD ${(retail-unit).toFixed(2)} / unit (${((1-unit/retail)*100).toFixed(1)}%) · Product savings ${money(saving,currency)} for this line</div>`:'';
+      let verified=currency==='USD'&&!!record&&record.approved_description===item.description&&Number(record.approved_unit_price)===unit&&Number(record.approved_quantity)===quantity&&retail>unit&&unit>0&&quantity>0;
+      let savings:Comparison|null=null;
+      try{if(verified)savings=calculate({retailUnitPrice:retail,wholesaleUnitPrice:unit,quantity});}catch{verified=false;}
+      const comparison=verified?`<div style="font-size:12px;color:#067647">Retail reference: USD ${savings!.retailUnitPrice} / unit · Wholesale: USD ${savings!.wholesaleUnitPrice} / unit · Save USD ${savings!.savingsPerUnit} / unit (${savings!.discountPercent}%) · Product savings USD ${savings!.savingsTotal} for this line</div>`:'';
       return `<tr><td>${esc(item.description)}${comparison}</td><td>${esc(item.quantity)}</td><td>${esc(money(item.unit_price,currency))}</td><td>${esc(money(item.line_total,currency))}</td></tr>`;
     }).join('');
     // Savings compare merchandise unit prices only. Shipping and quote-level discount are not counted again.
