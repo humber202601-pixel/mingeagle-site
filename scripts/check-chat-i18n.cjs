@@ -30,3 +30,11 @@ const handoff=fs.readFileSync('public/inquiry.js','utf8');assert(handoff.include
 assert(assistant.includes("if(!quoteState.size)quoteState.size='5'"),'Soccer quote should auto-select its only supported size');
 const soccerCtx={quoteState:{model:'',size:'',quantity:'',zip:''}};vm.runInNewContext(capture+';captureDetails("100 silent soccer balls");this.state=quoteState;',soccerCtx);assert.equal(soccerCtx.state.model,'Flocked Silent Soccer Ball');assert.equal(soccerCtx.state.size,'5');assert.equal(soccerCtx.state.quantity,'100');
 console.log('PASS: soccer quote auto-selects size No. 5.');
+function captureState(phrases,initial={}){const ctx={quoteState:{model:'',size:'',quantity:'',zip:'',...initial}};vm.runInNewContext(capture+';this.captureDetails=captureDetails;',ctx);for(const phrase of phrases)ctx.captureDetails(phrase);return ctx.quoteState}
+for(const phrase of ['100 balls','100 silent soccer balls','100 flocked basketball sets','100 weighted flocked silent basketball units','100 fabric-cover silent basketball sets']){
+ const state=captureState([phrase]);assert.equal(state.quantity,'100','Descriptive quantity not captured: '+phrase);assert.equal(state.zip,'','Quantity must not become postal code: '+phrase);
+}
+for(const phrase of ['size 5 silent soccer balls','No. 5 balls','ZIP 75244 balls','50 to 100 balls','50-100 balls','0 balls','-100 balls','1.5 balls','100000 balls'])assert.equal(captureState([phrase]).quantity,'','Ambiguous or invalid count must not be guessed: '+phrase);
+const combined=captureState(['100 silent soccer balls size 5 ZIP 75244']);assert.equal(combined.model,'Flocked Silent Soccer Ball');assert.equal(combined.size,'5');assert.equal(combined.quantity,'100');assert.equal(combined.zip,'75244');
+const revised=captureState(['200 balls','size 7','Orange','75244'],{model:'Flocked Silent Basketball Set',size:'5',quantity:'100'});assert.equal(revised.quantity,'200');assert.equal(revised.size,'7');assert.equal(revised.zip,'75244','Count/size revisions must not fill postal code');
+console.log('PASS: descriptive counts, invalid/ambiguous numbers, combined details and count/size revision boundaries.');
