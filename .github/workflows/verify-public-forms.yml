@@ -26,6 +26,8 @@ on:
       - 'scripts/optimize-native-media.cjs'
       - 'scripts/check-native-media.cjs'
       - 'scripts/check-locale-completeness.cjs'
+      - 'scripts/build-product-direct-rfq.cjs'
+      - 'scripts/check-product-direct-rfq.cjs'
       - '.github/workflows/deploy-pages.yml'
       - '.github/workflows/verify-public-forms.yml'
   push:
@@ -63,3 +65,4 @@ jobs:
           node --check public/sales-assistant.js
           node scripts/check-chat-i18n.cjs
           node scripts/check-locale-completeness.cjs
+          node scripts/check-product-direct-rfq.cjs
