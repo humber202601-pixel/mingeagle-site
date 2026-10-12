@@ -14,6 +14,7 @@ type AnalyticsDaily={ok:boolean;source?:string;host?:string;connected:boolean;da
  dateUTC:string;providerVisits:number;sampledPageviews:number;fetchedAt:string;
 }>;coverage:{observedDays:number;fromUTC:string|null;toUTC:string|null;latestFetchUTC:string|null};
  caveats:string[];error?:string};
+type GscDaily={ok:boolean;source?:string;connected:boolean;days:number;timezone:string;rows:Array<{datePacific:string;clicks:number;impressions:number;ctr:number;averagePosition:number;fetchedAt:string}>;coverage:{observedDays:number;from:string|null;to:string|null;lastFetchedAt:string|null};caveats:string[];error?:string};
 const sources:Record<string,string>={GOOGLE:'Google',BING:'Bing',TIKTOK:'TikTok',YOUTUBE:'YouTube',INSTAGRAM:'Instagram',FACEBOOK:'Facebook',PARTNER:'合作推荐',OTHER_TAGGED:'其他带标签渠道',DIRECT_UNKNOWN:'未知 / 直接访问'};
 const pages:Record<string,string>={APARTMENT_GUIDE:'公寓家庭指南',CAMP_GUIDE:'篮球训练营采购指南',BULK_GUIDE:'批量采购指南',WHOLESALE_CATALOG:'批发产品目录',TEAM_CUSTOM:'球队定制篮球',HOME:'首页',FOR_COACHES:'教练采购',FOR_SCHOOLS:'学校采购',WHOLESALE:'批发采购',PRODUCTS:'产品目录',PRODUCT_DETAIL:'产品详情',NOT_RECORDED:'未记录落地页',OTHER_PAGE:'其他页面'};
 const audiences:Record<string,string>={B2B:'B2B 批发 / 机构',B2C:'B2C 个人客户',UNKNOWN:'尚不能分类'};
@@ -31,6 +32,8 @@ export default function InboundGrowth({accessKey}:{accessKey:string}){
  const [data,setData]=useState<Data|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(true);
  const [analytics,setAnalytics]=useState<AnalyticsDaily|null>(null);
  const [analyticsError,setAnalyticsError]=useState('');
+ const [gsc,setGsc]=useState<GscDaily|null>(null);
+ const [gscError,setGscError]=useState('');
  const snapshotAge=describeSnapshotAge(analytics?.coverage.latestFetchUTC);
  const initialDayPartial=analytics?.connected?containsPartialInitialDay(analytics.rows):false;
  useEffect(()=>{
@@ -57,6 +60,15 @@ export default function InboundGrowth({accessKey}:{accessKey:string}){
   }).catch(e=>{if(!c.signal.aborted)setAnalyticsError(e instanceof Error?e.message:'统计暂时不可用')});
   return ()=>c.abort();
  },[accessKey,days,refresh]);
+ useEffect(()=>{
+  const controller=new AbortController();setGsc(null);setGscError('');
+  fetch('/api/admin/gsc-search-daily?days='+days,{headers:{'x-admin-key':accessKey},signal:controller.signal,cache:'no-store'})
+   .then(async response=>{const value=await response.json() as GscDaily;
+    if(!response.ok||!value.ok)throw Error(value.error||'GSC 真实搜索数据暂不可用');
+    if(!controller.signal.aborted)setGsc(value);
+   }).catch(e=>{if(!controller.signal.aborted)setGscError(e instanceof Error?e.message:'GSC 暂不可用')});
+  return ()=>controller.abort();
+ },[accessKey,days,refresh]);
  return <div style={{display:'grid',gap:18}}><SearchConsoleImport accessKey={accessKey}/><SeoOpportunities accessKey={accessKey}/>
    <section className="panel" style={{padding:18}}>
     <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'end'}}>
@@ -82,7 +94,7 @@ export default function InboundGrowth({accessKey}:{accessKey:string}){
        <div className="metric"><span>网站访问统计</span><strong>{analytics?.connected?'日聚合已同步':'等待有效快照'}</strong><small>Cloudflare Visits 只按已同步日期展示；不代表准确唯一访客，也不能与 CRM 询盘直接相除</small></div>
        <div className="metric"><span>询盘 → 已发报价</span><strong>{data.summary.inquiries>0?(data.summary.exactQuoted/data.summary.inquiries*100).toFixed(1)+'%':'—'}</strong><small>{num(data.summary.exactQuoted)} / {num(data.summary.inquiries)} 条同批询盘，按编号直接关联</small></div>
        <div className="metric"><span>询盘 → 订单</span><strong>{data.summary.inquiries>0?(data.summary.exactOrdered/data.summary.inquiries*100).toFixed(1)+'%':'—'}</strong><small>{num(data.summary.exactOrdered)} / {num(data.summary.inquiries)} 条同批询盘，非订单数或实际到账率</small></div>
-       <div className="metric"><span>搜索展现</span><strong>未连接</strong><small>未核验的数据不填 0，不推算营销效果</small></div>
+       <div className="metric"><span>Google 搜索展现</span><strong>{gsc?.connected?num(gsc.rows.reduce((n,r)=>n+r.impressions,0)):'等待有效快照'}</strong><small>{gsc?.connected?'已同步 '+gsc.coverage.observedDays+' 个 Google 报告日；非访问量':'已有 GSC 授权；但 CRM 尚无有效日快照，不填 0'}</small></div>
       </div>
       {data.summary.inquiries>0&&data.summary.inquiries<30&&<p role="status" style={{fontSize:12,color:'#667085'}}>样本仅 {data.summary.inquiries} 条，比例仅用于流程检查，不宜据此预测未来成交率。</p>}
       <p style={{fontSize:12,color:'#667085'}}>独立询盘行数去重统计，报价/订单依靠正式引用关系计算。历史客户仅通过 lead_id 关联的其他报价、订单不计入直接转化；同一客户可能多次询盘。当前不是访问量漏斗，也不能据此断言具体营销活动创造了订单。</p>
@@ -124,6 +136,21 @@ export default function InboundGrowth({accessKey}:{accessKey:string}){
        {initialDayPartial&&<p role="status" style={{fontSize:12,color:'#b54708'}}>首次采集日 2026-10-12 并非全天数据：Cloudflare 从 {FIRST_CAPTURE_TIME_UTC} 才开始收集访问事件；该日 Visits 不应与后续完整采集日直接对比。</p>}
        <p style={{fontSize:12,color:'#667085'}}>统计覆盖：{analytics.coverage.fromUTC} 至 {analytics.coverage.toUTC}。仅汇总实际同步的日期，不推算缺失日期；不与不同创建日期范围的询盘数相除计算访客转化率。</p>
       </>}
+      <div style={{marginTop:14,borderTop:'1px solid #e4e7ec',paddingTop:14}}>
+       <h3>Google Search Console · 真实搜索曝光与点击</h3>
+       {gscError&&<p role="alert">Google 搜索日快照暂不可读：{gscError}。不会将读取异常当作 0。</p>}
+       {!gscError&&gsc&&!gsc.connected&&<p role="status">已连接 Google Search Console，但 CRM 尚无定期同步的有效日统计；等待首次经过来源核验的快照。</p>}
+       {!gscError&&gsc?.connected&&<>
+        <div className="metric-grid">
+         <div className="metric"><span>自然搜索点击</span><strong>{num(gsc.rows.reduce((n,r)=>n+r.clicks,0))}</strong><small>Google 搜索点击，非报价或订单</small></div>
+         <div className="metric"><span>搜索结果曝光</span><strong>{num(gsc.rows.reduce((n,r)=>n+r.impressions,0))}</strong><small>{gsc.coverage.observedDays} 个 Google 有效报告日，非 Cloudflare Visits</small></div>
+        </div>
+        <div className="table-wrap"><table><thead><tr><th>Google 报告日（美国太平洋时间）</th><th>搜索点击</th><th>搜索曝光</th><th>点击率</th></tr></thead><tbody>
+         {gsc.rows.slice(0,14).map(r=><tr key={r.datePacific}><td>{r.datePacific}</td><td>{num(r.clicks)}</td><td>{num(r.impressions)}</td><td>{(r.ctr*100).toFixed(2)}%</td></tr>)}
+        </tbody></table></div>
+        <p style={{fontSize:12,color:'#667085'}}>最新快照于 {gsc.coverage.lastFetchedAt||'—'} 保存；Google 搜索日使用 America/Los_Angeles 时区，通常有数日延迟，不直接与 Cloudflare UTC 访问数据相除计算转化。</p>
+       </>}
+      </div>
       <p style={{fontSize:12,color:'#667085'}}>请在 Cloudflare Web Analytics 中选择 mingeagle.com；这是浏览器采集的数据，可能受广告拦截、脚本禁用和采样影响，不能直接等同于自然人唯一访客数。</p>
       <p style={{color:'#475467',fontSize:13,lineHeight:1.7}}>官网已有 sitemap.xml、robots.txt 和询盘 UTM 归因。Google Search Console 的 mingeagle.com 域名属性已在现有搜索分析连接中可读取，但当前 CRM 的搜索曝光尚未直接接入，因此上方“未连接”仅代表 CRM 尚无该项同步，不代表 Google 曝光为零。Bing Webmaster Tools 是否验证仍需单独检查。</p>
       <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
