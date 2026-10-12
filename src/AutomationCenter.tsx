@@ -10,7 +10,10 @@ type ProductionHealth={
   ok?:boolean;error?:string;generatedAt?:string;
   hubspot?:{credentialConfigured:boolean;stateKnown:boolean;status:'DISABLED'|'NEVER_SUCCEEDED'|'STALE'|'HEALTHY';importedTotal:number|null;lastSuccessfulPageAt:string|null;nextOffset:number|null;
     job?:{status:string;lastAttemptAt:string;lastSuccessAt:string|null;httpStatus:number|null;consecutiveFailures:number}|null;
-    lastBatch?:{completedAt:string;processed:number;imported:number;reused:number;skipped:number;hasMore:boolean;nextOffset:number}|null};
+    lastBatch?:{completedAt:string;processed:number;imported:number;reused:number;skipped:number;hasMore:boolean;nextOffset:number}|null;
+    inventoryAudit?:{checkedAt:string;limit2Count:number;limit2HasMore:boolean|null;
+      limit50Count:number;limit50HasMore:boolean|null;limit2Offset:number|null;
+      limit50Offset:number|null;limit2Total:number|null;limit50Total:number|null}|null};
   turnstile?:{configured:boolean;enabled:boolean;misconfigured:boolean};
   discovery?:{status:string;phase:string;updatedAt:string;stepsCompleted:number;sources:number;sourceFailures:number;candidates:number;imported:number|null}|null;
   inquiries?:{total:number;last24h:number;newCount:number;orphanLeadLinks:number|null;latestAt:string|null}|null;
@@ -291,6 +294,9 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
         {health.hubspot?.lastBatch&&<div className="list-row"><div><strong>最近成功读取的 HubSpot 批次</strong><small>{health.hubspot.lastBatch.completedAt}（UTC）· 每次最多读取两条提交记录，下一页偏移 {health.hubspot.lastBatch.nextOffset}</small></div><span>读取 {health.hubspot.lastBatch.processed} · 新增 {health.hubspot.lastBatch.imported} · 去重 {health.hubspot.lastBatch.reused} · 跳过 {health.hubspot.lastBatch.skipped}</span></div>}
         {health.hubspot?.lastBatch?.hasMore&&<p style={{color:'#667085',fontSize:13}}>HubSpot 历史记录还有下一页，后续整点任务会继续读取。不能将本批成功视为全部历史补录完成。</p>}
         {health.hubspot?.lastBatch&&health.hubspot.lastBatch.skipped>0&&<p className="form-status error" role="alert">最近批次有 {health.hubspot.lastBatch.skipped} 条未导入：可能是视频提交、缺失授权同意、无效询盘编号或不支持的申请类型。系统不会擅自创建销售线索。</p>}
+        {health.hubspot?.inventoryAudit&&<div className="list-row"><div><strong>HubSpot 历史提交只读抽查</strong><small>同一表单与密钥分别请求 limit=2 和 limit=50。最后抽查 {health.hubspot.inventoryAudit.checkedAt}（UTC）；仅记录汇总，不读取或展示客户内容</small></div><span>2条请求返回 {health.hubspot.inventoryAudit.limit2Count} · 50条请求返回 {health.hubspot.inventoryAudit.limit50Count}</span></div>}
+        {health.hubspot?.inventoryAudit&&<p className="form-status" role="status">分页：limit=2 的 hasMore 为 {String(health.hubspot.inventoryAudit.limit2HasMore)}；limit=50 的 hasMore 为 {String(health.hubspot.inventoryAudit.limit50HasMore)}。这只代表当前 API 可返回的记录，不代表 HubSpot 历史累计提交全部已恢复。</p>}
+        {health.hubspot?.inventoryAudit&&health.hubspot.inventoryAudit.limit50Count>health.hubspot.inventoryAudit.limit2Count&&<p className="form-status error" role="alert">大页查询发现更多记录：小页分页标志可能不可靠。请先修复游标逻辑，不能以小页 hasMore=false 判断历史已全部扫描。</p>}
         <div className="list-row"><div><strong>上一批客户发现</strong><small>{health.discovery?health.discovery.status+' · 来源批次 '+health.discovery.sources+' · 来源异常 '+health.discovery.sourceFailures:'尚无可统计的搜索任务'}</small></div><span>{health.discovery?.imported!=null?'确认入库 '+health.discovery.imported+' 个':'入库数量未知'}</span></div>
         {health.discovery&&<div className="list-row"><div><strong>发现流程排查</strong><small>候选机构 {health.discovery.candidates} 个 · 已完成处理步骤 {health.discovery.stepsCompleted} · 来源受限 {health.discovery.sourceFailures} 个</small></div><span>{health.discovery.sourceFailures>0?'存在来源受限':health.discovery.candidates>0&&health.discovery.imported===0?'核验或入库待排查':'查看任务明细'}</span></div>}
         <div className="list-row"><div><strong>Cloudflare D1 免费额度</strong><small>数据库无法自行读取云平台累计行数；必须以 Cloudflare Analytics 为准</small></div><span>未接入额度遥测 · 不显示虚假余量</span></div>

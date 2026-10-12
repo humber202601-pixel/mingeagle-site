@@ -59,6 +59,31 @@ try{
   assert.equal(disabled.payload.disabled,true);
   assert.equal(externalCalls,0);
   const env={MINGEAGLE_DB:db,HUBSPOT_PRIVATE_APP_TOKEN:'fixture-only'};
+  const auditFetch=globalThis.fetch;
+  globalThis.fetch=async(url,options)=>{
+    const u=new URL(String(url));
+    assert.equal(u.hostname,'api.hubapi.com');
+    assert.equal(options.headers.Authorization,'Bearer fixture-only');
+    const limit=Number(u.searchParams.get('limit'));
+    assert.equal(u.searchParams.get('offset'),'0');
+    assert([2,50].includes(limit));
+    return Response.json({results:Array.from({length:limit===2?2:11},
+      (_,i)=>({values:[{name:'email',value:'private-email-'+i+'@example.test'}]})),
+      hasMore:false,offset:0});
+  };
+  const auditResponse=await api.onRequestPost({request:new Request(
+    'https://app.mingeagle.com/api/admin/hubspot-inquiry-recovery',
+    {method:'POST',body:JSON.stringify({action:'AUDIT'})}),env});
+  const audited=await auditResponse.json();
+  assert.equal(auditResponse.status,200);
+  assert.equal(audited.inventory.limit2.count,2);
+  assert.equal(audited.inventory.limit50.count,11);
+  assert.equal(audited.inventory.limit2.hasMore,false);
+  assert.equal(audited.inventory.limit50.hasMore,false);
+  assert(!JSON.stringify(audited).includes('@example.test'),'No submission fields in diagnostic response');
+  assert.equal(count('inquiries'),0,'Read-only audit cannot create CRM records');
+  assert.equal(externalCalls,0,'Audit must not invoke original CRM recovery paths');
+  globalThis.fetch=auditFetch;
   const first=await doSync(env);
   assert.equal(first.status,200,JSON.stringify(first));
   assert.equal(first.payload.imported,2);
