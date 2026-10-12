@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/patch-discovery-school.mjs && tsc -b && vite build",
+    "build": "node scripts/patch-discovery-school.mjs && node scripts/sync-quote-reference.mjs --check && tsc -b && vite build && node scripts/write-deployment-version.mjs",
+    "test:quotes": "node scripts/sync-quote-reference.mjs --check && node scripts/test-quote-pricing.mjs && node scripts/test-quote-flow.mjs && node scripts/test-wholesale-retail-comparison.mjs && node scripts/test-wholesale-rfq.mjs && node scripts/test-retail-quote-draft.mjs && node scripts/test-quote-accept-safety.mjs && node scripts/test-airwallex-webhook-safety.mjs && node scripts/test-sales-chat.mjs",
     "preview": "vite preview",
     "cf:dev": "wrangler pages dev dist",
     "cf:deploy:scheduler": "wrangler deploy --config wrangler.scheduler.toml",

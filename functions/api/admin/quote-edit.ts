@@ -1,3 +1,5 @@
+import {quoteTotals, confirmedQuantity, usdCents} from '../../../lib/quote-totals';
+import {ensureRetailApprovals} from './quote-retail-approval';
 interface Env {
   MINGEAGLE_DB: D1Database;
 }
@@ -23,10 +25,6 @@ type EditInput = {
 };
 
 const clean = (value: unknown, max = 3000) => typeof value === 'string' ? value.trim().slice(0, max) : '';
-const num = (value: unknown, fallback = 0) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.MINGEAGLE_DB) return Response.json({ ok: false, error: 'Database is not configured.' }, { status: 503 });
@@ -59,7 +57,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!quoteId) return Response.json({ ok: false, error: 'Quote id is required.' }, { status: 400 });
 
     const db = env.MINGEAGLE_DB;
-    const quote = await db.prepare(`SELECT id, reference, status, currency FROM quotes WHERE id=? LIMIT 1`)
+    const quote = await db.prepare(`SELECT id, reference, status, currency, tax FROM quotes WHERE id=? LIMIT 1`)
       .bind(quoteId).first<Row>();
     if (!quote) return Response.json({ ok: false, error: 'Quote not found.' }, { status: 404 });
     if (String(quote.status) !== 'DRAFT') {
@@ -71,18 +69,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const incoming = Array.isArray(input.items) ? input.items : [];
     if (!incoming.length) return Response.json({ ok: false, error: 'At least one quote item is required.' }, { status: 400 });
 
-    let subtotal = 0;
+    const seenIds = new Set<string>();
     const normalized = incoming.map((item, index) => {
       const id = clean(item.id, 120);
-      if (!id || !existingIds.has(id)) throw new Error('Quote item mismatch. Refresh the quote and try again.');
+      if (!id || !existingIds.has(id) || seenIds.has(id)) throw new Error('Quote item mismatch. Refresh the quote and try again.');
+      seenIds.add(id);
       const description = clean(item.description, 500) || 'MING EAGLE Silent Basketball products';
-      const quantity = Math.max(1, Math.round(num(item.quantity, 1)));
-      const unitPrice = num(item.unitPrice, 0);
-      if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
-        throw new Error('Each quote item unit price must be greater than 0.');
-      }
-      const lineTotal = quantity * unitPrice;
-      subtotal += lineTotal;
+      const quantity = confirmedQuantity(item.quantity);
+      const unitPrice = usdCents(item.unitPrice, 100000, true) / 100;
+      const lineTotal = quantity * usdCents(item.unitPrice, 100000, true) / 100;
       return { id, description, quantity, unitPrice, lineTotal, sortOrder: index };
     });
 
@@ -90,12 +85,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ ok: false, error: 'All existing quote items must be included when editing.' }, { status: 400 });
     }
 
-    const shipping = Math.max(0, num(input.shipping, 0));
-    const discount = Math.max(0, num(input.discount, 0));
-    const total = subtotal - discount + shipping;
-    if (!Number.isFinite(total) || total <= 0) {
-      return Response.json({ ok: false, error: 'Quote total must be greater than 0. Review unit prices, discount and shipping.' }, { status: 400 });
-    }
+    const calculation = quoteTotals(normalized, input.shipping, input.discount ?? 0, quote.tax ?? 0);
+    const {subtotal, shipping, discount, total} = calculation;
     const paymentTerms = clean(input.paymentTerms, 500) || 'Payment terms to be confirmed before sending.';
     const shippingTerms = clean(input.shippingTerms, 500) || 'Shipping terms to be confirmed before sending.';
     const notes = clean(input.notes, 3000) || null;
@@ -104,23 +95,25 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ ok: false, error: 'Valid until date is required.' }, { status: 400 });
     }
 
-    for (const item of normalized) {
-      await db.prepare(`UPDATE quote_items SET description=?, quantity=?, unit_price=?, line_total=?, sort_order=? WHERE id=? AND quote_id=?`)
-        .bind(item.description, item.quantity, item.unitPrice, item.lineTotal, item.sortOrder, item.id, quoteId).run();
-    }
-
-    await db.prepare(`UPDATE quotes SET subtotal=?, discount=?, shipping=?, total=?, payment_terms=?, shipping_terms=?, notes=?, valid_until=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
-      .bind(subtotal, discount, shipping, total, paymentTerms, shippingTerms, notes, `${validUntil} 23:59:59`, quoteId).run();
-
-    await db.prepare(`INSERT INTO activities (id, entity_type, entity_id, activity_type, title, description, metadata_json)
+    await ensureRetailApprovals(db);
+    const updates = normalized.flatMap(item => [
+      db.prepare(`DELETE FROM quote_retail_approvals WHERE quote_id=? AND item_id=? AND (approved_description<>? OR approved_unit_price<>? OR approved_quantity<>?)`)
+        .bind(quoteId,item.id,item.description,item.unitPrice,item.quantity),
+      db.prepare(`UPDATE quote_items SET description=?, quantity=?, unit_price=?, line_total=?, sort_order=? WHERE id=? AND quote_id=?`)
+        .bind(item.description,item.quantity,item.unitPrice,item.lineTotal,item.sortOrder,item.id,quoteId)
+    ]);
+    updates.push(db.prepare(`UPDATE quotes SET subtotal=?, discount=?, shipping=?, total=?, payment_terms=?, shipping_terms=?, notes=?, valid_until=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+      .bind(subtotal, discount, shipping, total, paymentTerms, shippingTerms, notes, `${validUntil} 23:59:59`, quoteId));
+    updates.push(db.prepare(`INSERT INTO activities (id, entity_type, entity_id, activity_type, title, description, metadata_json)
       VALUES (?, 'QUOTE', ?, 'QUOTE_DRAFT_UPDATED', 'Quote draft updated', ?, ?)`)
-      .bind(crypto.randomUUID(), quoteId, `${String(quote.reference)} draft commercial terms updated`, JSON.stringify({ subtotal, discount, shipping, total, items: normalized.length })).run();
+      .bind(crypto.randomUUID(), quoteId, `${String(quote.reference)} draft commercial terms updated`, JSON.stringify({ subtotal, discount, shipping, total, items: normalized.length })));
+    await db.batch(updates);
 
     return Response.json({ ok: true, quote: { id: quoteId, reference: quote.reference, status: 'DRAFT', currency: quote.currency || 'USD', subtotal, discount, shipping, total, validUntil } });
   } catch (error) {
-    console.error('quote_edit_save_failed', error);
     const message = error instanceof Error ? error.message : 'Unable to update quote.';
-    const status = /must be greater than 0|mismatch|included/i.test(message) ? 400 : 500;
+    const status = /must be greater than 0|mismatch|included|INVALID_|DISCOUNT_EXCEEDS_SUBTOTAL/i.test(message) ? 400 : 500;
+    if(status===500)console.error('quote_edit_save_failed', error);
     return Response.json({ ok: false, error: message }, { status });
   }
 };

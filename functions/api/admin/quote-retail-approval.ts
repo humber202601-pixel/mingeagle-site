@@ -1,3 +1,4 @@
+import {usdCents} from '../../../lib/quote-totals';
 interface Env { MINGEAGLE_DB:D1Database }
 type Input={quoteId?:string;itemId?:string;retailUSD?:number;sourceUrl?:string;confirmed?:boolean};
 const fail=(error:string,status=400)=>Response.json({ok:false,error},{status});
@@ -20,7 +21,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  const db=env.MINGEAGLE_DB;if(!db)return fail('Database unavailable',503);
  let input:Input;try{input=await request.json() as Input}catch{return fail('Invalid input')}
  const quoteId=String(input.quoteId||'').trim(),itemId=String(input.itemId||'').trim();
- const price=Number(input.retailUSD),url=String(input.sourceUrl||'').trim();
+ let price:number;try{price=usdCents(input.retailUSD,100000,true)/100}catch{return fail('Enter a verified retail price with at most two decimal places');}
+ const url=String(input.sourceUrl||'').trim();
  if(!quoteId||!itemId||input.confirmed!==true)return fail('Select a quote item and confirm matching product configuration');
  if(!Number.isFinite(price)||price<=0||price>100000)return fail('Enter a verified retail price');
  try{const parsed=new URL(url);if(parsed.protocol!=='https:'||parsed.username||parsed.password)return fail('Provide a public HTTPS retail price source');}catch{return fail('Provide a valid HTTPS retail price source')}

@@ -1,6 +1,6 @@
 interface Env {MINGEAGLE_DB:D1Database}
 const error=(message:string,status=400)=>Response.json({ok:false,error:message},{status,headers:{'cache-control':'no-store'}});
-const prices:Record<string,number>={'P1-S3':9.9,'P1-S5':11.9,'P1-S7':14.9,'P2-S3':10.9,'P2-S5':12.9,'P2-S7':15.9,'P3-S3':12.9,'P3-S4':14.9,'P3-S6':18.9,'P3-S7':21.9,'P4-S5':17.9};
+import {SKU_USD as prices} from '../../../lib/retail-reference';
 export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
  const url=new URL(request.url),sku=(url.searchParams.get('sku')||'').toUpperCase(),country=(url.searchParams.get('country')||'').toUpperCase(),method=url.searchParams.get('method'),qty=Number(url.searchParams.get('quantity'));
  if(!(sku in prices)||!/^[A-Z]{2}$/.test(country)||!['air','sea'].includes(method||'')||!Number.isSafeInteger(qty)||qty<1||qty>10000)return error('Invalid product, destination, method or quantity');

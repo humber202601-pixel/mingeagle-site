@@ -1,6 +1,6 @@
 {
   "currency": "USD",
-  "pricingRule": "Price depends on product and size only; color does not affect price",
+  "note": "Retail reference only; shipping and taxes excluded. Wholesale pricing requires review.",
   "products": {
     "p1": {
       "3": 9.9,

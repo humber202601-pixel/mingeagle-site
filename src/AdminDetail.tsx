@@ -1,5 +1,7 @@
 import {RETAIL_USD} from '../lib/retail-reference';
 import {parseWholesaleRfq} from './rfqParser';
+import {calculate} from '../lib/quote-math-core.mjs';
+import {quoteTotals} from '../lib/quote-totals';
 import LeadOutreach from './LeadOutreach';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -38,6 +40,13 @@ const money = (value: unknown, currency: unknown) => `${text(currency, 'USD')} $
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return <section className="panel detail-section"><div className="panel-head"><h2>{title}</h2></div>{children}</section>;
+}
+
+function WholesaleSavings({retail,price,quantity}:{retail:number;price:string;quantity:number}) {
+  try {const comparison=calculate({retailUnitPrice:retail,wholesaleUnitPrice:price,quantity});return <strong style={{color:'#15803d'}}>每件节省 USD {comparison.savingsPerUnit} · 本项共节省 USD {comparison.savingsTotal} · 优惠 {comparison.discountPercent}%</strong>;}catch{return null;}
+}
+function WholesaleTotals({lines,prices,shipping}:{lines:ReturnType<typeof parseWholesaleRfq>;prices:Record<number,string>;shipping:string}) {
+  try {const totals=quoteTotals(lines.map((line,i)=>({quantity:line.quantity,unitPrice:prices[i]})),shipping);return <p><strong>商品 USD {totals.subtotal.toFixed(2)} + 运费 USD {totals.shipping.toFixed(2)} = 总额 USD {totals.total.toFixed(2)}</strong>（税费和交付条款仍需确认）</p>;}catch{return <p>逐项输入批发价和运费后，自动显示商品金额与总额。</p>;}
 }
 
 function MiniTable({ columns, rows }: { columns: Array<{ key: string; label: string; format?: (row: Row) => React.ReactNode }>; rows: Row[] }) {
@@ -80,9 +89,9 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
   const [retailQuoteResult,setRetailQuoteResult] = useState('');
   const [retailQuoteCreated,setRetailQuoteCreated] = useState(false);
   async function draftWholesale(reference:string,lines:ReturnType<typeof parseWholesaleRfq>){
-    const prices=lines.map((_,i)=>Number(wholesalePrices[i]));
-    const shipping=Number(wholesaleShipping);
-    if(prices.some((p,i)=>!wholesalePrices[i]?.trim()||!Number.isFinite(p)||p<=0)||!wholesaleShipping.trim()||!wholesalePaymentTerms.trim()||!wholesaleDeliveryTerms.trim()){setWholesaleResult('请逐项填写已核实的批发单价、运费及商业条款。');return}
+    const prices=lines.map((_,i)=>wholesalePrices[i]);
+    const shipping=wholesaleShipping;
+    try{quoteTotals(lines.map((line,i)=>({quantity:line.quantity,unitPrice:prices[i]})),shipping);if(!wholesalePaymentTerms.trim()||!wholesaleDeliveryTerms.trim())throw new Error('TERMS');}catch{setWholesaleResult('请逐项填写两位小数以内的有效批发价、明确运费及商业条款。');return;}
     setWholesaleBusy(true);setWholesaleResult('');
     try{
       const response=await fetch('/api/admin/wholesale-quote-draft',{method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},body:JSON.stringify({inquiryReference:reference,unitPrices:prices,shippingUSD:shipping,paymentTerms:wholesalePaymentTerms,shippingTerms:wholesaleDeliveryTerms})});
@@ -143,7 +152,7 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
       </div><div className="detail-message"><small>客户留言</small><p>{text(r.message,'无')}</p></div></Section>
       {parseWholesaleRfq(r.message).length>0 && <Section title="B2B 组合采购明细"><p className="detail-note">来自客户填写的采购需求，不代表已确认报价或库存。</p><MiniTable rows={parseWholesaleRfq(r.message).map((item,i)=>({id:i+1,...item}))} columns={[{key:'product',label:'产品系列'},{key:'size',label:'球号'},{key:'color',label:'颜色'},{key:'quantity',label:'数量（件）'}]}/><p><strong>采购需求总件数：{parseWholesaleRfq(r.message).reduce((sum,r)=>sum+r.quantity,0).toLocaleString('zh-CN')}</strong></p></Section>}
       {parseWholesaleRfq(r.message).length>0&&<Section title="生成 B2B 多行报价草稿（人工核价）"><p className="detail-note">各规格零售价已自动带入；填写批发价后显示每件及本项优惠金额。生成草稿后，客户报价单将展示同规格且批发价更低的优惠。本操作不会自动发送；请核实运费、库存及交期。</p>
-       <div style={{display:'grid',gap:9}}>{parseWholesaleRfq(r.message).map((line,i)=><label key={i} style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}><span style={{flex:'1 1 250px'}}>{line.product} · No. {line.size} · {line.color} · {line.quantity} 件</span><span>零售价参考 USD {RETAIL_USD[line.product]?.[line.size]?.toFixed(2) || '—'} · {wholesalePrices[i]&&Number(wholesalePrices[i])>0&&Number(wholesalePrices[i])<RETAIL_USD[line.product]?.[line.size]?<strong style={{color:'#15803d'}}>每件节省 USD {(RETAIL_USD[line.product][line.size]-Number(wholesalePrices[i])).toFixed(2)} · 本项共节省 USD {((RETAIL_USD[line.product][line.size]-Number(wholesalePrices[i]))*line.quantity).toFixed(2)} · 优惠 {((1-Number(wholesalePrices[i])/RETAIL_USD[line.product][line.size])*100).toFixed(1)}%</strong>:null}</span><span>批发单价 USD</span><input type="number" min="0.01" step="0.01" placeholder="人工填写" value={wholesalePrices[i]||''} disabled={wholesaleCreated} onChange={e=>setWholesalePrices(v=>({...v,[i]:e.target.value}))}/></label>)}
+       <div style={{display:'grid',gap:9}}>{parseWholesaleRfq(r.message).map((line,i)=><label key={i} style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}><span style={{flex:'1 1 250px'}}>{line.product} · No. {line.size} · {line.color} · {line.quantity} 件</span><span>零售价参考 USD {RETAIL_USD[line.product]?.[line.size]?.toFixed(2) || '—'} · <WholesaleSavings retail={RETAIL_USD[line.product]?.[line.size]} price={wholesalePrices[i]||''} quantity={line.quantity}/></span><span>批发单价 USD</span><input type="number" min="0.01" step="0.01" placeholder="人工填写" value={wholesalePrices[i]||''} disabled={wholesaleCreated} onChange={e=>setWholesalePrices(v=>({...v,[i]:e.target.value}))}/></label>)}<WholesaleTotals lines={parseWholesaleRfq(r.message)} prices={wholesalePrices} shipping={wholesaleShipping}/>
        <label>运费 USD（包邮填写 0） <input type="number" min="0" step="0.01" value={wholesaleShipping} onChange={e=>setWholesaleShipping(e.target.value)} disabled={wholesaleCreated}/></label>
        <label>付款条款 <input style={{width:'100%'}} value={wholesalePaymentTerms} onChange={e=>setWholesalePaymentTerms(e.target.value)} disabled={wholesaleCreated}/></label>
        <label>交付条款 <input style={{width:'100%'}} value={wholesaleDeliveryTerms} onChange={e=>setWholesaleDeliveryTerms(e.target.value)} disabled={wholesaleCreated}/></label>

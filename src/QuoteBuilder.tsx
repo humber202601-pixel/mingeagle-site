@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, useRef, type FormEvent } from 'react';
 import { statusLabel } from './adminI18n';
-import {RETAIL_USD,retailReference} from '../lib/retail-reference';
+import {RETAIL_USD,retailReference,RETAIL_SOURCE_URL} from '../lib/retail-reference';
+import {calculate, type Comparison} from '../lib/quote-math-core.mjs';
+import {quoteTotals} from '../lib/quote-totals';
+import {quoteInquiryDefaults} from './quoteInquiry';
 
 type Row = Record<string, unknown>;
 
@@ -77,14 +80,15 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   const [retailReviewMessage,setRetailReviewMessage]=useState('');
   const [editPreviewTotal, setEditPreviewTotal] = useState<number | null>(null);
   const [createPreview, setCreatePreview] = useState<CreatePreview>({ subtotal: 0, shipping: 0, discount: 0, total: 0 });
-  const [retailComparison,setRetailComparison]=useState<{retail:number;wholesale:number}|null>(null);
+  const [retailComparison,setRetailComparison]=useState<Comparison|null>(null);
   const [retailMatchConfirmed,setRetailMatchConfirmed]=useState(false);
   const [catalogVariant,setCatalogVariant]=useState('');
-  const [wholesaleValue,setWholesaleValue]=useState(0);
-  const [quoteQuantity,setQuoteQuantity]=useState(0);
+  const createForm = useRef<HTMLFormElement>(null);
+  const [previewError,setPreviewError] = useState('');
   const [quoteChecklist,setQuoteChecklist]=useState<Record<string,boolean>>({});
 
   const selected = available.find(item => text(item.reference) === selectedReference);
+  const defaults = quoteInquiryDefaults(selected);
 
   useEffect(() => {
     if (selectedReference && available.some(item => text(item.reference) === selectedReference)) return;
@@ -99,7 +103,8 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     setCreatePreview({ subtotal: 0, shipping: 0, discount: 0, total: 0 });
     setRetailComparison(null);
     setRetailMatchConfirmed(false);
-    setCatalogVariant('');
+    setCatalogVariant(quoteInquiryDefaults(available.find(item=>text(item.reference)===selectedReference)).description);
+    setPreviewError('');
     setQuoteChecklist({});
   }, [selectedReference]);
 
@@ -117,19 +122,19 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
 
   useEffect(() => { void loadQuotes(); }, [accessKey]);
 
-  function updateCreatePreview(event: FormEvent<HTMLFormElement>) {
-    const data = new FormData(event.currentTarget);
+  function previewCreate(form: HTMLFormElement) {
+    const data = new FormData(form);
     const quantity = Math.max(0, safeNumber(data.get('quantity')));
     const unitPrice = Math.max(0, safeNumber(data.get('unitPrice')));
     const shipping = Math.max(0, safeNumber(data.get('shipping')));
     const discount = Math.max(0, safeNumber(data.get('discount')));
-    const subtotal = quantity * unitPrice;
-    setWholesaleValue(unitPrice);
-    setQuoteQuantity(quantity);
-    setCreatePreview({ subtotal, shipping, discount, total: Math.max(0, subtotal - discount + shipping) });
+    try {
+      const totals = quoteTotals([{quantity:data.get('quantity'),unitPrice:data.get('unitPrice')}],data.get('shipping'),data.get('discount')||0);
+      setCreatePreview(totals); setPreviewError('');
+    } catch { setCreatePreview({subtotal:0,shipping:0,discount:0,total:0}); setPreviewError('请确认精确数量、单价和运费；金额最多两位小数，额外折扣不能超过商品金额。'); }
     const retailRaw=String(data.get('retailReference')||'').trim();
     const retail=Number(retailRaw);
-    setRetailComparison(retailRaw!==''&&Number.isFinite(retail)&&retail>0&&unitPrice>0?{retail,wholesale:unitPrice}:null);
+    try { setRetailComparison(retailRaw!==''&&retail>0&&unitPrice>0 ? calculate({retailUnitPrice:retailRaw,wholesaleUnitPrice:String(data.get('unitPrice')),quantity}) : null); } catch {setRetailComparison(null);}
     setQuoteChecklist({
       product:String(data.get('description')||'').trim().length>0,
       quantity:Number.isSafeInteger(Number(data.get('quantity')))&&Number(data.get('quantity'))>0,
@@ -139,6 +144,9 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       terms:String(data.get('shippingTerms')||'').trim().length>0,
     });
   }
+
+  function updateCreatePreview(event: FormEvent<HTMLFormElement>) { previewCreate(event.currentTarget); }
+  useEffect(()=>{if(createForm.current)previewCreate(createForm.current);},[catalogVariant,selectedReference]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -205,6 +213,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       const body = await response.json() as { ok?: boolean; quote?: Row; items?: Row[]; error?: string };
       if (!response.ok || !body.ok || !body.quote) throw new Error(body.error || '无法加载报价草稿。');
       setEditDetail({ quote: body.quote, items: body.items || [] });
+      setRetailReviews(Object.fromEntries((body.items||[]).map(item=>[text(item.id),{retail:retailReference(item.description)?.toFixed(2)||'',source:retailReference(item.description)!==null?RETAIL_SOURCE_URL:'',confirmed:false}])));
       setEditPreviewTotal(Number(body.quote.total || 0));
       window.setTimeout(() => document.getElementById('quote-edit-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
     } catch (err) {
@@ -217,15 +226,10 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   function updateEditPreview(event: FormEvent<HTMLFormElement>) {
     if (!editDetail) return;
     const data = new FormData(event.currentTarget);
-    const subtotal = editDetail.items.reduce((sum, item) => {
-      const id = text(item.id);
-      const quantity = Math.max(0, safeNumber(data.get(`quantity-${id}`)));
-      const unitPrice = Math.max(0, safeNumber(data.get(`unitPrice-${id}`)));
-      return sum + quantity * unitPrice;
-    }, 0);
-    const shipping = Math.max(0, safeNumber(data.get('shipping')));
-    const discount = Math.max(0, safeNumber(data.get('discount')));
-    setEditPreviewTotal(Math.max(0, subtotal - discount + shipping));
+    try {
+      const totals = quoteTotals(editDetail.items.map(item=>({quantity:data.get(`quantity-${text(item.id)}`),unitPrice:data.get(`unitPrice-${text(item.id)}`)})),data.get('shipping'),data.get('discount')||0,editDetail.quote.tax??0);
+      setEditPreviewTotal(totals.total);
+    } catch {setEditPreviewTotal(null);}
   }
 
   async function saveEdit(event: FormEvent<HTMLFormElement>) {
@@ -303,10 +307,8 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   async function deliverQuote(quote: Row, sendEmail: boolean) {
     const quoteId = text(quote.id);
     if (!quoteId) return;
-    if (sendEmail) {
-      const confirmed = window.confirm(`将通过 Gmail 向该客户真实发送报价 ${text(quote.reference)}。确认继续吗？`);
-      if (!confirmed) return;
-    }
+    const confirmed = window.confirm(`批准报价 ${text(quote.reference)}，总额 ${money(quote.total,quote.currency)}。请确认规格、数量、运费和商业条款。${sendEmail?'批准后将通过 Gmail 向该客户真实发送。':'批准后生成客户可查看的安全链接。'}`);
+    if (!confirmed) return;
     setBusyQuoteId(quoteId);
     setError('');
     setCustomerLink(null);
@@ -315,7 +317,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       const response = await fetch('/api/admin/quote-send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
-        body: JSON.stringify({ quoteId, sendEmail }),
+        body: JSON.stringify({ quoteId, sendEmail, approved: true }),
       });
       const body = await response.json() as QuoteSendResult;
       if (!response.ok || !body.ok || !body.reference || !body.publicPath) {
@@ -345,7 +347,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
         <h2>创建报价草稿</h2>
         <span>客户回复 → MEQ 询盘 → 人工确认价格 → 商务报价</span>
       </div>
-      {available.length === 0 ? <div className="empty-row">当前没有待创建报价的询盘。已报价询盘请在下方编辑原报价或创建修订版。</div> : <form onSubmit={submit} onInput={updateCreatePreview} className="quote-form">
+      {available.length === 0 ? <div className="empty-row">当前没有待创建报价的询盘。已报价询盘请在下方编辑原报价或创建修订版。</div> : <form key={selectedReference} ref={createForm} onSubmit={submit} onInput={updateCreatePreview} className="quote-form">
         {selected && <div className="form-status success">
           <strong>客户需求已自动带入 · {text(selected.reference)}</strong>
           <p>{[
@@ -368,23 +370,18 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
             </select>
           </label>
           <label>数量
-            <input name="quantity" type="number" min="1" defaultValue={text(selected?.estimated_quantity)} key={`qty-${selectedReference}`} placeholder="请确认客户数量" required />
+            <input name="quantity" type="number" min="1" step="1" defaultValue={defaults.quantity} key={`qty-${selectedReference}`} placeholder="请确认客户精确数量" required />
           </label>
           <label className="span-2">选择产品规格（自动匹配零售价）
             <select value={catalogVariant} onChange={e=>setCatalogVariant(e.target.value)}>
               <option value="">手工填写（不自动对比）</option>
+              {defaults.description&&<option value={defaults.description}>{defaults.description} · 客户已选配置</option>}
               {Object.entries(RETAIL_USD).flatMap(([product,sizes])=>Object.entries(sizes).map(([size,retail])=>
                 <option key={product+size} value={product+' | No. '+size+' | Standard'}>{product} · {size}号 · 零售价 USD {retail.toFixed(2)}</option>))}
             </select>
           </label>
-          {catalogVariant&&<div className="span-2 form-status">
-            <strong>目录零售价 USD {retailReference(catalogVariant)?.toFixed(2)}</strong>
-            <p>{wholesaleValue>0&&retailReference(catalogVariant)!==null&&wholesaleValue<retailReference(catalogVariant)!
-              ? '每件节省 USD '+(retailReference(catalogVariant)!-wholesaleValue).toFixed(2)+'；本项节省 USD '+((retailReference(catalogVariant)!-wholesaleValue)*quoteQuantity).toFixed(2)
-              : '请输入低于零售价的批发价格，才会显示优惠。'}</p>
-          </div>}
           <label className="span-2">产品描述（客户可见，建议英文）
-            <input name="description" defaultValue={catalogVariant||defaultDescription(selected)} key={`desc-${selectedReference}-${catalogVariant}`} required />
+            <input name="description" defaultValue={catalogVariant||defaultDescription(selected)} key={`desc-${selectedReference}-${catalogVariant}`} readOnly={Boolean(catalogVariant)} required />
           </label>
           <label>单价（USD）
             <input name="unitPrice" type="number" min="0.01" step="0.01" placeholder="请确认后填写" required />
@@ -392,28 +389,23 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           <label>官网零售参考单价（USD，仅内部比较）
             {catalogVariant ? <input name="retailReference" value={retailReference(catalogVariant)?.toFixed(2)||""} readOnly /> : <input name="retailReference" type="number" min="0.01" step="0.01" placeholder="非目录商品：手工输入已核实零售价" />}
           </label>
-          <label className="span-2"><input type="checkbox" disabled={Boolean(catalogVariant)} checked={Boolean(catalogVariant)||retailMatchConfirmed} onChange={e=>setRetailMatchConfirmed(e.target.checked)} /> 已核实零售参考价来自相同产品型号、规格和套装配置（仅供内部审核）</label>
-          <div className="span-2 form-status"><strong>批发价与零售价对比（仅内部参考）</strong><p>{retailComparison && retailMatchConfirmed ? (retailComparison.wholesale<retailComparison.retail ? `零售价 USD ${retailComparison.retail.toFixed(2)}；批发价 USD ${retailComparison.wholesale.toFixed(2)}；每件节省 USD ${(retailComparison.retail-retailComparison.wholesale).toFixed(2)}（${((retailComparison.retail-retailComparison.wholesale)/retailComparison.retail*100).toFixed(1)}%）。` : `批发价 USD ${retailComparison.wholesale.toFixed(2)} 未低于参考零售价 USD ${retailComparison.retail.toFixed(2)}，不能宣传优惠。`) : "请先填写参考价，并确认产品型号、规格和套装配置一致；未核实前不计算或宣传优惠。"}</p><small>零售参考价仅用于本页面审核预览，不写入报价单或自动发送给客户。运费、税费及优惠折扣另行计算。</small></div>
+          {!catalogVariant&&<label className="span-2"><input type="checkbox" checked={retailMatchConfirmed} onChange={e=>setRetailMatchConfirmed(e.target.checked)} /> 已核实手工零售价与商品配置一致（仅内部预览）</label>}
+          <div className="span-2 form-status"><strong>同规格商品优惠（运费与税费另计）</strong><p>{retailComparison && (catalogVariant||retailMatchConfirmed) ? `零售价 USD ${retailComparison.retailUnitPrice}；批发价 USD ${retailComparison.wholesaleUnitPrice}；每件节省 USD ${retailComparison.savingsPerUnit}（${retailComparison.discountPercent}%）；商品共节省 USD ${retailComparison.savingsTotal}。` : '选目录规格后输入精确数量和批发价，即可自动比较；高于零售价时不显示优惠。'}</p><small>目录价格与版本随草稿保存；手工商品须单独保存来源审核。优惠对比不会再扣一次报价金额，发送前仍须人工批准。</small></div>
           <label>运费（USD）
             <input name="shipping" type="number" min="0" step="0.01" placeholder="填写真实运费，包邮填 0" required />
           </label>
           <label>客户 ZIP（内部参考）
             <input value={text(selected?.shipping_postal_code, '待确认')} readOnly />
           </label>
-          <label>优惠 / 折扣（USD）
+          <details className="span-2"><summary>更多商业条款、有效期与额外折扣</summary><div className="quote-form-grid">
+          <label>额外折扣（USD，不是上方零售价差额）
             <input name="discount" type="number" min="0" step="0.01" defaultValue="0" />
-          </label>
-          <label>商品金额（实时预览）
-            <input value={money(createPreview.subtotal, 'USD')} readOnly />
-          </label>
-          <label>报价总额（实时预览）
-            <input value={money(createPreview.total, 'USD')} readOnly />
           </label>
           <label>报价有效期（天）
             <input name="validDays" type="number" min="1" max="90" defaultValue="14" />
           </label>
           <label className="span-2">付款条款（客户可见）
-            <input name="paymentTerms" defaultValue="Payment is due before fulfillment unless otherwise agreed. Secure card, digital wallet and bank transfer options are available." />
+            <input name="paymentTerms" defaultValue="Payment method and instructions require staff confirmation before fulfillment." />
           </label>
           <label className="span-2">运输条款（客户可见）
             <input name="shippingTerms" defaultValue={text(selected?.shipping_postal_code) ? `Shipping cost is based on ZIP ${text(selected?.shipping_postal_code)}. Final carrier and delivery schedule will be confirmed before shipment.` : 'Final carrier, shipping cost and delivery schedule will be confirmed before shipment.'} key={`shippingTerms-${selectedReference}`} />
@@ -421,9 +413,13 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           <label className="span-2">报价备注（客户可见）
             <textarea name="notes" rows={3} placeholder="可填写报价补充说明…" />
           </label>
+          </div></details>
+          <label>商品金额（实时预览）<input value={previewError?'待确认':money(createPreview.subtotal,'USD')} readOnly /></label>
+          <label>报价总额（实时预览）<input value={previewError?'待确认':money(createPreview.total,'USD')} readOnly /></label>
         </div>
+        {defaults.multiline&&<p role="alert">此询盘包含多个商品，请在询盘详情的“B2B 组合采购报价”逐项填写单价。<a href={`/app/inquiries/${text(selected?.id)}`}>打开询盘详情</a></p>}
         <div className="quote-form-actions">
-          <button className="button" disabled={busy}>{busy ? '正在创建…' : '创建报价草稿'}</button>
+          <button className="button" disabled={busy||defaults.multiline}>{busy ? '正在创建…' : '创建报价草稿'}</button>
           <small>创建前检查：产品型号 / 规格、客户确认数量、批发单价、实际运费或包邮依据、收货 ZIP、付款和运输条款。缺少 ZIP 时请先核实运输费用；此操作只创建草稿，不会自动发送。</small>
         </div>
         {result && <div className="form-status success"><strong>报价草稿已创建：{result.reference}</strong><p>{result.currency} {Number(result.total).toFixed(2)} · {statusLabel(result.status)}</p></div>}
@@ -472,7 +468,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
             <input name="validUntil" type="date" defaultValue={dateOnly(editDetail.quote.valid_until)} required />
           </label>
           <label>实时预览总金额
-            <input value={money(editPreviewTotal ?? editDetail.quote.total, editDetail.quote.currency)} readOnly />
+            <input value={editPreviewTotal===null?'待确认':money(editPreviewTotal,editDetail.quote.currency)} readOnly />
           </label>
           <label className="span-2">付款条款（客户可见）
             <input name="paymentTerms" defaultValue={text(editDetail.quote.payment_terms)} />

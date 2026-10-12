@@ -1,10 +1,11 @@
-// Published MING EAGLE per-size USD retail reference prices (not wholesale costs).
-export const RETAIL_USD:Record<string,Record<string,number>>={
- 'Flocked Silent Basketball Set':{'3':9.9,'5':11.9,'7':14.9},
- 'Fabric-Cover Silent Basketball Set':{'3':10.9,'5':12.9,'7':15.9},
- 'Weighted Flocked Silent Basketball':{'3':12.9,'4':14.9,'6':18.9,'7':21.9},
- 'Flocked Silent Soccer Ball':{'5':17.9}
-};
+import catalog from '../public/retail-reference-prices.json';
+import { RETAIL_CATALOG_VERSION } from './retail-catalog-version';
+export { RETAIL_CATALOG_VERSION };
+export const RETAIL_SOURCE_URL = 'https://www.mingeagle.com/retail-reference-prices.json?v=' + RETAIL_CATALOG_VERSION;
+export const PRODUCT_NAMES = ['Flocked Silent Basketball Set', 'Fabric-Cover Silent Basketball Set', 'Weighted Flocked Silent Basketball', 'Flocked Silent Soccer Ball'];
+// The published catalog is the only price source. Colors do not change prices.
+export const RETAIL_USD: Record<string, Record<string, number>> = Object.fromEntries(PRODUCT_NAMES.map((name, index) => [name, catalog.products[('p' + (index + 1)) as keyof typeof catalog.products]]));
+export const SKU_USD: Record<string, number> = Object.fromEntries(Object.entries(catalog.products).flatMap(([id, sizes]) => Object.entries(sizes).map(([size, price]) => [id.toUpperCase() + '-S' + size, price])));
 export function retailReference(description:unknown):number|null{
  const m=/^(.+?) \| No\. (3|4|5|6|7) \| (.+)$/.exec(String(description||'').trim());
  if(!m)return null;

@@ -21,6 +21,16 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Checkout canonical website references
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: canonical-website
+          sparse-checkout: public
+      - name: Verify prices and calculator match website main
+        run: node scripts/sync-quote-reference.mjs --check --from canonical-website/public
+      - name: Verify quote arithmetic and isolated CRM workflow
+        run: npm run test:quotes
       - name: Run discovery, authentication, and CRM regression tests
         run: npm run test:discovery
       - name: Typecheck and build
