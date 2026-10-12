@@ -71,7 +71,11 @@ try {
       if(action==='AUDIT')return Response.json({ok:true,inventory:{
         limit2:{count:2,hasMore:false,offset:0,total:null},
         limit50:{count:11,hasMore:false,offset:0,total:null},
-      }});
+      },classification:{scanned:11,eligible:3,excluded:8,reasons:{
+        ELIGIBLE:3,NO_FORM_FIELDS:0,INVALID_INQUIRY_REFERENCE:8,
+        CONSENT_NOT_GRANTED:0,MISSING_IDENTITY:0,UNSUPPORTED_REQUEST_TYPE:0,
+        MISSING_COUNTRY:0,
+      }}});
       return Response.json({ok:true,configured:true,processed:2,imported:1,reused:1,skipped:0,hasMore:true,nextOffset:2});
     };
     await worker.scheduled({cron:'0 * * * *'},enabledEnv,context);await context.task;
@@ -84,6 +88,13 @@ try {
     const inventory=sqlite.prepare("SELECT * FROM hubspot_submission_inventory_audit WHERE id='public-form'").get();
     assert.equal(inventory.count_two,2);assert.equal(inventory.count_fifty,11);
     assert.equal(inventory.has_more_two,0);assert.equal(inventory.has_more_fifty,0);
+    const quality=sqlite.prepare("SELECT * FROM hubspot_submission_quality_audit WHERE id='public-form'").get();
+    assert.equal(quality.scanned_count,11);
+    assert.equal(quality.eligible_count,3);
+    assert.equal(quality.rejected_count,8);
+    assert.equal(JSON.parse(quality.reasons_json).INVALID_INQUIRY_REFERENCE,8);
+    assert(!quality.reasons_json.includes('@')&&!quality.reasons_json.includes('synthetic-service-key'),
+      'No customer PII or auth secrets in persistent classification');
     // Invalid 200 JSON must not report a successful job or overwrite the last valid batch.
     globalThis.fetch=async()=>Response.json({ok:true,configured:true,processed:2,imported:2,reused:1,skipped:0,hasMore:true,nextOffset:2});
     await worker.scheduled({cron:'0 * * * *'},enabledEnv,context);await context.task;
@@ -116,6 +127,7 @@ try {
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM hubspot_recovery_job_status").get().n,1);
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM hubspot_recovery_batch_summary").get().n,1);
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM hubspot_submission_inventory_audit").get().n,1);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM hubspot_submission_quality_audit").get().n,1);
   } finally {globalThis.fetch=originalFetch;}
 
   assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM messages').get().n,0,'passive monitoring never sends customer messages');

@@ -67,6 +67,12 @@ try{
       offset_two INTEGER,offset_fifty INTEGER,total_two INTEGER,total_fifty INTEGER);
     INSERT INTO hubspot_submission_inventory_audit VALUES
       ('public-form',CURRENT_TIMESTAMP,2,0,11,0,0,0,NULL,NULL);
+    CREATE TABLE hubspot_submission_quality_audit(
+      id TEXT PRIMARY KEY,checked_at TEXT,scanned_count INTEGER,eligible_count INTEGER,
+      rejected_count INTEGER,reasons_json TEXT);
+    INSERT INTO hubspot_submission_quality_audit VALUES(
+      'public-form',CURRENT_TIMESTAMP,11,3,8,
+      '{"ELIGIBLE":3,"NO_FORM_FIELDS":0,"INVALID_INQUIRY_REFERENCE":7,"CONSENT_NOT_GRANTED":1,"MISSING_IDENTITY":0,"UNSUPPORTED_REQUEST_TYPE":0,"MISSING_COUNTRY":0}');
     CREATE TABLE leads(id TEXT PRIMARY KEY);
     INSERT INTO leads VALUES('linked-lead');
     CREATE TABLE inquiries(id TEXT PRIMARY KEY,status TEXT,created_at TEXT,lead_id TEXT);
@@ -89,6 +95,10 @@ try{
   assert.equal(filled.data.hubspot.inventoryAudit.limit50Count,11);
   assert.equal(filled.data.hubspot.inventoryAudit.limit2HasMore,false);
   assert.equal(filled.data.hubspot.inventoryAudit.limit50HasMore,false);
+  assert.equal(filled.data.hubspot.qualityAudit.scanned,11);
+  assert.equal(filled.data.hubspot.qualityAudit.eligible,3);
+  assert.equal(filled.data.hubspot.qualityAudit.excluded,8);
+  assert.equal(filled.data.hubspot.qualityAudit.reasons.INVALID_INQUIRY_REFERENCE,7);
   assert.equal(filled.data.inquiries.orphanLeadLinks,1,'Orphan lead references must be observable');
   assert.equal(filled.data.inquiries.total,2);
   assert.equal(filled.data.discovery.sources,2);
@@ -127,7 +137,7 @@ try{
   assert.equal(never.writes,0);
   const absentKey=await load();
   assert.equal(absentKey.data.hubspot.status,'DISABLED','Missing credential must never be shown as healthy');
-  assert(filled.queries<=13,'all D1 checks must remain bounded');
+  assert(filled.queries<=14,'all D1 checks must remain bounded');
   const serialized=JSON.stringify(filled.data);
   assert(!serialized.includes('test-only-secret'),'HubSpot credentials cannot leak to API');
   assert(!serialized.includes('synthetic-admin-key'),'Worker credentials cannot leak to health API');

@@ -417,7 +417,30 @@ async function recordHubspotBatch(env:Env,batch:RecoveryBatch){
 // A diagnostic is read-only, runs at most once daily and never alters the
 // recovery cursor or the last confirmed import outcome.
 type AuditPage={count:number;hasMore:boolean|null;offset:number|null;total:number|null};
-type AuditResponse={ok:true;inventory:{limit2:AuditPage;limit50:AuditPage}};
+type AuditReason='ELIGIBLE'|'NO_FORM_FIELDS'|'INVALID_INQUIRY_REFERENCE'|
+  'CONSENT_NOT_GRANTED'|'MISSING_IDENTITY'|'UNSUPPORTED_REQUEST_TYPE'|'MISSING_COUNTRY';
+const auditReasonKeys:AuditReason[]=[
+ 'ELIGIBLE','NO_FORM_FIELDS','INVALID_INQUIRY_REFERENCE',
+ 'CONSENT_NOT_GRANTED','MISSING_IDENTITY','UNSUPPORTED_REQUEST_TYPE','MISSING_COUNTRY'
+];
+type AuditClassification={scanned:number;eligible:number;excluded:number;
+ reasons:Record<AuditReason,number>};
+type AuditResponse={ok:true;inventory:{limit2:AuditPage;limit50:AuditPage};
+ classification:AuditClassification};
+function validAuditClassification(a:unknown,numberScanned:number):a is AuditClassification{
+ if(!a||typeof a!=='object')return false;
+ const c=a as Record<string,unknown>,r=c.reasons;
+ if(!Number.isSafeInteger(c.scanned)||c.scanned!==numberScanned||
+    !Number.isSafeInteger(c.eligible)||!Number.isSafeInteger(c.excluded)||
+    Number(c.eligible)<0||Number(c.excluded)<0||
+    Number(c.eligible)+Number(c.excluded)!==numberScanned||
+    !r||typeof r!=='object')return false;
+ const reasons=r as Record<string,unknown>;
+ if(Object.keys(reasons).length!==auditReasonKeys.length)return false;
+ if(!auditReasonKeys.every(k=>Number.isSafeInteger(reasons[k])&&Number(reasons[k])>=0))return false;
+ return auditReasonKeys.reduce((sum,k)=>sum+Number(reasons[k]),0)===numberScanned
+    &&Number(reasons.ELIGIBLE)===Number(c.eligible);
+}
 const validAuditPage=(x:unknown,limit:number):x is AuditPage=>{
   if(!x||typeof x!=='object')return false;
   const p=x as Record<string,unknown>;
@@ -449,7 +472,8 @@ async function auditHubspotInventory(env:Env){
     if(!r.ok){console.error('hubspot_inventory_audit_http_failed',r.status);return}
     const x=await r.json().catch(()=>null) as AuditResponse|null;
     if(x?.ok!==true||!validAuditPage(x.inventory?.limit2,2)
-      ||!validAuditPage(x.inventory?.limit50,50)){
+      ||!validAuditPage(x.inventory?.limit50,50)
+      ||!validAuditClassification(x.classification,x.inventory.limit50.count)){
       console.error('hubspot_inventory_audit_invalid_response');return;
     }
     const one=x.inventory.limit2,two=x.inventory.limit50;
@@ -465,6 +489,21 @@ async function auditHubspotInventory(env:Env){
        total_two=excluded.total_two,total_fifty=excluded.total_fifty`)
       .bind(one.count,asInt(one.hasMore),two.count,asInt(two.hasMore),
         one.offset,two.offset,one.total,two.total).run();
+    // One privacy-safe aggregate row for the most recent provider audit:
+    // fixed reason codes and counts, no inquiry ID, email, phone or payload.
+    await db.prepare(`CREATE TABLE IF NOT EXISTS hubspot_submission_quality_audit (
+      id TEXT PRIMARY KEY,checked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      scanned_count INTEGER NOT NULL,eligible_count INTEGER NOT NULL,rejected_count INTEGER NOT NULL,
+      reasons_json TEXT NOT NULL
+    )`).run();
+    const c=x.classification;
+    await db.prepare(`INSERT INTO hubspot_submission_quality_audit
+      (id,checked_at,scanned_count,eligible_count,rejected_count,reasons_json)
+      VALUES('public-form',CURRENT_TIMESTAMP,?,?,?,?)
+      ON CONFLICT(id) DO UPDATE SET checked_at=CURRENT_TIMESTAMP,
+      scanned_count=excluded.scanned_count,eligible_count=excluded.eligible_count,
+      rejected_count=excluded.rejected_count,reasons_json=excluded.reasons_json`)
+      .bind(c.scanned,c.eligible,c.excluded,JSON.stringify(c.reasons)).run();
   }catch{console.error('hubspot_inventory_audit_failed')}
 }
 

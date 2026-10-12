@@ -13,11 +13,27 @@ type ProductionHealth={
     lastBatch?:{completedAt:string;processed:number;imported:number;reused:number;skipped:number;hasMore:boolean;nextOffset:number}|null;
     inventoryAudit?:{checkedAt:string;limit2Count:number;limit2HasMore:boolean|null;
       limit50Count:number;limit50HasMore:boolean|null;limit2Offset:number|null;
-      limit50Offset:number|null;limit2Total:number|null;limit50Total:number|null}|null};
+      limit50Offset:number|null;limit2Total:number|null;limit50Total:number|null}|null;
+    qualityAudit?:{checkedAt:string;scanned:number;eligible:number;excluded:number;
+      reasons:Record<AuditReason,number>;scope:string}|null};
   turnstile?:{configured:boolean;enabled:boolean;misconfigured:boolean};
   discovery?:{status:string;phase:string;updatedAt:string;stepsCompleted:number;sources:number;sourceFailures:number;candidates:number;imported:number|null}|null;
   inquiries?:{total:number;last24h:number;newCount:number;newOver4h:number;newOver24h:number;reviewingOver24h:number;orphanLeadLinks:number|null;latestAt:string|null}|null;
   quota?:{actualD1RowsRead:number|null;actualD1RowsWritten:number|null;trackingConfigured:boolean};
+};
+type AuditReason='ELIGIBLE'|'NO_FORM_FIELDS'|'INVALID_INQUIRY_REFERENCE'|
+ 'CONSENT_NOT_GRANTED'|'MISSING_IDENTITY'|'UNSUPPORTED_REQUEST_TYPE'|'MISSING_COUNTRY';
+type AuditClassification={scanned:number;eligible:number;excluded:number;
+ reasons:Record<AuditReason,number>};
+type LiveAudit={ok:boolean;inventory:{limit50:{count:number}};classification:AuditClassification;error?:string};
+const auditLabels:Record<AuditReason,string>={
+ ELIGIBLE:'符合补录格式（不等于已入库）',
+ NO_FORM_FIELDS:'未包含可解析的表单字段',
+ INVALID_INQUIRY_REFERENCE:'缺少或无效的官网询盘编号（包括其他类型的提交）',
+ CONSENT_NOT_GRANTED:'未提供有效隐私同意',
+ MISSING_IDENTITY:'姓名或电子邮箱不完整',
+ UNSUPPORTED_REQUEST_TYPE:'申请类型不属于支持范围',
+ MISSING_COUNTRY:'需要配送地区的申请缺少国家信息',
 };
 type ResponseData = { ok?: boolean; settings?: Settings; metrics?: Metrics; recent?: Row[]; scheduler?: SchedulerRow[]; error?: string };
 type QueueData = { ok?: boolean; rows?: Row[]; counts?: Row[]; error?: string; reviewed?: number; created?: number; initialCreated?: number; followupCreated?: number };
@@ -72,6 +88,9 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
   const [scheduler, setScheduler] = useState<SchedulerRow[]>([]);
   const [health, setHealth] = useState<ProductionHealth|null>(null);
   const [healthError, setHealthError] = useState('');
+  const [auditBusy,setAuditBusy]=useState(false);
+  const [auditResult,setAuditResult]=useState<AuditClassification|null>(null);
+  const [auditError,setAuditError]=useState('');
   const [queue, setQueue] = useState<Row[]>([]);
   const [samples, setSamples] = useState<Row[]>([]);
   const [sampleDrafts, setSampleDrafts] = useState<Record<string, SampleDraft>>({});
@@ -118,6 +137,28 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
   }, [accessKey]);
 
   useEffect(() => { void load(); }, [load]);
+
+  async function auditHubspotNow(){
+    setAuditBusy(true);setAuditError('');setAuditResult(null);
+    try{
+      const response=await fetch('/api/admin/hubspot-inquiry-recovery',{
+        method:'POST',headers,body:JSON.stringify({action:'AUDIT'}),cache:'no-store'
+      });
+      const result=await response.json() as LiveAudit;
+      const c=result.classification;
+      if(!response.ok||!result.ok||!c||!Number.isSafeInteger(c.scanned)
+        ||!Number.isSafeInteger(c.eligible)||!Number.isSafeInteger(c.excluded)
+        ||c.scanned>50||c.eligible+c.excluded!==c.scanned
+        ||!c.reasons||Object.keys(c.reasons).length!==Object.keys(auditLabels).length
+        ||!(Object.keys(auditLabels) as AuditReason[]).every(k=>
+          Number.isSafeInteger(c.reasons[k])&&c.reasons[k]>=0)
+        ||(Object.keys(auditLabels) as AuditReason[]).reduce((n,k)=>n+c.reasons[k],0)!==c.scanned
+        ||c.reasons.ELIGIBLE!==c.eligible)
+        throw Error(result.error||'HubSpot 只读抽查结果不可核验');
+      setAuditResult(c);
+    }catch(e){setAuditError(e instanceof Error?e.message:'HubSpot 只读抽查失败')}
+    finally{setAuditBusy(false)}
+  }
 
   async function update(next: Partial<Settings>) {
     setBusy(true); setError(''); setMessage('');
@@ -300,7 +341,25 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
         {health.hubspot?.lastBatch&&health.hubspot.lastBatch.skipped>0&&<p className="form-status error" role="alert">最近批次有 {health.hubspot.lastBatch.skipped} 条未导入：可能是视频提交、缺失授权同意、无效询盘编号或不支持的申请类型。系统不会擅自创建销售线索。</p>}
         {health.hubspot?.inventoryAudit&&<div className="list-row"><div><strong>HubSpot 历史提交只读抽查</strong><small>同一表单与密钥分别请求 limit=2 和 limit=50。最后抽查 {health.hubspot.inventoryAudit.checkedAt}（UTC）；仅记录汇总，不读取或展示客户内容</small></div><span>2条请求返回 {health.hubspot.inventoryAudit.limit2Count} · 50条请求返回 {health.hubspot.inventoryAudit.limit50Count}</span></div>}
         {health.hubspot?.inventoryAudit&&<p className="form-status" role="status">分页：limit=2 的 hasMore 为 {String(health.hubspot.inventoryAudit.limit2HasMore)}；limit=50 的 hasMore 为 {String(health.hubspot.inventoryAudit.limit50HasMore)}。这只代表当前 API 可返回的记录，不代表 HubSpot 历史累计提交全部已恢复。</p>}
-        {health.hubspot?.inventoryAudit&&health.hubspot.inventoryAudit.limit50Count>health.hubspot.inventoryAudit.limit2Count&&<p className="form-status error" role="alert">大页查询发现更多记录：小页分页标志可能不可靠。请先修复游标逻辑，不能以小页 hasMore=false 判断历史已全部扫描。</p>}
+        {health.hubspot?.inventoryAudit&&health.hubspot.inventoryAudit.limit50Count>health.hubspot.inventoryAudit.limit2Count&&<p className="form-status" role="status">历史分页诊断确认小页无法提供可靠分页标志，系统已改为满页自动推进。当前游标 {health.hubspot.nextOffset??'未知'}；需确认最终短页/空页才算完成扫描一轮，不能把 11 次提交都视作有效询盘。</p>}
+        {health.hubspot?.qualityAudit&&<div className="panel" style={{padding:12}}>
+          <strong>上次自动只读分类（前 50 条抽查）</strong>
+          <p style={{fontSize:12,color:'#667085'}}>UTC {health.hubspot.qualityAudit.checkedAt} · 抽查 {health.hubspot.qualityAudit.scanned} · 格式合格 {health.hubspot.qualityAudit.eligible} · 排除 {health.hubspot.qualityAudit.excluded}。仅判断符合官网恢复条件，不能证明已入库或是全部历史提交。</p>
+          {(Object.keys(auditLabels) as AuditReason[]).filter(k=>Number(health.hubspot?.qualityAudit?.reasons[k]||0)>0).map(k=><p key={k} style={{fontSize:12,margin:'4px 0'}}>{auditLabels[k]}：{health.hubspot!.qualityAudit!.reasons[k]}</p>)}
+        </div>}
+        <div style={{display:'flex',gap:10,alignItems:'center',margin:'12px 0'}}>
+          <button type="button" className="side-button" disabled={auditBusy} onClick={()=>void auditHubspotNow()}>
+            <RefreshCcw size={14}/>{auditBusy?'正在核查 HubSpot…':'即时只读核查前 50 条提交'}
+          </button>
+          <small style={{color:'#667085'}}>只读取 HubSpot 汇总分类；不改变恢复游标、不新增客户、不会发邮件</small>
+        </div>
+        {auditError&&<p className="form-status error" role="alert">{auditError}</p>}
+        {auditResult&&<div className="panel" style={{padding:12}}>
+          <strong>HubSpot 最新只读核查结果</strong>
+          <p style={{fontSize:13}}>共检查 {auditResult.scanned} 条 · 符合恢复条件 {auditResult.eligible} 条 · 排除 {auditResult.excluded} 条</p>
+          {(Object.keys(auditLabels) as AuditReason[]).filter(k=>auditResult.reasons[k]>0).map(k=><p key={k} style={{fontSize:12,margin:'5px 0'}}>{auditLabels[k]}：{auditResult.reasons[k]} 条</p>)}
+          <p style={{fontSize:12,color:'#667085'}}>只报告固定理由和数量，不显示姓名、邮箱或原始表单内容。此结果是最多前 50 条提交的有效性检查，不等于补录完成。</p>
+        </div>}
         <div className="list-row"><div><strong>上一批客户发现</strong><small>{health.discovery?health.discovery.status+' · 来源批次 '+health.discovery.sources+' · 来源异常 '+health.discovery.sourceFailures:'尚无可统计的搜索任务'}</small></div><span>{health.discovery?.imported!=null?'确认入库 '+health.discovery.imported+' 个':'入库数量未知'}</span></div>
         {health.discovery&&<div className="list-row"><div><strong>发现流程排查</strong><small>候选机构 {health.discovery.candidates} 个 · 已完成处理步骤 {health.discovery.stepsCompleted} · 来源受限 {health.discovery.sourceFailures} 个</small></div><span>{health.discovery.sourceFailures>0?'存在来源受限':health.discovery.candidates>0&&health.discovery.imported===0?'核验或入库待排查':'查看任务明细'}</span></div>}
         <div className="list-row"><div><strong>Cloudflare D1 免费额度</strong><small>数据库无法自行读取云平台累计行数；必须以 Cloudflare Analytics 为准</small></div><span>未接入额度遥测 · 不显示虚假余量</span></div>

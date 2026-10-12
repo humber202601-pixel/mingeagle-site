@@ -21,9 +21,41 @@ const types:Record<string,RecoveredInquiry['requestType']>={
   'general product question':'GENERAL','order support':'ORDER_SUPPORT',
   'retail partnership':'RETAIL_PARTNERSHIP',
 };
+// A privacy-safe classification: returns one fixed reason code, never values,
+// names, messages, emails, submission IDs or tokens.
+export const HUBSPOT_AUDIT_REASONS=[
+  'ELIGIBLE','NO_FORM_FIELDS','INVALID_INQUIRY_REFERENCE','CONSENT_NOT_GRANTED',
+  'MISSING_IDENTITY','UNSUPPORTED_REQUEST_TYPE','MISSING_COUNTRY',
+] as const;
+export type HubspotAuditReason=typeof HUBSPOT_AUDIT_REASONS[number];
+export function classifyHubspotSubmission(submission:HubspotSubmission):HubspotAuditReason{
+  if(!submission||!Array.isArray(submission.values))return 'NO_FORM_FIELDS';
+  const values=new Map((submission.values||[]).filter(field=>field&&typeof field.name==='string')
+    .map(field=>[field.name!.toLowerCase(),trim(field.value,4000)]));
+  const field=(name:string,max=400)=>trim(values.get(name)||'',max);
+  const reference=field('me_inquiry_reference',80).toUpperCase();
+  if(!/^ME-\d{8}-[A-F0-9]{8}$/.test(reference))return 'INVALID_INQUIRY_REFERENCE';
+  if(!/^(true|yes|1|on|agreed)$/i.test(field('me_privacy_consent')))return 'CONSENT_NOT_GRANTED';
+  if(!field('firstname',80)||!/^\S+@\S+\.\S+$/.test(field('email',200)))return 'MISSING_IDENTITY';
+  const type=types[field('me_request_type',80).toLowerCase()];
+  if(!type)return 'UNSUPPORTED_REQUEST_TYPE';
+  if(['SAMPLE','WHOLESALE','RETAIL_PARTNERSHIP'].includes(type)&&!field('country',100))
+    return 'MISSING_COUNTRY';
+  return 'ELIGIBLE';
+}
+export type HubspotAuditCounts=Record<HubspotAuditReason,number>;
+export function summarizeHubspotSubmissions(rows:HubspotSubmission[]):{
+ scanned:number;eligible:number;excluded:number;reasons:HubspotAuditCounts
+}{
+  const reasons=Object.fromEntries(HUBSPOT_AUDIT_REASONS.map(key=>[key,0])) as HubspotAuditCounts;
+  for(const row of rows)reasons[classifyHubspotSubmission(row)]++;
+  return {scanned:rows.length,eligible:reasons.ELIGIBLE,
+    excluded:rows.length-reasons.ELIGIBLE,reasons};
+}
+
 export function parseHubspotSubmission(submission:HubspotSubmission):RecoveredInquiry|null{
-  if(!submission||!Array.isArray(submission.values))return null;
-  const values=new Map(submission.values.filter(field=>field&&typeof field.name==='string')
+  if(classifyHubspotSubmission(submission)!=='ELIGIBLE')return null;
+  const values=new Map((submission.values||[]).filter(field=>field&&typeof field.name==='string')
     .map(field=>[field.name!.toLowerCase(),trim(field.value,4000)]));
   const field=(name:string,max=400)=>trim(values.get(name)||'',max);
   const reference=field('me_inquiry_reference',80).toUpperCase();
