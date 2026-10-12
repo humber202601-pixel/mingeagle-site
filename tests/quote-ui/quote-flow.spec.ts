@@ -16,6 +16,15 @@ async function login(page:Page,reference:string){
  await expect(page.getByRole('heading',{name:'报价单',exact:true})).toBeVisible();
  await expect(page.getByRole('combobox',{name:'关联询盘',exact:true})).toHaveValue(reference);
 }
+async function clickWithQuoteApproval(page:Page,click:()=>Promise<void>,approve:boolean){
+ // Preflight is asynchronous. Await the actual dialog instead of keeping
+ // stacked one-shot listeners which can each attempt to handle one dialog.
+ const dialogPromise=page.waitForEvent('dialog');
+ const clickPromise=click();
+ const dialog=await dialogPromise;
+ if(approve)await dialog.accept();else await dialog.dismiss();
+ await clickPromise;
+}
 async function noPageOverflow(page:Page){
  const dimensions=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,viewport:window.innerWidth}));
  expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.viewport);
@@ -55,18 +64,23 @@ test('真实报价界面：精确数量、金额、修改审核、批准与客�
  await edit.getByRole('checkbox',{name:'我已核对该零售价与报价商品配置完全一致',exact:true}).check();
  await edit.getByRole('button',{name:'保存此商品优惠审核',exact:true}).click();
  await expect(edit.getByText(/零售价来源及审核记录已保存/)).toBeVisible();
- page.once('dialog',dialog=>dialog.accept());
+ const preflightUrl='/api/admin/quote-procurement-preflight?quoteId='+created.quoteId;
+ const preview=await request.get(preflightUrl,{headers:auth});
+ expect(preview.status()).toBe(200);
+ const review=(await preview.json()).review;
+ expect(review.safeForManualRelease).toBe(true);
+ expect(review.unverifiedSkuBaselines).toBe(1);
+ expect(review.supplierConfirmationRequired).toBe(true);
+ expect((await request.get(preflightUrl)).status()).toBe(401,'Anonymous caller cannot read supplier review');
  const blockedEmailResponse=page.waitForResponse(r=>r.url().endsWith('/api/admin/quote-send')&&r.request().method()==='POST');
- await row.getByRole('button',{name:'Gmail发送报价',exact:true}).click();
+ await clickWithQuoteApproval(page,()=>row.getByRole('button',{name:'Gmail发送报价',exact:true}).click(),true);
  const blockedEmail=await blockedEmailResponse;expect(blockedEmail.status()).toBe(403);
  await expect(page.getByText('Customer email sending is disabled in this test environment.',{exact:true})).toBeVisible();
- page.once('dialog',dialog=>dialog.dismiss());
- await row.getByRole('button',{name:'仅生成安全链接',exact:true}).click();
+ await clickWithQuoteApproval(page,()=>row.getByRole('button',{name:'仅生成安全链接',exact:true}).click(),false);
  let data=await (await request.get('/api/admin/data',{headers:auth})).json();
  expect(data.quotes.find((q:{id:string})=>q.id===created.quoteId).status).toBe('DRAFT');
- page.once('dialog',dialog=>dialog.accept());
  const releasedResponse=page.waitForResponse(r=>r.url().endsWith('/api/admin/quote-send')&&r.request().method()==='POST');
- await row.getByRole('button',{name:'仅生成安全链接',exact:true}).click();
+ await clickWithQuoteApproval(page,()=>row.getByRole('button',{name:'仅生成安全链接',exact:true}).click(),true);
  const released=await (await releasedResponse).json();expect(released.emailed).toBe(false);
  const pdfResponse=await request.get('/api/admin/quote-document?kind=quotation&quoteId='+created.quoteId,{headers:auth});
  expect(pdfResponse.status()).toBe(200);

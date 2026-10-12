@@ -1,0 +1,58 @@
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {pathToFileURL} from 'node:url';
+const tmp=mkdtempSync(join(tmpdir(),'quote-preflight-'));
+try{
+ const output=join(tmp,'preflight.mjs');
+ await build({entryPoints:['functions/api/admin/quote-procurement-preflight.ts'],outfile:output,bundle:true,platform:'node',format:'esm',logLevel:'silent'});
+ const {onRequestGet}=await import(pathToFileURL(output));
+ const quote={id:'quote-preflight-test',reference:'ME-Q-SYNTHETIC',status:'DRAFT',currency:'USD',discount:0};
+ const lines=[{description:'Flocked Silent Basketball Set | No. 5 | Blue',quantity:100,unit_price:8.03}];
+ let vendor=[],failCatalog=false,reads=0,writes=0;
+ const db={prepare(sql){
+  if(!/^\s*SELECT /i.test(sql)){writes++;throw Error('READ_ONLY_PREVIEW_MUST_NOT_WRITE');}
+  reads++;
+  return {bind(...values){
+   if(/FROM quotes WHERE/.test(sql))return {async first(){return values[0]===quote.id?quote:null}};
+   if(/FROM quote_items/.test(sql))return {async all(){return {results:lines}}};
+   if(/FROM supplier_purchase_terms/.test(sql))return {async all(){if(failCatalog)throw Error('synthetic D1 read failure');return {results:vendor}}};
+   throw Error('unexpected SELECT');
+  }};
+ }};
+ const invoke=async(id=quote.id)=>{
+  const request=new Request('https://app.mingeagle.com/api/admin/quote-procurement-preflight?quoteId='+encodeURIComponent(id));
+  const r=await onRequestGet({request,env:{MINGEAGLE_DB:db}});
+  return {status:r.status,data:await r.json(),cache:r.headers.get('cache-control')};
+ };
+ let r=await invoke('invalid id!');assert.equal(r.status,400);assert.equal(reads,0);
+ r=await invoke('another-quote-id');assert.equal(r.status,404);
+ r=await invoke();assert.equal(r.status,200,JSON.stringify(r.data));
+ assert.equal(r.data.review.safeForManualRelease,true);
+ assert.equal(r.data.review.approvedSkuBaselines,0);
+ assert.equal(r.data.review.unverifiedSkuBaselines,1);
+ assert.equal(r.data.review.supplierConfirmationRequired,true);
+ assert(r.cache.includes('no-store'));
+ const source={sku:'P1-S5',status:'APPROVED',currency:'USD',moq:20,case_pack:20,effective_on:'2020-01-01',expires_on:'2099-12-31',version:1,tiers_json:JSON.stringify([{minimumQuantity:20,purchaseCents:700}])};
+ vendor=[source];
+ r=await invoke();assert.equal(r.status,200);
+ assert.equal(r.data.review.approvedSkuBaselines,1);
+ assert.equal(r.data.review.unverifiedSkuBaselines,0);
+ assert.equal(r.data.review.safeForManualRelease,true);
+ vendor=[{...source,tiers_json:JSON.stringify([{minimumQuantity:20,purchaseCents:900}])}];
+ r=await invoke();assert.equal(r.status,200);assert.equal(r.data.review.safeForManualRelease,false);
+ assert(r.data.review.issues.includes('LINE_1_AT_OR_BELOW_APPROVED_COST'));
+ vendor=[{...source,expires_on:'2020-01-01'}];
+ r=await invoke();assert.equal(r.status,200);
+ assert.equal(r.data.review.unverifiedSkuBaselines,1,'Expired vendor price cannot claim verified coverage');
+ assert.equal(r.data.review.supplierConfirmationRequired,true);
+ quote.status='ACCEPTED';vendor=[source];
+ r=await invoke();assert.equal(r.status,200);assert.equal(r.data.review.safeForManualRelease,false);
+ quote.status='DRAFT';failCatalog=true;
+ r=await invoke();assert.equal(r.status,503,'D1 failure must not be reported as approved/no cost');
+ assert.equal(writes,0);
+ assert(!JSON.stringify(r.data).includes('quote-test@example.com'));
+ console.log('PASS: quote preflight is read-only, handles verified/unverified/expired sourcing, blocks real cost breaches, and fails closed on D1 errors.');
+}finally{rmSync(tmp,{recursive:true,force:true})}

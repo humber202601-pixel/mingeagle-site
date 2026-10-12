@@ -30,6 +30,11 @@ type QuoteSendResult = {
   error?: string;
 };
 
+type QuotePreflight={ok?:boolean;error?:string;review?:{
+ safeForManualRelease:boolean;approvedSkuBaselines:number;unverifiedSkuBaselines:number;
+ supplierConfirmationRequired:boolean;issues:string[];note:string;
+}};
+
 type EditDetail = {
   quote: Row;
   items: Row[];
@@ -307,13 +312,26 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   async function deliverQuote(quote: Row, sendEmail: boolean) {
     const quoteId = text(quote.id);
     if (!quoteId) return;
-    const confirmed = window.confirm(`批准报价 ${text(quote.reference)}，总额 ${money(quote.total,quote.currency)}。请确认规格、采购成本、整箱数量、折扣后售价、运费和商业条款。系统将在对外发布前重新核查可匹配的已审核采购成本；缺失或颜色不一致的来源仍须人工确认。${sendEmail?'批准后将通过 Gmail 向该客户真实发送。':'批准后生成客户可查看的安全链接。'}`);
-    if (!confirmed) return;
     setBusyQuoteId(quoteId);
-    setError('');
-    setCustomerLink(null);
-    setQuoteDeliveryMessage('');
+    setError('');setCustomerLink(null);setQuoteDeliveryMessage('');
     try {
+      // This GET cannot generate tokens, change a quote, or contact a customer.
+      // The POST handler independently revalidates sourcing at release time.
+      const preflightResponse=await fetch('/api/admin/quote-procurement-preflight?'+new URLSearchParams({quoteId}),{
+        headers:{'x-admin-key':accessKey},cache:'no-store'
+      });
+      const preflight=await preflightResponse.json() as QuotePreflight;
+      if(!preflightResponse.ok||!preflight.ok||!preflight.review)
+        throw Error(preflight.error||'报价采购成本预审失败，尚未发布或发送。');
+      const review=preflight.review;
+      if(!review.safeForManualRelease)
+        throw Error('报价暂不能发布：'+(review.issues.join('、')||'报价状态不允许发布')+'。请先修订草稿或重新确认供应商依据。');
+      const counts='匹配已审核 SKU/尺寸采购成本：'+review.approvedSkuBaselines+' 行；仍待供应商核实：'+review.unverifiedSkuBaselines+' 行。';
+      const warning=review.supplierConfirmationRequired
+        ?'注意：存在未核验的采购成本，系统不能据此证明利润。必须人工确认供应商报价、颜色、包装、MOQ、整箱数量、实际运费和税费。'
+        :'已匹配的成本也不是完整到岸成本，仍须人工复核颜色、包装、运费、税费和商业条款。';
+      const confirmed=window.confirm(`批准报价 ${text(quote.reference)}，总额 ${money(quote.total,quote.currency)}。\n${counts}\n${warning}\n${sendEmail?'批准后将通过 Gmail 向该客户真实发送。':'批准后只生成客户可查看的安全链接，不会发送邮件。'}`);
+      if(!confirmed)return;
       const response = await fetch('/api/admin/quote-send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
