@@ -22,12 +22,24 @@ for(const bad of [null,Array(1000).fill(entries[0]),
   [group('2026-02-30','www.mingeagle.com',1,1)]])
   assert.throws(()=>dailyRows(bad,w));
 const writes=[];
-const db={prepare(sql){
-  assert.match(sql,/INSERT INTO web_analytics_daily/);
-  assert.match(sql,/ON CONFLICT\(date_utc\)/);
-  assert.doesNotMatch(sql,/\b(inquiries|leads|contacts|quotes|orders|activities)\b/i);
-  return {bind(...args){return {async run(){writes.push(args);return {success:true};}};}};
-}};
+let failBatch=false;
+const db={
+  prepare(sql){
+    assert.match(sql,/INSERT INTO web_analytics_daily/);
+    assert.match(sql,/ON CONFLICT\\(date_utc\\)/);
+    assert.doesNotMatch(sql,/\\b(inquiries|leads|contacts|quotes|orders|activities)\\b/i);
+    return {bind(...args){return {sql,args};}};
+  },
+  async batch(statements){
+    if(failBatch)throw Error('transient D1 failure');
+    const staged=statements.map(({sql,args})=>{
+      assert.match(sql,/INSERT INTO web_analytics_daily/);
+      return args;
+    });
+    writes.push(...staged);
+    return statements.map(()=>({success:true}));
+  }
+};
 const env={MINGEAGLE_DB:db,CF_ANALYTICS_GRAPHQL_TOKEN:'only-test-token'};
 const mock=(groups,errors=null,status=200)=>async(url,req)=>{
   assert.equal(url,'https://api.cloudflare.com/client/v4/graphql');
@@ -47,6 +59,10 @@ await assert.rejects(run(env,mock(entries,null,403)),/HTTP 403/);
 await assert.rejects(run(env,mock([group('2026-10-13','www.mingeagle.com',1,1)])),/UTC day/);
 assert.equal(writes.length,0,'invalid queries must never write');
 assert.equal((await run(env,mock([]))).written,0);
+failBatch=true;
+await assert.rejects(run(env,mock(entries)),/transient D1 failure/);
+assert.equal(writes.length,0,'D1 failure should not partially commit');
+failBatch=false;
 const r=await run(env,mock(entries));
 assert.deepEqual(r,{providerDates:2,written:2,checkedCompleteDays:7});
 assert.deepEqual(writes,[
