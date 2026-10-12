@@ -56,5 +56,23 @@ for(const phrase of ['talla 5 balones','taille 5 ballons','Größe 5 Bälle','ta
 const invalidRevision=captureState(['0 ballons'],{model:'Flocked Silent Soccer Ball',size:'5',quantity:'100'});assert.equal(invalidRevision.quantity,'');assert.equal(invalidRevision.zip,'','Invalid quantity must not become ZIP');
 console.log('PASS: nine-language descriptive quantities, full-width Japanese digits, range rejection and multilingual size/postal separation.');
 
+const packagedOrders=[
+ '100 boxes of 5 balls','100 cajas de 5 bolas','100 caixas de 10 bolas',
+ '100 boîtes de 5 ballons','10 Kartons mit 20 Bällen','100 scatole da 5 palloni',
+ '10 dozen van 20 ballen','10 pudełek po 20 piłek','10箱に5個のボール',
+ '100 packs of 4 silent soccer balls','100 sets of 4 balls',
+ '100 boxes of 5 balls size 5 ZIP 75244',
+];
+for(const phrase of packagedOrders){
+ const state=captureState([phrase]);
+ assert.equal(state.quantity,'','Packaging count needs confirmation: '+phrase);
+ assert.equal(state.zip,phrase.includes('ZIP 75244')?'75244':'','Packaging count must not become postal code: '+phrase);
+}
+assert.equal(captureState(['100 flocked basketball sets']).quantity,'100','Unambiguous set count must still work');
+const packagedRevision=captureState(['100 packs'],{model:'Flocked Silent Soccer Ball',size:'5',quantity:'100'});
+assert.equal(packagedRevision.quantity,'','Ambiguous packaging revision must clear stale count');
+assert.equal(packagedRevision.zip,'','Packaging revision must not become ZIP');
+console.log('PASS: nine-language packaging and unit-count separation, ZIP retention, and stale-quantity invalidation.');
+
 for(const phrase of ['1 balón de fútbol','1 pallone da calcio','1 unidad','1 piłka'])assert.equal(captureState([phrase]).quantity,'1',phrase);
 for(const phrase of ['−100 balls','1½ balls'])assert.equal(captureState([phrase]).quantity,'','Unicode negative/fraction must not become a partial count: '+phrase);

@@ -27,10 +27,12 @@ function captureDetails(text){
  const candidates=Array.from(quantities);
  const matches=candidates.filter(candidate=>!/(?:\b(?:size|no\.?|talla|tamanho|taille|grosse|groesse|taglia|maat|rozmiar|zip(?:\s*code)?|postal(?:\s*code)?|postcode|code\s*postal|codigo\s*postal|cep|plz|cap|kod\s*pocztowy)|サイズ|郵便番号|\d\s*(?:[-–—~/]|to|or|a|ate|bis|al|do|tot|y|ou|o|oder|of|lub))\s*[:#-]?\s*$/i.test(normalized.slice(0,candidate.index)));
  const counts=new Set(matches.map(candidate=>candidate[1]));
- const m=counts.size===1&&/^[1-9]\d{0,4}$/.test(matches[0][1])?matches[0]:null;
+ // Package counts do not prove the total number of sellable units; require buyer confirmation.
+ const groupedOrder=/(?:^|[\s,;:(])\d{1,5}\s*(?:(?:packs?|boxes?|cartons?|cases?|bundles?|packages?|pairs?|dozens?|lots?|cajas?|paquetes?|caixas?|pacotes?|boites?|colis|kartons?|schachteln?|scatole?|confezioni?|pakketten?|dozijn|dozen|pudelka|pudelek|kartony?)\b|(?:箱|パック|ケース))/i.test(normalized)||/(?:^|[\s,;:(])\d{1,5}\s*sets?\s*(?:of|de|di|van|da)\s*\d{1,5}\b/i.test(normalized);
+ const m=!groupedOrder&&counts.size===1&&/^[1-9]\d{0,4}$/.test(matches[0][1])?matches[0]:null;
  const quantityText=candidates.length>0;
- if(m)quoteState.quantity=m[1];else if(quantityText&&!n&&!z)quoteState.quantity='';else if(quoteState.model&&quoteState.size&&!quoteState.quantity&&/^[1-9]\d{0,4}$/.test(normalized.trim()))quoteState.quantity=normalized.trim();
- if(z)quoteState.zip=z[1].trim().toUpperCase();else if(hadQuantity&&!quantityText&&!m&&!n&&!quoteState.zip&&/^(?=.{3,10}$)(?=.*\d)[a-z0-9 -]+$/i.test(normalized.trim()))quoteState.zip=normalized.trim().toUpperCase();
+ if(m)quoteState.quantity=m[1];else if(groupedOrder||(quantityText&&!n&&!z))quoteState.quantity='';else if(quoteState.model&&quoteState.size&&!quoteState.quantity&&/^[1-9]\d{0,4}$/.test(normalized.trim()))quoteState.quantity=normalized.trim();
+ if(z)quoteState.zip=z[1].trim().toUpperCase();else if(hadQuantity&&!quantityText&&!groupedOrder&&!m&&!n&&!quoteState.zip&&/^(?=.{3,10}$)(?=.*\d)[a-z0-9 -]+$/i.test(normalized.trim()))quoteState.zip=normalized.trim().toUpperCase();
  if(n)quoteState.size=n[1];else if(quoteState.model&&!quoteState.size&&/^[34567]$/.test(normalized.trim()))quoteState.size=normalized.trim();
  if(/(?:soccer|football|futbol|futebol|futbolowa|futbolowe|(?:pilek|pilki)\s+noz|fussball|voetbal|calcio|サッカー|足球)/i.test(normalized)){quoteState.model='Flocked Silent Soccer Ball';if(!quoteState.size)quoteState.size='5';}
  else if(/(?:weighted|weight|leste|gewicht|gewichtet|appesantit|obciazon|verzwaard|加重|重い)/i.test(normalized))quoteState.model='Weighted Flocked Silent Basketball';
