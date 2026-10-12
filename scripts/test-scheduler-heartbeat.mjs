@@ -52,11 +52,12 @@ try {
     assert.equal(job.last_success_at,null);
     assert.equal(remoteCalls,0,'Missing admin secret must not call remote recovery API');
 
-    const enabledEnv={...env,ADMIN_ACCESS_KEY:'synthetic-admin-key'};
+    const enabledEnv={...env,HUBSPOT_RECOVERY_SERVICE_KEY:'synthetic-service-key'};
     globalThis.fetch=async(url,options)=>{
       remoteCalls++;
       assert.equal(url,'https://app.mingeagle.com/api/admin/hubspot-inquiry-recovery');
-      assert.equal(options.headers['x-admin-key'],'synthetic-admin-key');
+      assert.equal(options.headers['x-hubspot-recovery-key'],'synthetic-service-key');
+      assert(!('x-admin-key' in options.headers),'Scoped scheduler must never forward admin login credentials');
       return Response.json({ok:true,configured:false,disabled:true});
     };
     await worker.scheduled({cron:'0 * * * *'},enabledEnv,context);await context.task;
