@@ -377,6 +377,43 @@ async function recordHubspotJob(env:Env,status:HubspotJobResult,httpStatus:numbe
   }
 }
 
+// Report only aggregate outcome counts for the latest confirmed remote page.
+// This deliberately holds no customer identities or submission payloads.
+type RecoveryBatch = {
+  processed:number; imported:number; reused:number; skipped:number;
+  hasMore:boolean; nextOffset:number;
+};
+function validBatch(data:unknown):data is RecoveryBatch {
+  if(!data||typeof data!=='object')return false;
+  const x=data as Record<string,unknown>;
+  const keys=['processed','imported','reused','skipped','nextOffset'];
+  if(!keys.every(k=>Number.isSafeInteger(x[k])&&Number(x[k])>=0))return false;
+  if(typeof x.hasMore!=='boolean'||Number(x.processed)>2)return false;
+  return Number(x.imported)+Number(x.reused)+Number(x.skipped)===Number(x.processed);
+}
+async function recordHubspotBatch(env:Env,batch:RecoveryBatch){
+  try {
+    const db=env.MINGEAGLE_DB;
+    await db.prepare(`CREATE TABLE IF NOT EXISTS hubspot_recovery_batch_summary(
+      id TEXT PRIMARY KEY,
+      last_completed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      processed INTEGER NOT NULL,imported INTEGER NOT NULL,
+      reused INTEGER NOT NULL,skipped INTEGER NOT NULL,
+      has_more INTEGER NOT NULL,next_offset INTEGER NOT NULL
+    )`).run();
+    await db.prepare(`INSERT INTO hubspot_recovery_batch_summary
+      (id,last_completed_at,processed,imported,reused,skipped,has_more,next_offset)
+      VALUES('hourly',CURRENT_TIMESTAMP,?,?,?,?,?,?)
+      ON CONFLICT(id) DO UPDATE SET
+        last_completed_at=CURRENT_TIMESTAMP,
+        processed=excluded.processed,imported=excluded.imported,
+        reused=excluded.reused,skipped=excluded.skipped,
+        has_more=excluded.has_more,next_offset=excluded.next_offset
+    `).bind(batch.processed,batch.imported,batch.reused,batch.skipped,
+      batch.hasMore?1:0,batch.nextOffset).run();
+  }catch{console.error('hubspot_recovery_batch_summary_write_failed');}
+}
+
 // Run a bounded, admin-protected HubSpot backup replay once an hour.
 // Report skipped requests separately from confirmed successful synchronization.
 async function runHubspotRecovery(env:Env){
@@ -390,13 +427,14 @@ async function runHubspotRecovery(env:Env){
       headers:{'content-type':'application/json','x-hubspot-recovery-key':env.HUBSPOT_RECOVERY_SERVICE_KEY},
       body:JSON.stringify({action:'SYNC'}),
       signal:AbortSignal.timeout(25000)});
-    const result=await response.json().catch(()=>null) as {ok?:boolean;configured?:boolean;disabled?:boolean}|null;
+    const result=await response.json().catch(()=>null) as (RecoveryBatch&{ok?:boolean;configured?:boolean;disabled?:boolean})|null;
     const status:HubspotJobResult=!response.ok
       ? (response.status===401||response.status===403?'AUTH_FAILED':'API_FAILED')
-      : result?.ok===true&&result.configured===true?'SUCCEEDED'
+      : result?.ok===true&&result.configured===true&&validBatch(result)?'SUCCEEDED'
       : result?.disabled===true&&result.configured===false?'SKIPPED_NO_PROVIDER_KEY'
       :'API_FAILED';
     await recordHubspotJob(env,status,response.status);
+    if(status==='SUCCEEDED'&&result&&validBatch(result))await recordHubspotBatch(env,result);
     if(status==='AUTH_FAILED'||status==='API_FAILED')
       console.error('hubspot_recovery_tick_failed',{status:response.status});
   } catch(error) {
