@@ -17,7 +17,7 @@ const routes=new Map();
 for(const path of paths)routes.set('/api/'+path,await load(path.replaceAll('/','-'),'functions/api/'+path+'.ts'));
 const customer=await load('customer','functions/quote/[token].ts');
 const sqlite=new DatabaseSync(':memory:');
-for(const file of ['0001_core.sql','0002_quote_public_links.sql','0003_airwallex_payment_sessions.sql','0004_shipping_rates.sql'])sqlite.exec(readFileSync('migrations/'+file,'utf8'));
+for(const file of ['0001_core.sql','0002_quote_public_links.sql','0003_airwallex_payment_sessions.sql','0004_shipping_rates.sql','0005_supplier_purchase_terms.sql'])sqlite.exec(readFileSync('migrations/'+file,'utf8'));
 const database={
  prepare(sql){const s={args:[],bind(...args){s.args=args;return s;},async first(){return sqlite.prepare(sql).get(...s.args)||null;},async all(){return {success:true,results:sqlite.prepare(sql).all(...s.args)};},async run(){return {success:true,meta:{changes:Number(sqlite.prepare(sql).run(...s.args).changes)}};}};return s;},
  async batch(statements){sqlite.exec('BEGIN');try{const result=[];for(const s of statements)result.push(await s.run());sqlite.exec('COMMIT');return result;}catch(error){sqlite.exec('ROLLBACK');throw error;}}

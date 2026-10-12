@@ -194,7 +194,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
       actionArea = `<div id="acceptArea" class="accept"><label><input id="agree" type="checkbox"> <span>I have reviewed the quotation and authorize MING EAGLE to create the order based on these terms.</span></label><button id="acceptBtn" class="button" disabled>Accept quote & create order</button><div id="message"></div></div>`;
     }
 
-    const notes = quote.notes ? `<div class="terms"><div style="grid-column:1/-1"><small>NOTES</small><p>${esc(quote.notes)}</p></div></div>` : '';
+    // Internal notes from the wholesale draft workflow are NOT contractual
+    // customer notes. Some legacy drafts used quotes.notes for private source
+    // review metadata. Never disclose them through a public bearer link.
+    const isPrivateProcurementNote=/^Wholesale draft\./i.test(String(quote.notes||'').trim());
+    const notes = quote.notes&&!isPrivateProcurementNote ? `<div class="terms"><div style="grid-column:1/-1"><small>NOTES</small><p>${esc(quote.notes)}</p></div></div>` : '';
 
     const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>MING EAGLE Quote ${esc(quote.reference)}</title><script src="https://static.airwallex.com/components/sdk/v1/index.js"></script>

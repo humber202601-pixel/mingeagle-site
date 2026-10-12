@@ -1,5 +1,6 @@
 import {quoteTotals, confirmedQuantity, usdCents} from '../../../lib/quote-totals';
 import {ensureRetailApprovals} from './quote-retail-approval';
+import {verifyQuoteProcurement,quoteLineSku} from '../../../lib/quote-procurement-review';
 interface Env {
   MINGEAGLE_DB: D1Database;
 }
@@ -64,7 +65,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ ok: false, error: 'Only DRAFT quotations can be edited. Create a new revision if the customer has already received this quote.' }, { status: 409 });
     }
 
-    const existingItems = await db.prepare(`SELECT id FROM quote_items WHERE quote_id=? ORDER BY sort_order, id`).bind(quoteId).all<{ id: string }>();
+    const existingItems = await db.prepare(`SELECT id,description FROM quote_items WHERE quote_id=? ORDER BY sort_order, id`).bind(quoteId).all<{ id: string;description:string }>();
     const existingIds = new Set((existingItems.results || []).map(item => item.id));
     const incoming = Array.isArray(input.items) ? input.items : [];
     if (!incoming.length) return Response.json({ ok: false, error: 'At least one quote item is required.' }, { status: 400 });
@@ -85,7 +86,21 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ ok: false, error: 'All existing quote items must be included when editing.' }, { status: 400 });
     }
 
+    const existingSkuById=new Map((existingItems.results||[]).map(row=>[row.id,quoteLineSku(String(row.description||''))]));
+    // A previously recognized supplier SKU may not be hidden by editing the
+    // description into arbitrary text without reclassifying the quote.
+    if(normalized.some(row=>existingSkuById.get(row.id)&&!quoteLineSku(row.description)))
+      return Response.json({ok:false,error:'Previously identified SKU cannot be removed from quote description without manual commercial reclassification.'},{status:409});
     const calculation = quoteTotals(normalized, input.shipping, input.discount ?? 0, quote.tax ?? 0);
+    let costReview:Awaited<ReturnType<typeof verifyQuoteProcurement>>;
+    try{
+      costReview=await verifyQuoteProcurement(db,normalized.map(x=>({
+        description:x.description,quantity:x.quantity,unitPrice:x.unitPrice
+      })),calculation.discount,String(quote.currency||'USD'),new Date().toISOString().slice(0,10));
+    }catch{
+      return Response.json({ok:false,error:'Supplier cost review is temporarily unavailable. No quote changes saved.'},{status:503});
+    }
+    if(!costReview.ok)return Response.json({ok:false,error:'Supplier purchase floor review blocked draft update: '+costReview.issues.join(', ')+'. Check supplier cost, discount and MOQ before saving.'},{status:409});
     const {subtotal, shipping, discount, total} = calculation;
     const paymentTerms = clean(input.paymentTerms, 500) || 'Payment terms to be confirmed before sending.';
     const shippingTerms = clean(input.shippingTerms, 500) || 'Shipping terms to be confirmed before sending.';
@@ -109,7 +124,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       .bind(crypto.randomUUID(), quoteId, `${String(quote.reference)} draft commercial terms updated`, JSON.stringify({ subtotal, discount, shipping, total, items: normalized.length })));
     await db.batch(updates);
 
-    return Response.json({ ok: true, quote: { id: quoteId, reference: quote.reference, status: 'DRAFT', currency: quote.currency || 'USD', subtotal, discount, shipping, total, validUntil } });
+    return Response.json({ ok: true, quote: { id: quoteId, reference: quote.reference, status: 'DRAFT', currency: quote.currency || 'USD', subtotal, discount, shipping, total, validUntil },
+      procurementReview:{matched:costReview.matched,unverified:costReview.unverified,
+        scope:'Internal purchasing SKU/size reference, not full landed margin.'} });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to update quote.';
     const status = /must be greater than 0|mismatch|included|INVALID_|DISCOUNT_EXCEEDS_SUBTOTAL/i.test(message) ? 400 : 500;
