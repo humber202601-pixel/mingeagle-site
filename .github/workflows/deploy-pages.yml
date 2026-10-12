@@ -52,6 +52,11 @@ jobs:
           node scripts/optimize-native-media.cjs
           node scripts/check-native-media.cjs
 
+      - name: Keep product-specific direct quote links in built catalog
+        run: |
+          node scripts/build-product-direct-rfq.cjs
+          node scripts/check-product-direct-rfq.cjs
+
       - name: Enable privacy-focused Cloudflare Web Analytics across built HTML
         run: |
           node scripts/enable-web-analytics.cjs
