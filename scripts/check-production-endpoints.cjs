@@ -53,7 +53,7 @@ async function checkProduction({expectedRevision, fetcher=globalThis.fetch, atte
 }
 
 if (require.main===module) {
-  checkProduction({expectedRevision:process.env.GITHUB_SHA})
+  checkProduction({expectedRevision:process.env.EXPECTED_MAIN_SHA || process.env.GITHUB_SHA})
     .then(result=>console.log('PASS: read-only production smoke',JSON.stringify(result)))
     .catch(error=>{console.error('FAIL: production smoke',error.message);process.exitCode=1;});
 }

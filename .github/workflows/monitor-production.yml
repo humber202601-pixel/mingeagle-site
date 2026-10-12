@@ -29,7 +29,6 @@ jobs:
       - run: node scripts/test-production-monitor.cjs
 
   production-smoke:
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -38,4 +37,6 @@ jobs:
         with:
           node-version: '22'
       - name: Verify production site, CRM binding and shared pricing (GET only)
+        env:
+          EXPECTED_MAIN_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.sha }}
         run: node scripts/check-production-endpoints.cjs
