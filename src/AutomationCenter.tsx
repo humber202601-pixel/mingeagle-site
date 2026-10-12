@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, CheckCircle2, Clock3, MailCheck, PackageCheck, PauseCircle, PlayCircle, RefreshCcw, Send, ShieldCheck, X } from 'lucide-react';
 import { zhDate } from './adminI18n';
+import ReadinessPanel from './ReadinessPanel';
 
 type Row = Record<string, unknown>;
 type Settings = { enabled: boolean; maxPerRun: number; maxPerLead: number; updatedAt?: string | null };
@@ -310,6 +311,7 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
   const discoveryBeat=heartbeatDisplay('DISCOVERY'),followupBeat=heartbeatDisplay('FOLLOWUP'),recoveryBeat=heartbeatDisplay('HUBSPOT_RECOVERY');
 
   return <div>
+    <ReadinessPanel accessKey={accessKey}/>
     <section className="panel" aria-label="定时任务真实运行记录">
       <div className="panel-head"><div><h2>定时任务触发记录</h2><span>只有 Worker 实际收到 Cron Trigger 才会产生记录</span></div><button type="button" className="side-button" disabled={busy} onClick={()=>void load()}><RefreshCcw size={16}/>刷新状态</button></div>
       <div className="list-row"><div><strong>客户发现续跑 · 每分钟检查一次</strong><small>{discoveryBeat.time}</small></div><span className={discoveryBeat.recent?'priority medium':'priority high'}>{discoveryBeat.state}</span></div>
