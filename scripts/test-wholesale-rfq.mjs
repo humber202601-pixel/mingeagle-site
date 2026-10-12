@@ -73,7 +73,7 @@ const reviewed=await call({unitPrices:[2,3,4],shippingUSD:20,paymentTerms:'Terms
  shippingTerms:'Terms',quantityConstraints:[{moq:50,casePack:10},{moq:100,casePack:20},{moq:200,casePack:25}]});
 assert.equal(reviewed.status,200,JSON.stringify(reviewed));
 assert.deepEqual(reviewed.result.quantityReview,{fullySpecified:3,pending:0});
-assert(saved.some(s=>s.sql.startsWith('INSERT INTO quotes')&&s.args?.some?.(v=>typeof v==='string'&&v.includes('3 fully specified'))),
+assert(saved.some(s=>s.sql.startsWith('INSERT INTO quotes')&&s.params?.some?.(v=>typeof v==='string'&&v.includes('3 fully specified'))),
  'Quote draft notes must preserve aggregate review status for human follow-up');
 for(const prices of [[8.03,1.1,0.29],['8.03','1.10','0.29']]){
  saved.length=0;
