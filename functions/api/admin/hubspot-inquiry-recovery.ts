@@ -1,5 +1,5 @@
 import {receiveRecoveredInquiry} from '../inquiries';
-import {FORM_PAGE_LIMIT,MINGEAGLE_HUBSPOT_FORM_ID,parseHubspotSubmission,type HubspotSubmission} from '../../../lib/hubspot-form-recovery';
+import {FORM_PAGE_LIMIT,MINGEAGLE_HUBSPOT_FORM_ID,parseHubspotSubmission,summarizeHubspotSubmissions,type HubspotSubmission} from '../../../lib/hubspot-form-recovery';
 
 interface Env{MINGEAGLE_DB:D1Database;HUBSPOT_PRIVATE_APP_TOKEN?:string;}
 type State={offset:number};
@@ -23,10 +23,11 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
         signal:AbortSignal.timeout(12000),
       });
       if(!r.ok)throw new Error('HUBSPOT_HTTP_'+r.status);
-      const data=await r.json() as {results?:unknown[];hasMore?:unknown;offset?:unknown;total?:unknown};
+      const data=await r.json() as {results?:HubspotSubmission[];hasMore?:unknown;offset?:unknown;total?:unknown};
       if(!Array.isArray(data.results)||data.results.length>limit)throw new Error('INVALID_SUBMISSION_PAGE');
       return {
         count:data.results.length,
+        ...(limit===50?{classification:summarizeHubspotSubmissions(data.results)}:{}),
         hasMore:typeof data.hasMore==='boolean'?data.hasMore:null,
         offset:Number.isSafeInteger(data.offset)&&Number(data.offset)>=0?Number(data.offset):null,
         total:Number.isSafeInteger(data.total)&&Number(data.total)>=0?Number(data.total):null,
@@ -34,7 +35,10 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     };
     try{
       const [limit2,limit50]=await Promise.all([read(2),read(50)]);
-      return status({ok:true,configured:true,inventory:{limit2,limit50}});
+      return status({ok:true,configured:true,inventory:{limit2,limit50},
+        // Aggregated reasons from the first 50-form submission page only;
+        // never expose original submission details to the CRM/browser.
+        classification:limit50.classification});
     }catch{
       return status({ok:false,error:'HubSpot inventory diagnostic failed.'},502);
     }

@@ -14,7 +14,7 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
     WHERE type='table' AND name IN
     ('scheduler_heartbeat','hubspot_inquiry_recovery_state','discovery_auto_runs',
      'discovery_auto_items','discovery_candidates','inquiries','leads','hubspot_recovery_job_status','hubspot_recovery_batch_summary',
-     'hubspot_submission_inventory_audit')`)
+     'hubspot_submission_inventory_audit','hubspot_submission_quality_audit')`)
     .all<{name:string}>();
   const tables=new Set(present.results.map(x=>x.name));
   const scheduler=include(tables,'scheduler_heartbeat')
@@ -42,6 +42,31 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
        .first<{checked_at:string;count_two:number;has_more_two:number|null;
          count_fifty:number;has_more_fifty:number|null;offset_two:number|null;
          offset_fifty:number|null;total_two:number|null;total_fifty:number|null}>():null;
+  const quality=include(tables,'hubspot_submission_quality_audit')
+    ?await db.prepare(`SELECT checked_at,scanned_count,eligible_count,rejected_count,reasons_json
+      FROM hubspot_submission_quality_audit WHERE id='public-form'`)
+      .first<{checked_at:string;scanned_count:number;eligible_count:number;
+        rejected_count:number;reasons_json:string}>():null;
+  const allowedReasonCodes=[
+    'ELIGIBLE','NO_FORM_FIELDS','INVALID_INQUIRY_REFERENCE','CONSENT_NOT_GRANTED',
+    'MISSING_IDENTITY','UNSUPPORTED_REQUEST_TYPE','MISSING_COUNTRY',
+  ];
+  let qualityReasons:Record<string,number>|null=null;
+  if(quality){
+    try{
+      const parsed=JSON.parse(quality.reasons_json) as unknown;
+      if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed)){
+        const values=parsed as Record<string,unknown>;
+        if(Object.keys(values).length===allowedReasonCodes.length
+           &&allowedReasonCodes.every(k=>Number.isSafeInteger(values[k])&&Number(values[k])>=0)
+           &&allowedReasonCodes.reduce((sum,k)=>sum+Number(values[k]),0)===quality.scanned_count
+           &&Number(values.ELIGIBLE)===quality.eligible_count
+           &&quality.eligible_count+quality.rejected_count===quality.scanned_count){
+           qualityReasons=Object.fromEntries(allowedReasonCodes.map(k=>[k,Number(values[k])]));
+        }
+      }
+    }catch{/* Invalid historical metadata remains unavailable; never zero */}
+  }
   const run=include(tables,'discovery_auto_runs')
     ?await db.prepare(`SELECT id,status,phase,updated_at,created_at,
       completed_at,steps_completed FROM discovery_auto_runs
@@ -133,6 +158,12 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
         limit50Offset:hubspotAudit.offset_fifty,
         limit2Total:hubspotAudit.total_two,
         limit50Total:hubspotAudit.total_fifty,
+      }:null,
+      qualityAudit:quality&&qualityReasons?{
+        checkedAt:quality.checked_at,
+        scanned:num(quality.scanned_count),eligible:num(quality.eligible_count),
+        excluded:num(quality.rejected_count),reasons:qualityReasons,
+        scope:'First 50 HubSpot submissions; eligible is not the same as CRM imported.',
       }:null,
       // A cron heartbeat proves invocation, not provider fetch success.
       actualHubspotSubmissions:null,

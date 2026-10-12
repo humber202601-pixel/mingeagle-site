@@ -67,8 +67,18 @@ try{
     const limit=Number(u.searchParams.get('limit'));
     assert.equal(u.searchParams.get('offset'),'0');
     assert([2,50].includes(limit));
-    return Response.json({results:Array.from({length:limit===2?2:11},
-      (_,i)=>({values:[{name:'email',value:'private-email-'+i+'@example.test'}]}))});
+    return Response.json({results:Array.from({length:limit===2?2:11},(_,i)=>{
+      if(limit===50&&i===0)return mk(ref1,'dana@example.test');
+      if(limit===50&&i===1)return mk(ref2,'sample@example.test','Sample request','false');
+      if(limit===50&&i===2)return mk('ME-20261010-AABBAA04','invalid@example.test','Video submission');
+      if(limit===50&&i===3)return {values:[
+        {name:'me_inquiry_reference',value:'ME-20261010-AABBAA05'},
+        {name:'me_privacy_consent',value:'true'},
+        {name:'me_request_type',value:'General product question'},
+        {name:'firstname',value:'Dana'},{name:'email',value:''},
+      ]};
+      return {values:[{name:'email',value:'private-email-'+i+'@example.test'}]};
+    })});
   };
   const auditResponse=await api.onRequestPost({request:new Request(
     'https://app.mingeagle.com/api/admin/hubspot-inquiry-recovery',
@@ -79,6 +89,13 @@ try{
   assert.equal(audited.inventory.limit50.count,11);
   assert.equal(audited.inventory.limit2.hasMore,null,'Omitted HubSpot pagination flag must remain unknown');
   assert.equal(audited.inventory.limit50.hasMore,null,'Large-page diagnostics must expose omitted flag');
+  assert.deepEqual([audited.classification.scanned,audited.classification.eligible,
+    audited.classification.excluded],[11,1,10]);
+  assert.equal(audited.classification.reasons.ELIGIBLE,1);
+  assert.equal(audited.classification.reasons.CONSENT_NOT_GRANTED,1);
+  assert.equal(audited.classification.reasons.UNSUPPORTED_REQUEST_TYPE,1);
+  assert.equal(audited.classification.reasons.MISSING_IDENTITY,1);
+  assert.equal(audited.classification.reasons.INVALID_INQUIRY_REFERENCE,7);
   assert(!JSON.stringify(audited).includes('@example.test'),'No submission fields in diagnostic response');
   assert.equal(count('inquiries'),0,'Read-only audit cannot create CRM records');
   assert.equal(externalCalls,0,'Audit must not invoke original CRM recovery paths');
