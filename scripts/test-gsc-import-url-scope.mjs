@@ -9,7 +9,7 @@ const tmp=mkdtempSync(join(tmpdir(),'me-gsc-import-'));
 try {
  const output=join(tmp,'gsc-import.mjs');
  await build({entryPoints:['functions/api/admin/search-console-import.ts'],outfile:output,bundle:true,platform:'node',format:'esm',logLevel:'silent'});
- const {onRequestPost}=await import(pathToFileURL(output));
+ const {onRequestPost,onRequestGet}=await import(pathToFileURL(output));
  const state={creates:0,batches:0,statements:[]};
  const db={
   prepare(sql) {
@@ -69,5 +69,9 @@ try {
  const queries=await run({...base,kind:'queries',rows:[row('silent basketball wholesale')]});
  assert.equal(queries.status,200,'normal keyword CSV remains supported');
  assert.equal(state.batches,3);
+ const badDb={prepare(){return {async all(){throw Error('Simulated D1 quota exceeded')}}}};
+ const readFail=await onRequestGet({env:{MINGEAGLE_DB:badDb}});
+ assert.equal(readFail.status,503,'D1 failure must be visible, never a successful empty report');
+ assert.equal((await readFail.json()).ok,false);
  console.log('PASS: GSC canonical www/apex imports, site-owned public paths, no private URL leakage, numeric validation, and safe rejection.');
 } finally {rmSync(tmp,{recursive:true,force:true});}
