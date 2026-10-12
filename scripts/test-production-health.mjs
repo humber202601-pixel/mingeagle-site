@@ -51,6 +51,11 @@ try{
     CREATE TABLE discovery_candidates(id TEXT PRIMARY KEY,crm_lead_id TEXT);
     INSERT INTO discovery_candidates VALUES('cand1','real-lead');
     INSERT INTO discovery_candidates VALUES('cand2',NULL);
+    CREATE TABLE hubspot_recovery_job_status(
+      id TEXT PRIMARY KEY,last_attempt_at TEXT,last_success_at TEXT,
+      last_status TEXT,last_http_status INTEGER,consecutive_failures INTEGER);
+    INSERT INTO hubspot_recovery_job_status
+      VALUES('hourly',CURRENT_TIMESTAMP,NULL,'SKIPPED_NO_WORKER_KEY',NULL,0);
     CREATE TABLE leads(id TEXT PRIMARY KEY);
     INSERT INTO leads VALUES('linked-lead');
     CREATE TABLE inquiries(id TEXT PRIMARY KEY,status TEXT,created_at TEXT,lead_id TEXT);
@@ -62,6 +67,9 @@ try{
   assert.equal(filled.data.hubspot.importedTotal,7);
   assert.equal(filled.data.hubspot.nextOffset,4);
   assert.equal(filled.data.hubspot.status,'HEALTHY');
+  assert.equal(filled.data.hubspot.job.status,'SKIPPED_NO_WORKER_KEY');
+  assert.equal(filled.data.hubspot.job.lastSuccessAt,null);
+  assert.equal(filled.data.hubspot.job.consecutiveFailures,0);
   assert.equal(filled.data.inquiries.orphanLeadLinks,1,'Orphan lead references must be observable');
   assert.equal(filled.data.inquiries.total,2);
   assert.equal(filled.data.discovery.sources,2);
@@ -75,6 +83,7 @@ try{
   sqlite.prepare("UPDATE hubspot_inquiry_recovery_state SET last_synced_at=datetime('now','-4 hours') WHERE id='public-form'").run();
   const stale=await load({HUBSPOT_PRIVATE_APP_TOKEN:'test-only-secret'});
   assert.equal(stale.data.hubspot.status,'STALE','Successful sync older than 3h requires attention');
+  assert.equal(stale.data.hubspot.job.status,'SKIPPED_NO_WORKER_KEY');
   assert.equal(stale.writes,0);
   sqlite.prepare("UPDATE hubspot_inquiry_recovery_state SET last_synced_at=NULL WHERE id='public-form'").run();
   const never=await load({HUBSPOT_PRIVATE_APP_TOKEN:'test-only-secret'});
@@ -85,6 +94,7 @@ try{
   assert(filled.queries<=12,'all D1 checks must remain bounded');
   const serialized=JSON.stringify(filled.data);
   assert(!serialized.includes('test-only-secret'),'HubSpot credentials cannot leak to API');
+  assert(!serialized.includes('synthetic-admin-key'),'Worker credentials cannot leak to health API');
   assert(!serialized.includes('real-lead')&&!serialized.includes('inquiry-test'),'no customer record IDs in aggregate status');
   assert.equal((await api.onRequestGet({env:{}})).status,503);
   console.log('PASS: read-only live health telemetry, optional-table handling, actual CRM import count, HubSpot credential status, Cron trigger observations, safe unknown D1 quota and no leaked customer IDs.');

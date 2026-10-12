@@ -340,17 +340,66 @@ async function continueDiscovery(env:Env){
   }
 }
 
+// One row of coarse operational metadata per scheduler. No PII, secrets, provider
+// response bodies, inquiry IDs or message content is stored in this table.
+type HubspotJobResult = 'SUCCEEDED' | 'SKIPPED_NO_WORKER_KEY' |
+  'SKIPPED_NO_PROVIDER_KEY' | 'AUTH_FAILED' | 'API_FAILED' | 'NETWORK_FAILED';
+async function recordHubspotJob(env:Env,status:HubspotJobResult,httpStatus:number|null=null){
+  try {
+    const db=env.MINGEAGLE_DB;
+    await db.prepare(`CREATE TABLE IF NOT EXISTS hubspot_recovery_job_status (
+      id TEXT PRIMARY KEY,
+      last_attempt_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      last_success_at TEXT,
+      last_status TEXT NOT NULL,
+      last_http_status INTEGER,
+      consecutive_failures INTEGER NOT NULL DEFAULT 0
+    )`).run();
+    await db.prepare(`INSERT INTO hubspot_recovery_job_status
+      (id,last_attempt_at,last_success_at,last_status,last_http_status,consecutive_failures)
+      VALUES ('hourly',CURRENT_TIMESTAMP,
+        CASE WHEN ?='SUCCEEDED' THEN CURRENT_TIMESTAMP ELSE NULL END,
+        ?,?,
+        CASE WHEN ?='SUCCEEDED' OR ? LIKE 'SKIPPED%' THEN 0 ELSE 1 END)
+      ON CONFLICT(id) DO UPDATE SET
+        last_attempt_at=CURRENT_TIMESTAMP,
+        last_success_at=CASE WHEN excluded.last_status='SUCCEEDED'
+          THEN CURRENT_TIMESTAMP ELSE hubspot_recovery_job_status.last_success_at END,
+        last_status=excluded.last_status,
+        last_http_status=excluded.last_http_status,
+        consecutive_failures=CASE WHEN excluded.last_status='SUCCEEDED' THEN 0
+          WHEN excluded.last_status LIKE 'SKIPPED%' THEN hubspot_recovery_job_status.consecutive_failures
+          ELSE hubspot_recovery_job_status.consecutive_failures+1 END
+    `).bind(status,status,httpStatus,status,status).run();
+  } catch(error) {
+    console.error('hubspot_recovery_job_status_write_failed',error);
+  }
+}
+
 // Run a bounded, admin-protected HubSpot backup replay once an hour.
-// Pages owns HUBSPOT_PRIVATE_APP_TOKEN. Worker only needs its already-configured
-// admin access key. Missing HubSpot credentials disable recovery gracefully.
+// Report skipped requests separately from confirmed successful synchronization.
 async function runHubspotRecovery(env:Env){
-  if(!env.ADMIN_ACCESS_KEY)return;
-  try{
+  if(!env.ADMIN_ACCESS_KEY) {
+    await recordHubspotJob(env,'SKIPPED_NO_WORKER_KEY');
+    return;
+  }
+  try {
     const response=await fetch('https://app.mingeagle.com/api/admin/hubspot-inquiry-recovery',{
       method:'POST',
       headers:{'content-type':'application/json','x-admin-key':env.ADMIN_ACCESS_KEY},
       body:JSON.stringify({action:'SYNC'}),
       signal:AbortSignal.timeout(25000)});
-    if(!response.ok)console.error('hubspot_recovery_tick_failed',response.status);
-  }catch(error){console.error('hubspot_recovery_tick_error',error);}
+    const result=await response.json().catch(()=>null) as {ok?:boolean;configured?:boolean;disabled?:boolean}|null;
+    const status:HubspotJobResult=!response.ok
+      ? (response.status===401||response.status===403?'AUTH_FAILED':'API_FAILED')
+      : result?.ok===true&&result.configured===true?'SUCCEEDED'
+      : result?.disabled===true&&result.configured===false?'SKIPPED_NO_PROVIDER_KEY'
+      :'API_FAILED';
+    await recordHubspotJob(env,status,response.status);
+    if(status==='AUTH_FAILED'||status==='API_FAILED')
+      console.error('hubspot_recovery_tick_failed',{status:response.status});
+  } catch(error) {
+    console.error('hubspot_recovery_tick_error',error);
+    await recordHubspotJob(env,'NETWORK_FAILED');
+  }
 }
