@@ -95,21 +95,18 @@ try{
   assert.equal(second.status,200,JSON.stringify(second));
   assert.equal(second.payload.reused,1);
   assert.equal(second.payload.skipped,1);
-  assert.equal(second.payload.nextOffset,2,'Full pages must continue even if HubSpot reports false');
+  assert.equal(second.payload.nextOffset,4,'Full pages must continue even if HubSpot reports false');
   assert.equal(count('inquiries'),2,'no duplicate CRM leads or inquiries');
   // HubSpot returned exactly two entries and the old code falsely reset to 0.
   // A subsequent empty offset=4 page must close the pass safely.
   const third=await doSync(env);
   assert.equal(third.payload.imported,0);
-  assert.equal(third.payload.reused,1);
-  assert.equal(third.payload.skipped,1);
-  assert.equal(third.payload.nextOffset,4);
-  const finalEmpty=await doSync(env);
-  assert.equal(finalEmpty.payload.processed,0);
-  assert.equal(finalEmpty.payload.nextOffset,0);
+  assert.equal(third.payload.processed,0);
+  assert.equal(third.payload.hasMore,false);
+  assert.equal(third.payload.nextOffset,0);
   assert.equal(count('leads'),2);
   assert.equal(mailCalls,0);
-  assert.equal(externalCalls,4);
+  assert.equal(externalCalls,3);
   // The real 11-versus-2 failure mode: pagination metadata entirely omitted.
   // Offset progression must use response length, with the final 1-item page
   // resetting to 0, without duplicating the earlier two inquiry references.
