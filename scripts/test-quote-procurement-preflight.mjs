@@ -13,7 +13,7 @@ try{
  const lines=[{description:'Flocked Silent Basketball Set | No. 5 | Blue',quantity:100,unit_price:8.03}];
  let vendor=[],failCatalog=false,reads=0,writes=0;
  const db={prepare(sql){
-  if(!/^\\s*SELECT /i.test(sql)){writes++;throw Error('READ_ONLY_PREVIEW_MUST_NOT_WRITE');}
+  if(!/^\s*SELECT /i.test(sql)){writes++;throw Error('READ_ONLY_PREVIEW_MUST_NOT_WRITE');}
   reads++;
   return {bind(...values){
    if(/FROM quotes WHERE/.test(sql))return {async first(){return values[0]===quote.id?quote:null}};
