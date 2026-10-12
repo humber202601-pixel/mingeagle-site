@@ -1,0 +1,42 @@
+name: Read-only production smoke monitor
+
+on:
+  schedule:
+    - cron: '27 */6 * * *'
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/monitor-production.yml'
+      - 'scripts/check-production-endpoints.cjs'
+      - 'scripts/test-production-monitor.cjs'
+
+permissions:
+  contents: read
+
+jobs:
+  monitor-tests:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check scripts/check-production-endpoints.cjs
+      - run: node --check scripts/test-production-monitor.cjs
+      - run: node scripts/test-production-monitor.cjs
+
+  production-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify production site, CRM binding and shared pricing (GET only)
+        env:
+          EXPECTED_MAIN_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.sha }}
+        run: node scripts/check-production-endpoints.cjs
