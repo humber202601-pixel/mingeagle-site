@@ -9,6 +9,10 @@ type Data={ok:boolean;error?:string;summary:{inquiries:number;b2b:number;b2c:num
  dataProvenance:{inquiries:string;exactQuote:string;exactOrder:string;leadAssociated:string;
  websiteVisits:{connected:boolean;count:number|null};searchImpressions:{connected:boolean;count:number|null};
  conversionWindow:string}};
+type AnalyticsDaily={ok:boolean;source?:string;host?:string;connected:boolean;days:number;rows:Array<{
+ dateUTC:string;providerVisits:number;sampledPageviews:number;fetchedAt:string;
+}>;coverage:{observedDays:number;fromUTC:string|null;toUTC:string|null;latestFetchUTC:string|null};
+ caveats:string[];error?:string};
 const sources:Record<string,string>={GOOGLE:'Google',BING:'Bing',TIKTOK:'TikTok',YOUTUBE:'YouTube',INSTAGRAM:'Instagram',FACEBOOK:'Facebook',PARTNER:'合作推荐',OTHER_TAGGED:'其他带标签渠道',DIRECT_UNKNOWN:'未知 / 直接访问'};
 const pages:Record<string,string>={APARTMENT_GUIDE:'公寓家庭指南',CAMP_GUIDE:'篮球训练营采购指南',BULK_GUIDE:'批量采购指南',WHOLESALE_CATALOG:'批发产品目录',TEAM_CUSTOM:'球队定制篮球',HOME:'首页',FOR_COACHES:'教练采购',FOR_SCHOOLS:'学校采购',WHOLESALE:'批发采购',PRODUCTS:'产品目录',PRODUCT_DETAIL:'产品详情',NOT_RECORDED:'未记录落地页',OTHER_PAGE:'其他页面'};
 const audiences:Record<string,string>={B2B:'B2B 批发 / 机构',B2C:'B2C 个人客户',UNKNOWN:'尚不能分类'};
@@ -24,6 +28,8 @@ const pageAdvice=(row:PageRow)=>{
 export default function InboundGrowth({accessKey}:{accessKey:string}){
  const [days,setDays]=useState(90),[refresh,setRefresh]=useState(0);
  const [data,setData]=useState<Data|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(true);
+ const [analytics,setAnalytics]=useState<AnalyticsDaily|null>(null);
+ const [analyticsError,setAnalyticsError]=useState('');
  useEffect(()=>{
    const c=new AbortController();
    setData(null);setError('');setLoading(true);
@@ -36,6 +42,18 @@ export default function InboundGrowth({accessKey}:{accessKey:string}){
    finally{if(!c.signal.aborted)setLoading(false)}})();
    return ()=>c.abort();
  },[accessKey,days,refresh]);
+ useEffect(()=>{
+  const c=new AbortController();
+  setAnalytics(null);setAnalyticsError('');
+  fetch('/api/admin/web-analytics-daily?days='+days,{
+    headers:{'x-admin-key':accessKey},signal:c.signal,cache:'no-store'
+  }).then(async r=>{
+    const body=await r.json() as AnalyticsDaily;
+    if(!r.ok||!body.ok)throw Error(body.error||'网站访问聚合数据读取失败');
+    if(!c.signal.aborted)setAnalytics(body);
+  }).catch(e=>{if(!c.signal.aborted)setAnalyticsError(e instanceof Error?e.message:'统计暂时不可用')});
+  return ()=>c.abort();
+ },[accessKey,days,refresh]);
  return <div style={{display:'grid',gap:18}}><SearchConsoleImport accessKey={accessKey}/><SeoOpportunities accessKey={accessKey}/>
    <section className="panel" style={{padding:18}}>
     <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'end'}}>
@@ -46,7 +64,7 @@ export default function InboundGrowth({accessKey}:{accessKey:string}){
       </label>
       <button type="button" className="button secondary small" disabled={loading} onClick={()=>setRefresh(n=>n+1)}><RefreshCcw size={15}/>按需刷新</button>
     </div>
-    <p style={{margin:'12px 0 0',fontSize:12,color:'#667085'}}>本页只读取 CRM 已收到的真实询盘。搜索曝光和网站访问量尚未接入，不能据此计算网站转化率。</p>
+    <p style={{margin:'12px 0 0',fontSize:12,color:'#667085'}}>询盘转化按 CRM 真实记录计算；Cloudflare 网页访问按已有的独立 UTC 日期快照显示。搜索曝光仍未接入，不合并不同数据口径做营销归因。</p>
    </section>
    {loading&&<section className="panel" style={{padding:18}}>正在统计实际询盘…</section>}
    {error&&<section className="panel" style={{padding:18}}><p role="alert">{error}。不要频繁刷新，以免耗尽 D1 免费额度。</p></section>}
@@ -58,7 +76,7 @@ export default function InboundGrowth({accessKey}:{accessKey:string}){
     <section className="panel" style={{padding:18}}>
       <div className="panel-head"><h2>数据口径与真实转化链</h2><span>严格询盘编号关联 · 避免把同一客户的多次报价当成新增客户</span></div>
       <div className="metric-grid">
-       <div className="metric"><span>网站访问量</span><strong>未连接</strong><small>没有经过验证的网站访问数据，不能计算访客转化率</small></div>
+       <div className="metric"><span>网站访问统计</span><strong>{analytics?.connected?'日聚合已同步':'等待有效快照'}</strong><small>Cloudflare Visits 只按已同步日期展示；不代表准确唯一访客，也不能与 CRM 询盘直接相除</small></div>
        <div className="metric"><span>询盘 → 已发报价</span><strong>{data.summary.inquiries>0?(data.summary.exactQuoted/data.summary.inquiries*100).toFixed(1)+'%':'—'}</strong><small>{num(data.summary.exactQuoted)} / {num(data.summary.inquiries)} 条同批询盘，按编号直接关联</small></div>
        <div className="metric"><span>询盘 → 订单</span><strong>{data.summary.inquiries>0?(data.summary.exactOrdered/data.summary.inquiries*100).toFixed(1)+'%':'—'}</strong><small>{num(data.summary.exactOrdered)} / {num(data.summary.inquiries)} 条同批询盘，非订单数或实际到账率</small></div>
        <div className="metric"><span>搜索展现</span><strong>未连接</strong><small>未核验的数据不填 0，不推算营销效果</small></div>
@@ -87,8 +105,20 @@ export default function InboundGrowth({accessKey}:{accessKey:string}){
       <p style={{fontSize:12,color:'#667085'}}>仅供内容优化排序，不代表页面带来了全部订单，也不自动花费广告预算。若出现活动记录重复，系统不会因此增加询盘计数。</p>
     </section>
     <section className="panel" style={{padding:18}}>
-      <div className="panel-head"><h2>网站访问统计与搜索曝光</h2><span>Cloudflare 已部署采集 · CRM 尚未授权读取流量报表</span></div>
-      <p style={{color:'#475467',fontSize:13,lineHeight:1.7}}>MING EAGLE 官网已通过 GitHub Pages 安装 Cloudflare Web Analytics 访问和性能统计。真实报表可从 Cloudflare 控制台查看；安装以前的访问历史无法补采。CRM 当前没有读取 Cloudflare 统计 API 的单独授权，因此本页的“网站访问量”仍显示未连接，**不是 0 次访问**，不能拿 CRM 询盘除以未知访问量计算网站转化率。</p>
+      <div className="panel-head"><h2>网站访问统计与搜索曝光</h2><span>Cloudflare Web Analytics · 经过来源核验的每日聚合快照</span></div>
+      <p style={{color:'#475467',fontSize:13,lineHeight:1.7}}>MING EAGLE 官网已部署 Cloudflare Web Analytics。此处只展示由授权 Cloudflare 查询获取并同步的**每日聚合快照**，而不是实时网站请求。历史未同步的日期保持未知，不能自动视为零；首次安装之前的数据无法补采。CRM 不持有 Cloudflare 分析 API 密钥。</p>
+      {analyticsError&&<p role="alert" style={{fontSize:12,color:'#b42318'}}>Cloudflare 汇总暂不可读：{analyticsError}。请通过下方 Cloudflare 官方报表查询，CRM 不会将读取失败当作 0。</p>}
+      {!analyticsError&&analytics&&!analytics.connected&&<p role="status" style={{fontSize:13}}>Cloudflare 已开始采集，但 CRM 暂无核验通过的日统计快照。现在不能报告访问量或计算访客到询盘转化率。</p>}
+      {!analyticsError&&analytics?.connected&&<>
+       <div className="metric-grid">
+        <div className="metric"><span>Cloudflare 报告 Visits（已同步日期）</span><strong>{num(analytics.rows.reduce((n,r)=>n+r.providerVisits,0))}</strong><small>来自 {analytics.coverage.observedDays} 个有记录的 UTC 日期；可能抽样，非唯一自然人</small></div>
+        <div className="metric"><span>最新同步 UTC</span><strong style={{fontSize:16}}>{analytics.coverage.latestFetchUTC||'—'}</strong><small>仅同步已有统计的日期，不等于实时在线人数</small></div>
+       </div>
+       <div className="table-wrap"><table><thead><tr><th>UTC 日期</th><th>Cloudflare 报告 Visits</th><th>采样页载入事件</th></tr></thead><tbody>
+        {analytics.rows.slice(0,14).map(r=><tr key={r.dateUTC}><td>{r.dateUTC}</td><td>{num(r.providerVisits)}</td><td>{num(r.sampledPageviews)}</td></tr>)}
+       </tbody></table></div>
+       <p style={{fontSize:12,color:'#667085'}}>统计覆盖：{analytics.coverage.fromUTC} 至 {analytics.coverage.toUTC}。仅汇总实际同步的日期，不推算缺失日期；不与不同创建日期范围的询盘数相除计算访客转化率。</p>
+      </>}
       <p style={{fontSize:12,color:'#667085'}}>请在 Cloudflare Web Analytics 中选择 mingeagle.com；这是浏览器采集的数据，可能受广告拦截、脚本禁用和采样影响，不能直接等同于自然人唯一访客数。</p>
       <p style={{color:'#475467',fontSize:13,lineHeight:1.7}}>网站目前已有 sitemap.xml、robots.txt 和询盘 UTM 归因。Google Search Console 需要先由域名持有人验证所有权；Bing Webmaster Tools 也需要验证。验证后才能获取搜索展现、点击及实际收录表现。</p>
       <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
