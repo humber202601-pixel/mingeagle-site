@@ -42,6 +42,11 @@ jobs:
       - name: Normalize contact helper across generated pages
         run: python scripts/normalize-contact-helper.py
 
+      - name: Add crawlable, contextual links to buying and product pages
+        run: |
+          node scripts/build-seo-discovery-links.cjs
+          node scripts/check-seo-discovery-links.cjs
+
       - name: Enable privacy-focused Cloudflare Web Analytics across built HTML
         run: |
           node scripts/enable-web-analytics.cjs
