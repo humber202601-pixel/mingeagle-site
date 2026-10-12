@@ -28,7 +28,7 @@ export default function SearchConsoleImport({accessKey}:{accessKey:string}){
  const [start,setStart]=useState(''),[end,setEnd]=useState(''),[file,setFile]=useState<File|null>(null);
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[snapshots,setSnapshots]=useState<Snapshot[]>([]);
  const [report,setReport]=useState<{imported:Snapshot|null;rows:Entry[]}|null>(null);
- const refresh=async()=>{try{const r=await fetch('/api/admin/search-console-import',{headers:{'x-admin-key':accessKey}});const b=await r.json() as {imports?:Snapshot[]};setSnapshots(b.imports||[])}catch{setSnapshots([])}};
+ const refresh=async()=>{try{const r=await fetch('/api/admin/search-console-import',{headers:{'x-admin-key':accessKey}});const b=await r.json() as {ok?:boolean;imports?:Snapshot[];error?:string};if(!r.ok||b.ok!==true)throw Error(b.error||'导入历史暂不可读');setSnapshots(b.imports||[])}catch(e){setSnapshots([]);setMessage('Google 报表导入历史暂不可读，不能据此认定没有报表：'+(e instanceof Error?e.message:'数据库不可用'))}};
  const loadReport=async()=>{try{const r=await fetch('/api/admin/search-console-report?kind='+kind,{headers:{'x-admin-key':accessKey}});const b=await r.json() as {ok?:boolean;imported:Snapshot|null;rows:Entry[]};if(!r.ok||!b.ok)throw Error('报表读取失败');setReport({imported:b.imported,rows:b.rows});}catch{setReport(null)}};
  useEffect(()=>{void refresh()},[accessKey]);
  useEffect(()=>{void loadReport()},[accessKey,kind]);
