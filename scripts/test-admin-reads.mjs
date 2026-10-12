@@ -37,5 +37,26 @@ try{
  const quota=await outer.onRequest({next:async()=>{throw new Error("D1_ERROR: Your account has exceeded D1's maximum number of rows read per day.")}});assert.equal(quota.status,503);const body=await quota.json();assert.equal(body.code,'DATABASE_DAILY_LIMIT');assert.equal(new Date(body.resetAt).getUTCHours(),0);assert.equal(quota.headers.get('cache-control'),'no-store');
  const unavailable={request:request('fixture'),env:{ADMIN_ACCESS_KEY:'fixture',MINGEAGLE_DB:{prepare(){throw new Error('D1_ERROR: daily quota exceeded');}}},next:async()=>Response.json({ok:true})};
  assert.equal((await auth.onRequest(unavailable)).status,200,'correct login works when D1 itself is unavailable');
+ // Only the single intended POST route accepts a scoped recovery service token.
+ const service='scoped-scheduler-only-secret';
+ const scoped=async(path,method='POST',key=service,adminKey='')=>{
+   const request=new Request('https://test.example'+path,{
+     method,headers:{'x-hubspot-recovery-key':key,'x-admin-key':adminKey,'CF-Connecting-IP':'192.0.2.72'}
+   });
+   return auth.onRequest({request,env:{
+     ADMIN_ACCESS_KEY:'fixture',HUBSPOT_RECOVERY_SERVICE_KEY:service,MINGEAGLE_DB:db
+   },next:async()=>{calls++;return Response.json({ok:true})}});
+ };
+ const beforeCalls=calls,beforeReads=reads,beforeWrites=writes;
+ for(let i=0;i<3;i++)assert.equal((await scoped('/api/admin/hubspot-inquiry-recovery')).status,200);
+ assert.equal(calls,beforeCalls+3,'Only matching route reaches the handler');
+ assert.equal(reads,beforeReads,'Correct service key must not consume D1 reads for auth');
+ assert.equal(writes,beforeWrites,'Correct service key must not write auth logs');
+ assert.equal((await scoped('/api/admin/data')).status,401,'Service key cannot access CRM data');
+ assert.equal((await scoped('/api/admin/hubspot-inquiry-recovery','GET')).status,401,'Service key cannot use GET or read API');
+ assert.equal((await scoped('/api/admin/hubspot-inquiry-recovery-other')).status,401,'Service key cannot use path prefixes');
+ assert.equal((await scoped('/api/admin/hubspot-inquiry-recovery','POST','wrong-service-key')).status,401,'Wrong service key rejected');
+ assert.equal((await scoped('/api/admin/data','GET',service,'fixture')).status,200,'Existing admin credentials remain authorized');
+ assert.equal((await auth.onRequest({request:new Request('https://test.example/api/admin/hubspot-inquiry-recovery',{method:'POST',headers:{'x-hubspot-recovery-key':service}}),env:{ADMIN_ACCESS_KEY:'fixture',MINGEAGLE_DB:db},next:async()=>Response.json({ok:true})})).status,401,'No bypass when service credential is not configured');
  console.log('PASS: zero D1 reads for valid auth, persistent invalid-key throttling, quota-independent login, indexed bounded failure lookup, structured quota response and UTC reset.');
 }finally{rmSync(temp,{recursive:true,force:true})}

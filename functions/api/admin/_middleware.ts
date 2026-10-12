@@ -1,5 +1,6 @@
 interface Env {
   ADMIN_ACCESS_KEY?: string;
+  HUBSPOT_RECOVERY_SERVICE_KEY?: string;
   MINGEAGLE_DB?: D1Database;
 }
 
@@ -83,15 +84,26 @@ function hardenedJson(body: Record<string, unknown>, status: number, extraHeader
 
 export const onRequest: PagesFunction<Env> = async (context) => {
   const configured = context.env.ADMIN_ACCESS_KEY || '';
-  if (!configured) {
+  // A second, least-privilege service credential can call ONLY the one hourly
+  // backup replay endpoint. It cannot read or mutate any other admin route.
+  const pathname = new URL(context.request.url).pathname;
+  const isRecoveryPost = pathname === '/api/admin/hubspot-inquiry-recovery'
+    && context.request.method === 'POST';
+  const expectedServiceKey = context.env.HUBSPOT_RECOVERY_SERVICE_KEY || '';
+  const suppliedServiceKey = context.request.headers.get('x-hubspot-recovery-key') || '';
+  const serviceAuthorized = isRecoveryPost && Boolean(expectedServiceKey)
+    && Boolean(suppliedServiceKey)
+    && await sameSecret(suppliedServiceKey, expectedServiceKey);
+  if (!configured && !serviceAuthorized) {
     return hardenedJson({ ok: false, error: 'Admin access is not configured.' }, 503);
   }
 
   // Verify the supplied secret before touching D1. A legitimate dashboard login
-  // must not consume the daily row-read quota or depend on database availability.
-  // Bad attempts still use persistent IP-based throttling.
+  // and a legitimate scoped scheduler token must not consume the daily row-read
+  // quota or depend on database availability. Bad attempts still use persistent
+  // IP-based throttling.
   const supplied = context.request.headers.get('x-admin-key') || '';
-  const authorized = Boolean(supplied) && await sameSecret(supplied, configured);
+  const authorized = serviceAuthorized || (Boolean(supplied) && await sameSecret(supplied, configured));
   if (!authorized) {
     const db = context.env.MINGEAGLE_DB;
     if (db) {

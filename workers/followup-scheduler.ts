@@ -1,6 +1,7 @@
 interface Env {
   MINGEAGLE_DB: D1Database;
   ADMIN_ACCESS_KEY?: string;
+  HUBSPOT_RECOVERY_SERVICE_KEY?: string;
   AUTO_EMAIL_ENABLED?: string;
 }
 
@@ -379,14 +380,14 @@ async function recordHubspotJob(env:Env,status:HubspotJobResult,httpStatus:numbe
 // Run a bounded, admin-protected HubSpot backup replay once an hour.
 // Report skipped requests separately from confirmed successful synchronization.
 async function runHubspotRecovery(env:Env){
-  if(!env.ADMIN_ACCESS_KEY) {
+  if(!env.HUBSPOT_RECOVERY_SERVICE_KEY) {
     await recordHubspotJob(env,'SKIPPED_NO_WORKER_KEY');
     return;
   }
   try {
     const response=await fetch('https://app.mingeagle.com/api/admin/hubspot-inquiry-recovery',{
       method:'POST',
-      headers:{'content-type':'application/json','x-admin-key':env.ADMIN_ACCESS_KEY},
+      headers:{'content-type':'application/json','x-hubspot-recovery-key':env.HUBSPOT_RECOVERY_SERVICE_KEY},
       body:JSON.stringify({action:'SYNC'}),
       signal:AbortSignal.timeout(25000)});
     const result=await response.json().catch(()=>null) as {ok?:boolean;configured?:boolean;disabled?:boolean}|null;
