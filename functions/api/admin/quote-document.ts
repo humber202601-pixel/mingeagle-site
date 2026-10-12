@@ -3,7 +3,8 @@ interface Env{MINGEAGLE_DB?:D1Database}
 type QuoteRow=DocAmounts&{id:string;status:string;sent_at:string|null;buyer:string|null;contact:string|null};
 type OrderRow=DocAmounts&{id:string;status:string;payment_status:string;created_at:string};
 const error=(message:string,status:number)=>Response.json({ok:false,error:message},{status,headers:{'cache-control':'no-store'}});
-const validId=(s:string)=>/^[a-zA-Z0-9-]{4,120}$/.test(s);
+// IDs are opaque database keys; allow short legacy IDs while using bound SQL.
+const validId=(s:string)=>/^[a-zA-Z0-9-]{2,120}$/.test(s);
 export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
  const db=env.MINGEAGLE_DB;if(!db)return error('Database unavailable.',503);
  const url=new URL(request.url),quoteId=url.searchParams.get('quoteId')||'',
