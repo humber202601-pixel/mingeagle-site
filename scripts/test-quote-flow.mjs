@@ -14,7 +14,7 @@ const routes={
 const auth=(await load('functions/api/admin/_middleware.ts')).onRequest;
 const root=(await load('functions/_middleware.ts')).onRequest;
 const sqlite=new DatabaseSync(':memory:');
-for(const file of ['0001_core.sql','0002_quote_public_links.sql','0003_airwallex_payment_sessions.sql','0004_shipping_rates.sql'])sqlite.exec(readFileSync('migrations/'+file,'utf8'));
+for(const file of ['0001_core.sql','0002_quote_public_links.sql','0003_airwallex_payment_sessions.sql','0004_shipping_rates.sql','0005_supplier_purchase_terms.sql'])sqlite.exec(readFileSync('migrations/'+file,'utf8'));
 const database={
  prepare(sql){const statement={sql,args:[],bind(...args){statement.args=args;return statement;},async first(){return sqlite.prepare(sql).get(...statement.args)||null;},async all(){return {success:true,results:sqlite.prepare(sql).all(...statement.args)};},async run(){const result=sqlite.prepare(sql).run(...statement.args);return {success:true,meta:{changes:Number(result.changes)}};}};return statement;},
  async batch(statements){sqlite.exec('BEGIN');try{const results=[];for(const s of statements)results.push(await s.run());sqlite.exec('COMMIT');return results;}catch(error){sqlite.exec('ROLLBACK');throw error;}}
@@ -40,21 +40,50 @@ try{
  response=await call('create','/api/admin/quotes',input);assert.equal(response.status,201,JSON.stringify(response));assert.equal(response.body.total,822.9);
  const quoteId=response.body.quoteId;
  let quote=query('SELECT * FROM quotes');let item=query('SELECT * FROM quote_items');
+ // Supplier cost data here is SYNTHETIC and exists only in a :memory: test DB.
+ sqlite.prepare(`INSERT INTO supplier_purchase_terms
+   (sku,supplier_name,moq,case_pack,tiers_json,source_note,effective_on,expires_on,status,version)
+   VALUES ('P1-S5','TEST ONLY',1,1,?,'Synthetic supplier quote for automated tests','2020-01-01','2099-12-31','APPROVED',1)`)
+   .run(JSON.stringify([{minimumQuantity:1,purchaseCents:700}]));
  assert.equal(quote.status,'DRAFT');assert.equal(item.line_total,803);assert.match(query('SELECT source_url FROM quote_retail_approvals').source_url,/www\.mingeagle\.com\/retail-reference-prices\.json\?v=[a-f0-9]{64}$/);
  response=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false});assert.equal(response.status,409,'Draft release requires explicit staff approval');
  response=await call('release','/api/admin/quote-send',{quoteId,sendEmail:true,approved:true});assert.equal(response.status,403,'Preview cannot send customer email');
  assert.equal(query('SELECT count(*) AS n FROM quote_public_links').n,0);
  const edit={quoteId,items:[{id:item.id,description:item.description,quantity:3,unitPrice:'8.07'}],shipping:'19.90',discount:'0.29',validUntil:'2026-12-31',paymentTerms:'Test terms',shippingTerms:'Test freight'};
  response=await call('edit','/api/admin/quote-edit',{...edit,items:[{...edit.items[0],quantity:3.5}]});assert.equal(response.status,400);assert.equal(query('SELECT quantity FROM quote_items').quantity,100);
+ response=await call('edit','/api/admin/quote-edit',{...edit,items:[{...edit.items[0],unitPrice:'6.99'}]});
+ assert.equal(response.status,409,'Draft edits at/below approved procurement floor blocked');
+ assert.equal(query('SELECT unit_price FROM quote_items').unit_price,8.03,'No changes saved on floor rejection');
+ response=await call('edit','/api/admin/quote-edit',{...edit,discount:'3.22'});
+ assert.equal(response.status,409,'Quote-level discounts cannot undercut supplier floor');
+ assert.equal(query('SELECT discount FROM quotes').discount,0,'Discount failure cannot mutate quote');
+ response=await call('edit','/api/admin/quote-edit',{...edit,items:[{...edit.items[0],description:'Generic unclassified item'}]});
+ assert.equal(response.status,409,'Editing the SKU text away cannot bypass known procurement source');
+ assert.equal(query('SELECT description FROM quote_items').description,item.description);
  sqlite.prepare('UPDATE quotes SET tax=1.1 WHERE id=?').run(quoteId);
  response=await call('edit','/api/admin/quote-edit',edit);assert.equal(response.status,200,JSON.stringify(response));assert.equal(response.body.quote.total,44.92,'Edit preserves existing tax and uses exact cents');
  assert.equal(query('SELECT count(*) AS n FROM quote_retail_approvals').n,0,'A change invalidates the old approval permanently');
  response=await call('approve','/api/admin/quote-retail-approval',{quoteId,itemId:item.id,retailUSD:11.9,sourceUrl:'https://www.mingeagle.com/retail-reference-prices.json',confirmed:true});assert.equal(response.status,200,JSON.stringify(response));
+ // A vendor updates the approved cost after editing: final release MUST
+ // recheck the current source, before creating any customer link or email.
+ sqlite.prepare("UPDATE supplier_purchase_terms SET tiers_json=?,version=2 WHERE sku='P1-S5'")
+   .run(JSON.stringify([{minimumQuantity:1,purchaseCents:900}]));
+ response=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true});
+ assert.equal(response.status,409,'Final approval must recheck changed supplier purchase floor');
+ assert.equal(query('SELECT count(*) AS n FROM quote_public_links').n,0,'Risky quote must not leak to public link');
+ assert.equal(query('SELECT status FROM quotes').status,'DRAFT');
+ assert.equal(externalCalls,0,'Rejection may not send emails');
+ sqlite.prepare("UPDATE supplier_purchase_terms SET tiers_json=?,version=3 WHERE sku='P1-S5'")
+   .run(JSON.stringify([{minimumQuantity:1,purchaseCents:700}]));
+ sqlite.prepare("UPDATE quotes SET notes=? WHERE id=?").run(
+   'Wholesale draft. Internal purchase source review: procurement cost must stay private.',quoteId);
  response=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true});assert.equal(response.status,200,JSON.stringify(response));assert.equal(response.body.emailed,false);
  assert.equal(query("SELECT count(*) AS n FROM activities WHERE activity_type='QUOTE_APPROVED'").n,1);
  const token=response.body.publicPath.split('/').pop();
  const page=await routes.view({request:new Request('https://quote-test.example'+response.body.publicPath),env,params:{token}});
- assert.equal(page.status,200);const html=await page.text();assert.match(html,/Save USD 3\.83/);assert.match(html,/Product savings USD 11\.49/);assert.match(html,/44\.92/);
+ assert.equal(page.status,200);const html=await page.text();
+ assert(!html.includes('Internal purchase source review'),'Internal wholesale draft notes MUST be hidden from customer');
+ assert.match(html,/Save USD 3\.83/);assert.match(html,/Product savings USD 11\.49/);assert.match(html,/44\.92/);
  response=await call('edit','/api/admin/quote-edit',edit);assert.equal(response.status,409,'Released quotations are locked');
  const blocked=await root({request:new Request('https://quote-test.example/api/admin/email-queue',{method:'POST'}),env,next:()=>{throw Error('Preview must block this mutation');}});assert.equal(blocked.status,403);
  assert.equal(externalCalls,0);assert.equal(query("SELECT count(*) AS n FROM messages WHERE direction='OUTBOUND'").n,0);

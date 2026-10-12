@@ -265,7 +265,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       });
       const body = await response.json() as { ok?: boolean; quote?: Row; error?: string };
       if (!response.ok || !body.ok) throw new Error(body.error || '无法保存报价草稿。');
-      setEditMessage(`已保存 ${text(body.quote?.reference, text(editDetail.quote.reference))}，总金额 ${money(body.quote?.total, body.quote?.currency || editDetail.quote.currency)}。`);
+      setEditMessage(`已保存 ${text(body.quote?.reference, text(editDetail.quote.reference))}，总金额 ${money(body.quote?.total, body.quote?.currency || editDetail.quote.currency)}。后端已重新核查可匹配的供应商采购成本；未匹配型号仍需人工核实。`);
       setEditPreviewTotal(Number(body.quote?.total || 0));
       onCreated();
       await loadQuotes();
@@ -307,7 +307,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   async function deliverQuote(quote: Row, sendEmail: boolean) {
     const quoteId = text(quote.id);
     if (!quoteId) return;
-    const confirmed = window.confirm(`批准报价 ${text(quote.reference)}，总额 ${money(quote.total,quote.currency)}。请确认规格、数量、运费和商业条款。${sendEmail?'批准后将通过 Gmail 向该客户真实发送。':'批准后生成客户可查看的安全链接。'}`);
+    const confirmed = window.confirm(`批准报价 ${text(quote.reference)}，总额 ${money(quote.total,quote.currency)}。请确认规格、采购成本、整箱数量、折扣后售价、运费和商业条款。系统将在对外发布前重新核查可匹配的已审核采购成本；缺失或颜色不一致的来源仍须人工确认。${sendEmail?'批准后将通过 Gmail 向该客户真实发送。':'批准后生成客户可查看的安全链接。'}`);
     if (!confirmed) return;
     setBusyQuoteId(quoteId);
     setError('');

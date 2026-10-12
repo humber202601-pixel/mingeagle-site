@@ -1,3 +1,4 @@
+import {verifyQuoteProcurement} from '../../../lib/quote-procurement-review';
 interface Env {
   MINGEAGLE_DB: D1Database;
   GMAIL_CLIENT_ID?: string;
@@ -18,6 +19,8 @@ type QuoteRow = {
   contact_id: string | null;
   valid_until: string | null;
   total: number;
+  subtotal:number;
+  discount:number;
   currency: string | null;
   public_token_hash: string | null;
   contact_email: string | null;
@@ -146,10 +149,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!quoteId) return Response.json({ ok: false, error: 'Quote id is required.' }, { status: 400 });
 
     const db = env.MINGEAGLE_DB;
-    await ensureQuoteLinks(db);
 
     const quote = await db.prepare(`SELECT
-      q.id, q.reference, q.status, q.lead_id, q.company_id, q.contact_id, q.valid_until, q.total, q.currency, q.public_token_hash,
+      q.id, q.reference, q.status, q.lead_id, q.company_id, q.contact_id, q.valid_until, q.total, q.subtotal, q.discount, q.currency, q.public_token_hash,
       ct.email AS contact_email, ct.full_name AS contact_name, COALESCE(c.name,'') AS company_name,
       COALESCE(ct.do_not_contact,0) AS do_not_contact, l.status AS lead_status
       FROM quotes q
@@ -175,6 +177,25 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       }, { status: 409 });
     }
 
+    // Must run immediately before *every* customer link or Gmail send. A
+    // previously safe draft can be edited (or vendor approved costs updated).
+    // Never let a discounted quote bypass the supplier purchase cost floor.
+    // Run before touching public links, quote status or email APIs.
+    const items=await db.prepare(`SELECT description,quantity,unit_price FROM quote_items
+      WHERE quote_id=? ORDER BY sort_order,id`).bind(quote.id)
+        .all<{description:string;quantity:number;unit_price:number}>();
+    let review:Awaited<ReturnType<typeof verifyQuoteProcurement>>;
+    try{
+      review=await verifyQuoteProcurement(db,(items.results||[]).map(x=>({
+        description:x.description,quantity:x.quantity,unitPrice:x.unit_price
+      })),quote.discount??0,String(quote.currency||'USD'),new Date().toISOString().slice(0,10));
+    }catch{
+      return Response.json({ok:false,error:'Supplier cost review unavailable. Quote was not released or emailed.'},{status:503});
+    }
+    if(!review.ok)return Response.json({ok:false,error:
+      'Quote requires procurement review before customer release: '+review.issues.join(', ')+
+      '. Check supplier MOQ, approved purchasing floor and total discount.'},{status:409});
+    await ensureQuoteLinks(db);
     if (quote.public_token_hash) {
       await db.prepare(`INSERT OR IGNORE INTO quote_public_links (id, quote_id, token_hash)
         VALUES (?, ?, ?)`)
