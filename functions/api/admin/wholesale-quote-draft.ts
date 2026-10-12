@@ -1,5 +1,6 @@
 import {retailReference, RETAIL_SOURCE_URL} from '../../../lib/retail-reference';
 import {quoteTotals} from '../../../lib/quote-totals';
+import {reviewRfqQuantityConstraints,type QuantityConstraint} from '../../../lib/rfq-commercial-check';
 // Admin-only, manually priced B2B draft. Never assume retail prices are wholesale prices.
 interface Env {MINGEAGLE_DB?:D1Database}
 type R=Record<string,unknown>;
@@ -13,7 +14,7 @@ const variants:Record<string,{sizes:string[];colors:string[]}>={
 };
 export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  const db=env.MINGEAGLE_DB;if(!db)return bad('Database unavailable',503);
- let input:{inquiryReference?:string;unitPrices?:Array<number|string>;shippingUSD?:number|string;paymentTerms?:string;shippingTerms?:string};
+ let input:{inquiryReference?:string;unitPrices?:Array<number|string>;shippingUSD?:number|string;paymentTerms?:string;shippingTerms?:string;quantityConstraints?:QuantityConstraint[]};
  try{input=await request.json()}catch{return bad('Invalid JSON')}
  const ref=String(input.inquiryReference||'').trim();
  if(!/^[A-Z0-9-]{5,100}$/.test(ref))return bad('Invalid inquiry reference');
@@ -31,6 +32,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   lines.push({description:m[1]+' | No. '+m[2]+' | '+m[3],quantity});if(lines.length>20)return bad('Too many RFQ lines',409);
  }
  if(!lines.length)return bad('Missing RFQ line items',409);
+ const review=reviewRfqQuantityConstraints(lines,input.quantityConstraints);
+ if(!review.ok)return bad('MOQ/packing review failed: '+review.errors.join(', ')+'; confirm with the supplier and buyer before changing requested quantities.');
  if(!Array.isArray(input.unitPrices)||input.unitPrices.length!==lines.length)return bad('Enter verified USD unit price for each line');
  let calculation:ReturnType<typeof quoteTotals>;
  try{calculation=quoteTotals(lines.map((line,i)=>({quantity:line.quantity,unitPrice:input.unitPrices![i]})),input.shippingUSD)}catch{return bad('Enter valid USD prices and explicit shipping with at most two decimal places; review quantity and total limits');}
@@ -48,12 +51,15 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  approved_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
  PRIMARY KEY(quote_id,item_id))`).run();
  const lineItems=lines.map((line,i)=>({ ...line,itemId:crypto.randomUUID(),wholesale:calculation.lines[i].unitCents/100,retail:retailReference(line.description) }));
- const sql=db.prepare("INSERT INTO quotes (id,reference,lead_id,inquiry_id,company_id,contact_id,status,currency,subtotal,discount,shipping,tax,total,payment_terms,shipping_terms,notes,valid_until) VALUES (?,?,?,?,?,?,'DRAFT','USD',?,0,?,0,?,?,?,?,datetime('now','+14 days'))").bind(id,quoteRef,inquiry.lead_id,inquiry.id,inquiry.company_id,inquiry.contact_id,subtotalCents/100,shipping,totalCents/100,payment,terms,'Wholesale draft. Manually priced by staff; verify freight, duties, stock and terms before sending. Source inquiry '+ref);
+ const sql=db.prepare("INSERT INTO quotes (id,reference,lead_id,inquiry_id,company_id,contact_id,status,currency,subtotal,discount,shipping,tax,total,payment_terms,shipping_terms,notes,valid_until) VALUES (?,?,?,?,?,?,'DRAFT','USD',?,0,?,0,?,?,?,?,datetime('now','+14 days'))").bind(id,quoteRef,inquiry.lead_id,inquiry.id,inquiry.company_id,inquiry.contact_id,subtotalCents/100,shipping,totalCents/100,payment,terms,'Wholesale draft. Manually priced by staff; verify freight, duties, stock and terms before sending. Source inquiry '+ref
+ +'. Staff-entered MOQ/whole-case review: '+review.verified.length+' fully specified; '+review.pending.length+' lines have MOQ or case-pack not verified. Supplier confirmation required.');
  const stmts=[sql,...lineItems.map((line,i)=>db.prepare('INSERT INTO quote_items (id,quote_id,description,quantity,unit_price,line_total,sort_order) VALUES (?,?,?,?,?,?,?)').bind(line.itemId,id,line.description,line.quantity,line.wholesale,cents[i]/100,i)),
  ...lineItems.filter(line=>line.retail!==null&&line.wholesale<line.retail!).map(line=>db.prepare(`INSERT INTO quote_retail_approvals (quote_id,item_id,retail_usd,source_url,approved_description,approved_unit_price,approved_quantity)
  VALUES (?,?,?,?,?,?,?)`).bind(id,line.itemId,line.retail,RETAIL_SOURCE_URL,line.description,line.wholesale,line.quantity)),
  db.prepare("UPDATE inquiries SET status='QUOTED',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(inquiry.id)];
  await db.batch(stmts);
- return Response.json({ok:true,quoteReference:quoteRef,status:'DRAFT',items:lines.length,subtotalUSD:subtotalCents/100,shippingUSD:shipping,totalUSD:totalCents/100,reviewRequired:true,sent:false},{headers:{'cache-control':'no-store'}});
+ return Response.json({ok:true,quoteReference:quoteRef,status:'DRAFT',items:lines.length,subtotalUSD:subtotalCents/100,shippingUSD:shipping,totalUSD:totalCents/100,reviewRequired:true,
+   quantityReview:{fullySpecified:review.verified.length,pending:review.pending.length},
+   sent:false},{headers:{'cache-control':'no-store'}});
  }catch(e){console.error('wholesale_draft_error',e);return bad('Unable to create wholesale quote draft',503)}
 };
