@@ -491,7 +491,11 @@ async function processInquiryPost(context:Parameters<PagesFunction<Env>>[0],noti
     });
   } catch (error) {
     console.error('inquiry_create_failed', error);
-    return Response.json({ error: error instanceof Error ? error.message : 'Unable to save the inquiry right now.' }, { status: 500 });
+    // Do not disclose SQL statements, provider internals or D1 quota details
+    // to unauthenticated visitors. The browser retains its own reference.
+    return Response.json({ok:false,code:'INQUIRY_SAVE_FAILED',
+      error:'Unable to save the inquiry right now. Please retry with the same inquiry reference.'},
+      {status:500,headers:{'cache-control':'no-store'}});
   }
 }
 
