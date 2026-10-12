@@ -89,7 +89,7 @@ try{
  const missing=await onRequestGet({request:new Request('https://app.mingeagle.com/api/admin/inbound-growth'),env:{}});
  assert.equal(missing.status,503);
  const ui=readFileSync('src/InboundGrowth.tsx','utf8');
- assert(ui.includes('网站访问量尚未接入')&&ui.includes('Google Search Console'));
+ assert(ui.includes('网站访问统计与搜索曝光')&&ui.includes('Google Search Console'));
  assert(ui.includes('直接关联订单的询盘'));
  assert(ui.includes('同客户关联订单'));
  assert(ui.includes('未连接'),'Visits or search impressions must remain unavailable, not fabricated');
