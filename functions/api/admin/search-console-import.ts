@@ -61,5 +61,5 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
  try{
  const latest=await db.prepare('SELECT id,property,kind,start_date,end_date,imported_at,row_count FROM search_console_imports ORDER BY imported_at DESC LIMIT 12').all();
  return Response.json({ok:true,imports:latest.results,source:'manual Search Console exports',live:false},{headers:{'cache-control':'no-store'}});
- }catch{return Response.json({ok:true,imports:[],source:'manual Search Console exports',live:false},{headers:{'cache-control':'no-store'}})}
+ }catch{return err('Search Console import history unavailable; do not assume no records exist',503)}
 };
