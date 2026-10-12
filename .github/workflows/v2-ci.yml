@@ -60,3 +60,6 @@ jobs:
 
       - name: Bundle Cloudflare Functions
         run: npx wrangler pages functions build --outdir /tmp/mingeagle-functions
+
+      - name: Dry-run build independent analytics Cron Worker
+        run: npx wrangler deploy --dry-run --config wrangler.analytics.toml
