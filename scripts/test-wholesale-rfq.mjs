@@ -16,6 +16,10 @@ const tmp=mkdtempSync(join(tmpdir(),'me-wholesale-'));
 const outfile=join(tmp,'draft.mjs');
 await build({entryPoints:['functions/api/admin/wholesale-quote-draft.ts'],outfile,bundle:true,platform:'node',format:'esm',logLevel:'silent'});
 const {onRequestPost}=await import(pathToFileURL(outfile));
+const outfileGuard=join(tmp,'guard.mjs');
+await build({entryPoints:['lib/rfq-cost-review.ts'],outfile:outfileGuard,bundle:true,platform:'node',format:'esm',logLevel:'silent'});
+const {assessRfqPurchaseCosts,internalSkuForRfq}=await import(pathToFileURL(outfileGuard));
+
 const reference='ME-TEST-12345';
 const marker='Combined wholesale RFQ (customer-selected; not a final price):';
 const sample='Please supply bulk ball sets.\n'+marker+'\nFlocked Silent Basketball Set | No. 3 | Orange | 50 units\nFlocked Silent Basketball Set | No. 5 | Blue | 100 units\nFabric-Cover Silent Basketball Set | No. 7 | Green | 200 units\nShipping method: Recommend best option';
@@ -40,16 +44,51 @@ for(const [constraints,error]of [
 }
 assert.equal(reviewRfqQuantityConstraints(parsed,[{moq:20}]).ok,false,'Reject mismatched line counts');
 const saved=[];
+let supplierRows=[];
+let supplierReadFails=false;
+const supplierRow=(sku,{moq=50,casePack=10,cost=150,status='APPROVED',expires='2099-12-31',
+  tiers}={})=>({sku,status,currency:'USD',moq,case_pack:casePack,
+  tiers_json:JSON.stringify(tiers||[{minimumQuantity:moq,purchaseCents:cost}]),
+  effective_on:'2020-01-01',expires_on:expires,version:1});
+assert.equal(internalSkuForRfq(parsed[0]),'P1-S3');
+assert.equal(internalSkuForRfq(parsed[1]),'P1-S5');
+assert.equal(internalSkuForRfq(parsed[2]),'P2-S7');
+const fullCosts=[supplierRow('P1-S3'),supplierRow('P1-S5',{moq:100,casePack:20,cost:250}),
+ supplierRow('P2-S7',{moq:200,casePack:25,cost:350})];
+let cost=assessRfqPurchaseCosts(parsed,[200,300,400],[],new Date().toISOString().slice(0,10));
+assert.equal(cost.ok,true);assert.equal(cost.unverifiedLines,3);
+cost=assessRfqPurchaseCosts(parsed,[200,300,400],fullCosts,new Date().toISOString().slice(0,10));
+assert.equal(cost.ok,true);assert.equal(cost.approvedLines,3);
+assert.equal(cost.rows[0].unitContributionCents,50);
+assert.equal(cost.rows[2].unitCostCents,350);
+assert(cost.rows.every(r=>r.reason.includes('color')));
+assert(assessRfqPurchaseCosts(parsed,[150,300,400],fullCosts,'2026-10-13').issues.includes('LINE_1_AT_OR_BELOW_APPROVED_COST'));
+assert(assessRfqPurchaseCosts(parsed,[200,300,400],[supplierRow('P1-S3',{moq:51}),...fullCosts.slice(1)],'2026-10-13').issues.includes('LINE_1_BELOW_APPROVED_MOQ'));
+assert(assessRfqPurchaseCosts(parsed,[200,300,400],[supplierRow('P1-S3',{casePack:24}),...fullCosts.slice(1)],'2026-10-13').issues.includes('LINE_1_NOT_APPROVED_CASE_MULTIPLE'));
+assert.equal(assessRfqPurchaseCosts(parsed,[200,300,400],[supplierRow('P1-S3',{status:'DRAFT'}),...fullCosts.slice(1)],'2026-10-13').unverifiedLines,1);
+assert.equal(assessRfqPurchaseCosts(parsed,[200,300,400],[supplierRow('P1-S3',{expires:'2022-01-01'}),...fullCosts.slice(1)],'2026-10-13').unverifiedLines,1);
+assert(assessRfqPurchaseCosts(parsed,[200,300,400],[supplierRow('P1-S3',{tiers:[{minimumQuantity:50,purchaseCents:1.2}]}),...fullCosts.slice(1)],'2026-10-13').issues.includes('LINE_1_INVALID_COST_TIERS'));
 const inquiry={id:'inq1',reference,lead_id:'lead1',company_id:'company1',contact_id:'contact1',status:'NEW',message:sample};
 const env={MINGEAGLE_DB:{
  prepare(sql){return {run:async()=>({success:true}),bind(...params){return {
   first:async()=>sql.startsWith('SELECT id,reference,lead_id')?inquiry:null,
+  all:async()=>{
+    if(sql.includes('supplier_purchase_terms')){
+      if(supplierReadFails)throw Error('SIMULATED_DB_OUTAGE');
+      return {results:supplierRows.filter(row=>params.includes(row.sku))};
+    }
+    return {results:[]};
+  },
   sql,params
  }}}},async batch(stmts){saved.push(...stmts);return stmts.map(()=>({success:true}))}
 }};
 const call=async payload=>{const resp=await onRequestPost({request:new Request('https://app.mingeagle.com/api/admin/wholesale-quote-draft',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({inquiryReference:reference,...payload})}),env});return {status:resp.status,result:await resp.json()}};
 let x=await call({unitPrices:[2,3,4],shippingUSD:20,paymentTerms:'Payment after confirmation',shippingTerms:'FOB by agreement'});
 assert.equal(x.status,200,JSON.stringify(x));assert.equal(x.result.items,3);
+assert.equal(x.result.purchaseCostReview.approvedSkuBaselines,0);
+assert.equal(x.result.purchaseCostReview.unverifiedSkuBaselines,3);
+assert(x.result.purchaseCostReview.estimates.every(x=>x.purchaseUnitUSD===null),
+ 'No configured purchasing source must not create fictitious supplier costs');
 assert.equal(x.result.subtotalUSD,1200);assert.equal(x.result.totalUSD,1220);
 assert.deepEqual(x.result.quantityReview,{fullySpecified:0,pending:3},
   'Unverified supplier quantity conditions must be explicit on draft confirmation');
@@ -75,6 +114,45 @@ assert.equal(reviewed.status,200,JSON.stringify(reviewed));
 assert.deepEqual(reviewed.result.quantityReview,{fullySpecified:3,pending:0});
 assert(saved.some(s=>s.sql.startsWith('INSERT INTO quotes')&&s.params?.some?.(v=>typeof v==='string'&&v.includes('3 fully specified'))),
  'Quote draft notes must preserve aggregate review status for human follow-up');
+supplierRows=fullCosts;
+saved.length=0;
+let protectedResult=await call({unitPrices:[2,3,4],shippingUSD:20,paymentTerms:'Terms',shippingTerms:'Terms'});
+assert.equal(protectedResult.status,200,JSON.stringify(protectedResult));
+assert.equal(protectedResult.result.purchaseCostReview.approvedSkuBaselines,3);
+assert.equal(protectedResult.result.purchaseCostReview.unverifiedSkuBaselines,0);
+assert.equal(protectedResult.result.purchaseCostReview.estimates[0].purchaseUnitUSD,1.5);
+assert.equal(protectedResult.result.purchaseCostReview.estimates[0].supplierVersion,1);
+assert(saved.some(v=>v.sql.startsWith('INSERT INTO quotes')&&v.params.some(p=>typeof p==='string'&&p.includes('3 lines matched an approved SKU-size baseline'))));
+for(const [altered,block] of [
+  [[1.5,3,4],'LINE_1_AT_OR_BELOW_APPROVED_COST'],
+  [[2,2.4,4],'LINE_2_AT_OR_BELOW_APPROVED_COST'],
+  [[2,3,3.5],'LINE_3_AT_OR_BELOW_APPROVED_COST'],
+]){
+ saved.length=0;
+ const v=await call({unitPrices:altered,shippingUSD:20,paymentTerms:'Terms',shippingTerms:'Terms'});
+ assert.equal(v.status,400,JSON.stringify(v));
+ assert.match(v.result.error,new RegExp(block));assert.equal(saved.length,0,'At/below-cost quote cannot be drafted');
+}
+supplierRows=[supplierRow('P1-S3',{moq:51}),...fullCosts.slice(1)];
+saved.length=0;
+let fail=await call({unitPrices:[2,3,4],shippingUSD:20,paymentTerms:'Terms',shippingTerms:'Terms'});
+assert.equal(fail.status,400);assert.match(fail.result.error,/LINE_1_BELOW_APPROVED_MOQ/);
+assert.equal(saved.length,0);
+supplierRows=[supplierRow('P1-S3',{casePack:24}),...fullCosts.slice(1)];
+saved.length=0;
+fail=await call({unitPrices:[2,3,4],shippingUSD:20,paymentTerms:'Terms',shippingTerms:'Terms'});
+assert.equal(fail.status,400);assert.match(fail.result.error,/LINE_1_NOT_APPROVED_CASE_MULTIPLE/);
+assert.equal(saved.length,0);
+supplierRows=[supplierRow('P1-S3',{status:'DRAFT'}),...fullCosts.slice(1)];
+saved.length=0;
+const pending=await call({unitPrices:[2,3,4],shippingUSD:20,paymentTerms:'Terms',shippingTerms:'Terms'});
+assert.equal(pending.status,200);
+assert.equal(pending.result.purchaseCostReview.unverifiedSkuBaselines,1);
+supplierReadFails=true;saved.length=0;
+const offline=await call({unitPrices:[2,3,4],shippingUSD:20,paymentTerms:'Terms',shippingTerms:'Terms'});
+assert.equal(offline.status,503,'Missing or inaccessible catalog must not bypass server checks');
+assert.equal(saved.length,0);
+supplierReadFails=false;supplierRows=[];
 for(const prices of [[8.03,1.1,0.29],['8.03','1.10','0.29']]){
  saved.length=0;
  const good=await call({unitPrices:prices,shippingUSD:'19.90',paymentTerms:'Terms',shippingTerms:'Terms'});

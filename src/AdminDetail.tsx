@@ -2,6 +2,7 @@ import {RETAIL_USD} from '../lib/retail-reference';
 import {parseWholesaleRfq} from './rfqParser';
 import {calculate} from '../lib/quote-math-core.mjs';
 import {quoteTotals} from '../lib/quote-totals';
+import {internalSkuForRfq,assessRfqPurchaseCosts,type ApprovedCostRow} from '../lib/rfq-cost-review';
 import {reviewRfqQuantityConstraints} from '../lib/rfq-commercial-check';
 import LeadOutreach from './LeadOutreach';
 import { useEffect, useState } from 'react';
@@ -85,12 +86,34 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
   const [wholesalePrices,setWholesalePrices]=useState<Record<number,string>>({});
   const [wholesaleMoqs,setWholesaleMoqs]=useState<Record<number,string>>({});
   const [wholesaleCasePacks,setWholesaleCasePacks]=useState<Record<number,string>>({});
+  const [supplierSources,setSupplierSources]=useState<ApprovedCostRow[]>([]);
+  const [supplierSourceError,setSupplierSourceError]=useState('');
   const [wholesaleShipping,setWholesaleShipping]=useState('');
   const [wholesalePaymentTerms,setWholesalePaymentTerms]=useState('Payment terms to be agreed with the buyer.');
   const [wholesaleDeliveryTerms,setWholesaleDeliveryTerms]=useState('Shipment from China; lead time and duties to be confirmed.');
   const [retailQuoteBusy,setRetailQuoteBusy] = useState(false);
   const [retailQuoteResult,setRetailQuoteResult] = useState('');
   const [retailQuoteCreated,setRetailQuoteCreated] = useState(false);
+  // Admin-only supplier cost baseline. Never copy purchase prices into
+  // customer-visible unit-price controls; color-specific costs still need review.
+  useEffect(()=>{
+    if(type!=='inquiry')return;
+    let cancelled=false;
+    fetch('/api/admin/supplier-pricing',{headers:{'x-admin-key':accessKey}})
+      .then(async r=>{
+        const d=await r.json() as {ok?:boolean;terms?:Array<{
+          sku:string;status:string;currency:string;moq:number;casePack:number;
+          effectiveOn:string;expiresOn:string;tiers:Array<{minimumQuantity:number;purchaseCents:number}>;version:number
+        }>;error?:string};
+        if(!r.ok||!d.ok)throw Error(d.error||'供应商成本资料暂时不可用');
+        if(cancelled)return;
+        setSupplierSources((d.terms||[]).map(t=>({sku:t.sku,status:t.status,currency:t.currency,moq:t.moq,
+         case_pack:t.casePack,effective_on:t.effectiveOn,expires_on:t.expiresOn,
+         tiers_json:JSON.stringify(t.tiers),version:t.version})));
+        setSupplierSourceError('');
+      }).catch(e=>{if(!cancelled){setSupplierSources([]);setSupplierSourceError(e instanceof Error?e.message:'采购成本加载失败')}});
+    return ()=>{cancelled=true};
+  },[type,accessKey]);
   async function draftWholesale(reference:string,lines:ReturnType<typeof parseWholesaleRfq>){
     const prices=lines.map((_,i)=>wholesalePrices[i]);
     const shipping=wholesaleShipping;
@@ -101,11 +124,12 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
     setWholesaleBusy(true);setWholesaleResult('');
     try{
       const response=await fetch('/api/admin/wholesale-quote-draft',{method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},body:JSON.stringify({inquiryReference:reference,unitPrices:prices,shippingUSD:shipping,paymentTerms:wholesalePaymentTerms,shippingTerms:wholesaleDeliveryTerms,quantityConstraints})});
-      const result=await response.json() as {ok?:boolean;error?:string;quoteReference?:string;totalUSD?:number};
+      const result=await response.json() as {ok?:boolean;error?:string;quoteReference?:string;totalUSD?:number;
+        purchaseCostReview?:{approvedSkuBaselines:number;unverifiedSkuBaselines:number}};
       if(!response.ok||!result.ok)throw Error(result.error||'无法生成报价草稿');
       setWholesaleCreated(true);setWholesaleResult('草稿 '+result.quoteReference+' 已生成，USD '+Number(result.totalUSD).toFixed(2)+'。'
         +(review.pending.length?'其中 '+review.pending.length+' 项仍缺 MOQ/整箱信息，需要核实。':'每行人工填写的 MOQ 和整箱倍数数学检查已通过，仍需核实供应商依据。')
-        +' 必须审核后才能发送。');
+        +' 已审核 SKU/尺码成本参考 '+Number(result.purchaseCostReview?.approvedSkuBaselines||0)+' 项；仍待核实 '+Number(result.purchaseCostReview?.unverifiedSkuBaselines||0)+' 项。颜色/包装/运费/税费可能影响实际毛利。必须审核后才能发送。');
     }catch(e){setWholesaleResult(e instanceof Error?e.message:'生成失败')}finally{setWholesaleBusy(false)}
   }
   async function draftRetailQuote(reference:string){
@@ -159,9 +183,16 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
         <div><small>联系人</small><strong>{text(r.contact_name)}</strong></div><div><small>邮箱</small><strong>{text(r.contact_email)}</strong></div><div><small>客户公司</small><strong>{text(r.company_name)}</strong></div><div><small>预计数量</small><strong>{text(r.estimated_quantity)}</strong></div><div><small>国家</small><strong>{text(r.shipping_country)}</strong></div><div><small>邮编</small><strong>{text(r.shipping_postal_code)}</strong></div>
       </div><div className="detail-message"><small>客户留言</small><p>{text(r.message,'无')}</p></div></Section>
       {parseWholesaleRfq(r.message).length>0 && <Section title="B2B 组合采购明细"><p className="detail-note">来自客户填写的采购需求，不代表已确认报价或库存。</p><MiniTable rows={parseWholesaleRfq(r.message).map((item,i)=>({id:i+1,...item}))} columns={[{key:'product',label:'产品系列'},{key:'size',label:'球号'},{key:'color',label:'颜色'},{key:'quantity',label:'数量（件）'}]}/><p><strong>采购需求总件数：{parseWholesaleRfq(r.message).reduce((sum,r)=>sum+r.quantity,0).toLocaleString('zh-CN')}</strong></p></Section>}
-      {parseWholesaleRfq(r.message).length>0&&<Section title="生成 B2B 多行报价草稿（人工核价）"><p className="detail-note">如需维护供应商提供的 MOQ、整箱数量和采购成本，可先前往 <Link to="/app/suppliers">供应商采购价资料库</Link> 审核；该资料不会自动覆盖客户当前报价。逐规格人工核实批发价、供应商 MOQ 和需要整箱发货时的装箱倍数。未知数据留空并标记为待确认，不能将零售价推算为批发价、MOQ 或成本。若客户数量与已填写的 MOQ/整箱条件冲突，将阻止生成草稿；未经客户同意不自动调整件数。草稿不会自动发送；仍须核实运费、库存、交期与商业条款。</p>
+      {parseWholesaleRfq(r.message).length>0&&<Section title="生成 B2B 多行报价草稿（人工核价）"><p className="detail-note">系统会在后端以已审核且有效的 SKU / 尺码采购成本检查人工售价：等于或低于参考采购成本、低于正式 MOQ、违反整箱倍数的草稿将被拒绝；资料缺失或过期时只标记待核实，不推算毛利。此成本参考不覆盖颜色、特殊包装、物流、税费和平台费用。可前往 <Link to="/app/suppliers">供应商采购价资料库</Link> 人工审核。当前产品定价仍需独立确认。</p><p className="detail-note">如需维护供应商提供的 MOQ、整箱数量和采购成本，可先前往 <Link to="/app/suppliers">供应商采购价资料库</Link> 审核；该资料不会自动覆盖客户当前报价。逐规格人工核实批发价、供应商 MOQ 和需要整箱发货时的装箱倍数。未知数据留空并标记为待确认，不能将零售价推算为批发价、MOQ 或成本。若客户数量与已填写的 MOQ/整箱条件冲突，将阻止生成草稿；未经客户同意不自动调整件数。草稿不会自动发送；仍须核实运费、库存、交期与商业条款。</p>
+       {supplierSourceError&&<p role="alert" className="form-status error">供应商成本资料未能加载：{supplierSourceError}。服务器端仍会独立校验，不能凭此视为无成本风险。</p>}
        <div style={{display:'grid',gap:12}}>{parseWholesaleRfq(r.message).map((line,i)=>{
         const review=reviewRfqQuantityConstraints([line],[{moq:wholesaleMoqs[i]||'',casePack:wholesaleCasePacks[i]||''}]);
+        const unitPrice=wholesalePrices[i];
+        let sellCents=0;
+        try{sellCents=quoteTotals([{quantity:line.quantity,unitPrice}],0).lines[0].unitCents}catch{ /* pending manual sales price */ }
+        const cost=assessRfqPurchaseCosts([line],[sellCents],supplierSources,new Date().toISOString().slice(0,10));
+        const costLine=cost.rows[0];
+        const sourceSku=internalSkuForRfq(line);
         return <div key={i} style={{border:'1px solid #e2e8f0',borderRadius:8,padding:12,display:'grid',gap:8}}>
           <strong>{line.product} · No. {line.size} · {line.color} · 客户申请 {line.quantity} 件</strong>
           <span>零售价参考 USD {RETAIL_USD[line.product]?.[line.size]?.toFixed(2) || '—'} · <WholesaleSavings retail={RETAIL_USD[line.product]?.[line.size]} price={wholesalePrices[i]||''} quantity={line.quantity}/></span>
@@ -171,6 +202,13 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
             <label>整箱倍数（件，选填） <input type="number" min="1" step="1" placeholder="待确认" value={wholesaleCasePacks[i]||''} disabled={wholesaleCreated} onChange={e=>setWholesaleCasePacks(v=>({...v,[i]:e.target.value}))}/></label>
           </div>
           <small role={review.ok?'status':'alert'} style={{color:review.ok?'#64748b':'#b42318'}}>{!review.ok?'数量不符合填写的 MOQ 或整箱倍数；禁止按当前条件生成草稿':review.pending.length?'供应商 MOQ 或整箱倍数尚未完整核实，只能生成待审核草稿':'根据人工输入的 MOQ/整箱数据数学检查通过；仍需核对供应商资料'}</small>
+          {costLine?.state==='APPROVED_BASELINE'
+            ?<small role={cost.ok?'status':'alert'} style={{color:cost.ok?'#475569':'#b42318'}}>
+             内部已审核 {sourceSku} / 版本 {costLine.supplierVersion}：相应数量档采购参考 USD {(costLine.unitCostCents!/100).toFixed(2)}/件。
+             {sellCents>0?' 人工售价与采购参考单件差额 USD '+((sellCents-costLine.unitCostCents!)/100).toFixed(2)+'（未扣物流和其他费用）':''}
+             {cost.ok?'；仍须确认颜色及配置。':'；当前数量或售价不符合已审核采购条件，不能生成草稿。'}
+            </small>
+            :<small role="status" style={{color:'#64748b'}}>内部 SKU {sourceSku||'未匹配'}：尚无当前有效的已审核采购成本，无法计算真实利润；请核实供应商报价及颜色配置。</small>}
         </div>;
        })}<WholesaleTotals lines={parseWholesaleRfq(r.message)} prices={wholesalePrices} shipping={wholesaleShipping}/>
        <label>运费 USD（包邮填写 0） <input type="number" min="0" step="0.01" value={wholesaleShipping} onChange={e=>setWholesaleShipping(e.target.value)} disabled={wholesaleCreated}/></label>
