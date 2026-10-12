@@ -26,8 +26,8 @@ let failBatch=false;
 const db={
   prepare(sql){
     assert.match(sql,/INSERT INTO web_analytics_daily/);
-    assert.match(sql,/ON CONFLICT\\(date_utc\\)/);
-    assert.doesNotMatch(sql,/\\b(inquiries|leads|contacts|quotes|orders|activities)\\b/i);
+    assert(sql.includes('ON CONFLICT(date_utc)'));
+    assert(!/(inquiries|leads|contacts|quotes|orders|activities)/i.test(sql));
     return {bind(...args){return {sql,args};}};
   },
   async batch(statements){
