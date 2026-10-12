@@ -1,3 +1,4 @@
+import DiscoveryQualityPanel from './DiscoveryQualityPanel';
 import FoursquareDiagnostic from './FoursquareDiagnostic';
 import { TYPE_OPTIONS, COMMERCIAL_TYPES, csvCell } from '../shared/discovery';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
@@ -390,6 +391,7 @@ export default function DiscoveryCenter({ accessKey, onChanged }: Props) {
   },[allCounts,priority]);
 
   return <>
+    <DiscoveryQualityPanel accessKey={accessKey}/>
     <FoursquareDiagnostic accessKey={accessKey}/>
     <AutoDiscovery key={recommendedType||'default'} initialType={recommendedType} accessKey={accessKey} externalBusy={expandedBusy||searching||importing||cleaning||batching||preparing||Boolean(busyId)} onBusyChange={setAutoBusy} onChanged={()=>{setReloadVersion(v=>v+1);onChanged();}} onCleared={()=>{setHistoryVersion(v=>v+1);setSearchBatch({key:'',round:0});setCandidates([]);setJobs([]);setAllCounts([]);setMessage('');setError('');}}/>
     <details className="discovery-advanced"><summary>高级工具 · 手动搜索、核验与候选记录</summary>
