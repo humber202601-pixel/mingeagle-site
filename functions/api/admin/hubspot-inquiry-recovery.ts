@@ -58,8 +58,9 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       signal:AbortSignal.timeout(12000)});
     if(!response.ok)return status({ok:false,error:'HubSpot form read failed',providerStatus:response.status},502);
     const page=await response.json() as {results?:HubspotSubmission[];hasMore?:boolean;offset?:number};
-    if(!Array.isArray(page.results))return status({ok:false,error:'Unexpected HubSpot submission response.'},502);
-    const submissions=page.results.slice(0,FORM_PAGE_LIMIT);
+    if(!Array.isArray(page.results)||page.results.length>FORM_PAGE_LIMIT)
+      return status({ok:false,error:'Unexpected HubSpot submission response.'},502);
+    const submissions=page.results;
     let imported=0,reused=0,skipped=0;
     for(const submission of submissions){
       const input=parseHubspotSubmission(submission);
@@ -71,9 +72,14 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       if(item.idempotent)reused++;else imported++;
     }
     // Advance only after every item has succeeded or been verified unrelated.
-    // HubSpot's submissions API is offset-paged. Re-scan from 0 after a full pass
-    // to pick up new submissions without keeping any customer PII in state.
-    const hasMore=Boolean(page.hasMore)&&submissions.length>0;
+    // Production 2026-10-12 inventory audit confirmed: limit=2 returned 2,
+    // limit=50 returned 11, while *neither* response included hasMore/offset.
+    // Therefore hasMore=false/undefined is not trustworthy for this endpoint.
+    // A full page may have a next page; a short/empty page ends the scan.
+    // This may cause one harmless extra empty request when the total is an exact
+    // multiple of two. Re-scan from zero after every complete pass; dedupe
+    // by original inquiry reference, never HubSpot contact ID.
+    const hasMore=submissions.length===FORM_PAGE_LIMIT;
     const nextOffset=hasMore?offset+submissions.length:0;
     await db.prepare(`UPDATE hubspot_inquiry_recovery_state SET
       offset=?,imported_total=imported_total+?,last_synced_at=CURRENT_TIMESTAMP,
