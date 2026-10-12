@@ -1,28 +1,7 @@
 import {useEffect,useState} from 'react';
+import {parseGscCsv} from './gscCsv';
 type Entry={dimension:string;clicks:number;impressions:number;ctr:number;position:number};
 type Snapshot={id:string;kind:string;start_date:string;end_date:string;row_count:number;imported_at:string};
-function csvRows(raw:string):string[][]{
- const out:string[][]=[];let row:string[]=[],field='',quoted=false;
- for(let i=0;i<raw.length;i++){const c=raw[i];if(c==='"'){if(quoted&&raw[i+1]==='"'){field+='"';i++}else quoted=!quoted}
- else if(c===','&&!quoted){row.push(field);field=''}
- else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&raw[i+1]==='\n')i++;row.push(field);if(row.some(x=>x.trim()))out.push(row);row=[];field=''}
- else field+=c}
- if(quoted)throw Error('CSV 引号不完整');
- row.push(field);if(row.some(x=>x.trim()))out.push(row);return out;
-}
-function parse(raw:string,kind:'queries'|'pages'):Entry[]{
- const records=csvRows(raw.replace(/^\uFEFF/,''));const headers=(records.shift()||[]).map(x=>x.trim().toLowerCase());
- const index=(options:string[])=>headers.findIndex(x=>options.includes(x));
- const ix=index(kind==='queries'?['top queries','query','queries']:['top pages','page','pages']);
- const clicks=index(['clicks']),impressions=index(['impressions']),ctr=index(['ctr']),position=index(['position']);
- if([ix,clicks,impressions,ctr,position].some(v=>v<0))throw Error('CSV 缺少必要列。请导出 Search Console「搜索结果」里的查询或网页表格。');
- const rows=records.map(r=>{
-   const rate=(r[ctr]||'').trim(),num=(x:string)=>Number((x||'').replace(/,/g,'').trim());
-   return {dimension:(r[ix]||'').trim(),clicks:num(r[clicks]),impressions:num(r[impressions]),ctr:rate.endsWith('%')?num(rate.slice(0,-1))/100:num(rate),position:num(r[position])};
- });
- if(!rows.length||rows.length>1000)throw Error('每次请导入 1–1000 行 CSV 数据');
- return rows;
-}
 export default function SearchConsoleImport({accessKey}:{accessKey:string}){
  const [kind,setKind]=useState<'queries'|'pages'>('queries'),[property,setProperty]=useState('sc-domain:mingeagle.com');
  const [start,setStart]=useState(''),[end,setEnd]=useState(''),[file,setFile]=useState<File|null>(null);
@@ -34,7 +13,7 @@ export default function SearchConsoleImport({accessKey}:{accessKey:string}){
  useEffect(()=>{void loadReport()},[accessKey,kind]);
  const submit=async()=>{if(!file||!start||!end){setMessage('请选择 CSV 文件并填写实际报表日期范围。');return}
  setBusy(true);setMessage('');
- try{const rows=parse(await file.text(),kind);
+ try{const rows=parseGscCsv(await file.text(),kind);
  const r=await fetch('/api/admin/search-console-import',{method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},body:JSON.stringify({kind,property,startDate:start,endDate:end,rows})});
  const data=await r.json() as {ok?:boolean;error?:string;rows?:number};if(!r.ok||!data.ok)throw Error(data.error||'导入失败');
  setMessage('导入成功：保存 '+data.rows+' 条数据。这是手动导出快照，不是实时搜索数据。');await refresh();await loadReport();
