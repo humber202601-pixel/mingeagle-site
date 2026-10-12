@@ -55,22 +55,24 @@ export async function synchronize(env,{now=new Date(),fetchImpl=fetch}={}){
   const accounts=(payload?.data?.viewer??payload?.result?.viewer)?.accounts;
   if(!Array.isArray(accounts)||accounts.length!==1)throw Error('ambiguous account response');
   const rows=dailyRows(accounts[0]?.rumPageloadEventsAdaptiveGroups,w);
-  let written=0;
-  for(const r of rows){
-    // Single D1 table, strict site-tag provenance and date-key idempotency.
-    const sql=['INSERT INTO web_analytics_daily',
-      '(date_utc,site_tag,host,provider_visits,sampled_pageviews,source,fetched_at)',
-      "VALUES (?,?,'mingeagle.com',?,?,'CLOUDFLARE_RUM_GRAPHQL',CURRENT_TIMESTAMP)",
-      'ON CONFLICT(date_utc) DO UPDATE SET provider_visits=excluded.provider_visits,',
-      'sampled_pageviews=excluded.sampled_pageviews,fetched_at=CURRENT_TIMESTAMP',
-      'WHERE web_analytics_daily.site_tag=excluded.site_tag',
-      'AND web_analytics_daily.host=excluded.host',
-      'AND web_analytics_daily.source=excluded.source'].join(' ');
-    const result=await env.MINGEAGLE_DB.prepare(sql).bind(r.date,TAG,r.visits,r.sampledPageviews).run();
-    if(result?.success===false)throw Error('D1 write failed');
-    written++;
+  // D1 batch is transactional: a failure never leaves a partly updated day set.
+  const sql=['INSERT INTO web_analytics_daily',
+    '(date_utc,site_tag,host,provider_visits,sampled_pageviews,source,fetched_at)',
+    "VALUES (?,?,'mingeagle.com',?,?,'CLOUDFLARE_RUM_GRAPHQL',CURRENT_TIMESTAMP)",
+    'ON CONFLICT(date_utc) DO UPDATE SET provider_visits=excluded.provider_visits,',
+    'sampled_pageviews=excluded.sampled_pageviews,fetched_at=CURRENT_TIMESTAMP',
+    'WHERE web_analytics_daily.site_tag=excluded.site_tag',
+    'AND web_analytics_daily.host=excluded.host',
+    'AND web_analytics_daily.source=excluded.source'].join(' ');
+  if(rows.length){
+    const statements=rows.map(r=>env.MINGEAGLE_DB.prepare(sql)
+      .bind(r.date,TAG,r.visits,r.sampledPageviews));
+    const results=await env.MINGEAGLE_DB.batch(statements);
+    if(!Array.isArray(results)||results.length!==statements.length||
+      results.some(r=>!r||r.success===false))
+      throw Error('D1 batch write not confirmed');
   }
-  return {providerDates:rows.length,written,checkedCompleteDays:DAYS};
+  return {providerDates:rows.length,written:rows.length,checkedCompleteDays:DAYS};
 }
 export default {
   async scheduled(_event,env,ctx){
