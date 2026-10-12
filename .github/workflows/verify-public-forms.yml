@@ -25,6 +25,7 @@ on:
       - 'scripts/check-seo-discovery-links.cjs'
       - 'scripts/optimize-native-media.cjs'
       - 'scripts/check-native-media.cjs'
+      - 'scripts/check-locale-completeness.cjs'
       - '.github/workflows/deploy-pages.yml'
       - '.github/workflows/verify-public-forms.yml'
   push:
@@ -61,3 +62,4 @@ jobs:
           node scripts/check-native-media.cjs
           node --check public/sales-assistant.js
           node scripts/check-chat-i18n.cjs
+          node scripts/check-locale-completeness.cjs
