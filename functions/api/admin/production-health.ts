@@ -46,11 +46,26 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
         .bind(String(run.id)).first<Row>();
     }
   }
+  // Aggregate reconciliation only; do not select or expose contact details.
+  // An unavailable leads table means the relation is unverified, not healthy.
   const inquiry=include(tables,'inquiries')
-    ?await db.prepare(`SELECT COUNT(*) AS total,
-       SUM(CASE WHEN created_at>=datetime('now','-1 day') THEN 1 ELSE 0 END) AS last24h,
-       SUM(CASE WHEN status='NEW' THEN 1 ELSE 0 END) AS newCount
-       FROM inquiries`).first<Row>():null;
+    ?await db.prepare(include(tables,'leads')
+      ?`SELECT COUNT(*) AS total,
+         SUM(CASE WHEN i.created_at>=datetime('now','-1 day') THEN 1 ELSE 0 END) AS last24h,
+         SUM(CASE WHEN i.status='NEW' THEN 1 ELSE 0 END) AS newCount,
+         SUM(CASE WHEN i.lead_id IS NULL OR l.id IS NULL THEN 1 ELSE 0 END) AS orphanLeadLinks,
+         MAX(i.created_at) AS latestAt
+         FROM inquiries i LEFT JOIN leads l ON l.id=i.lead_id`
+      :`SELECT COUNT(*) AS total,
+         SUM(CASE WHEN created_at>=datetime('now','-1 day') THEN 1 ELSE 0 END) AS last24h,
+         SUM(CASE WHEN status='NEW' THEN 1 ELSE 0 END) AS newCount,
+         MAX(created_at) AS latestAt FROM inquiries`).first<Row>():null;
+  const lastHubspotSync=String(recovery?.last_synced_at||'');
+  const lastHubspotMs=Date.parse(lastHubspotSync.replace(' ','T')+'Z');
+  const recoveryAgeMs=Date.now()-lastHubspotMs;
+  const hubspotRecoveryStatus=!env.HUBSPOT_PRIVATE_APP_TOKEN?'DISABLED'
+    :!lastHubspotSync||!Number.isFinite(lastHubspotMs)?'NEVER_SUCCEEDED'
+    :recoveryAgeMs < -5*60000||recoveryAgeMs > 3*60*60000?'STALE':'HEALTHY';
   const sourceTotal=stages.filter(x=>x.kind==='SOURCE').reduce((n,x)=>n+num(x.count),0);
   const sourceFailures=stages.filter(x=>x.kind==='SOURCE'&&['FAILED','REVIEW'].includes(x.status))
     .reduce((n,x)=>n+num(x.count),0);
@@ -70,6 +85,7 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
       importedTotal:recovery?num(recovery.imported_total):null,
       nextOffset:recovery?num(recovery.offset):null,
       stateKnown:Boolean(recovery),
+      status:hubspotRecoveryStatus,
       // A cron heartbeat proves invocation, not provider fetch success.
       actualHubspotSubmissions:null,
     },
@@ -81,13 +97,16 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
       sourceFailures,candidates,imported:resultSummary?num(resultSummary.imported):null,
       stages,
     }:null,
-    inquiries:inquiry?{total:num(inquiry.total),last24h:num(inquiry.last24h),newCount:num(inquiry.newCount)}:null,
+    inquiries:inquiry?{total:num(inquiry.total),last24h:num(inquiry.last24h),newCount:num(inquiry.newCount),
+      orphanLeadLinks:include(tables,'leads')?num(inquiry.orphanLeadLinks):null,
+      latestAt:inquiry.latestAt||null}:null,
     // D1 query metrics are NOT available from the database binding. Show
     // unknown until the Cloudflare Analytics API is configured explicitly.
     quota:{actualD1RowsRead:null,actualD1RowsWritten:null,
       trackingConfigured:false,scope:'Cloudflare Analytics not connected'},
     limitations:['Cron heartbeat only indicates trigger invocation, not successful work.',
       'HubSpot submission count is unknown without authenticated provider access.',
+      'Missing HubSpot recovery credentials disable backup ingestion even when Cron heartbeats are fresh.',
       'D1 read/write usage must be verified in Cloudflare Analytics.'],
   });
  }catch(e){
