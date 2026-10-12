@@ -16,7 +16,7 @@ type ProductionHealth={
       limit50Offset:number|null;limit2Total:number|null;limit50Total:number|null}|null};
   turnstile?:{configured:boolean;enabled:boolean;misconfigured:boolean};
   discovery?:{status:string;phase:string;updatedAt:string;stepsCompleted:number;sources:number;sourceFailures:number;candidates:number;imported:number|null}|null;
-  inquiries?:{total:number;last24h:number;newCount:number;orphanLeadLinks:number|null;latestAt:string|null}|null;
+  inquiries?:{total:number;last24h:number;newCount:number;newOver4h:number;newOver24h:number;reviewingOver24h:number;orphanLeadLinks:number|null;latestAt:string|null}|null;
   quota?:{actualD1RowsRead:number|null;actualD1RowsWritten:number|null;trackingConfigured:boolean};
 };
 type ResponseData = { ok?: boolean; settings?: Settings; metrics?: Metrics; recent?: Row[]; scheduler?: SchedulerRow[]; error?: string };
@@ -283,6 +283,10 @@ export default function AutomationCenter({ accessKey }: { accessKey: string }) {
       {health&&<>
         <div className="list-row"><div><strong>官网询盘入库</strong><small>最近 24 小时新增，来自 D1 询盘表；不等于页面访问量</small></div><span>{health.inquiries?health.inquiries.last24h+' 条':'尚未建立统计表'}</span></div>
         <div className="list-row"><div><strong>历史询盘总数</strong><small>包含已处理和未处理记录</small></div><span>{health.inquiries?health.inquiries.total+' 条':'未知'}</span></div>
+        <div className="list-row"><div><strong>新询盘待首次处理 · 超过 4 小时</strong><small>依据 CRM 的 NEW 状态和创建时间；不代表已核验邮件或 WhatsApp 是否回复</small></div><span>{health.inquiries?health.inquiries.newOver4h+' 条':'无法核验'}</span></div>
+        <div className="list-row"><div><strong>长期待处理 · 超过 24 小时</strong><small>分别统计仍为 NEW 以及处于 REVIEWING 的询盘；只读统计，不修改客户状态</small></div><span>{health.inquiries?('NEW '+health.inquiries.newOver24h+' / REVIEWING '+health.inquiries.reviewingOver24h):'无法核验'}</span></div>
+        {health.inquiries&&health.inquiries.newOver4h>0&&<p className="form-status error" role="alert">需要人工核查：{health.inquiries.newOver4h} 条新询盘建立超过 4 小时仍为 NEW，其中 {health.inquiries.newOver24h} 条超过 24 小时。请进入 <a href="/app/inquiries">询盘列表</a> 确认客户是否已联系，并更新处理状态；系统不会自动联系客户。</p>}
+        {health.inquiries&&health.inquiries.reviewingOver24h>0&&<p className="form-status error" role="alert">另有 {health.inquiries.reviewingOver24h} 条询盘创建超过 24 小时仍处于 REVIEWING，请人工核实实际处理进度。这是状态提醒，并非逾期承诺或真实发送记录。</p>}
         <div className="list-row"><div><strong>询盘关联线索一致性</strong><small>只统计缺失的线索关联数量，不读取或公开客户内容</small></div><span>{health.inquiries?.orphanLeadLinks===null||health.inquiries?.orphanLeadLinks===undefined?'无法核验':health.inquiries.orphanLeadLinks===0?'全部关联正常':health.inquiries.orphanLeadLinks+' 条关联异常'}</span></div>
         {health.inquiries?.orphanLeadLinks!=null&&health.inquiries.orphanLeadLinks>0&&<p className="form-status error" role="alert">发现 {health.inquiries.orphanLeadLinks} 条询盘缺少有效销售线索关联。请人工检查，系统不会自动改写客户资料。</p>}
         <div className="list-row"><div><strong>Turnstile 机器人验证</strong><small>{health.turnstile?.enabled?'已在服务器开启，每条公开询盘都需要验证':health.turnstile?.misconfigured?'已设置启用但缺少密钥：公开询盘验证会临时不可用':health.turnstile?.configured?'密钥已配置，等待手动开启':'未启用（沿用现有限流规则）'}</small></div><span>{health.turnstile?.enabled?'验证中':health.turnstile?.misconfigured?'配置不完整':'未开启'}</span></div>
