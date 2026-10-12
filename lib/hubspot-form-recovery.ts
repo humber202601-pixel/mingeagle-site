@@ -30,7 +30,7 @@ export const HUBSPOT_AUDIT_REASONS=[
 export type HubspotAuditReason=typeof HUBSPOT_AUDIT_REASONS[number];
 export function classifyHubspotSubmission(submission:HubspotSubmission):HubspotAuditReason{
   if(!submission||!Array.isArray(submission.values))return 'NO_FORM_FIELDS';
-  const values=new Map(submission.values.filter(field=>field&&typeof field.name==='string')
+  const values=new Map((submission.values||[]).filter(field=>field&&typeof field.name==='string')
     .map(field=>[field.name!.toLowerCase(),trim(field.value,4000)]));
   const field=(name:string,max=400)=>trim(values.get(name)||'',max);
   const reference=field('me_inquiry_reference',80).toUpperCase();
@@ -55,7 +55,7 @@ export function summarizeHubspotSubmissions(rows:HubspotSubmission[]):{
 
 export function parseHubspotSubmission(submission:HubspotSubmission):RecoveredInquiry|null{
   if(classifyHubspotSubmission(submission)!=='ELIGIBLE')return null;
-  const values=new Map(submission.values.filter(field=>field&&typeof field.name==='string')
+  const values=new Map((submission.values||[]).filter(field=>field&&typeof field.name==='string')
     .map(field=>[field.name!.toLowerCase(),trim(field.value,4000)]));
   const field=(name:string,max=400)=>trim(values.get(name)||'',max);
   const reference=field('me_inquiry_reference',80).toUpperCase();
