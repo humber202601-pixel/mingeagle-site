@@ -38,7 +38,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
       WHERE quote_id=? ORDER BY sort_order,id LIMIT 25`).bind(quoteId).all<DocLine>();
    rows=itemRows.results||[];
   }
-  const pdf=renderCommercialPdf({kind,quote:data,rows,buyer:quote.buyer||quote.contact||'Customer (legal name to be confirmed)',
+  const pdf=renderCommercialPdf({kind:kind!,quote:data,rows,buyer:quote.buyer||quote.contact||'Customer (legal name to be confirmed)',
     contact:quote.contact||'',orderReference,orderDate});
   const safeReference=String(kind==='pi'?orderReference:quote.reference).replace(/[^A-Za-z0-9-]/g,'-').slice(0,100);
   return new Response(pdf.buffer.slice(pdf.byteOffset,pdf.byteOffset+pdf.byteLength) as ArrayBuffer,{
