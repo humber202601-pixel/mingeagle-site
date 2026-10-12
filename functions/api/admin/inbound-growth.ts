@@ -10,17 +10,32 @@ const attribution=`WITH inquiry_base AS (
   LOWER(TRIM(COALESCE(json_extract(a.metadata_json,'$.utmSource'),''))) AS utm,
   LOWER(TRIM(COALESCE(json_extract(a.metadata_json,'$.referrer'),''))) AS referring,
   COALESCE(json_extract(a.metadata_json,'$.landingPage'),'') AS landing,
-  CASE WHEN EXISTS(SELECT 1 FROM quotes q WHERE q.lead_id=i.lead_id
+  CASE WHEN i.lead_id IS NOT NULL AND EXISTS(SELECT 1 FROM quotes q WHERE q.lead_id=i.lead_id
      AND q.status IN ('SENT','VIEWED','ACCEPTED','DECLINED','EXPIRED','CONVERTED'))
     THEN 1 ELSE 0 END AS quoted,
-  CASE WHEN EXISTS(SELECT 1 FROM orders o WHERE o.lead_id=i.lead_id AND o.status NOT IN ('DRAFT','CANCELLED'))
-    THEN 1 ELSE 0 END AS ordered
+  CASE WHEN i.lead_id IS NOT NULL AND EXISTS(SELECT 1 FROM orders o WHERE o.lead_id=i.lead_id AND o.status NOT IN ('DRAFT','CANCELLED'))
+    THEN 1 ELSE 0 END AS ordered,
+  CASE WHEN EXISTS(SELECT 1 FROM quotes q WHERE q.inquiry_id=i.id
+      AND q.status IN ('SENT','VIEWED','ACCEPTED','DECLINED','EXPIRED','CONVERTED'))
+    THEN 1 ELSE 0 END AS exact_quoted,
+  CASE WHEN EXISTS(SELECT 1 FROM quotes q JOIN orders o ON o.quote_id=q.id
+      WHERE q.inquiry_id=i.id AND q.status IN ('SENT','VIEWED','ACCEPTED','DECLINED','EXPIRED','CONVERTED')
+      AND o.status NOT IN ('DRAFT','CANCELLED'))
+    THEN 1 ELSE 0 END AS exact_ordered
  FROM inquiries i
- LEFT JOIN activities a ON a.entity_type='LEAD' AND a.entity_id=i.lead_id
-   AND a.activity_type='INQUIRY_CREATED' AND json_extract(a.metadata_json,'$.inquiryId')=i.id
+ -- Choose one deterministic original INQUIRY_CREATED activity per inquiry.
+ -- Multiple webhook retries/activity rows must never multiply the inquiry count.
+ LEFT JOIN activities a ON a.id=(
+   SELECT a0.id FROM activities a0
+   WHERE a0.entity_type='LEAD' AND a0.entity_id=i.lead_id
+     AND a0.activity_type='INQUIRY_CREATED'
+     AND json_valid(a0.metadata_json)
+     AND json_extract(a0.metadata_json,'$.inquiryId')=i.id
+   ORDER BY a0.created_at ASC,a0.id ASC LIMIT 1
+ )
  WHERE (?=0 OR i.created_at>=datetime('now','-' || ? || ' days'))
 ), buckets AS (
- SELECT id,quoted,ordered,
+ SELECT id,quoted,ordered,exact_quoted,exact_ordered,
  CASE
   WHEN utm IN ('google','googleads','adwords') THEN 'GOOGLE'
   WHEN utm IN ('bing','microsoft','microsoft_ads') THEN 'BING'
@@ -73,29 +88,46 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
   // Independent buckets cannot multiply messages/quotes/orders. At most 9
   // channels x 3 audiences, plus entry-page buckets; only two SELECTs.
   const sourceRows=(await db.prepare(`${attribution}
-   SELECT channel,audience,COUNT(*) AS inquiries,SUM(quoted) AS quoted,SUM(ordered) AS ordered
+   SELECT channel,audience,COUNT(*) AS inquiries,SUM(quoted) AS quoted,SUM(ordered) AS ordered,
+     SUM(exact_quoted) AS exactQuoted,SUM(exact_ordered) AS exactOrdered
    FROM buckets GROUP BY channel,audience ORDER BY inquiries DESC,channel,audience`)
    .bind(days,days).all<Row>()).results;
   const pages=(await db.prepare(`${attribution}
-   SELECT entry_page,COUNT(*) AS inquiries,SUM(quoted) AS quoted,SUM(ordered) AS ordered FROM buckets GROUP BY entry_page ORDER BY inquiries DESC,entry_page`)
+   SELECT entry_page,COUNT(*) AS inquiries,SUM(quoted) AS quoted,SUM(ordered) AS ordered,
+     SUM(exact_quoted) AS exactQuoted,SUM(exact_ordered) AS exactOrdered FROM buckets GROUP BY entry_page ORDER BY inquiries DESC,entry_page`)
    .bind(days,days).all<Row>()).results;
-  const summary={inquiries:0,b2b:0,b2c:0,unknown:0,quoted:0,ordered:0};
+  const summary={inquiries:0,b2b:0,b2c:0,unknown:0,quoted:0,ordered:0,exactQuoted:0,exactOrdered:0};
   const sources=sourceRows.map(r=>{
    const row={channel:String(r.channel||'DIRECT_UNKNOWN'),audience:String(r.audience||'UNKNOWN'),
-    inquiries:n(r.inquiries),quoted:n(r.quoted),ordered:n(r.ordered)};
+    inquiries:n(r.inquiries),quoted:n(r.quoted),ordered:n(r.ordered),
+    exactQuoted:n(r.exactQuoted),exactOrdered:n(r.exactOrdered)};
    summary.inquiries+=row.inquiries;summary.quoted+=row.quoted;summary.ordered+=row.ordered;
+   summary.exactQuoted+=row.exactQuoted;summary.exactOrdered+=row.exactOrdered;
    if(row.audience==='B2B')summary.b2b+=row.inquiries;
    else if(row.audience==='B2C')summary.b2c+=row.inquiries;
    else summary.unknown+=row.inquiries;
    return row;
   });
   return json({ok:true,generatedAt:new Date().toISOString(),filters:{days},summary,sources,
-   entryPages:pages.map(p=>({entryPage:String(p.entry_page),inquiries:n(p.inquiries),quoted:n(p.quoted),ordered:n(p.ordered)})),
+   entryPages:pages.map(p=>({entryPage:String(p.entry_page),inquiries:n(p.inquiries),
+     quoted:n(p.quoted),ordered:n(p.ordered),exactQuoted:n(p.exactQuoted),exactOrdered:n(p.exactOrdered)})),
+   dataProvenance:{
+     inquiries:'D1 inquiries.id (deduplicated by persisted inquiry row)',
+     exactQuote:'D1 quotes.inquiry_id = inquiries.id; quote is no longer draft',
+     exactOrder:'D1 orders.quote_id = quotes.id, linked by quotes.inquiry_id; order not draft/cancelled',
+     leadAssociated:'Legacy association by leads.id; not evidence of a specific inquiry causing a quote/order',
+     websiteVisits:{connected:false,count:null},
+     searchImpressions:{connected:false,count:null},
+     conversionWindow:'Inquiry creation timestamp cohort; quote/order flags reflect current records',
+   },
    limitations:[
     '本页只计算已经进入 CRM 的真实网站询盘；没有 Google 曝光、网页访问、广告点击或购物车数据。',
     '渠道优先采用询盘提交时的 UTM，其次参考 Referrer；Direct/Unknown 包含缺失归因，不代表都来自直接访问。',
     'B2C 仅在用户明确选择个人客户类型时识别；未说明身份的普通咨询与样品申请归入未确定，不能强行当作零售订单。',
-    '报价和订单表示与该询盘客户关联的当前业务记录，不证明单独哪次营销触点导致成交。',
+    '直接关联报价：quotes.inquiry_id 明确指向该询盘；直接关联订单：经该报价 quotes.id / orders.quote_id 找到订单，均不按订单行数重复统计。',
+    '同客户关联报价/订单仅按 lead_id 计算，不证明某一条特定询盘带来该订单，也不应与直接关联数量相加。',
+    '重复 INQUIRY_CREATED 活动只采用最早一条，避免日志重试造成询盘数翻倍；UTM/referrer 未经广告平台验证。',
+    '报价和订单为按询盘创建时间选取的客户群当前状态，且并非严格同一天的访问、询盘、报价和付款事件漏斗。',
     '追踪参数由访问页面携带，并未进行广告平台服务器核验；实际流量仍需通过已验证的 Search Console 和 GA4/隐私合规网站分析工具观察。',
    ]});
  }catch(e){console.error('inbound_growth_unavailable',e);return json({ok:false,error:'无法读取真实询盘来源，请检查 D1 可用性。'},503);}
