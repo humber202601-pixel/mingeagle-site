@@ -56,7 +56,7 @@ try{
  assert.equal(unauthorized.status,401,'Admin-only endpoint must reject no-key caller');
  assert.equal(costRows(),0);
  for(const [patch,reason] of [
-  [{sku:'INVALID'},'INVALID_SKU'],
+  [{sku:'INVALID'},'Invalid SKU'],
   [{moq:0},'INVALID_INTEGER'],
   [{casePack:'2.5'},'INVALID_INTEGER'],
   [{tiers:[{minimumQuantity:50,unitCostUSD:'4.25'}]},'INVALID_TIER_ORDER'],
