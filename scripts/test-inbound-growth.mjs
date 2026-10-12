@@ -92,7 +92,8 @@ try{
  assert(ui.includes('网站访问统计与搜索曝光')&&ui.includes('Google Search Console'));
  assert(ui.includes('直接关联订单的询盘'));
  assert(ui.includes('同客户关联订单'));
- assert(ui.includes('未连接'),'Visits or search impressions must remain unavailable, not fabricated');
+ assert(ui.includes('等待有效快照')&&ui.includes('无数据不能当作零'),
+  'GSC authorized but not synced must remain explicitly unknown, never fabricated');
  assert(ui.includes('Cloudflare Web Analytics 真实访问报表'),'Must link to real provider dashboard');
  assert(ui.includes('CRM 不持有 Cloudflare 分析 API 密钥'),'Server has no provider API credential');
  assert(ui.includes('日统计快照'),'Analytics only shown from dated provider snapshots');

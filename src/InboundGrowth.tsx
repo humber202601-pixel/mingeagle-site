@@ -152,7 +152,7 @@ export default function InboundGrowth({accessKey}:{accessKey:string}){
        </>}
       </div>
       <p style={{fontSize:12,color:'#667085'}}>请在 Cloudflare Web Analytics 中选择 mingeagle.com；这是浏览器采集的数据，可能受广告拦截、脚本禁用和采样影响，不能直接等同于自然人唯一访客数。</p>
-      <p style={{color:'#475467',fontSize:13,lineHeight:1.7}}>官网已有 sitemap.xml、robots.txt 和询盘 UTM 归因。Google Search Console 的 mingeagle.com 域名属性已在现有搜索分析连接中可读取，但当前 CRM 的搜索曝光尚未直接接入，因此上方“未连接”仅代表 CRM 尚无该项同步，不代表 Google 曝光为零。Bing Webmaster Tools 是否验证仍需单独检查。</p>
+      <p style={{color:'#475467',fontSize:13,lineHeight:1.7}}>官网已有 sitemap.xml、robots.txt 和询盘 UTM 归因。Google Search Console 的 mingeagle.com 域名属性已授权，CRM 也已接入独立的搜索日统计快照查询；但只有同步取得真实有效报告后才会显示点击和曝光。无数据不能当作零。详细搜索关键词与网页建议目前仍以人工导入的官方 CSV 快照为依据。Bing Webmaster Tools 是否验证仍需单独检查。</p>
       <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
        <a href="https://dash.cloudflare.com/?to=/:account/web-analytics/sites" target="_blank" rel="noopener noreferrer">查看 Cloudflare Web Analytics 真实访问报表 <ArrowUpRight size={13}/></a>
        <a href="https://search.google.com/search-console/" target="_blank" rel="noreferrer">打开 Google Search Console <ArrowUpRight size={13}/></a>
