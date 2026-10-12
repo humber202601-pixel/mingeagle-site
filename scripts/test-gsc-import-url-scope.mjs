@@ -12,6 +12,22 @@ try {
  const output=join(tmp,'gsc-import.mjs');
  await build({entryPoints:['functions/api/admin/search-console-import.ts'],outfile:output,bundle:true,platform:'node',format:'esm',logLevel:'silent'});
  const {onRequestPost,onRequestGet}=await import(pathToFileURL(output));
+ const parserOutput=join(tmp,'csv.mjs');
+ await build({entryPoints:['src/gscCsv.ts'],outfile:parserOutput,bundle:true,platform:'node',format:'esm',logLevel:'silent'});
+ const {parseGscCsv}=await import(pathToFileURL(parserOutput));
+ const english='Top pages,Clicks,Impressions,CTR,Position\\nhttps://www.mingeagle.com/products.html,1,8,12.5%,9';
+ assert.deepEqual(parseGscCsv(english,'pages'),[{dimension:'https://www.mingeagle.com/products.html',clicks:1,impressions:8,ctr:0.125,position:9}]);
+ const chinese='热门网页,点击次数,展示次数,点击率,平均排名\\nhttps://www.mingeagle.com/silent-soccer.html,0,6,0%,12';
+ assert.equal(parseGscCsv(chinese,'pages')[0].impressions,6);
+ assert.equal(parseGscCsv('Top queries,Clicks,Impressions,CTR,Position\\n"silent basketball, indoor",2,20,10%,8','queries')[0].dimension,'silent basketball, indoor');
+ for(const csv of [
+  'Top pages,Clicks,Impressions,CTR,Position\\nhttps://www.mingeagle.com/products.html,,8,0%,9',
+  'Top pages,Clicks,Impressions,CTR,Position\\nhttps://www.mingeagle.com/products.html,0,,0%,9',
+  'Top pages,Clicks,Impressions,CTR,Position\\nhttps://www.mingeagle.com/products.html,0,8,,9',
+  'Top pages,Clicks,Impressions,CTR,Position\\nhttps://www.mingeagle.com/products.html,9,8,50%,9',
+  'Top pages,Clicks,Impressions,CTR,Position\\nhttps://www.mingeagle.com/products.html,0,8,0%,NaN'
+ ])assert.throws(()=>parseGscCsv(csv,'pages'),'Malformed CSV must never silently turn into valid zeros');
+
  const state={creates:0,batches:0,statements:[]};
  const db={
   prepare(sql) {
