@@ -10,7 +10,35 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   if(!env.MINGEAGLE_DB)return status({ok:false,error:'Database is not configured.'},503);
   if(!env.HUBSPOT_PRIVATE_APP_TOKEN)return status({ok:true,configured:false,disabled:true,reason:'HUBSPOT_PRIVATE_APP_TOKEN not configured'});
   const body=await request.json().catch(()=>({})) as {action?:string};
-  if(body.action!=='SYNC')return status({ok:false,error:'Unsupported operation.'},400);
+  if(body.action!=='SYNC'&&body.action!=='AUDIT')return status({ok:false,error:'Unsupported operation.'},400);
+  // Scoped, read-only inventory diagnostic. Never return or persist submissions,
+  // contact IDs, field values, raw provider payloads or credentials.
+  if(body.action==='AUDIT'){
+    const read=async(limit:2|50)=>{
+      const url=new URL('https://api.hubapi.com/form-integrations/v1/submissions/forms/'+MINGEAGLE_HUBSPOT_FORM_ID);
+      url.searchParams.set('limit',String(limit));
+      url.searchParams.set('offset','0');
+      const r=await fetch(url.toString(),{
+        headers:{Authorization:'Bearer '+env.HUBSPOT_PRIVATE_APP_TOKEN,Accept:'application/json'},
+        signal:AbortSignal.timeout(12000),
+      });
+      if(!r.ok)throw new Error('HUBSPOT_HTTP_'+r.status);
+      const data=await r.json() as {results?:unknown[];hasMore?:unknown;offset?:unknown;total?:unknown};
+      if(!Array.isArray(data.results)||data.results.length>limit)throw new Error('INVALID_SUBMISSION_PAGE');
+      return {
+        count:data.results.length,
+        hasMore:typeof data.hasMore==='boolean'?data.hasMore:null,
+        offset:Number.isSafeInteger(data.offset)&&Number(data.offset)>=0?Number(data.offset):null,
+        total:Number.isSafeInteger(data.total)&&Number(data.total)>=0?Number(data.total):null,
+      };
+    };
+    try{
+      const [limit2,limit50]=await Promise.all([read(2),read(50)]);
+      return status({ok:true,configured:true,inventory:{limit2,limit50}});
+    }catch{
+      return status({ok:false,error:'HubSpot inventory diagnostic failed.'},502);
+    }
+  }
   const db=env.MINGEAGLE_DB;
   try{
     await db.prepare(`CREATE TABLE IF NOT EXISTS hubspot_inquiry_recovery_state(

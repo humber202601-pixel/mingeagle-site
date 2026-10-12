@@ -414,6 +414,60 @@ async function recordHubspotBatch(env:Env,batch:RecoveryBatch){
   }catch{console.error('hubspot_recovery_batch_summary_write_failed');}
 }
 
+// A diagnostic is read-only, runs at most once daily and never alters the
+// recovery cursor or the last confirmed import outcome.
+type AuditPage={count:number;hasMore:boolean|null;offset:number|null;total:number|null};
+type AuditResponse={ok:true;inventory:{limit2:AuditPage;limit50:AuditPage}};
+const validAuditPage=(x:unknown,limit:number):x is AuditPage=>{
+  if(!x||typeof x!=='object')return false;
+  const p=x as Record<string,unknown>;
+  return Number.isSafeInteger(p.count)&&Number(p.count)>=0&&Number(p.count)<=limit
+    &&(p.hasMore===null||typeof p.hasMore==='boolean')
+    &&(p.offset===null||(Number.isSafeInteger(p.offset)&&Number(p.offset)>=0))
+    &&(p.total===null||(Number.isSafeInteger(p.total)&&Number(p.total)>=0));
+};
+async function auditHubspotInventory(env:Env){
+  try {
+    const db=env.MINGEAGLE_DB;
+    await db.prepare(`CREATE TABLE IF NOT EXISTS hubspot_submission_inventory_audit(
+      id TEXT PRIMARY KEY,checked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      count_two INTEGER NOT NULL,has_more_two INTEGER,
+      count_fifty INTEGER NOT NULL,has_more_fifty INTEGER,
+      offset_two INTEGER,offset_fifty INTEGER,total_two INTEGER,total_fifty INTEGER
+    )`).run();
+    const last=await db.prepare(`SELECT checked_at FROM hubspot_submission_inventory_audit
+      WHERE id='public-form'`).first<{checked_at:string}>();
+    if(last?.checked_at){
+      const ms=Date.parse(last.checked_at.replace(' ','T')+'Z');
+      if(Number.isFinite(ms)&&Date.now()-ms<86400000&&Date.now()>=ms)return;
+    }
+    const r=await fetch('https://app.mingeagle.com/api/admin/hubspot-inquiry-recovery',{
+      method:'POST',headers:{'content-type':'application/json',
+        'x-hubspot-recovery-key':env.HUBSPOT_RECOVERY_SERVICE_KEY||''},
+      body:JSON.stringify({action:'AUDIT'}),signal:AbortSignal.timeout(29000),
+    });
+    if(!r.ok){console.error('hubspot_inventory_audit_http_failed',r.status);return}
+    const x=await r.json().catch(()=>null) as AuditResponse|null;
+    if(x?.ok!==true||!validAuditPage(x.inventory?.limit2,2)
+      ||!validAuditPage(x.inventory?.limit50,50)){
+      console.error('hubspot_inventory_audit_invalid_response');return;
+    }
+    const one=x.inventory.limit2,two=x.inventory.limit50;
+    const asInt=(b:boolean|null)=>b===null?null:b?1:0;
+    await db.prepare(`INSERT INTO hubspot_submission_inventory_audit
+      (id,checked_at,count_two,has_more_two,count_fifty,has_more_fifty,
+       offset_two,offset_fifty,total_two,total_fifty)
+      VALUES('public-form',CURRENT_TIMESTAMP,?,?,?,?,?,?,?,?)
+      ON CONFLICT(id) DO UPDATE SET checked_at=CURRENT_TIMESTAMP,
+       count_two=excluded.count_two,has_more_two=excluded.has_more_two,
+       count_fifty=excluded.count_fifty,has_more_fifty=excluded.has_more_fifty,
+       offset_two=excluded.offset_two,offset_fifty=excluded.offset_fifty,
+       total_two=excluded.total_two,total_fifty=excluded.total_fifty`)
+      .bind(one.count,asInt(one.hasMore),two.count,asInt(two.hasMore),
+        one.offset,two.offset,one.total,two.total).run();
+  }catch{console.error('hubspot_inventory_audit_failed')}
+}
+
 // Run a bounded, admin-protected HubSpot backup replay once an hour.
 // Report skipped requests separately from confirmed successful synchronization.
 async function runHubspotRecovery(env:Env){
@@ -434,7 +488,10 @@ async function runHubspotRecovery(env:Env){
       : result?.disabled===true&&result.configured===false?'SKIPPED_NO_PROVIDER_KEY'
       :'API_FAILED';
     await recordHubspotJob(env,status,response.status);
-    if(status==='SUCCEEDED'&&result&&validBatch(result))await recordHubspotBatch(env,result);
+    if(status==='SUCCEEDED'&&result&&validBatch(result)){
+      await recordHubspotBatch(env,result);
+      await auditHubspotInventory(env);
+    }
     if(status==='AUTH_FAILED'||status==='API_FAILED')
       console.error('hubspot_recovery_tick_failed',{status:response.status});
   } catch(error) {

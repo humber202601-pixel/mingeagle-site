@@ -13,7 +13,8 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
   const present=await db.prepare(`SELECT name FROM sqlite_master
     WHERE type='table' AND name IN
     ('scheduler_heartbeat','hubspot_inquiry_recovery_state','discovery_auto_runs',
-     'discovery_auto_items','discovery_candidates','inquiries','leads','hubspot_recovery_job_status','hubspot_recovery_batch_summary')`)
+     'discovery_auto_items','discovery_candidates','inquiries','leads','hubspot_recovery_job_status','hubspot_recovery_batch_summary',
+     'hubspot_submission_inventory_audit')`)
     .all<{name:string}>();
   const tables=new Set(present.results.map(x=>x.name));
   const scheduler=include(tables,'scheduler_heartbeat')
@@ -34,6 +35,13 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
         has_more,next_offset FROM hubspot_recovery_batch_summary WHERE id='hourly'`)
        .first<{last_completed_at:string;processed:number;imported:number;reused:number;
          skipped:number;has_more:number;next_offset:number}>():null;
+  const hubspotAudit=include(tables,'hubspot_submission_inventory_audit')
+    ?await db.prepare(`SELECT checked_at,count_two,has_more_two,count_fifty,
+       has_more_fifty,offset_two,offset_fifty,total_two,total_fifty
+       FROM hubspot_submission_inventory_audit WHERE id='public-form'`)
+       .first<{checked_at:string;count_two:number;has_more_two:number|null;
+         count_fifty:number;has_more_fifty:number|null;offset_two:number|null;
+         offset_fifty:number|null;total_two:number|null;total_fifty:number|null}>():null;
   const run=include(tables,'discovery_auto_runs')
     ?await db.prepare(`SELECT id,status,phase,updated_at,created_at,
       completed_at,steps_completed FROM discovery_auto_runs
@@ -108,6 +116,17 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
         processed:num(recoveryBatch.processed),imported:num(recoveryBatch.imported),
         reused:num(recoveryBatch.reused),skipped:num(recoveryBatch.skipped),
         hasMore:Boolean(recoveryBatch.has_more),nextOffset:num(recoveryBatch.next_offset),
+      }:null,
+      inventoryAudit:hubspotAudit?{
+        checkedAt:hubspotAudit.checked_at,
+        limit2Count:num(hubspotAudit.count_two),
+        limit2HasMore:hubspotAudit.has_more_two===null?null:Boolean(hubspotAudit.has_more_two),
+        limit50Count:num(hubspotAudit.count_fifty),
+        limit50HasMore:hubspotAudit.has_more_fifty===null?null:Boolean(hubspotAudit.has_more_fifty),
+        limit2Offset:hubspotAudit.offset_two,
+        limit50Offset:hubspotAudit.offset_fifty,
+        limit2Total:hubspotAudit.total_two,
+        limit50Total:hubspotAudit.total_fifty,
       }:null,
       // A cron heartbeat proves invocation, not provider fetch success.
       actualHubspotSubmissions:null,

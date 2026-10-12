@@ -61,6 +61,12 @@ try{
       reused INTEGER,skipped INTEGER,has_more INTEGER,next_offset INTEGER);
     INSERT INTO hubspot_recovery_batch_summary
       VALUES('hourly',CURRENT_TIMESTAMP,2,1,0,1,1,2);
+    CREATE TABLE hubspot_submission_inventory_audit(
+      id TEXT PRIMARY KEY,checked_at TEXT,count_two INTEGER,has_more_two INTEGER,
+      count_fifty INTEGER,has_more_fifty INTEGER,
+      offset_two INTEGER,offset_fifty INTEGER,total_two INTEGER,total_fifty INTEGER);
+    INSERT INTO hubspot_submission_inventory_audit VALUES
+      ('public-form',CURRENT_TIMESTAMP,2,0,11,0,0,0,NULL,NULL);
     CREATE TABLE leads(id TEXT PRIMARY KEY);
     INSERT INTO leads VALUES('linked-lead');
     CREATE TABLE inquiries(id TEXT PRIMARY KEY,status TEXT,created_at TEXT,lead_id TEXT);
@@ -79,6 +85,10 @@ try{
     filled.data.hubspot.lastBatch.reused,filled.data.hubspot.lastBatch.skipped],[2,1,0,1]);
   assert.equal(filled.data.hubspot.lastBatch.hasMore,true);
   assert.equal(filled.data.hubspot.lastBatch.nextOffset,2);
+  assert.equal(filled.data.hubspot.inventoryAudit.limit2Count,2);
+  assert.equal(filled.data.hubspot.inventoryAudit.limit50Count,11);
+  assert.equal(filled.data.hubspot.inventoryAudit.limit2HasMore,false);
+  assert.equal(filled.data.hubspot.inventoryAudit.limit50HasMore,false);
   assert.equal(filled.data.inquiries.orphanLeadLinks,1,'Orphan lead references must be observable');
   assert.equal(filled.data.inquiries.total,2);
   assert.equal(filled.data.discovery.sources,2);
@@ -100,7 +110,7 @@ try{
   assert.equal(never.writes,0);
   const absentKey=await load();
   assert.equal(absentKey.data.hubspot.status,'DISABLED','Missing credential must never be shown as healthy');
-  assert(filled.queries<=12,'all D1 checks must remain bounded');
+  assert(filled.queries<=13,'all D1 checks must remain bounded');
   const serialized=JSON.stringify(filled.data);
   assert(!serialized.includes('test-only-secret'),'HubSpot credentials cannot leak to API');
   assert(!serialized.includes('synthetic-admin-key'),'Worker credentials cannot leak to health API');
