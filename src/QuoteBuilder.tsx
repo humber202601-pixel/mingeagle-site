@@ -423,8 +423,8 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           <small>创建前检查：产品型号 / 规格、客户确认数量、批发单价、实际运费或包邮依据、收货 ZIP、付款和运输条款。缺少 ZIP 时请先核实运输费用；此操作只创建草稿，不会自动发送。</small>
         </div>
         {result && <div className="form-status success"><strong>报价草稿已创建：{result.reference}</strong><p>{result.currency} {Number(result.total).toFixed(2)} · {statusLabel(result.status)}</p></div>}
-        {error && <div className="form-status error"><strong>报价操作失败</strong><p>{error}</p></div>}
       </form>}
+      {error && <div className="form-status error" role="alert"><strong>报价操作失败</strong><p>{error}</p></div>}
     </section>
 
     {editDetail && <section id="quote-edit-panel" className="panel quote-builder">
