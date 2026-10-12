@@ -47,6 +47,11 @@ jobs:
           node scripts/build-seo-discovery-links.cjs
           node scripts/check-seo-discovery-links.cjs
 
+      - name: Optimize first-party native image loading
+        run: |
+          node scripts/optimize-native-media.cjs
+          node scripts/check-native-media.cjs
+
       - name: Enable privacy-focused Cloudflare Web Analytics across built HTML
         run: |
           node scripts/enable-web-analytics.cjs
