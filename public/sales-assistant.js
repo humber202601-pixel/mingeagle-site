@@ -19,11 +19,13 @@ function reply(query){const q=query.toLowerCase();if(/(human|agent|representativ
 const quoteState={active:false,model:'',size:'',quantity:'',zip:''};
 function captureDetails(text){
  const hadQuantity=!!quoteState.quantity;
- const m=text.match(/(?:^|\s)([1-9]\d{0,4})\s*(?:sets?|pcs?|pieces?|balls?|units?)\b/i);
+ const n=text.match(/\b(?:size\s*|no\.?\s*)([34567])\b/i);
+ // Allow product words between the count and unit, without treating a size or ZIP as a count.
+ const quantities=text.matchAll(/(?:^|\s)([1-9]\d{0,4})\s*(?:(?:silent|flocked|weighted|fabric(?:[- ]cover)?|basketball|soccer|football)\s+){0,5}(?:sets?|pcs?|pieces?|balls?|units?)\b/gi);
+ const m=Array.from(quantities).find(candidate=>!/(?:\b(?:size|no\.?|zip(?:\s*code)?|postal(?:\s*code)?|postcode)|\d\s*(?:-|to))\s*[:#-]?\s*$/i.test(text.slice(0,candidate.index)));
  if(m)quoteState.quantity=m[1];else if(quoteState.model&&quoteState.size&&!quoteState.quantity&&/^[1-9]\d{0,4}$/.test(text.trim()))quoteState.quantity=text.trim();
  const z=text.match(/\b(?:zip(?:\s*code)?|postal(?:\s*code)?|postcode|code\s*postal|c[oó]digo\s*postal|cep|plz|cap|郵便番号)\s*[:#-]?\s*([a-z0-9][a-z0-9 -]{1,10})/i);
- if(z)quoteState.zip=z[1].trim().toUpperCase();else if(hadQuantity&&!quoteState.zip&&/^(?=.{3,10}$)(?=.*\d)[a-z0-9 -]+$/i.test(text.trim()))quoteState.zip=text.trim().toUpperCase();
- const n=text.match(/\b(?:size\s*|no\.?\s*)([34567])\b/i);
+ if(z)quoteState.zip=z[1].trim().toUpperCase();else if(hadQuantity&&!m&&!n&&!quoteState.zip&&/^(?=.{3,10}$)(?=.*\d)[a-z0-9 -]+$/i.test(text.trim()))quoteState.zip=text.trim().toUpperCase();
  if(n)quoteState.size=n[1];else if(quoteState.model&&!quoteState.size&&/^[34567]$/.test(text.trim()))quoteState.size=text.trim();
  const normalized=text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  if(/(?:soccer|football|futbol|futebol|futbolowa|futbolowe|fussball|fußball|voetbal|calcio|サッカー|足球)/i.test(normalized)){quoteState.model='Flocked Silent Soccer Ball';if(!quoteState.size)quoteState.size='5';}
