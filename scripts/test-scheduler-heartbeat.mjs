@@ -66,11 +66,27 @@ try {
     assert.equal(job.last_success_at,null);
     assert.equal(job.consecutive_failures,0);
 
-    globalThis.fetch=async()=>Response.json({ok:true,configured:true,processed:0,imported:0});
+    globalThis.fetch=async()=>Response.json({ok:true,configured:true,processed:2,imported:1,reused:1,skipped:0,hasMore:true,nextOffset:2});
     await worker.scheduled({cron:'0 * * * *'},enabledEnv,context);await context.task;
     job=sqlite.prepare("SELECT * FROM hubspot_recovery_job_status WHERE id='hourly'").get();
     assert.equal(job.last_status,'SUCCEEDED');
     assert(job.last_success_at,'Only provider-confirmed success persists success timestamp');
+    let batch=sqlite.prepare("SELECT * FROM hubspot_recovery_batch_summary WHERE id='hourly'").get();
+    assert.equal(batch.processed,2);assert.equal(batch.imported,1);assert.equal(batch.reused,1);
+    assert.equal(batch.skipped,0);assert.equal(batch.has_more,1);assert.equal(batch.next_offset,2);
+    // Invalid 200 JSON must not report a successful job or overwrite the last valid batch.
+    globalThis.fetch=async()=>Response.json({ok:true,configured:true,processed:2,imported:2,reused:1,skipped:0,hasMore:true,nextOffset:2});
+    await worker.scheduled({cron:'0 * * * *'},enabledEnv,context);await context.task;
+    job=sqlite.prepare("SELECT * FROM hubspot_recovery_job_status WHERE id='hourly'").get();
+    assert.equal(job.last_status,'API_FAILED','Malformed totals cannot be marked successful');
+    batch=sqlite.prepare("SELECT * FROM hubspot_recovery_batch_summary WHERE id='hourly'").get();
+    assert.equal(batch.imported,1,'Last confirmed batch must survive malformed provider response');
+    globalThis.fetch=async()=>Response.json({ok:true,configured:true,processed:0,imported:0,reused:0,skipped:0,hasMore:false,nextOffset:0});
+    await worker.scheduled({cron:'0 * * * *'},enabledEnv,context);await context.task;
+    job=sqlite.prepare("SELECT * FROM hubspot_recovery_job_status WHERE id='hourly'").get();
+    assert.equal(job.last_status,'SUCCEEDED');assert.equal(job.consecutive_failures,0);
+    batch=sqlite.prepare("SELECT * FROM hubspot_recovery_batch_summary WHERE id='hourly'").get();
+    assert.equal(batch.processed,0);assert.equal(batch.has_more,0);
 
     globalThis.fetch=async()=>Response.json({ok:false,error:'blocked'},{status:401});
     await worker.scheduled({cron:'0 * * * *'},enabledEnv,context);await context.task;
@@ -78,6 +94,8 @@ try {
     assert.equal(job.last_status,'AUTH_FAILED');
     assert.equal(job.consecutive_failures,1);
     assert(job.last_success_at,'Failures must not erase last success');
+    batch=sqlite.prepare("SELECT * FROM hubspot_recovery_batch_summary WHERE id='hourly'").get();
+    assert.equal(batch.processed,0,'Failed HTTP request must preserve prior verified batch');
 
     globalThis.fetch=async()=>{throw Error('Synthetic network failure')};
     await worker.scheduled({cron:'0 * * * *'},enabledEnv,context);await context.task;
@@ -86,6 +104,7 @@ try {
     assert.equal(job.consecutive_failures,2);
     assert(job.last_success_at);
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM hubspot_recovery_job_status").get().n,1);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM hubspot_recovery_batch_summary").get().n,1);
   } finally {globalThis.fetch=originalFetch;}
 
   assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM messages').get().n,0,'passive monitoring never sends customer messages');

@@ -13,7 +13,7 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
   const present=await db.prepare(`SELECT name FROM sqlite_master
     WHERE type='table' AND name IN
     ('scheduler_heartbeat','hubspot_inquiry_recovery_state','discovery_auto_runs',
-     'discovery_auto_items','discovery_candidates','inquiries','leads','hubspot_recovery_job_status')`)
+     'discovery_auto_items','discovery_candidates','inquiries','leads','hubspot_recovery_job_status','hubspot_recovery_batch_summary')`)
     .all<{name:string}>();
   const tables=new Set(present.results.map(x=>x.name));
   const scheduler=include(tables,'scheduler_heartbeat')
@@ -29,6 +29,11 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
         consecutive_failures FROM hubspot_recovery_job_status WHERE id='hourly'`)
        .first<{last_attempt_at:string;last_success_at:string|null;last_status:string;
          last_http_status:number|null;consecutive_failures:number}>():null;
+  const recoveryBatch=include(tables,'hubspot_recovery_batch_summary')
+    ?await db.prepare(`SELECT last_completed_at,processed,imported,reused,skipped,
+        has_more,next_offset FROM hubspot_recovery_batch_summary WHERE id='hourly'`)
+       .first<{last_completed_at:string;processed:number;imported:number;reused:number;
+         skipped:number;has_more:number;next_offset:number}>():null;
   const run=include(tables,'discovery_auto_runs')
     ?await db.prepare(`SELECT id,status,phase,updated_at,created_at,
       completed_at,steps_completed FROM discovery_auto_runs
@@ -97,6 +102,12 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
         status:recoveryJob.last_status,
         httpStatus:recoveryJob.last_http_status,
         consecutiveFailures:num(recoveryJob.consecutive_failures),
+      }:null,
+      lastBatch:recoveryBatch?{
+        completedAt:recoveryBatch.last_completed_at,
+        processed:num(recoveryBatch.processed),imported:num(recoveryBatch.imported),
+        reused:num(recoveryBatch.reused),skipped:num(recoveryBatch.skipped),
+        hasMore:Boolean(recoveryBatch.has_more),nextOffset:num(recoveryBatch.next_offset),
       }:null,
       // A cron heartbeat proves invocation, not provider fetch success.
       actualHubspotSubmissions:null,

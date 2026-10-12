@@ -56,6 +56,11 @@ try{
       last_status TEXT,last_http_status INTEGER,consecutive_failures INTEGER);
     INSERT INTO hubspot_recovery_job_status
       VALUES('hourly',CURRENT_TIMESTAMP,NULL,'SKIPPED_NO_WORKER_KEY',NULL,0);
+    CREATE TABLE hubspot_recovery_batch_summary(
+      id TEXT PRIMARY KEY,last_completed_at TEXT,processed INTEGER,imported INTEGER,
+      reused INTEGER,skipped INTEGER,has_more INTEGER,next_offset INTEGER);
+    INSERT INTO hubspot_recovery_batch_summary
+      VALUES('hourly',CURRENT_TIMESTAMP,2,1,0,1,1,2);
     CREATE TABLE leads(id TEXT PRIMARY KEY);
     INSERT INTO leads VALUES('linked-lead');
     CREATE TABLE inquiries(id TEXT PRIMARY KEY,status TEXT,created_at TEXT,lead_id TEXT);
@@ -70,6 +75,10 @@ try{
   assert.equal(filled.data.hubspot.job.status,'SKIPPED_NO_WORKER_KEY');
   assert.equal(filled.data.hubspot.job.lastSuccessAt,null);
   assert.equal(filled.data.hubspot.job.consecutiveFailures,0);
+  assert.deepEqual([filled.data.hubspot.lastBatch.processed,filled.data.hubspot.lastBatch.imported,
+    filled.data.hubspot.lastBatch.reused,filled.data.hubspot.lastBatch.skipped],[2,1,0,1]);
+  assert.equal(filled.data.hubspot.lastBatch.hasMore,true);
+  assert.equal(filled.data.hubspot.lastBatch.nextOffset,2);
   assert.equal(filled.data.inquiries.orphanLeadLinks,1,'Orphan lead references must be observable');
   assert.equal(filled.data.inquiries.total,2);
   assert.equal(filled.data.discovery.sources,2);
