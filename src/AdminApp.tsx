@@ -15,6 +15,7 @@ import {
   RefreshCcw,
   ShoppingBag,
   Target,
+  Database,
 } from 'lucide-react';
 import QuoteBuilder from './QuoteBuilder';
 import OrderManager from './OrderManager';
@@ -27,6 +28,7 @@ import DiscoveryCenter from './DiscoveryCenter';
 import ConversionFunnel from './ConversionFunnel';
 import InboundGrowth from './InboundGrowth';
 import ShippingManager from './ShippingManager';
+import SupplierPricingManager from './SupplierPricingManager';
 import {
   activityTypeLabel,
   customerTypeLabel,
@@ -69,6 +71,7 @@ const nav = [
   ['/app/communications', MessageSquareText, '沟通中心'],
   ['/app/automation', Bot, '自动化中心'],
   ['/app/quotes', CircleDollarSign, '报价单'],
+  ['/app/suppliers', Database, '供应商采购价'],
   ['/app/shipping', ShoppingBag, '国际运费管理'],
   ['/app/orders', ShoppingBag, '订单'],
   ['/app/tasks', ClipboardList, '跟进任务'],
@@ -277,6 +280,7 @@ export default function AdminApp() {
     <Top title="报价单" description="创建报价草稿、生成客户安全链接、跟踪查看状态并自动转订单。"/>
     <QuoteBuilder inquiries={data.inquiries} accessKey={key} onCreated={() => void load(key)} />
   </>;
+  else if (page === 'suppliers') content = <><Top title="供应商采购价资料库" description="人工核实 SKU、MOQ、整箱倍数、美元采购价阶梯、报价有效期和审核版本；不自动作为对外售价。"/><SupplierPricingManager accessKey={key}/></>;
   else if (page === 'shipping') content = <><Top title="国际运费管理" description="按国家和运输方式维护抛货运价、包装尺寸和启用状态。"/><ShippingManager accessKey={key}/></>;
   else if (page === 'orders') content = <>
     <Top title="订单" description="确认收款、处理订单、录入物流、确认送达，并自动进入复购跟进。"/>
