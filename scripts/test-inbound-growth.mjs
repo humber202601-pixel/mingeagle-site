@@ -89,13 +89,14 @@ try{
  const missing=await onRequestGet({request:new Request('https://app.mingeagle.com/api/admin/inbound-growth'),env:{}});
  assert.equal(missing.status,503);
  const ui=readFileSync('src/InboundGrowth.tsx','utf8');
- assert(ui.includes('网站访问量尚未接入')&&ui.includes('Google Search Console'));
+ assert(ui.includes('网站访问统计与搜索曝光')&&ui.includes('Google Search Console'));
  assert(ui.includes('直接关联订单的询盘'));
  assert(ui.includes('同客户关联订单'));
  assert(ui.includes('未连接'),'Visits or search impressions must remain unavailable, not fabricated');
  assert(ui.includes('Cloudflare Web Analytics 真实访问报表'),'Must link to real provider dashboard');
- assert(ui.includes('CRM 尚未授权读取流量报表'),'Do not claim pageviews integrated with CRM');
- assert(ui.includes('不是 0 次访问'),'Unknown website visits must not be fabricated as zero');
+ assert(ui.includes('CRM 不持有 Cloudflare 分析 API 密钥'),'Server has no provider API credential');
+ assert(ui.includes('日统计快照'),'Analytics only shown from dated provider snapshots');
+ assert(ui.includes('不能报告访问量'),'Unknown website visits must not be fabricated as zero');
  assert(ui.includes('data.summary.unknown'),'must visibly surface attribution uncertainty');
  console.log('PASS: 5 inquiry cohorts, replay activity dedup, strict quote.id/inquiry.id/order.quote_id linkage, lead association warning, 2 read-only D1 queries and no invented visits.');
 }finally{rmSync(tmp,{recursive:true,force:true})}
