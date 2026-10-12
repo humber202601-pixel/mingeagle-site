@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync} from 'node:fs';
 import {build} from 'esbuild';
 import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
@@ -73,5 +75,39 @@ try {
  const readFail=await onRequestGet({env:{MINGEAGLE_DB:badDb}});
  assert.equal(readFail.status,503,'D1 failure must be visible, never a successful empty report');
  assert.equal((await readFail.json()).ok,false);
+ const sqlite=new DatabaseSync(':memory:');
+ sqlite.exec(readFileSync('migrations/0008_gsc_manual_imports.sql','utf8'));
+ const localDB={
+  prepare(sql){
+   const bound=(args=[])=>({
+    bind(...params){return bound(params)},
+    async all(){return {results:sqlite.prepare(sql).all(...args)}},
+    async run(){return {success:true,meta:{changes:Number(sqlite.prepare(sql).run(...args).changes)}}}
+   });
+   return bound();
+  },
+  async batch(stmts){
+   sqlite.exec('BEGIN');try{
+    const results=[];for(const stmt of stmts)results.push(await stmt.run());
+    sqlite.exec('COMMIT');return results;
+   }catch(e){sqlite.exec('ROLLBACK');throw e}
+  }
+ };
+ let blank=await onRequestGet({env:{MINGEAGLE_DB:localDB}});
+ assert.equal(blank.status,200,'Migrated empty table is a real empty history, not a D1 failure');
+ assert.deepEqual((await blank.json()).imports,[]);
+ const realRequest=new Request('https://app.mingeagle.com/api/admin/search-console-import',{
+  method:'POST',headers:{'content-type':'application/json'},
+  body:JSON.stringify({...base,rows:[row('https://www.mingeagle.com/products.html')]})
+ });
+ const saved=await onRequestPost({request:realRequest,env:{MINGEAGLE_DB:localDB}});
+ assert.equal(saved.status,200,JSON.stringify(await saved.json()));
+ const liveHistory=await onRequestGet({env:{MINGEAGLE_DB:localDB}});
+ assert.equal(liveHistory.status,200);
+ const stored=(await liveHistory.json()).imports;
+ assert.equal(stored.length,1);
+ assert.equal(stored[0].row_count,1);
+ assert.equal(sqlite.prepare('SELECT COUNT(*) AS c FROM search_console_rows').get().c,1);
+ sqlite.close();
  console.log('PASS: GSC canonical www/apex imports, site-owned public paths, no private URL leakage, numeric validation, and safe rejection.');
 } finally {rmSync(tmp,{recursive:true,force:true});}
