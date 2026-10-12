@@ -7,7 +7,7 @@ const crm='https://app.mingeagle.com/';
 const price={currency:'USD',products:{a:{price:1},b:{price:2},c:{price:3},d:{price:4}}};
 const mapping={
  [base+'deployment-version.json']:{revision:sha,workflow:'github-pages'},
- [crm+'api/health']:{ok:true,service:'MING EAGLE V2 API',databaseBinding:true},
+ [crm+'api/health']:{ok:true,service:'MING EAGLE V2 API',databaseBinding:true,databaseReadOk:true,schedulerReadOk:true,scheduler:{discovery:'healthy',hubspotRecovery:'healthy',dailyFollowup:'healthy'}},
  [crm+'api/quote-reference']:{ok:true,testEnvironment:false,catalog:price},
  [base+'retail-reference-prices.json']:price,
 };
@@ -25,6 +25,14 @@ const makeFetch=(override={},counter={})=>async(url,options)=>{
  assert.equal(result.priceProducts,4);
  await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[base+'deployment-version.json']:{revision:'old',workflow:'github-pages'}}),attempts:1}),/version does not match/);
  await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[crm+'api/health']:{ok:true,service:'MING EAGLE V2 API',databaseBinding:false}}),attempts:1}),/binding is absent/);
+ const goodHealth=mapping[crm+'api/health'];
+ await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[crm+'api/health']:{...goodHealth,databaseReadOk:false}}),attempts:1}),/D1 read query failed/);
+ await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[crm+'api/health']:{...goodHealth,schedulerReadOk:false}}),attempts:1}),/Cron heartbeat query failed/);
+ for (const job of ['discovery','hubspotRecovery','dailyFollowup']) {
+   const stale={...goodHealth,scheduler:{...goodHealth.scheduler,[job]:'stale'}};
+   await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[crm+'api/health']:stale}),attempts:1}),/heartbeat is missing or stale: /);
+ }
+
  await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[crm+'api/quote-reference']:{ok:true,testEnvironment:true,catalog:price}}),attempts:1}),/preview settings/);
  await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[base+'retail-reference-prices.json']:{currency:'USD',products:{...price.products,d:{price:99}}}}),attempts:1}),/retail reference prices differ/);
  let reads=0;

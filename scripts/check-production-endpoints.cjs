@@ -42,6 +42,11 @@ async function checkProduction({expectedRevision, fetcher=globalThis.fetch, atte
   ]);
   assert.equal(health.ok,true,'CRM health endpoint must be OK');
   assert.equal(health.databaseBinding,true,'CRM D1 database binding is absent');
+  assert.equal(health.databaseReadOk,true,'CRM D1 read query failed');
+  assert.equal(health.schedulerReadOk,true,'CRM Cron heartbeat query failed');
+  for (const job of ['discovery','hubspotRecovery','dailyFollowup']) {
+    assert.equal(health.scheduler?.[job],'healthy','CRM Cron heartbeat is missing or stale: '+job);
+  }
   assert.equal(health.service,'MING EAGLE V2 API','Unexpected CRM service');
   assert.equal(crmPrices.ok,true,'CRM quote reference endpoint not OK');
   assert.equal(crmPrices.testEnvironment,false,'CRM production domain points to preview settings');
