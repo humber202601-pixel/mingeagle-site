@@ -29,9 +29,10 @@ const sample={requestId:'123e4567-e89b-42d3-a456-426614174000',
  lines:[{sku:'P1-S3',quantity:1}],shippingCountry:'US',shippingMethod:'air',
  customer:{name:'Test Customer',email:'test@example.com',address1:'1 Main Street',
  city:'San Francisco',region:'CA',postalCode:'94105'},
- acceptShippingTerms:true,acceptTaxes:true,turnstileToken:'invalid'};
+ acceptShippingTerms:true,acceptTaxes:true,turnstileToken:''};
+const active={...fully,MINGEAGLE_DB:{}};
 let response=await checkout.onRequestPost({request:request(sample),env:{}});assert.equal(response.status,503);
-response=await checkout.onRequestPost({request:request(sample),env:fully});assert.equal(response.status,403);
+response=await checkout.onRequestPost({request:request(sample),env:active});assert.equal(response.status,403);
 response=await checkout.onRequestPost({request:new Request('https://app.mingeagle.com/api/retail/checkout',{
  method:'POST',headers:{...headers,origin:'https://attacker.example'},body:JSON.stringify(sample)}),env:fully});
 assert.equal(response.status,403);
