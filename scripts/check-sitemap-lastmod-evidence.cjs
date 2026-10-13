@@ -19,7 +19,7 @@ for(const entry of entries){
  assert(/^[a-z0-9-]+\.html$/.test(filename)&&fs.existsSync(path.join(dir,filename)),'Missing approved HTML page '+filename);
  dates.set(filename,entry.date);
 }
-const revised=['index.html','silent-basketball.html','fabric-silent-basketball.html','weighted-flocked-basketball.html','silent-soccer.html','products.html','wholesale-product-catalog.html','for-coaches.html','basketball-camp-equipment-supplier.html'];
+const revised=['for-schools.html','wholesale.html','index.html','silent-basketball.html','fabric-silent-basketball.html','weighted-flocked-basketball.html','silent-soccer.html','products.html','wholesale-product-catalog.html','for-coaches.html','basketball-camp-equipment-supplier.html'];
 for(const p of revised)assert(dates.get(p)>='2026-10-13','Meaningfully revised content cannot be represented by its obsolete 2026-10-12 sitemap lastmod: '+p);
 for(const p of ['order-status.html','videos.html']){
  assert.equal(dates.get(p),'2026-10-12','Do not rewrite untouched pages merely to appear fresh: '+p);
