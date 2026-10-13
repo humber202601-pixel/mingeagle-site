@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Secure Retail Checkout | MING EAGLE</title>
+<meta name="robots" content="noindex,nofollow"><meta name="description" content="Review your MING EAGLE 1–9 unit retail order and secure payment availability.">
+<link rel="canonical" href="https://www.mingeagle.com/retail-checkout.html">
+<link rel="stylesheet" href="styles.css?v=20261007-6">
+<style>
+body{background:#f7f9fc;color:#182437}
+.checkout{max-width:900px;margin:0 auto;padding:32px 18px 90px}
+.checkout a{color:#a84623}.checkout h1{font-size:clamp(28px,4vw,46px);line-height:1.2;margin:18px 0}
+.checkout h2{font-size:21px;margin:0 0 14px}
+.checkout .box{background:#fff;border:1px solid #dfe5ed;border-radius:17px;padding:24px;margin:20px 0}
+.checkout .muted,.checkout small{color:#57657b;font-size:13px;line-height:1.7}
+.checkout label{display:grid;gap:6px;font-size:13px;font-weight:700;color:#40516a}
+.checkout input:not([type=checkbox]){width:100%;padding:12px;min-height:44px;border:1px solid #b9c6d6;border-radius:8px;font:inherit;box-sizing:border-box}
+.checkout .fields{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.checkout .full{grid-column:1/-1}
+.checkout button{background:#e96132;color:white;padding:14px 20px;border:0;border-radius:10px;font-size:15px;font-weight:750;cursor:pointer}
+.checkout button:disabled{opacity:.5;cursor:not-allowed}
+.checkout .status{padding:14px;background:#f1f5f9;border-radius:9px;line-height:1.6}
+.checkout .total{font-size:25px;font-weight:750;color:#136a47}
+.checkout .agree{display:flex;gap:9px;align-items:start;line-height:1.6;margin:16px 0}
+@media(max-width:640px){.checkout .fields{grid-template-columns:1fr}.checkout .full{grid-column:auto}}
+</style></head><body>
+<main class="checkout" id="retailCheckout"><a href="retail-cart.html">← Back to cart</a>
+<header><h1>Retail checkout · 1–9 items</h1>
+<p class="muted">Published retail prices plus server-calculated air shipping. MING EAGLE ships from China. Your card details, when payment is available, are handled directly on Airwallex's secure checkout.</p></header>
+<section class="box"><h2>Order estimate</h2><p id="retailOrderLines" class="muted">Loading your cart…</p>
+<p>Products: <strong id="retailOrderGoods">—</strong></p>
+<p>Air shipping: <strong id="retailOrderFreight">—</strong></p>
+<p>Estimated subtotal before tax: <strong id="retailOrderTotal" class="total">—</strong></p>
+<p class="muted">Tax and duties are not yet included. For a single item shipped to the US, delivery is estimated at 12–15 days after dispatch, not guaranteed. Multiple units have separately calculated freight.</p>
+</section>
+<section class="box"><h2>Payment availability</h2>
+<p id="retailPaymentStatus" class="status" role="status">Checking whether secure online payment is active…</p>
+<a id="retailAlternative" href="inquiry.html?type=retail">Request purchasing assistance instead</a>
+</section>
+<form class="box" id="retailCheckoutForm" hidden><h2>US delivery details</h2>
+<p class="muted">A complete shipping address is required before an order can be priced, verified and submitted for secure payment.</p>
+<div class="fields">
+<label class="full">Full name <input id="retailName" autocomplete="name" maxlength="120" required></label>
+<label class="full">Email <input id="retailEmail" type="email" autocomplete="email" maxlength="254" required></label>
+<label class="full">Address line 1 <input id="retailAddress1" autocomplete="address-line1" minlength="5" maxlength="160" required></label>
+<label class="full">Address line 2 (optional) <input id="retailAddress2" autocomplete="address-line2" maxlength="160"></label>
+<label>City <input id="retailCity" autocomplete="address-level2" maxlength="120" required></label>
+<label>State (two-letter abbreviation) <input id="retailRegion" autocomplete="address-level1" maxlength="2" pattern="[A-Za-z]{2}" placeholder="CA" required></label>
+<label>ZIP code <input id="retailPostal" autocomplete="postal-code" pattern="[0-9]{5}(-[0-9]{4})?" placeholder="94105" required></label>
+<label>Phone (optional) <input id="retailPhone" type="tel" autocomplete="tel" maxlength="32"></label>
+</div>
+<label class="agree"><input type="checkbox" id="retailShippingConsent" required><span>I understand the delivery estimate is not guaranteed and the final charge includes server-verified shipping and applicable sales tax.</span></label>
+<label class="agree"><input type="checkbox" id="retailTaxConsent" required><span>I have reviewed the shipping and tax terms and authorize the exact amount shown by secure checkout before payment.</span></label>
+<div id="retailTurnstile" aria-label="Secure checkout verification"></div>
+<p id="retailTurnstileStatus" class="muted">Loading security verification…</p>
+<button type="submit" id="retailPay" disabled>Continue to secure Airwallex payment</button>
+</form>
+<p id="retailReturnStatus" class="status" hidden role="status"></p>
+</main>
+<script src="https://static.airwallex.com/components/sdk/v1/index.js" defer></script>
+<script src="retail-cart.js?v=20261013-6" defer></script>
+<script src="retail-checkout.js?v=20261013-1" defer></script>
+</body></html>
