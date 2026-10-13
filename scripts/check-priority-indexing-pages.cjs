@@ -8,7 +8,8 @@ const headDescriptions=new Set();
 for(const [filename,[title,dest,heading]] of Object.entries(pages)){
  const s=fs.readFileSync('public/'+filename,'utf8');
  const head=s.split('</head>')[0];
- assert(head.includes('<title>'+title+' | MING EAGLE</title>')||head.includes('<title>'+title+'</title>'),filename+' needs unique title');
+ const encodedTitle=title.replace(/&/g,'&amp;');
+ assert(head.includes('<title>'+title+' | MING EAGLE</title>')||head.includes('<title>'+encodedTitle+' | MING EAGLE</title>'),filename+' needs unique title');
  const desc=head.match(/<meta[^>]*name="description"[^>]*>/)?.[0];
  assert(desc&&desc.includes('content=')&&!desc.includes('sporting goods, quieter indoor play, wholesale and community stories'),filename+' must have relevant description');
  headDescriptions.add(desc);
