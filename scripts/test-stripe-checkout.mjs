@@ -18,6 +18,11 @@ const ready={
  RETAIL_TAX_POLICY_APPROVED:'true'
 };
 assert.equal(stripeCheckoutReadiness(ready).checkoutReady,true);
+assert.equal(stripeCheckoutReadiness({...ready,STRIPE_SECRET_KEY:'rk_test_syntheticRestrictedKey'}).checkoutReady,true);
+assert.equal(stripeCheckoutReadiness({...ready,STRIPE_MODE:'live',STRIPE_SECRET_KEY:'rk_live_syntheticRestrictedKey'}).checkoutReady,true);
+assert.equal(stripeCheckoutReadiness({...ready,STRIPE_MODE:'live',STRIPE_SECRET_KEY:'sk_live_syntheticStandardKey'}).checkoutReady,true);
+assert.equal(stripeCheckoutReadiness({...ready,STRIPE_MODE:'test',STRIPE_SECRET_KEY:'rk_live_syntheticRestrictedKey'}).checkoutReady,false);
+assert.equal(stripeCheckoutReadiness({...ready,STRIPE_MODE:'live',STRIPE_SECRET_KEY:'rk_test_syntheticRestrictedKey'}).checkoutReady,false);
 assert.equal(stripeCheckoutReadiness({...ready,STRIPE_MODE:'live'}).checkoutReady,false);
 assert.equal(stripeCheckoutReadiness({...ready,STRIPE_WEBHOOK_SECRET:''}).checkoutReady,false);
 assert.equal(stripeCheckoutReadiness({...ready,STRIPE_CHECKOUT_ENABLED:'false'}).checkoutReady,false);
