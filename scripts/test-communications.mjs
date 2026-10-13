@@ -52,8 +52,8 @@ try {
   assert.equal((await handlers['discovery-intake'].intakeVerifiedCandidates(db, ['raw-map'])).review, 1); assert.equal(count('leads'), 1);
   assert.equal(count('messages'), 0); assert.equal(count('tasks'), 0, 'import never initiates communication');
   const draft = await post('outreach-draft', { leadId, mode: 'AUTO' });
-  const { COMPANY_WEBSITE, WEBSITE_INTRO, ensureWebsiteIntro, customerGreeting } = handlers.outreach;
-  assert.equal(draft.body.draftType, 'INTRO'); assert.ok(draft.body.body.includes(WEBSITE_INTRO));
+  const { COMPANY_WEBSITE, WEBSITE_INTRO, buyerPlannerIntro, ensureWebsiteIntro, customerGreeting } = handlers.outreach;
+  assert.equal(draft.body.draftType, 'INTRO'); assert.ok(draft.body.body.includes(buyerPlannerIntro('BASKETBALL_TRAINING')),'First outreach links to relevant buyer planner');
   assert.ok(draft.body.body.startsWith('Hello Northstar Basketball Academy team,'));
   assert.equal(customerGreeting({ company: 'Acme', contact: 'Alex Morgan' }), 'Hi Alex,');
   assert.equal(ensureWebsiteIntro('Hello\n\nBest regards,\nMING EAGLE').includes(COMPANY_WEBSITE), true);
@@ -68,7 +68,7 @@ try {
   assert.equal((await post('customer-email-send', { leadId, subject: 'Hello', body: 'First introduction without a website' })).status, 400);
   assert.equal(gmailCalls, 0, 'missing website must be caught before any Gmail API call');
   const sent = await post('customer-email-send', { leadId, subject: draft.body.subject, body: draft.body.body });
-  assert.equal(sent.status, 201); assert.equal(gmailCalls, 1); assert.ok(sentText.includes(WEBSITE_INTRO));
+  assert.equal(sent.status, 201); assert.equal(gmailCalls, 1); assert.ok(sentText.includes(buyerPlannerIntro('BASKETBALL_TRAINING')));
   assert.equal(sqlite.prepare('SELECT body FROM messages WHERE lead_id=?').get(leadId).body, draft.body.body);
   assert.equal((await get(leadId)).body.targets[0].outbound_count, 1);
   const followup = await post('outreach-draft', { leadId, mode: 'AUTO' });
