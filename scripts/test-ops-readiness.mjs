@@ -40,6 +40,8 @@ try{
  r=await read();
  assert.equal(r.body.analytics.cloudflare.observedDateCoverage.status,'INVALID_OBSERVED_DATE');
  sqlite.exec('DELETE FROM web_analytics_daily');
+ // Restore the preceding fixture flags before testing Turnstile/payment readiness.
+ r=await read({TURNSTILE_ENABLED:'true',AIRWALLEX_CHECKOUT_ENABLED:'true',AIRWALLEX_ENV:'prod'});
  assert.equal(r.body.procurement.approvedSourceCount,1);
  assert.equal(r.body.procurement.supplierSources,2);
  assert.equal(r.body.security.turnstileMisconfigured,true);
