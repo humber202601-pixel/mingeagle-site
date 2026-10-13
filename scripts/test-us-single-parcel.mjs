@@ -20,6 +20,9 @@ for(const [id,sizes] of Object.entries(retail)){
   assert.equal(quote.deliveryEstimateDaysMin,12);
   assert.equal(quote.deliveryEstimateDaysMax,15);
   assert.equal(quote.paymentEnabled,false);
+  assert.equal(quote.ddpConfirmed,sku==='P1-S7');
+  assert.equal(quote.importDutiesIncluded,sku==='P1-S7');
+  assert.equal(quote.usSalesTaxNotIncluded,true);
   assert.equal(quote.taxesNotIncluded,true);
   total++;
  }
@@ -59,6 +62,7 @@ for(const [sku,fee] of Object.entries(US_SMALL_PARCEL_RATES)){
  assert.equal(c.totalBeforeTaxesUSD,body.totalBeforeTaxesUSD,sku);
  assert.equal(c.shippingUSD,body.shippingUSD,sku);
  assert.equal(c.paymentEnabled,false);
+ assert.equal(c.ddpConfirmed,sku==='P1-S7');
 }
 // No silent per-item multiplication for larger carts or non-US destinations.
 for(const test of [
