@@ -94,7 +94,8 @@ const text=[
  ''
 ];
 for(const p of products){
- text.push('- ['+p.name+']('+p.url+'): '+p.intendedUse+'. Sizes: '+p.sizes.join(', ')+'. Colors: '+p.colors+'. Product image: '+p.image+'. US one-item air parcel total before tax by size: '+Object.entries(p.usSingleItemTotalBeforeTaxUsdBySize).map(([size,total])=>'Size '+size+' 
+ const totals=Object.entries(p.usSingleItemTotalBeforeTaxUsdBySize).map(([size,total])=>'Size '+size+' USD '+Number(total).toFixed(2)).join(', ');
+ text.push('- ['+p.name+']('+p.url+'): '+p.intendedUse+'. Sizes: '+p.sizes.join(', ')+'. Colors: '+p.colors+'. Product image: '+p.image+'. US one-item total before tax: '+totals+'.');
 }
 text.push('','## Buyer questions and guides','');
 for(const g of guides)text.push('- ['+g.question+']('+g.url+') — '+g.audience+'.');
