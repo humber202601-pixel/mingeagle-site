@@ -1,6 +1,7 @@
 import SeoOpportunities from './SeoOpportunities';
 import {containsPartialInitialDay,describeSnapshotAge,FIRST_CAPTURE_TIME_UTC} from './analyticsStatus';
 import SearchConsoleImport from './SearchConsoleImport';
+import AiVisibilityPanel from './AiVisibilityPanel';
 import {useEffect,useState} from 'react';
 import {ArrowUpRight,RefreshCcw} from 'lucide-react';
 
@@ -69,7 +70,7 @@ export default function InboundGrowth({accessKey}:{accessKey:string}){
    }).catch(e=>{if(!controller.signal.aborted)setGscError(e instanceof Error?e.message:'GSC 暂不可用')});
   return ()=>controller.abort();
  },[accessKey,days,refresh]);
- return <div style={{display:'grid',gap:18}}><SearchConsoleImport accessKey={accessKey}/><SeoOpportunities accessKey={accessKey}/>
+ return <div style={{display:'grid',gap:18}}><AiVisibilityPanel accessKey={accessKey}/><SearchConsoleImport accessKey={accessKey}/><SeoOpportunities accessKey={accessKey}/>
    <section className="panel" style={{padding:18}}>
     <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'end'}}>
       <label style={{display:'grid',gap:7,fontSize:12,fontWeight:700}}>询盘创建时间
