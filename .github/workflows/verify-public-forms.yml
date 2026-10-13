@@ -44,6 +44,8 @@ on:
       - 'scripts/check-locale-completeness.cjs'
       - 'scripts/build-product-direct-rfq.cjs'
       - 'scripts/check-product-direct-rfq.cjs'
+      - 'scripts/indexnow-notify-changed.cjs'
+      - 'scripts/test-indexnow-notify-changed.cjs'
       - '.github/workflows/deploy-pages.yml'
       - '.github/workflows/verify-public-forms.yml'
   push:
@@ -89,6 +91,7 @@ jobs:
           node scripts/check-wholesale-product-deep-links.cjs
           node scripts/check-public-canonicals.cjs
           node scripts/check-sitemap-lastmod-evidence.cjs
+          node scripts/test-indexnow-notify-changed.cjs
           node scripts/test-public-canonicals.cjs
           node scripts/build-ai-product-facts.cjs
           node scripts/check-ai-product-facts.cjs

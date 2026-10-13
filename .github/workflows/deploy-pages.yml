@@ -23,6 +23,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Compare the current main push to its previous revision
 
       - name: Apply product images specifications and 2x2 layout
         run: python scripts/deploy-finalize.py
@@ -63,6 +65,7 @@ jobs:
           node scripts/check-ai-product-facts.cjs
           node scripts/build-ai-product-facts.cjs --check
           node scripts/check-indexnow-key.cjs
+          node scripts/test-indexnow-notify-changed.cjs
           python scripts/check-live-public-crawl.py --self-test
 
       - name: Optimize first-party native image loading
@@ -381,5 +384,21 @@ jobs:
         with:
           name: live-public-crawl-audit
           path: public-crawl-audit.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Notify IndexNow only after live 29-page audit passes
+        if: ${{ github.event_name == 'push' }}
+        continue-on-error: true  # Search-engine outage must not undo a verified website deployment
+        env:
+          INDEXNOW_BEFORE: ${{ github.event.before }}
+        run: node scripts/indexnow-notify-changed.cjs
+
+      - name: Preserve IndexNow receipt / skip evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: indexnow-changed-url-notification
+          path: indexnow-deployment-evidence.json
           if-no-files-found: ignore
           retention-days: 14
