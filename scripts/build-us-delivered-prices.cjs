@@ -33,11 +33,12 @@ const disclaimer='US single-item air small parcel from China; estimated delivery
 function row(item,includeName){
  const link=item.page+'#us-single-parcel';
  return '<tr>'+(includeName?'<td><a href="'+link+'">'+safe(item.name)+'</a></td>':'')+
- '<td>Size '+item.size+'</td><td>'+money(item.price)+'</td><td>'+money(item.shipping)+'</td><td><strong>'+money(item.total)+'</strong></td></tr>';
+ '<td>Size '+item.size+'</td><td>'+money(item.price)+'</td><td>'+money(item.shipping)+'</td><td><strong>'+money(item.total)+'</strong></td>'+
+ '<td><a class="usPriceChoose" href="'+item.page+'?size='+item.size+'#buy-now">Choose size, color &amp; add →</a></td></tr>';
 }
 function panel(items,{title,id,includeName}){
- const headers=(includeName?'<th scope="col">Product</th>':'')+'<th scope="col">Size</th><th scope="col">Product</th><th scope="col">US air parcel</th><th scope="col">US total before tax</th>';
- return begin+'<section class="section usPriceSummary" id="'+id+'"><div class="wrap"><div class="eyebrow">TRANSPARENT USA SINGLE-ITEM PRICING</div><h2>'+title+'</h2><p class="usPriceIntro">For retail orders of 1–9 items, prices below are public USD prices; compare the product price and one-item small-parcel shipping to the US. A standard basketball set includes one silent ball plus a mini hoop; weighted balls and soccer balls are sold as specified on their product pages.</p><div class="usPriceTableWrap"><table class="usPriceTable"><thead><tr>'+headers+'</tr></thead><tbody>'+items.map(it=>row(it,includeName)).join('')+'</tbody></table></div><p class="usPriceNote">'+disclaimer+'</p><div class="actions"><a class="btn primary" href="retail-cart.html">Build retail cart (1–9 items)</a><a class="btn" href="inquiry.html?type=quote">Request wholesale quote (10+)</a></div></div></section>'+end;
+ const headers=(includeName?'<th scope="col">Product</th>':'')+'<th scope="col">Size</th><th scope="col">Product</th><th scope="col">US air parcel</th><th scope="col">US total before tax</th><th scope="col">Add to cart</th>';
+ return begin+'<section class="section usPriceSummary" id="'+id+'"><div class="wrap"><div class="eyebrow">TRANSPARENT USA SINGLE-ITEM PRICING</div><h2>'+title+'</h2><p class="usPriceIntro">For retail orders of 1–9 items, prices below are public USD prices; compare the product price and one-item small-parcel shipping to the US. A standard basketball set includes one silent ball plus a mini hoop; weighted balls and soccer balls are sold as specified on their product pages.</p><div class="usPriceTableWrap"><table class="usPriceTable"><thead><tr>'+headers+'</tr></thead><tbody>'+items.map(it=>row(it,includeName)).join('')+'</tbody></table></div><p class="usPriceNote">'+disclaimer+'</p><div class="actions"><a class="btn primary" href="'+(includeName?'#buy-p1':'#buy-now')+'">Select product size and color above</a><a class="btn" href="retail-cart.html">View shopping cart</a><a class="btn" href="inquiry.html?type=quote">Request wholesale quote (10+)</a></div></div></section>'+end;
 }
 function save(filename,fn){
  const file=path.join(root,filename);if(!fs.existsSync(file))throw Error('Missing page '+filename);
