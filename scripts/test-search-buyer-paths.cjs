@@ -49,7 +49,7 @@ try{
  assert(video.includes('not this fabric-covered version')===false);
  assert(!video.includes('"@type":"VideoObject"'),'Do not invent TikTok first-publication dates or per-video thumbnails');
  assert(!video.includes('video:sitemap'),'No unverified video sitemap');
- assert(video.includes('Payment is still disabled')&&video.includes('not controlled acoustic tests'));
+ assert(video.includes('Online payment is still disabled')&&video.includes('not controlled acoustic tests'),'Video buyer guide must clearly separate pending checkout from unverified noise claims');
  const sitemap=fs.readFileSync(path.join(origin,'sitemap.xml'),'utf8');
  for(const f of names.filter(x=>x!=='index.html'))
   assert(sitemap.includes('<loc>https://www.mingeagle.com/'+f+'</loc>'),'Real sitemap entry '+f);
