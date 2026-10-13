@@ -12,7 +12,12 @@ interface Env extends AirwallexEnv,StripeEnv,TurnstileEnv {
  RETAIL_STOCK_FULFILLMENT_APPROVED?:string;
  RETAIL_TAX_POLICY_APPROVED?:string;
 }
-type Line={sku:string;quantity:number};
+type Line={sku:string;quantity:number;color:string};
+const COLORS:Record<string,string[]>={
+ P1:['Orange','Blue','Green','Yellow'],P2:['Orange','Green'],
+ P3:['Orange','Brown','Black','Aqua Blue'],
+ P4:['Black/White','Black/Green','Black/Red','Yellow/Green','Black/Gold']
+};
 type Input={
  requestId?:string;country?:string;method?:string;lines?:Line[];
  name?:string;email?:string;phone?:string;
@@ -44,12 +49,14 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  const lines=input.lines,country=clean(input.country,2).toUpperCase(),method=clean(input.method,6);
  if(!Array.isArray(lines)||!lines.length||lines.length>9||country!=='US'||method!=='air')
   return bad('Direct checkout supports US retail air orders of 1–9 units only');
- const seen=new Set<string>();let quantity=0;
+ const seen=new Set<string>();let quantity=0;const freightGrouped=new Map<string,number>();
  for(const line of lines){
   if(!line||!skuRe.test(line.sku)||!Object.prototype.hasOwnProperty.call(SKU_USD,line.sku)||
-     seen.has(line.sku)||!Number.isSafeInteger(line.quantity)||line.quantity<1||line.quantity>9)
+     !COLORS[line.sku.slice(0,2)]?.includes(line.color)||
+     seen.has(line.sku+'|'+line.color)||!Number.isSafeInteger(line.quantity)||line.quantity<1||line.quantity>9)
    return bad('Unsupported product, size or duplicate line');
-  quantity+=line.quantity;seen.add(line.sku);
+  quantity+=line.quantity;seen.add(line.sku+'|'+line.color);
+  freightGrouped.set(line.sku,(freightGrouped.get(line.sku)||0)+line.quantity);
  }
  if(quantity<1||quantity>9)return bad('10+ units require a separate consented sea-freight wholesale quote',409);
  const requestId=clean(input.requestId,36);
@@ -74,7 +81,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   const q=await calculateShipping({
     env,request:new Request(allowedOrigin+'/api/shipping/cart',{
       method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({country:'US',method:'air',lines})
+      body:JSON.stringify({country:'US',method:'air',
+       lines:[...freightGrouped].map(([sku,quantity])=>({sku,quantity}))})
     })
   } as Parameters<typeof calculateShipping>[0]);
   const price=await q.json() as {ok?:boolean;wholesale?:boolean;productsUSD?:number;productUSD?:number;
@@ -95,7 +103,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   const uid=crypto.randomUUID().replace(/-/g,'').slice(0,12).toUpperCase();
   const ref='ME-R-'+uid,quoteRef='ME-RQ-'+uid,orderRef='ME-RO-'+uid;
   const address=JSON.stringify({name,email,phone,street1,street2,city,state,postalCode:zip,country:'US'});
-  const descriptions=lines.map(l=>l.sku+' x '+l.quantity);
+  const descriptions=lines.map(l=>l.sku+' / '+l.color+' x '+l.quantity);
   const statements:D1PreparedStatement[]=[];
   if(!found)statements.push(db.prepare(
    "INSERT INTO contacts(id,full_name,email,phone,email_type,email_verified,source_evidence) VALUES (?,?,?,?, 'PERSONAL',0,'Retail checkout submitted by customer')"
@@ -112,9 +120,9 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    const line=lines[i],unit=SKU_USD[line.sku],sum=Math.round(unit*100)*line.quantity/100;
    statements.push(
     db.prepare("INSERT INTO quote_items(id,quote_id,description,quantity,unit_price,line_total,sort_order) VALUES (?,?,?,?,?,?,?)")
-      .bind(crypto.randomUUID(),quote,line.sku+' Retail silent ball',line.quantity,unit,sum,i),
+      .bind(crypto.randomUUID(),quote,line.sku+' / '+line.color+' Retail silent ball',line.quantity,unit,sum,i),
     db.prepare("INSERT INTO order_items(id,order_id,description,quantity,unit_price,line_total) VALUES (?,?,?,?,?,?)")
-      .bind(crypto.randomUUID(),order,line.sku+' Retail silent ball',line.quantity,unit,sum)
+      .bind(crypto.randomUUID(),order,line.sku+' / '+line.color+' Retail silent ball',line.quantity,unit,sum)
    );
   }
   statements.push(db.prepare("INSERT INTO retail_checkout_requests(request_id,order_id,quote_id) VALUES (?,?,?)")
