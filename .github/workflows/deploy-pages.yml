@@ -46,6 +46,7 @@ jobs:
         run: |
           node scripts/build-seo-discovery-links.cjs
           node scripts/check-seo-discovery-links.cjs
+          node scripts/check-ai-intent-guides.cjs
 
       - name: Optimize first-party native image loading
         run: |
@@ -154,6 +155,28 @@ jobs:
               if attempt == 11:
                   raise SystemExit('FAIL: public site did not serve deployed revision')
               time.sleep(10)
+          PY
+
+      - name: Verify live AI scenario guides and search-crawler discovery
+        run: |
+          python - <<'PY'
+          import urllib.request
+          base='https://www.mingeagle.com/'
+          for filename in ('quiet-indoor-sports-for-kids.html','indoor-school-sports-equipment-guide.html'):
+              url=base+filename
+              req=urllib.request.Request(url,headers={'User-Agent':'MING-EAGLE-ai-discovery-verify/1.0','Cache-Control':'no-cache'})
+              with urllib.request.urlopen(req,timeout=20) as response:
+                  html=response.read().decode('utf-8')
+                  assert response.status==200
+                  assert '<link rel="canonical" href="'+url+'">' in html
+                  assert '<script type="application/ld+json">' in html
+                  assert '<h1>' in html
+                  print('PASS live AI scenario guide',url)
+          for filename,expected in (('robots.txt','OAI-SearchBot'),('sitemap.xml','quiet-indoor-sports-for-kids.html')):
+              with urllib.request.urlopen(urllib.request.Request(base+filename,headers={'Cache-Control':'no-cache'}),timeout=20) as response:
+                  text=response.read().decode('utf-8')
+                  assert response.status==200 and expected in text
+                  print('PASS live AI discovery resource',filename)
           PY
 
       - name: Verify live pricing JSON and calculator HTTP responses
