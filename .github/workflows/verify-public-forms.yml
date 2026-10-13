@@ -25,6 +25,8 @@ on:
       - 'scripts/build-product-listing-discovery.cjs'
       - 'scripts/check-product-listing-discovery.cjs'
       - 'scripts/check-ai-intent-guides.cjs'
+      - 'scripts/check-localized-school-guides.cjs'
+      - 'scripts/test-localized-school-guides.cjs'
       - 'scripts/check-coach-ai-answers.cjs'
       - 'scripts/check-public-crawl-graph.cjs'
       - 'scripts/check-wholesale-product-deep-links.cjs'
@@ -77,6 +79,8 @@ jobs:
           node scripts/check-product-listing-discovery.cjs
           node scripts/check-seo-discovery-links.cjs
           node scripts/check-ai-intent-guides.cjs
+          node scripts/check-localized-school-guides.cjs
+          node scripts/test-localized-school-guides.cjs
           node scripts/check-coach-ai-answers.cjs
           node scripts/check-public-crawl-graph.cjs
           node scripts/check-wholesale-product-deep-links.cjs
