@@ -123,7 +123,9 @@ jobs:
         run: node scripts/check-forms-core.cjs
 
       - name: Enforce retail 1–9 vs 10+ sea wholesale routing and browser script safety
-        run: node scripts/check-retail-quantity-routing.cjs
+        run: |
+          node scripts/check-retail-quantity-routing.cjs
+          node scripts/test-product-cart-journey.cjs
 
       - name: Verify shipping quote calculator
         run: node scripts/check-shipping.cjs
