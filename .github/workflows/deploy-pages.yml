@@ -48,6 +48,7 @@ jobs:
           node scripts/check-seo-discovery-links.cjs
           node scripts/check-ai-intent-guides.cjs
           node scripts/check-ai-discovery-benchmark.cjs
+          node scripts/check-indexnow-key.cjs
 
       - name: Optimize first-party native image loading
         run: |
