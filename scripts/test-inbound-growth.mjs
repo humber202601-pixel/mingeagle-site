@@ -116,8 +116,9 @@ try{
  for(const [label,expected] of [['CHATGPT',2],['PERPLEXITY',1],['CLAUDE',1],['GEMINI',1],['COPILOT',1]]){
   assert.equal(geo.data.sources.find(x=>x.channel===label)?.inquiries,expected,label+' requires distinct tracked inquiry attribution');
  }
- assert.equal(geo.data.sources.find(x=>x.channel==='GOOGLE')?.inquiries,2,'Recognized Google UTM takes priority over AI referrer');
- assert.equal(geo.data.sources.find(x=>x.channel==='DIRECT_UNKNOWN')?.inquiries,3,'Lookalike host must not be credited as ChatGPT');
+ const sourceTotal=channel=>geo.data.sources.filter(x=>x.channel===channel).reduce((n,x)=>n+x.inquiries,0);
+ assert.equal(sourceTotal('GOOGLE'),2,'Recognized Google UTM takes priority over AI referrer across audiences');
+ assert.equal(sourceTotal('DIRECT_UNKNOWN'),3,'Lookalike host must not be credited as ChatGPT across audiences');
  assert.equal(geo.data.entryPages.find(x=>x.entryPage==='KIDS_QUIET_GUIDE')?.inquiries,2);
  assert.equal(geo.data.entryPages.find(x=>x.entryPage==='SCHOOL_EQUIPMENT_GUIDE')?.inquiries,2);
  assert.equal(geo.data.sources.find(x=>x.channel==='CHATGPT')?.exactQuoted,0,'A source label must not fabricate a quote');
