@@ -49,6 +49,7 @@ jobs:
           node scripts/check-ai-intent-guides.cjs
           node scripts/check-coach-ai-answers.cjs
           node scripts/check-public-crawl-graph.cjs
+          node scripts/check-wholesale-product-deep-links.cjs
           node scripts/check-public-canonicals.cjs
           node scripts/test-public-canonicals.cjs
           node scripts/check-geo-source-capture.cjs
@@ -214,6 +215,25 @@ jobs:
           assert facts['publisher']['website']==base
           assert 'llms.txt' not in [x['url'] for x in facts['products']]
           print('PASS verified live AI product data remains first-party, canonical and complete')
+          PY
+
+      - name: Confirm public indexed catalog links to all four product pages
+        run: |
+          python - <<'PY'
+          import pathlib, re, urllib.request
+          url='https://www.mingeagle.com/wholesale-product-catalog.html'
+          request=urllib.request.Request(url,headers={'Cache-Control':'no-cache','User-Agent':'MING-EAGLE-product-discovery-check/1.0'})
+          with urllib.request.urlopen(request,timeout=20) as response:
+              if response.status!=200:
+                  raise SystemExit('FAIL indexed product catalog HTTP status')
+              source=response.read().decode('utf-8')
+          local=pathlib.Path('public/wholesale-product-catalog.html').read_text()
+          links=('silent-basketball.html','fabric-silent-basketball.html','weighted-flocked-basketball.html','silent-soccer.html')
+          for page in links:
+              marker='href="'+page+'"'
+              if marker not in source or marker not in local:
+                  raise SystemExit('FAIL missing static detail product link '+page)
+              print('PASS live wholesale-to-product static link',page)
           PY
 
       - name: Verify live canonical host and key AI buyer pages
