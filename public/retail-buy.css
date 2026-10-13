@@ -1,0 +1,28 @@
+/* Shared shopping widgets: visible product selection and accessible cart badge. */
+.retailBuyPicker{margin:20px 0 16px;padding:18px;background:#fff;border:1px solid #dce6ed;border-radius:15px;box-shadow:0 6px 23px rgba(19,38,50,.07);max-width:700px;color:#172235}
+.retailBuyEyebrow{margin:0 0 7px;color:#aa4e2a;text-transform:uppercase;font-size:10px;font-weight:800;letter-spacing:.12em}
+.retailBuyTitle{font-size:20px!important;font-weight:800!important;line-height:1.2!important;margin:0 0 13px!important;color:#172235!important}
+.retailBuyFields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) 83px;gap:9px;align-items:end}
+.retailBuyField{display:grid;gap:5px;min-width:0;font-size:12px;font-weight:700;color:#475569}
+.retailBuyField select,.retailBuyField input{box-sizing:border-box;width:100%;min-width:0;height:43px;padding:8px 7px;border:1px solid #aab8cb;border-radius:8px;background:#fff;color:#172235;font-size:13px;font-weight:600}
+.retailBuyField select:focus,.retailBuyField input:focus,.retailBuyAdd:focus-visible,.retailBuyView:focus-visible{outline:3px solid #f6ae81;outline-offset:2px}
+.retailBuyPrice{font-size:16px!important;color:#176341!important;font-weight:800;margin:13px 0 6px!important}
+.retailBuyNote{font-size:12px!important;line-height:1.5!important;margin:0 0 13px!important;color:#64748b!important}
+.retailBuyActions{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.retailBuyAdd{background:#e85b2d;color:#fff;border:0;border-radius:9px;padding:12px 17px;font-size:14px;cursor:pointer;font-weight:800}
+.retailBuyAdd:hover{background:#cc4820}
+.retailBuyView{border:1px solid #aebed0;border-radius:9px;padding:11px 14px;color:#172235!important;text-decoration:none!important;font-size:13px;font-weight:750}
+.retailBuyStatus{min-height:1.3em;font-size:12px!important;color:#176341!important;margin:10px 0 0!important;line-height:1.5!important}
+.retailCartFloating{position:fixed;left:18px;bottom:18px;z-index:1500;display:flex;gap:5px;align-items:center;padding:12px 17px;background:#172235;color:#fff!important;text-decoration:none!important;box-shadow:0 7px 25px rgba(0,0,0,.22);border-radius:999px;font:700 14px system-ui,sans-serif}
+.retailCartFloating:hover{background:#284463}
+.productHero .retailBuyPicker{margin-top:22px}
+.productGrid2 .retailBuyPicker,.grid4 .retailBuyPicker{margin:18px 0 10px;padding:13px;box-shadow:none}
+.pcard .retailBuyTitle{font-size:17px!important}
+.pcard .retailBuyFields{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.pcard .retailBuyField:last-child{grid-column:span 2;max-width:105px}
+@media(max-width:680px){
+ .retailBuyFields{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+ .retailBuyField:last-child{grid-column:span 2;max-width:105px}
+ .retailBuyPicker{padding:14px}
+ .retailCartFloating{left:12px;bottom:12px}
+}
