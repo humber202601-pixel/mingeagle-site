@@ -21,7 +21,7 @@ for(const p of data.prompts){
  assert(fs.existsSync('public/'+filename),'Missing target '+filename);
  assert(sitemap.includes('<loc>'+p.targetUrl+'</loc>'),'Target excluded from sitemap '+p.targetUrl);
  const target=fs.readFileSync('public/'+filename,'utf8');
- assert(new RegExp('<html\\s+lang=["\\\']'+p.language+'["\\\']','i').test(target),'AI benchmark target language mismatch: '+p.id+' / '+filename);
+ assert(new RegExp(`<html\\s+lang=["']${p.language}["']`,'i').test(target),'AI benchmark target language mismatch: '+p.id+' / '+filename);
 }
 assert.equal(groups.size,5);
 for(const bot of ['Googlebot','Bingbot','OAI-SearchBot','PerplexityBot','Claude-SearchBot']){
