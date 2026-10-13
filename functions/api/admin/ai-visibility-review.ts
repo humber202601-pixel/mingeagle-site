@@ -1,4 +1,5 @@
 import benchmark from '../../../data/ai-discovery-benchmark.json';
+import publicUrls from '../../../data/ai-discovery-public-urls.json';
 // Admin route is protected by functions/api/admin/_middleware.ts.
 // Human-attested observations are not official platform analytics or proof of all users' answers.
 interface Env {MINGEAGLE_DB?:D1Database}
@@ -10,7 +11,7 @@ const platforms=['CHATGPT','GEMINI','COPILOT','PERPLEXITY','CLAUDE'] as const;
 const modes=['WEB_SEARCH','STANDARD'] as const;
 const statuses=['CITED','MENTIONED_NO_LINK','NOT_MENTIONED','UNAVAILABLE'] as const;
 const approvedPrompts=new Set(benchmark.prompts.map(p=>p.id));
-const approvedUrls=new Set(['https://www.mingeagle.com/',...benchmark.prompts.map(p=>p.targetUrl)]);
+const approvedUrls=new Set(publicUrls.urls);
 const headers={'cache-control':'private, no-store'};
 const send=(data:Record<string,unknown>,status=200)=>Response.json(data,{status,headers});
 function publicCitation(input:unknown):string|null{
