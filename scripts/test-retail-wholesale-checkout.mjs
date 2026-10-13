@@ -8,7 +8,7 @@ const policy=await compile('functions/_shared/retail-checkout.ts');
 const checkout=await compile('functions/api/retail/checkout.ts');
 const readiness=await compile('functions/api/retail/checkout-readiness.ts');
 const cart=await compile('functions/api/shipping/cart.ts');
-const fully={AIRWALLEX_CHECKOUT_ENABLED:'true',AIRWALLEX_ENV:'sandbox',
+const fully={AIRWALLEX_CHECKOUT_ENABLED:'true',AIRWALLEX_ENV:'prod',
  AIRWALLEX_CLIENT_ID:'demo',AIRWALLEX_API_KEY:'demo',
  AIRWALLEX_WEBHOOK_SECRET:'demo',RETAIL_DIRECT_CHECKOUT_ENABLED:'true',
  RETAIL_FULFILLMENT_APPROVED:'true',RETAIL_TAX_COMPLIANCE_APPROVED:'true',
@@ -16,6 +16,7 @@ const fully={AIRWALLEX_CHECKOUT_ENABLED:'true',AIRWALLEX_ENV:'sandbox',
  '94105':{rate:0.0875,shippingTaxable:true,verifiedAt:new Date().toISOString().slice(0,10)}
  }),TURNSTILE_SECRET_KEY:'demo'};
 assert(policy.retailCheckoutReady(fully));
+assert(!policy.retailCheckoutReady({...fully,AIRWALLEX_ENV:'sandbox'}));
 for(const key of Object.keys(fully)){
  assert(!policy.retailCheckoutReady({...fully,[key]:''}),'Cannot activate without '+key);
 }
