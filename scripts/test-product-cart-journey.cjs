@@ -10,7 +10,7 @@ for(const name of pages){
  const html=fs.readFileSync('public/'+name,'utf8');
  assert(html.includes('retail-buy.css?v=20261013-cartfix1'),name+' missing styles');
  const base=html.indexOf('retail-cart.js?v=20261013-cartfix1');
- const buyer=html.indexOf('retail-buy.js?v=20261013-cartfix1');
+ const buyer=html.indexOf(name==='silent-basketball.html'?'retail-buy.js?v=20261014-creator1':'retail-buy.js?v=20261013-cartfix1');
  assert(base>0&&buyer>base,name+' cart store must load before selector');
 }
 const prices=JSON.parse(fs.readFileSync('public/retail-prices.json','utf8')).products;
