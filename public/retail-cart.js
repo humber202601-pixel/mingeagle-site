@@ -23,10 +23,20 @@ function redraw(){const lines=read(),body=$('cartLines');body.replaceChildren();
  const total=lines.reduce((n,x)=>n+x.quantity,0);if(total<10)$('bulkSeaConsent').checked=false;wholesaleMode();
  $('cartStatus').textContent=lines.length?(total>=10?'10+ items: accept sea freight and request a volume-discounted quote.':'1–9 items: calculate air freight before continuing to secure retail checkout.'):'Your cart is empty.';
 }
-$('cartEstimateForm').addEventListener('submit',async e=>{e.preventDefault();const lines=read();if(!lines.length)return;invalidate();const requestId=quoteRequest;$('cartCheckout').disabled=true;$('cartStatus').textContent='Calculating live shipping…';
-try{const r=await fetch('https://app.mingeagle.com/api/shipping/cart',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({lines,country:$('cartCountry').value.trim().toUpperCase(),method:$('cartMethod').value})});const d=await r.json();if(requestId!==quoteRequest)return;if(!r.ok||!d.ok)throw Error(d.error||'Shipping unavailable');latest=d;$('cartGoods').textContent=money(d.productsUSD);$('cartFreight').textContent=money(d.shippingUSD);$('cartTotal').textContent=money(d.totalBeforeTaxesUSD);$('cartSummaryGoods').textContent=money(d.productsUSD);$('cartSummaryShipping').textContent=money(d.shippingUSD);$('cartSummaryTotal').textContent=money(d.totalBeforeTaxesUSD);$('cartEstimate').hidden=false;$('cartCheckout').disabled=false;$('cartStatus').textContent='Estimate only. No payment is collected. Taxes and duties are not included.';}catch(err){$('cartStatus').textContent='Unable to quote: '+String(err.message||err)}});
-$('cartCountry').addEventListener('input',invalidate);$('cartMethod').addEventListener('change',invalidate);
-$('cartCheckout').addEventListener('click',()=>{if(!latest)return;const summary=latest.lines.map(x=>x.sku+' × '+x.quantity).join(', ');const q=new URLSearchParams({type:'retail',cart:summary,cart_country:latest.country,cart_method:latest.method,cart_total:String(latest.totalBeforeTaxesUSD),cart_shipping:String(latest.shippingUSD)});location.href='inquiry.html?'+q});
+$('cartEstimateForm').addEventListener('submit',async e=>{e.preventDefault();const lines=read();if(!lines.length||quantity()>=10){$('cartStatus').textContent='10+ units must use a sea-freight wholesale quotation.';return}invalidate();const requestId=quoteRequest;$('cartCheckout').disabled=true;$('cartStatus').textContent='Calculating live shipping…';
+try{const r=await fetch('https://app.mingeagle.com/api/shipping/cart',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({lines,country:$('cartCountry').value.trim().toUpperCase(),method:$('cartMethod').value})});const d=await r.json();if(requestId!==quoteRequest)return;if(!r.ok||!d.ok||d.mode==='WHOLESALE_RFQ')throw Error(d.error||'Shipping unavailable');if(!Number.isFinite(d.productsUSD)||!Number.isFinite(d.shippingUSD)||d.quantity!==quantity())throw Error('Incomplete or stale server shipping amount');latest=d;$('cartGoods').textContent=money(d.productsUSD);$('cartFreight').textContent=money(d.shippingUSD);$('cartTotal').textContent=money(d.totalBeforeTaxesUSD);$('cartSummaryGoods').textContent=money(d.productsUSD);$('cartSummaryShipping').textContent=money(d.shippingUSD);$('cartSummaryTotal').textContent=money(d.totalBeforeTaxesUSD);$('cartEstimate').hidden=false;$('cartCheckout').disabled=false;$('cartStatus').textContent='Estimate only. No payment is collected. Taxes and duties are not included.';}catch(err){$('cartStatus').textContent='Unable to quote: '+String(err.message||err)}});
+$('cartCountry').addEventListener('input',()=>{invalidate();updateAirLabel();wholesaleMode()});$('cartMethod').addEventListener('change',()=>{invalidate();wholesaleMode()});$('bulkSeaConsent').addEventListener('change',wholesaleMode);
+$('cartCheckout').addEventListener('click',()=>{
+ const lines=read(),items=quantity(),country=$('cartCountry').value.trim().toUpperCase();
+ if(!lines.length||items<1||items>10000)return;
+ if(items>=10){
+  if(!$('bulkSeaConsent').checked){$('cartStatus').textContent='Please accept 25–30 day estimated sea freight before requesting wholesale prices.';return}
+  const params=new URLSearchParams({type:'quote',cart_flow:'wholesale',cart:lines.map(x=>x.sku+' x '+x.quantity).join(', '),cart_country:country,cart_method:'sea',sea_accepted:'yes'});
+  location.href='inquiry.html?'+params.toString();return;
+ }
+ if(!latest||latest.quantity!==items||latest.country!==country||latest.method!=='air')return;
+ location.href='retail-checkout.html';
+});
 redraw();
 })();+Number(n).toFixed(2);
 const quantity=()=>read().reduce((sum,item)=>sum+item.quantity,0);
