@@ -1,7 +1,7 @@
 // Strict release check: a question bank is a research fixture, not an AI ranking claim.
 const fs=require('node:fs'),assert=require('node:assert/strict');
 const data=JSON.parse(fs.readFileSync('data/ai-discovery-benchmark.json','utf8'));
-const sitemap=fs.readFileSync('public/sitemap.xml','utf8'),robots=fs.readFileSync('public/robots.txt','utf8');
+const sitemap=fs.readFileSync('public/sitemap.xml','utf8')+'\n'+fs.readFileSync('public/sitemap-localized.xml','utf8'),robots=fs.readFileSync('public/robots.txt','utf8');
 const validIntent=new Set(['HOME_NOISE','INDOOR_ACTIVITY','SCHOOLS','ACADEMIES','B2B']);
 assert.equal(data.property,'https://www.mingeagle.com/');
 assert(data.prompts.length>=20&&data.prompts.length<=80);
@@ -20,6 +20,10 @@ for(const p of data.prompts){
  assert.match(filename,/^[a-z0-9-]+\.html$/);
  assert(fs.existsSync('public/'+filename),'Missing target '+filename);
  assert(sitemap.includes('<loc>'+p.targetUrl+'</loc>'),'Target excluded from sitemap '+p.targetUrl);
+ const target=fs.readFileSync('public/'+filename,'utf8');
+ const actualLanguage=p.targetLanguage||p.language;
+ assert(actualLanguage===p.language||(p.targetLanguage==='en'&&p.language!=='en'),'Non-matching language must explicitly document an English fallback '+p.id);
+ assert(new RegExp(`<html\\s+lang=["']${actualLanguage}["']`,'i').test(target),'AI benchmark target language mismatch: '+p.id+' / '+filename);
 }
 assert.equal(groups.size,5);
 for(const bot of ['Googlebot','Bingbot','OAI-SearchBot','PerplexityBot','Claude-SearchBot']){

@@ -25,3 +25,7 @@ The public prompt bank maps each buyer need to an existing real product page or 
 
 ## Next prerequisites, separate from this PR
 Bing property verification; eligible retail product feed with factual price/stock (no fictitious B2B price); independent product noise-comparison demonstrations with test methods and limitations; owner consent for paid advertising and any recurring expense.
+
+## 2026-10-13 · Actual target-language policy
+
+The input prompt language and the page language are independently verified. Whenever a truly localized public guide matches an unbranded buyer intent, the `targetUrl` points to that language, e.g. Spanish school PE question `ME-AI-023` now targets `school-sports-equipment-es.html`. **The three other non-English prompts (ME-AI-021 DE apartment quiet basketball, ME-AI-022 FR indoor kids activity, and ME-AI-024 PT bulk sporting-goods sourcing) have no intent-matched published local-language guide yet**; they therefore carry explicit `targetLanguage: en` metadata as an English fallback. The school-oriented German/French/Portuguese pages are not interchangeable with parent/wholesale intent. The release checker asserts both that this is an explicit fallback and that the source HTML really declares the language recorded by the benchmark. Such fallback is a *proposed content target*, never evidence a German, French, or Portuguese model actually recommended the website.
