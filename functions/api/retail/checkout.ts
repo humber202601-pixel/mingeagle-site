@@ -1,10 +1,12 @@
-import {airwallexCheckoutReadiness,type AirwallexEnv} from '../../_shared/airwallex';
+import {type AirwallexEnv} from '../../_shared/airwallex';
+import {type StripeEnv} from '../../_shared/stripe';
 import {verifyInquiryTurnstile,turnstileConfiguration,type TurnstileEnv} from '../../../lib/turnstile-inquiry';
 import {SKU_USD} from '../../../lib/retail-reference';
 import {onRequestPost as calculateShipping} from '../shipping/cart';
 import {retailCheckoutReady} from './checkout-status';
 
-interface Env extends AirwallexEnv,TurnstileEnv {
+interface Env extends AirwallexEnv,StripeEnv,TurnstileEnv {
+ STRIPE_TAX_POLICY_APPROVED?:string;
  MINGEAGLE_DB:D1Database;
  RETAIL_CHECKOUT_ENABLED?:string;
  RETAIL_STOCK_FULFILLMENT_APPROVED?:string;
@@ -101,10 +103,10 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   statements.push(
    db.prepare("INSERT INTO leads(id,primary_contact_id,source,source_detail,status,product_interest) VALUES (?,?,'WEBSITE','DIRECT_RETAIL_CHECKOUT','INTERESTED','SILENT_BALL')").bind(lead,contact),
    db.prepare("INSERT INTO inquiries(id,reference,lead_id,contact_id,request_type,customer_type,estimated_quantity,shipping_country,shipping_city,shipping_postal_code,message,status) VALUES (?,?,?,?, 'RETAIL','Family / consumer',?,'US',?,?,?,'QUOTED')").bind(inquiry,ref,lead,contact,String(quantity),city,zip,'Self-service retail checkout: '+descriptions.join(', ')),
-   db.prepare("INSERT INTO quotes(id,reference,lead_id,inquiry_id,contact_id,status,currency,subtotal,discount,shipping,tax,total,payment_terms,shipping_terms,notes,valid_until,sent_at,public_token_hash) VALUES (?,?,?,?,?,'SENT','USD',?,0,?,0,?,'Online payment due through verified Airwallex checkout','US air parcel from China; expected timing is an estimate, not guaranteed','Customer-approved self-service retail subtotal and air freight; tax handling approved by merchant',datetime('now','+7 days'),CURRENT_TIMESTAMP,?)")
+   db.prepare("INSERT INTO quotes(id,reference,lead_id,inquiry_id,contact_id,status,currency,subtotal,discount,shipping,tax,total,payment_terms,shipping_terms,notes,valid_until,sent_at,public_token_hash) VALUES (?,?,?,?,?,'SENT','USD',?,0,?,0,?,'Online payment through verified secure checkout','US air parcel from China; expected timing is an estimate, not guaranteed','Customer-approved self-service retail subtotal and air freight; tax handling approved by merchant',datetime('now','+7 days'),CURRENT_TIMESTAMP,?)")
     .bind(quote,quoteRef,lead,inquiry,contact,goods/100,freight/100,total/100,tokenHash),
    db.prepare("INSERT INTO orders(id,reference,quote_id,lead_id,contact_id,status,currency,subtotal,discount,shipping,tax,total,payment_status,shipping_address,customer_notes) VALUES (?,?,?,?,?,'PAYMENT_PENDING','USD',?,0,?,0,?,'UNPAID',?,?)")
-    .bind(order,orderRef,quote,lead,contact,goods/100,freight/100,total/100,address,'Retail self-service checkout awaiting verified provider payment')
+    .bind(order,orderRef,quote,lead,contact,goods/100,freight/100,total/100,address,'Retail self-service checkout awaiting provider-confirmed payment')
   );
   for(let i=0;i<lines.length;i++){
    const line=lines[i],unit=SKU_USD[line.sku],sum=Math.round(unit*100)*line.quantity/100;
