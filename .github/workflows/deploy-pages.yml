@@ -29,6 +29,9 @@ jobs:
       - name: Apply product images specifications and 2x2 layout
         run: python scripts/deploy-finalize.py
 
+      - name: Prevent stale inquiry JS after contact build normalization
+        run: node scripts/test-creator-build-cache.cjs
+
       - name: Build search guides
         run: python scripts/build-learning.py
 
