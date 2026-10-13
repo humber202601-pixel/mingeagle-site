@@ -83,7 +83,7 @@ try{
  assert.equal(r.data.summary.WEB_SEARCH.manualCitationRate,1);
  assert.equal((await submit({...fixture,testMode:'STANDARD',status:'MENTIONED_NO_LINK'})).status,200);
  r=await get();
- assert.equal(r.data.summary.WEB_SEARCH.eligible,1);
+ assert.equal(r.data.summary.WEB_SEARCH.eligible,2,'Standard answer does not change already eligible search samples');
  assert.equal(r.data.summary.STANDARD.observedPairs,1);
  assert.equal(r.data.summary.STANDARD.counts.MENTIONED_NO_LINK,1);
  assert.equal(r.data.summary.STANDARD.manualCitationRate,0);
