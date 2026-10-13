@@ -12,7 +12,7 @@ body{background:#f7f9fc;color:var(--cart-ink)}
 .cart-total-line{display:flex;justify-content:space-between;gap:10px;font-size:14px;margin:15px 0}.cart-total-line span:first-child{color:var(--cart-muted)}.cart-grand{border-top:1px solid var(--cart-line);padding-top:20px;margin-top:19px;align-items:center}.cart-grand strong{font-size:25px;letter-spacing:-.03em}.cart-note{border-radius:11px;background:#f6f8fb;padding:14px;font-size:12px;color:#617286;line-height:1.7;margin:20px 0}.cart-summary button{width:100%}.cart-small{font-size:12px;color:#8793a3;text-align:center;margin-top:13px}.cart-browse{display:flex;gap:9px;flex-wrap:wrap;justify-content:center}
 @media(max-width:850px){.cart-layout{grid-template-columns:1fr}.cart-summary{position:static;grid-row:auto}.cart-shell{padding:32px 16px 65px}}
 @media(max-width:520px){.cart-panel{padding:20px 15px}.cart-fields{grid-template-columns:1fr}.cart-head{margin-top:16px}.cart-head h1{font-size:34px}.cart-panel h2{font-size:20px}}
-</style></head><body>
+.cart-table select{max-width:100%;min-height:38px;padding:7px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#172235;font-size:13px}.cart-table label{font-weight:600;font-size:13px;line-height:1.45}</style></head><body>
 <main id="retailCart" class="cart-shell"><a class="cart-back" href="products.html">← Continue shopping</a>
 <header class="cart-head"><div class="kicker">MING EAGLE / RETAIL &amp; WHOLESALE</div><h1>Shopping Cart</h1><p>Buy 1–9 items at public retail prices by air parcel. For 10 or more items, request quantity-based wholesale discounts with sea freight and estimated delivery 25–30 days after dispatch. Delivery dates are not guaranteed.</p><p id="cartRoute" role="status"></p></header>
 <div class="cart-layout"><div class="cart-column">
@@ -36,4 +36,4 @@ body{background:#f7f9fc;color:var(--cart-ink)}
 <div id="cartEstimate" hidden><span id="cartGoods" hidden></span><span id="cartFreight" hidden></span><span id="cartTotal" hidden></span></div>
 <button class="cart-primary" id="cartCheckout" type="button" disabled>Choose retail payment or wholesale quote →</button><p class="cart-small">No payment is collected on this page. Retail payment is offered only after the secure payment gateway and final order terms have been verified.</p>
 </aside></div></main>
-<script defer src="forms-core.js"></script><script defer src="direct-contact.js"></script><script defer src="retail-cart.js?v=20261013-quantity-routing"></script></body></html>
+<script defer src="forms-core.js"></script><script defer src="direct-contact.js"></script><script defer src="retail-cart.js?v=20261013-cartfix1"></script></body></html>

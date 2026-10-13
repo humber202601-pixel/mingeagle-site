@@ -29,28 +29,70 @@ if(assistantSummary&&/^((Product|Size|Quantity|Destination postal code|Destinati
 }
 
 form.querySelectorAll('[name="products[]"]').forEach(cb=>{if(cb.value===q.get('product'))cb.checked=true});
-if(q.get('type')==='retail'&&q.get('cart')){
+if((q.get('type')==='retail'||q.get('type')==='quote')&&q.get('cart')){
  const raw=String(q.get('cart')||'');
- const entries=raw.split(', ').slice(0,11).map(item=>/^((?:P1-S[357]|P2-S[357]|P3-S[3467]|P4-S5)) × (\\d{1,5})$/.exec(item)).filter(Boolean);
+ const matches=raw.length<=800?raw.split(', ').slice(0,11)
+  .map(item=>/^(P1-S[357]|P2-S[357]|P3-S[3467]|P4-S5) [x×] (\d{1,5})$/.exec(item))
+  .filter(Boolean):[];
  const chosen=new Map();
- entries.forEach(match=>{const qty=Number(match[2]);if(qty>=1&&qty<=10000)chosen.set(match[1],qty)});
+ for(const match of matches){
+  const qty=Number(match[2]);
+  if(Number.isSafeInteger(qty)&&qty>=1&&qty<=10000)
+   chosen.set(match[1],(chosen.get(match[1])||0)+qty);
+ }
  const totalUnits=[...chosen.values()].reduce((sum,n)=>sum+n,0);
  const iso=String(q.get('cart_country')||'').toUpperCase();
  const country=/^[A-Z]{2}$/.test(iso)?iso:'';
  const mode=q.get('cart_method')==='sea'?'Sea freight':'Air parcel';
  const lines=[...chosen].map(([sku,units])=>sku+' x '+units);
- // This is a customer-provided estimate, not a trusted or payable quote.
- const summary=['Retail cart order request (NOT PAID)','Products: '+lines.join(', '),'Total items: '+totalUnits,'Destination country: '+country,'Preferred shipping: '+mode,'Estimated freight USD (unverified): '+String(q.get('cart_shipping')||'').slice(0,20),'Estimated total before tax USD (unverified): '+String(q.get('cart_total')||'').slice(0,20),'Final item prices, freight, taxes and availability must be confirmed before payment.'].join('\\n');
- if($('message'))$('message').value=summary.slice(0,3900);
- if($('country'))$('country').value=country;
- for(const sku of chosen.keys()){const id='p'+sku[1],check=$('choose-'+id),size=$('size-'+id);
-  if(check)check.checked=true;
-  const number=sku.slice(-1);
-  if(size){const options=[...size.options];if(options.some(o=>o.value==='No. '+number))size.value='No. '+number;}
+ const colors={
+  P1:['Orange','Blue','Green','Yellow'],P2:['Orange','Green'],
+  P3:['Orange','Brown','Black','Aqua Blue'],
+  P4:['Black/White','Black/Green','Black/Red','Yellow/Green','Black/Gold']
+ };
+ const optionsText=String(q.get('cart_options')||'');
+ const details=[];const optionCounts=new Map();
+ if(optionsText.length<=2200){
+  for(const part of optionsText.split('; ').filter(Boolean).slice(0,55)){
+   const match=/^(P1-S[357]|P2-S[357]|P3-S[3467]|P4-S5) \| (.{1,25}) \| (\d{1,5})$/.exec(part);
+   if(!match||!colors[match[1].slice(0,2)]?.includes(match[2]))continue;
+   const n=Number(match[3]);if(!Number.isSafeInteger(n)||n<1||n>10000)continue;
+   optionCounts.set(match[1],(optionCounts.get(match[1])||0)+n);
+   details.push(match[1]+' / '+match[2]+' x '+n);
+  }
  }
- if(totalUnits>0&&totalUnits<=10000){const selector=$('estimated_quantity');const tier=totalUnits<=2?'1–2 samples':totalUnits<=49?'3–49 units':totalUnits<=99?'50–99 units':totalUnits<=499?'100–499 units':totalUnits<=999?'500–999 units':'1,000+ units';if(selector)selector.value=tier;}
- // Keep actual per-SKU quantities in the message: the inquiry's coarse quantity is only a sales filter.
- if(totalUnits>0&&totalUnits<=10000)window.__mingEagleCartOrder={lines,country,mode,totalUnits};
+ const optionsMatch=chosen.size>0&&chosen.size===optionCounts.size&&
+  [...chosen].every(([sku,n])=>n===optionCounts.get(sku));
+ // The customer-provided totals/variant details are descriptive only. The
+ // server will verify SKU prices and freight before preparing any quote.
+ const summary=['Retail cart order request (NOT PAID)',
+  'Products: '+lines.join(', '),
+  optionsMatch?'Selected variants (customer supplied): '+details.join('; '):
+   'Selected colors: confirmation required',
+  'Total items: '+totalUnits,
+  'Destination country: '+country,
+  'Preferred shipping: '+mode,
+  'Estimated freight USD (unverified): '+String(q.get('cart_shipping')||'').slice(0,20),
+  'Estimated total before tax USD (unverified): '+String(q.get('cart_total')||'').slice(0,20),
+  'Final item prices, colors, freight, taxes and availability must be confirmed before payment.'
+ ].join('\n');
+ if(totalUnits>0&&totalUnits<=10000&&country&&lines.length&&
+    ((totalUnits<10&&mode==='Air parcel')||(totalUnits>=10&&mode==='Sea freight'))){
+  if($('message'))$('message').value=summary.slice(0,3900);
+  if($('country'))$('country').value=country;
+  for(const sku of chosen.keys()){
+   const id='p'+sku[1],check=$('choose-'+id),size=$('size-'+id);
+   if(check)check.checked=true;
+   const number=sku.slice(-1);
+   if(size&&[...size.options].some(o=>o.value==='No. '+number))size.value='No. '+number;
+  }
+  const selector=$('estimated_quantity');
+  const tier=totalUnits<=2?'1–2 samples':totalUnits<=49?'3–49 units':
+   totalUnits<=99?'50–99 units':totalUnits<=499?'100–499 units':
+   totalUnits<=999?'500–999 units':'1,000+ units';
+  if(selector)selector.value=tier;
+  window.__mingEagleCartOrder={lines,country,mode,totalUnits};
+ }
 }
 
 try{
