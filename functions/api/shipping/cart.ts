@@ -11,7 +11,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  const lines=input.lines,country=String(input.country||'').toUpperCase(),method=input.method;
  if(!Array.isArray(lines)||!lines.length||lines.length>11||!/^[A-Z]{2}$/.test(country)||!['air','sea'].includes(String(method)))return result({ok:false,error:'Invalid basket or destination'},400);
  const keys=new Set<string>();let quantity=0,subtotalCents=0;
- for(const line of lines){if(!line||typeof line.sku!=='string'||!(line.sku in prices)||keys.has(line.sku)||!Number.isSafeInteger(line.quantity)||line.quantity<1||line.quantity>10000)return result({ok:false,error:'Invalid or duplicate basket line'},400);keys.add(line.sku);quantity+=line.quantity;subtotalCents+=Math.round(prices[line.sku]*100)*line.quantity}
+ for(const line of lines){if(!line||typeof line.sku!=='string'||!Object.prototype.hasOwnProperty.call(prices,line.sku)||keys.has(line.sku)||!Number.isSafeInteger(line.quantity)||line.quantity<1||line.quantity>10000)return result({ok:false,error:'Invalid or duplicate basket line'},400);keys.add(line.sku);quantity+=line.quantity;subtotalCents+=Math.round(prices[line.sku]*100)*line.quantity}
  if(quantity>10000)return result({ok:false,error:'Too many items'},400);
  if(quantity>=10&&method!=='sea')return result({ok:false,error:'Wholesale orders of 10+ items require sea freight and a written quantity-based quote'},409);
  if(quantity<10&&method!=='air')return result({ok:false,error:'Retail orders of 1–9 items use air shipping'},409);
