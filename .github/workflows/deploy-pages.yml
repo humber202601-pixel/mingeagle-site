@@ -45,6 +45,8 @@ jobs:
       - name: Add crawlable, contextual links to buying and product pages
         run: |
           node scripts/build-seo-discovery-links.cjs
+          node scripts/build-product-listing-discovery.cjs
+          node scripts/check-product-listing-discovery.cjs
           node scripts/check-seo-discovery-links.cjs
           node scripts/check-ai-intent-guides.cjs
           node scripts/check-coach-ai-answers.cjs
@@ -215,6 +217,41 @@ jobs:
           assert facts['publisher']['website']==base
           assert 'llms.txt' not in [x['url'] for x in facts['products']]
           print('PASS verified live AI product data remains first-party, canonical and complete')
+          PY
+
+      - name: Verify live product collection ItemList and readable SKU comparisons
+        run: |
+          python - <<'PY'
+          import json, re, urllib.request
+          url='https://www.mingeagle.com/products.html'
+          request=urllib.request.Request(url,headers={'Cache-Control':'no-cache','User-Agent':'MING-EAGLE-catalog-discovery-check/1.0'})
+          with urllib.request.urlopen(request,timeout=20) as response:
+              if response.status!=200 or response.geturl()!=url:
+                  raise SystemExit('FAIL public catalog HTML is inaccessible')
+              html=response.read().decode('utf-8')
+          start='<!-- MING EAGLE PRODUCT COLLECTION SCHEMA START -->'
+          end='<!-- MING EAGLE PRODUCT COLLECTION SCHEMA END -->'
+          if html.count(start)!=1 or html.count(end)!=1:
+              raise SystemExit('FAIL missing unique public ItemList block')
+          raw=html.split(start)[1].split(end)[0]
+          m=re.search(r'<script type="application/ld\\+json">([\\s\\S]*?)</script>',raw)
+          if m is None:
+              raise SystemExit('FAIL missing ItemList JSON-LD script')
+          data=json.loads(m.group(1))
+          if data.get('@type')!='ItemList' or data.get('numberOfItems')!=4:
+              raise SystemExit('FAIL inaccurate public product listing schema')
+          items=data.get('itemListElement',[])
+          expected=('silent-basketball.html','fabric-silent-basketball.html','weighted-flocked-basketball.html','silent-soccer.html')
+          if len(items)!=4:
+              raise SystemExit('FAIL unexpected product collection count')
+          table=html.split('<section class="section comparisonSection" id="compare">')[1].split('</section>')[0]
+          for i,(sku,page) in enumerate(zip(items,expected),start=1):
+              product=sku.get('item',{})
+              if sku.get('position')!=i or product.get('url')!='https://www.mingeagle.com/'+page:
+                  raise SystemExit('FAIL mismatched product collection URL '+page)
+              if '<a href="'+page+'">'+product.get('name','')+'</a>' not in table:
+                  raise SystemExit('FAIL missing matching readable comparison link '+page)
+              print('PASS live product comparison + ItemList',page)
           PY
 
       - name: Confirm public indexed catalog links to all four product pages
