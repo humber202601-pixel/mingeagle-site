@@ -34,13 +34,13 @@ const active={...fully,MINGEAGLE_DB:{}};
 let response=await checkout.onRequestPost({request:request(sample),env:{}});assert.equal(response.status,503);
 response=await checkout.onRequestPost({request:request(sample),env:active});assert.equal(response.status,403);
 response=await checkout.onRequestPost({request:new Request('https://app.mingeagle.com/api/retail/checkout',{
- method:'POST',headers:{...headers,origin:'https://attacker.example'},body:JSON.stringify(sample)}),env:fully});
+ method:'POST',headers:{...headers,origin:'https://attacker.example'},body:JSON.stringify(sample)}),env:active});
 assert.equal(response.status,403);
-response=await checkout.onRequestPost({request:request({...sample,lines:[{sku:'P1-S3',quantity:10}]}),env:fully});
+response=await checkout.onRequestPost({request:request({...sample,lines:[{sku:'P1-S3',quantity:10}]}),env:active});
 assert.equal(response.status,400);
-response=await checkout.onRequestPost({request:request({...sample,shippingMethod:'sea'}),env:fully});
+response=await checkout.onRequestPost({request:request({...sample,shippingMethod:'sea'}),env:active});
 assert.equal(response.status,400);
-response=await checkout.onRequestPost({request:request({...sample,customer:{...sample.customer,address1:'<script>'}}),env:fully});
+response=await checkout.onRequestPost({request:request({...sample,customer:{...sample.customer,address1:'<script>'}}),env:active});
 assert.equal(response.status,400);
 const fakeRate={usd_per_unit:8,volume_divisor:6000,min_charge_usd:0,handling_usd:0};
 const packs={'P1-S3':{length_cm:25,width_cm:25,height_cm:25,units_per_package:1}};
