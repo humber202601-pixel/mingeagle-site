@@ -14,7 +14,7 @@ function loadProvider(){
   const tag=document.createElement('script');tag.src='https://static.airwallex.com/components/sdk/v1/index.js';
   tag.async=true;tag.onload=()=>window.AirwallexComponentsSDK?resolve():reject(Error('Secure payment SDK is unavailable'));
   tag.onerror=()=>reject(Error('Payment service could not be loaded'));
-  document.head.append(tag);
+  document.head.appendChild(tag);
  });
 }
 const money=(v:number)=>'$'+Number(v).toFixed(2);
@@ -37,12 +37,12 @@ export default function CustomerQuote(){
  useEffect(()=>{
   // Tokenized commercial documents should never enter marketing analytics.
   document.title='Secure Order | MING EAGLE';
-  const tag=document.createElement('meta');tag.name='robots';tag.content='noindex,nofollow,noarchive';document.head.append(tag);
-  const ref=document.createElement('meta');ref.name='referrer';ref.content='no-referrer';document.head.append(ref);
+  const tag=document.createElement('meta');tag.name='robots';tag.content='noindex,nofollow,noarchive';document.head.appendChild(tag);
+  const ref=document.createElement('meta');ref.name='referrer';ref.content='no-referrer';document.head.appendChild(ref);
   let active=true;
   if(valid)Promise.all([
-   fetch('/api/quote/'+token,{cache:'no-store'}).then(r=>r.json()),
-   fetch('/api/payments/status',{cache:'no-store'}).then(r=>r.json())
+   fetch('/api/quote/'+token,{cache:'no-store'}).then(async r=>(await r.json()) as Info),
+   fetch('/api/payments/status',{cache:'no-store'}).then(async r=>(await r.json()) as PayStatus)
   ]).then(([q,p])=>{if(active){setData(q);setPayment(p)}})
    .catch(()=>{if(active)setError('Unable to load this secure order.')});
   return ()=>{active=false;tag.remove();ref.remove()};
