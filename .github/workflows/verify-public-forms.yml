@@ -79,6 +79,7 @@ jobs:
           node scripts/check-crm-bridge.cjs
           node scripts/check-forms-core.cjs
           node scripts/check-turnstile.cjs
+          node scripts/test-retail-tier-router.cjs
           node scripts/check-seo-v37.cjs
           node --check scripts/build-us-delivered-prices.cjs
           node scripts/test-us-delivered-prices.cjs
