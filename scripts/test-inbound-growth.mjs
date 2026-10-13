@@ -51,7 +51,7 @@ try{
   return {status:r.status,data:await r.json(),reads,writes,cache:r.headers.get('cache-control')};
  };
  const r=await call();
- assert.equal(r.status,200,JSON.stringify(r.data));assert.equal(r.reads,2,'two grouped read-only queries per admin report');
+ assert.equal(r.status,200,JSON.stringify(r.data));assert.equal(r.reads,3,'three grouped read-only queries, including AI form evidence');
  assert.equal(r.writes,0);
  assert.equal(r.data.summary.inquiries,5,'Original 4 + an additional distinct same-lead inquiry; retry activity not duplicated');
  assert.equal(r.data.summary.b2b,3);
@@ -108,10 +108,14 @@ try{
   sqlite.prepare('INSERT INTO activities(id,entity_type,entity_id,activity_type,title,description,metadata_json) VALUES (?,?,?,?,?,?,?)')
    .run('ai-a'+i,'LEAD',id,'INQUIRY_CREATED','Source audit','',JSON.stringify({inquiryId:qid,...x}));
  }
+ // Synthetic quote+order linked by an explicit AI-labelled inquiry ID.
+ // They must never be attributed from web analytics timing alone.
+ sqlite.prepare("INSERT INTO quotes(id,reference,lead_id,inquiry_id,status) VALUES ('q-ai','QA-AI','ai-l0','ai-i0','SENT')").run();
+ sqlite.prepare("INSERT INTO orders(id,reference,lead_id,quote_id,status,payment_status) VALUES ('o-ai','OA-AI','ai-l0','q-ai','CONFIRMED','UNPAID')").run();
  const geo=await call();
  assert.equal(geo.status,200);
  assert.equal(geo.writes,0,'Referral classification remains read-only');
- assert.equal(geo.reads,2,'No extra D1 reads to classify AI sources');
+ assert.equal(geo.reads,3,'AI-source form-and-quote evidence needs one extra read-only grouped query');
  assert.equal(geo.data.summary.inquiries,13,'Only real inquiry rows are counted');
  for(const [label,expected] of [['CHATGPT',2],['PERPLEXITY',1],['CLAUDE',1],['GEMINI',1],['COPILOT',1]]){
   assert.equal(geo.data.sources.find(x=>x.channel===label)?.inquiries,expected,label+' requires distinct tracked inquiry attribution');
@@ -121,7 +125,14 @@ try{
  assert.equal(sourceTotal('DIRECT_UNKNOWN'),3,'Lookalike host must not be credited as ChatGPT across audiences');
  assert.equal(geo.data.entryPages.find(x=>x.entryPage==='KIDS_QUIET_GUIDE')?.inquiries,2);
  assert.equal(geo.data.entryPages.find(x=>x.entryPage==='SCHOOL_EQUIPMENT_GUIDE')?.inquiries,2);
- assert.equal(geo.data.sources.find(x=>x.channel==='CHATGPT')?.exactQuoted,0,'A source label must not fabricate a quote');
+ assert.equal(geo.data.sources.find(x=>x.channel==='CHATGPT')?.exactQuoted,1,'Only explicitly linked quote counts for a source-labelled inquiry');
+ assert.equal(geo.data.sources.find(x=>x.channel==='CHATGPT')?.exactOrdered,1,'Only linked quote-to-order counts');
+ assert.equal(geo.data.aiEvidence.reduce((n,x)=>n+x.inquiries,0),6,'Only six AI-labelled actual inquiries');
+ assert.equal(geo.data.aiEvidence.reduce((n,x)=>n+x.exactQuoted,0),1,'Direct AI-form quote counted once');
+ assert.equal(geo.data.aiEvidence.reduce((n,x)=>n+x.exactOrdered,0),1,'Direct AI-form order counted once');
+ assert.equal(geo.data.aiEvidence.find(x=>x.channel==='CHATGPT'&&x.entryPage==='PRODUCTS')?.evidenceKind,'FORM_UTM');
+ assert.equal(geo.data.aiEvidence.find(x=>x.channel==='CHATGPT'&&x.entryPage==='KIDS_QUIET_GUIDE')?.evidenceKind,'FORM_REFERRER');
+ assert(!geo.data.aiEvidence.some(x=>x.channel==='DIRECT_UNKNOWN'),'Spoofed referrers excluded from AI evidence');
  assert(geo.data.limitations.some(x=>x.includes('不代表 AI 官方引用')),'Display AI referrers as unverified user-reported clues');
  const ui=readFileSync('src/InboundGrowth.tsx','utf8');
  assert(ui.includes('网站访问统计与搜索曝光')&&ui.includes('Google Search Console'));
