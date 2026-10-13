@@ -1,7 +1,12 @@
 import {useEffect,useState,type FormEvent} from 'react';
 import {useInquiryTurnstile} from './useInquiryTurnstile';
 
-type Entry={sku:string;quantity:number};
+type Entry={sku:string;quantity:number;color:string};
+const colors:Record<string,string[]>={
+ P1:['Orange','Blue','Green','Yellow'],P2:['Orange','Green'],
+ P3:['Orange','Brown','Black','Aqua Blue'],
+ P4:['Black/White','Black/Green','Black/Red','Yellow/Green','Black/Gold']
+};
 type Ready={ok?:boolean;retailCheckoutReady?:boolean;notice?:string};
 const valid=/^(?:P1-S[357]|P2-S[357]|P3-S[3467]|P4-S5)$/;
 const catalog:Record<string,string>={P1:'Flocked Silent Basketball Set',P2:'Fabric-Cover Silent Basketball Set',P3:'Weighted Flocked Silent Basketball',P4:'Flocked Silent Soccer Ball'};
@@ -15,9 +20,9 @@ function readCart():Entry[]{
   const result=rows.map(row=>{
    if(!row||typeof row!=='object')throw Error('invalid line');
    const x=row as Entry;
-   if(typeof x.sku!=='string'||!valid.test(x.sku)||seen.has(x.sku)||
+   if(typeof x.sku!=='string'||!valid.test(x.sku)||seen.has(x.sku+'|'+x.color)||!colors[x.sku.slice(0,2)]?.includes(x.color)||
       !Number.isSafeInteger(x.quantity)||x.quantity<1||x.quantity>9)throw Error('invalid cart');
-   n+=x.quantity;seen.add(x.sku);return {sku:x.sku,quantity:x.quantity};
+   n+=x.quantity;seen.add(x.sku+'|'+x.color);return {sku:x.sku,quantity:x.quantity,color:x.color};
   });
   return n>=1&&n<=9?result:[];
  }catch{return []}
@@ -64,7 +69,7 @@ export default function RetailCheckout(){
    This cart is empty, invalid or contains 10+ items. <a href="https://www.mingeagle.com/retail-cart.html">Return to cart</a>.
   </div>:<section className="lead-form">
    <h2>Your items</h2>
-   {lines.map(x=><p key={x.sku}>{catalog[x.sku.slice(0,2)]} · Size {x.sku.slice(4)} · {x.quantity} item(s)</p>)}
+   {lines.map(x=><p key={x.sku+'|'+x.color}>{catalog[x.sku.slice(0,2)]} · Size {x.sku.slice(4)} · {x.color} · {x.quantity} item(s)</p>)}
    <p className="form-note">The server independently verifies product prices, combined air freight, stock readiness and approved tax handling. Delivery estimates are not guarantees.</p>
    {ready===null?<p role="status">Checking secure payment availability…</p>:
     !ready.retailCheckoutReady?<div className="form-status error" role="status">
@@ -89,7 +94,7 @@ export default function RetailCheckout(){
      <button className="button" disabled={busy||captcha.mode!=='required'||!captcha.token}>
       {busy?'Preparing secure order…':'Continue to secure payment →'}
      </button>
-     <p className="form-note">No payment is recorded until Airwallex confirms success through a signed server-side notification.</p>
+     <p className="form-note">No payment is recorded until our payment provider confirms success through a signed server-side notification.</p>
     </form>}
   </section>}
  </main></div>;
