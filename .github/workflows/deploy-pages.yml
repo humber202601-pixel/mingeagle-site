@@ -234,6 +234,17 @@ jobs:
               if marker not in source or marker not in local:
                   raise SystemExit('FAIL missing static detail product link '+page)
               print('PASS live wholesale-to-product static link',page)
+              detail_url='https://www.mingeagle.com/'+page
+              detail_request=urllib.request.Request(detail_url,headers={'Cache-Control':'no-cache','User-Agent':'MING-EAGLE-product-discovery-check/1.0'})
+              with urllib.request.urlopen(detail_request,timeout=20) as response:
+                  if response.status!=200 or response.geturl()!=detail_url:
+                      raise SystemExit('FAIL product detail HTTP/redirect '+detail_url)
+                  detail=response.read().decode('utf-8')
+              if 'href="'+detail_url+'"' not in detail.split('</head>')[0]:
+                  raise SystemExit('FAIL product canonical '+detail_url)
+              if 'application/ld+json' not in detail.split('</head>')[0] or '"@type":"ProductGroup"' not in detail:
+                  raise SystemExit('FAIL product structured data '+detail_url)
+              print('PASS live product page HTTP200, canonical and ProductGroup schema',page)
           PY
 
       - name: Verify live canonical host and key AI buyer pages
