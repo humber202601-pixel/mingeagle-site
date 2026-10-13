@@ -100,7 +100,7 @@ try {
  }
  const queries=await run({...base,kind:'queries',rows:[row('silent basketball wholesale')]});
  assert.equal(queries.status,200,'normal keyword CSV remains supported');
- assert.equal(state.batches,3);
+ assert.equal(state.batches,4);
  const badDb={prepare(){return {async all(){throw Error('Simulated D1 quota exceeded')}}}};
  const readFail=await onRequestGet({env:{MINGEAGLE_DB:badDb}});
  assert.equal(readFail.status,503,'D1 failure must be visible, never a successful empty report');
