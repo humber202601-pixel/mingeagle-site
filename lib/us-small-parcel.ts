@@ -16,7 +16,11 @@ export function oneItemUsAirParcel(sku:string,country:string,method:string,quant
  const freight=US_SMALL_PARCEL_RATES[sku],product=SKU_USD[sku];
  if(!Number.isFinite(freight)||freight<=0||!Number.isFinite(product)||product<=0)
   throw Error('Unverified single-item US rate');
+ const ddp=rates.confirmedDdpSingleItem;
+ const ddpConfirmed=sku===ddp.sku&&freight===ddp.shippingUSD&&country===ddp.destination;
  return {sku,country,method,quantity,productUSD:product,
+  importCustomsClearanceIncluded:ddpConfirmed,importDutiesIncluded:ddpConfirmed,
+  ddpConfirmed,usSalesTaxNotIncluded:true,
   shippingUSD:freight,totalBeforeTaxesUSD:Math.round((product+freight)*100)/100,
   currency,deliveryEstimateDaysMin:rates.estimatedDeliveryDays.min,
   deliveryEstimateDaysMax:rates.estimatedDeliveryDays.max,
