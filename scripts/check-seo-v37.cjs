@@ -17,6 +17,8 @@ try{
   assert.equal((s.match(/<title\b/gi)||[]).length,1);
   assert.equal((s.match(/name=["']description["']/gi)||[]).length,1);
   assert.equal((s.match(/rel=["']canonical["']/gi)||[]).length,1);
+  const canonical=(s.match(/<link\b[^>]*rel=["']canonical["'][^>]*>/i)||[])[0]?.match(/href=["']([^"']+)/)?.[1];
+  assert.equal(canonical,'https://www.mingeagle.com/'+(f==='index.html'?'':f),f+' must never revert from canonical www to apex');
   assert(!s.includes('aggregateRating'),'cannot publish unverified ratings');
   const title=s.match(/<title>([^<]*)<\/title>/i)?.[1]||'';
   assert(title.includes('MING EAGLE')&&title.length>30);
@@ -25,7 +27,8 @@ try{
    assert(block,f+' needs grounded schema');
    const obj=JSON.parse(block[1]);assert.equal(obj['@type'],'ProductGroup');
    assert(obj.hasVariant.length>=1);
-   for(const v of obj.hasVariant){assert(v.offers.price>0);assert.equal(v.offers.priceCurrency,'USD')}
+   assert.equal(obj.url,'https://www.mingeagle.com/'+f,'ProductGroup URL uses official HTTPS www host');
+   for(const v of obj.hasVariant){assert(v.offers.price>0);assert.equal(v.offers.priceCurrency,'USD');assert.equal(v.url,obj.url);assert.equal(v.offers.url,obj.url)}
    assert(obj.image.every(i=>/^https:\/\/(?:www\.)?mingeagle\.com\/assets\//.test(i)));
    assert(!obj.aggregateRating);
   }

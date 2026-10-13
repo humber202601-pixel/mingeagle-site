@@ -80,8 +80,8 @@ for(const [filename,config] of Object.entries(settings)){
   brand:{'@type':'Brand',name:'MING EAGLE'},category:'Indoor sports balls',
   productGroupID:key.toUpperCase(),variesBy:['https://schema.org/size'],hasVariant:variants
  }:config.schema;
- // Normalize canonical URL and keep repeated builds idempotent.
- html=html.replace(/(<link\b(?=[^>]*rel=["']canonical["'])[^>]*href=["'])https:\/\/www\.mingeagle\.com/g,'$1https://mingeagle.com');
+ // All metadata and structured data use the official www HTTPS URL. Do not
+ // temporarily rewrite canonical tags to the legacy apex hostname.
  const priceBegin='<!-- MING EAGLE RETAIL PRICE BEGIN -->',priceEnd='<!-- MING EAGLE RETAIL PRICE END -->';
  html=html.replace(/<!-- MING EAGLE RETAIL PRICE BEGIN -->[\s\S]*?<!-- MING EAGLE RETAIL PRICE END -->\s*/g,'');
  html=html.replace(/<!-- MING EAGLE SHIPPING BEGIN -->[\s\S]*?<!-- MING EAGLE SHIPPING END -->\s*/g,'');
@@ -98,8 +98,9 @@ for(const [filename,config] of Object.entries(settings)){
 }
 console.log('V37: updated SEO title and description on '+Object.keys(settings).length+' pages and factual structured data on 5 pages. No prices or ratings invented.');
 
-// Normalize all site's canonical hosts to match the sitemap and primary domain.
-for(const filename of fs.readdirSync(root).filter(f=>f.endsWith('.html'))){const file=path.join(root,filename);let html=fs.readFileSync(file,'utf8');html=html.replace(/https:\/\/www\.mingeagle\.com\//g,'https://mingeagle.com/');fs.writeFileSync(file,html);}
+// Canonical hostname normalization is intentionally managed by
+// scripts/normalize-canonical-host.py in the deploy workflow. V37 must never
+// silently convert canonical URLs or JSON-LD references back to the apex host.
 
 
 // Surface actionable customer-intent guides in the learning hub on every deployment.
