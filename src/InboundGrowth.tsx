@@ -90,7 +90,7 @@ export default function InboundGrowth({accessKey}:{accessKey:string}){
    {error&&<section className="panel" style={{padding:18}}><p role="alert">{error}。不要频繁刷新，以免耗尽 D1 免费额度。</p></section>}
    {data&&!loading&&<>
     <section className="metric-grid">
-      {([['网站询盘',data.summary.inquiries,'实际已记录的询盘'],['来自创作者视频选购入口的询盘',data.summary.videoContextInquiries,'只有正式提交询盘且携带有效站内视频代码才计数，不证明实际观看'],['B2B 明确采购意向',data.summary.b2b,'批发、机构、零售商'],['B2C 明确个人客户',data.summary.b2c,'用户选择了个人客户类型'],['身份尚不明确',data.summary.unknown,'不强行归类'],['直接关联报价的询盘',data.summary.exactQuoted,'按询盘编号关联有效报价；每个询盘只算一次'],
+      {([['网站询盘',data.summary.inquiries,'实际已记录的询盘'],['来自创作者视频选购入口的询盘',data.summary.videoContextInquiries,'只有正式提交询盘且携带有效站内视频代码才计数，不能证明实际观看'],['B2B 明确采购意向',data.summary.b2b,'批发、机构、零售商'],['B2C 明确个人客户',data.summary.b2c,'用户选择了个人客户类型'],['身份尚不明确',data.summary.unknown,'不强行归类'],['直接关联报价的询盘',data.summary.exactQuoted,'按询盘编号关联有效报价；每个询盘只算一次'],
  ['直接关联订单的询盘',data.summary.exactOrdered,'询盘→报价→订单编号完整关联；每个询盘只算一次']] as const).map(([label,value,note])=><div className="metric" key={label}><span>{label}</span><strong>{num(value)}</strong><small>{note}</small></div>)}
     </section>
     <section className="panel" style={{padding:18}}>
