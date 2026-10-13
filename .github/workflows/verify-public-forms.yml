@@ -25,6 +25,7 @@ on:
       - 'scripts/check-ai-intent-guides.cjs'
       - 'scripts/check-coach-ai-answers.cjs'
       - 'scripts/check-public-crawl-graph.cjs'
+      - 'scripts/check-wholesale-product-deep-links.cjs'
       - 'scripts/check-public-canonicals.cjs'
       - 'scripts/test-public-canonicals.cjs'
       - 'scripts/build-ai-product-facts.cjs'
@@ -73,6 +74,7 @@ jobs:
           node scripts/check-ai-intent-guides.cjs
           node scripts/check-coach-ai-answers.cjs
           node scripts/check-public-crawl-graph.cjs
+          node scripts/check-wholesale-product-deep-links.cjs
           node scripts/check-public-canonicals.cjs
           node scripts/test-public-canonicals.cjs
           node scripts/build-ai-product-facts.cjs
