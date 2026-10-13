@@ -9,7 +9,8 @@ import {ArrowUpRight,RefreshCcw} from 'lucide-react';
 
 type SourceRow={channel:string;audience:string;inquiries:number;quoted:number;ordered:number;exactQuoted:number;exactOrdered:number};
 type PageRow={entryPage:string;inquiries:number;quoted:number;ordered:number;exactQuoted:number;exactOrdered:number};
-type Data={ok:boolean;error?:string;summary:{inquiries:number;b2b:number;b2c:number;unknown:number;quoted:number;ordered:number;exactQuoted:number;exactOrdered:number};sources:SourceRow[];entryPages:PageRow[];generatedAt:string;limitations:string[];
+type AiEvidenceRow={channel:string;entryPage:string;evidenceKind:string;inquiries:number;exactQuoted:number;exactOrdered:number};
+type Data={ok:boolean;error?:string;aiEvidence:AiEvidenceRow[];summary:{inquiries:number;b2b:number;b2c:number;unknown:number;quoted:number;ordered:number;exactQuoted:number;exactOrdered:number};sources:SourceRow[];entryPages:PageRow[];generatedAt:string;limitations:string[];
  dataProvenance:{inquiries:string;exactQuote:string;exactOrder:string;leadAssociated:string;
  websiteVisits:{connected:boolean;count:number|null};searchImpressions:{connected:boolean;count:number|null};
  conversionWindow:string}};
@@ -84,7 +85,7 @@ export default function InboundGrowth({accessKey}:{accessKey:string}){
     </div>
     <p style={{margin:'12px 0 0',fontSize:12,color:'#667085'}}>询盘转化按 CRM 真实记录计算；Cloudflare 网页访问按已有的独立 UTC 日期快照显示。搜索曝光仍未接入，不合并不同数据口径做营销归因。</p>
    </section>
-   <AiReferralTraffic accessKey={accessKey} days={days} refresh={refresh}/>
+   <AiReferralTraffic accessKey={accessKey} days={days} refresh={refresh} aiEvidence={data?.aiEvidence} crmReady={Boolean(data&&!loading)} crmError={error}/>
    {loading&&<section className="panel" style={{padding:18}}>正在统计实际询盘…</section>}
    {error&&<section className="panel" style={{padding:18}}><p role="alert">{error}。不要频繁刷新，以免耗尽 D1 免费额度。</p></section>}
    {data&&!loading&&<>
