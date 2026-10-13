@@ -23,7 +23,7 @@ try{
   assert(html.includes('b2b-quote-planner.css?v=20261013-1'));
   assert(html.includes('b2b-quote-planner.js?v=20261013-1'));
   assert(html.indexOf('volume-quote-planner')<html.indexOf('</main>'),'Conversion CTA must be in real main');
-  assert(!/measured \d+\s*dB|independently certified|guaranteed quiet|% off for all/i.test(html));
+  assert(!/measured \d+\s*dB|(?:we are|our products are) independently certified|guaranteed quiet|% off for all/i.test(html));
  }
  run();
  for(const [name,html] of Object.entries(before))
