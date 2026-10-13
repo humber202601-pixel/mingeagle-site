@@ -234,7 +234,7 @@ jobs:
           if html.count(start)!=1 or html.count(end)!=1:
               raise SystemExit('FAIL missing unique public ItemList block')
           raw=html.split(start)[1].split(end)[0]
-          m=re.search(r'<script type="application/ld\\+json">([\\s\\S]*?)</script>',raw)
+          m=re.search(r'<script type="application/ld[+]json">(.*?)</script>',raw,re.S)
           if m is None:
               raise SystemExit('FAIL missing ItemList JSON-LD script')
           data=json.loads(m.group(1))
