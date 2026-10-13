@@ -2,7 +2,21 @@ export type AirwallexEnv = {
   AIRWALLEX_CLIENT_ID?: string;
   AIRWALLEX_API_KEY?: string;
   AIRWALLEX_ENV?: string;
+  AIRWALLEX_CHECKOUT_ENABLED?: string;
+  AIRWALLEX_WEBHOOK_SECRET?: string;
 };
+
+// Single fail-closed activation rule across all customer and admin surfaces.
+// Provider API credentials alone do not ensure a paid order can be reconciled.
+export function airwallexCheckoutReadiness(env:AirwallexEnv){
+ const mode=String(env.AIRWALLEX_ENV||'').trim().toLowerCase();
+ const environment=mode==='sandbox'||mode==='prod'?mode:null;
+ const checkoutRequested=env.AIRWALLEX_CHECKOUT_ENABLED==='true';
+ const providerCredentialsConfigured=Boolean(env.AIRWALLEX_CLIENT_ID?.trim()&&env.AIRWALLEX_API_KEY?.trim());
+ const webhookConfigured=Boolean(env.AIRWALLEX_WEBHOOK_SECRET?.trim());
+ return {checkoutRequested,environment,providerCredentialsConfigured,webhookConfigured,
+  checkoutReady:checkoutRequested&&Boolean(environment)&&providerCredentialsConfigured&&webhookConfigured};
+}
 
 type CachedToken = {
   cacheKey: string;
