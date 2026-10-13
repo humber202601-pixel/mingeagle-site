@@ -25,6 +25,10 @@ on:
       - 'scripts/check-seo-v37.cjs'
       - 'scripts/check-retail-quantity-routing.cjs'
       - 'scripts/test-product-cart-journey.cjs'
+      - 'scripts/build-b2b-quote-planner.cjs'
+      - 'scripts/test-b2b-quote-planner.cjs'
+      - 'public/b2b-quote-planner.js'
+      - 'public/b2b-quote-planner.css'
       - 'public/retail-buy.js'
       - 'public/retail-buy.css'
       - 'public/retail-cart.js'
@@ -90,6 +94,7 @@ jobs:
           node scripts/check-seo-v37.cjs
           node scripts/check-retail-quantity-routing.cjs
           node scripts/test-product-cart-journey.cjs
+          node scripts/test-b2b-quote-planner.cjs
           node --check scripts/build-us-delivered-prices.cjs
           node scripts/test-us-delivered-prices.cjs
           node scripts/build-seo-discovery-links.cjs

@@ -43,6 +43,11 @@ jobs:
           node scripts/build-us-delivered-prices.cjs
           node scripts/test-us-delivered-prices.cjs
 
+      - name: Build real school, academy and wholesale 10+ quote acquisition
+        run: |
+          node scripts/build-b2b-quote-planner.cjs
+          node scripts/test-b2b-quote-planner.cjs
+
       - name: Align canonical host and sitemap with live www redirect
         run: python scripts/normalize-canonical-host.py
 
@@ -115,6 +120,9 @@ jobs:
             echo "Floot runtime dependency detected"
             exit 1
           fi
+
+      - name: Reverify qualified institutional lead conversion after all site builders
+        run: node scripts/test-b2b-quote-planner.cjs
 
       - name: Verify inbound attribution and translations
         run: node scripts/check-growth.cjs && node scripts/check-learning.cjs && node scripts/check-marketing-kit.cjs && node scripts/check-conversion.cjs && node scripts/check-crm-bridge.cjs && node scripts/check-turnstile.cjs && node scripts/check-seo-v37.cjs && node scripts/check-catalog-inquiry.cjs
