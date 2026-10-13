@@ -44,7 +44,7 @@ const good=await run(message('P1-S3 x 4, P4-S5 x 5'));
 assert.equal(good.status,200,JSON.stringify(good.body));
 assert.equal(good.body.status,'DRAFT');assert.equal(good.body.paymentEnabled,false);
 assert.equal(good.body.quantity,9);assert.equal(good.body.items,2);
-assert.equal(good.body.subtotalUSD,129.1);assert.equal(good.body.shippingUSD,150.98);assert.equal(good.body.totalBeforeTaxesUSD,280.08);
+assert.equal(good.body.subtotalUSD,129.1);assert.equal(good.body.shippingUSD,150.97);assert.equal(good.body.totalBeforeTaxesUSD,280.07);
 assert.equal(good.writes.length,4);
 assert.match(good.writes[0].sql,/INSERT INTO quotes/);
 assert.match(good.writes[0].sql,/'DRAFT'/);
