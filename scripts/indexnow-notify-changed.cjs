@@ -24,18 +24,18 @@ const PRODUCT_ROUTES=[
 
 function entries(xml){
  const out=new Map();
- for(const [,block] of xml.matchAll(/<url(?:\\s[^>]*)?>([\\s\\S]*?)<\\/url>/g)){
-  const loc=block.match(/<loc>\\s*([^<]+)\\s*<\\/loc>/);
+ for(const [,block] of xml.matchAll(/<url(?:\s[^>]*)?>([\s\S]*?)<\/url>/g)){
+  const loc=block.match(/<loc>\s*([^<]+)\s*<\/loc>/);
   if(!loc)throw Error('Missing sitemap <loc>');
   const link=loc[1].trim();
   let parsed;
   try{parsed=new URL(link)}catch{throw Error('Malformed sitemap URL')}
   if(parsed.origin!==ORIGIN||parsed.href!==link||parsed.username||parsed.password||
-     parsed.search||parsed.hash||!(parsed.pathname==='/'||/^\\/[A-Za-z0-9-]+\\.html$/.test(parsed.pathname)))
+     parsed.search||parsed.hash||!(parsed.pathname==='/'||/^\/[A-Za-z0-9-]+\.html$/.test(parsed.pathname)))
    throw Error('Unsafe or off-host sitemap URL: '+link.slice(0,150));
   if(out.has(link))throw Error('Duplicate sitemap URL: '+link);
-  const date=block.match(/<lastmod>\\s*([^<]+)\\s*<\\/lastmod>/)?.[1]?.trim()||'';
-  if(date&&!/^20\\d\\d-\\d\\d-\\d\\d$/.test(date))throw Error('Invalid sitemap lastmod');
+  const date=block.match(/<lastmod>\s*([^<]+)\s*<\/lastmod>/)?.[1]?.trim()||'';
+  if(date&&!/^20\d\d-\d\d-\d\d$/.test(date))throw Error('Invalid sitemap lastmod');
   out.set(link,date);
  }
  if(!out.size)throw Error('Sitemap contains no <url> entries');
@@ -57,7 +57,7 @@ function pickChangedUrls(changedPaths,current,previous){
  const changed=new Set(changedPaths);
  const add=url=>{if(current.has(url))picked.add(url)};
  for(const file of changed){
-  const match=/^public\\/([A-Za-z0-9-]+)\\.html$/.exec(file);
+  const match=/^public\/([A-Za-z0-9-]+)\.html$/.exec(file);
   if(match)add(ORIGIN+(match[1]==='index'?'/':'/'+match[1]+'.html'));
   if(PRODUCT_SOURCES.has(file))PRODUCT_ROUTES.forEach(p=>add(ORIGIN+p));
   if(GENERATORS_ALL.has(file))for(const url of current.keys())picked.add(url);
@@ -78,22 +78,22 @@ function buildPayload(urls){
 function sourceFiles(before){
  if(!/^[0-9a-f]{40}$/i.test(before)||/^0+$/.test(before))throw Error('Missing valid preceding commit');
  return execFileSync('git',['diff','--name-only','--diff-filter=ACMRT',before,'HEAD','--'],{encoding:'utf8',timeout:15000})
-  .trim().split('\\n').filter(Boolean);
+  .trim().split('\n').filter(Boolean);
 }
 function priorSitemap(before,name){
  try{return execFileSync('git',['show',before+':'+name],{encoding:'utf8',timeout:15000,stdio:['ignore','pipe','ignore']})}
  catch{return ''}
 }
 function record(result){
- fs.writeFileSync('indexnow-deployment-evidence.json',JSON.stringify({...result,checkedAt:new Date().toISOString()},null,2)+'\\n');
- const title='### IndexNow: changed-page-only publication notice\\n';
+ fs.writeFileSync('indexnow-deployment-evidence.json',JSON.stringify({...result,checkedAt:new Date().toISOString()},null,2)+'\n');
+ const title='### IndexNow: changed-page-only publication notice\n';
  const lines=[title,'- Status: **'+result.status+'**','- Changed canonical URLs: **'+(result.urls?.length??0)+'**'];
  if(result.httpStatus)lines.push('- IndexNow response: **HTTP '+result.httpStatus+'** (receipt only; not proof of indexing or AI recommendation)');
- if(result.reason)lines.push('- Reason: '+String(result.reason).replace(/[\\r\\n]/g,' '));
+ if(result.reason)lines.push('- Reason: '+String(result.reason).replace(/[\r\n]/g,' '));
  if(result.urls?.length)lines.push('- URLs: '+result.urls.join(', '));
  const file=process.env.GITHUB_STEP_SUMMARY;
- if(file)fs.appendFileSync(file,lines.join('\\n')+'\\n');
- console.log(lines.join('\\n'));
+ if(file)fs.appendFileSync(file,lines.join('\n')+'\n');
+ console.log(lines.join('\n'));
 }
 async function main(){
  if(process.env.GITHUB_EVENT_NAME!=='push'){record({status:'SKIPPED',reason:'Only public main-branch push deployments may notify IndexNow',urls:[]});return}
