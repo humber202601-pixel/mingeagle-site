@@ -28,7 +28,7 @@ assert.deepEqual(pickChangedUrls(['public/index.html'],now,old),[base+'/']);
 const products=pickChangedUrls(['public/product-master.json'],now,old);
 assert.deepEqual(products,[base+'/products.html',base+'/silent-basketball.html']);
 assert.equal(pickChangedUrls(['scripts/build-seo-v37.cjs'],now,old).length,6);
-assert.equal(pickChangedUrls(['public/sitemap-localized.xml'],now,old).length,1);
+assert.equal(pickChangedUrls(['public/sitemap-localized.xml'],now,old).length,2,'Date-changed product and newly added translated guide both count as modified');
 const payload=buildPayload(result);
 assert.equal(payload.host,'www.mingeagle.com');
 assert.equal(payload.urlList.length,3);
