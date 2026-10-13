@@ -35,9 +35,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
     bankTransfer: {
       enabled: bankTransferEnabled,
     },
-    note: readiness.checkoutReady
-      ? 'Checkout configuration prerequisites exist; merchant activation and sandbox webhook tests are still required.'
-      : 'Online checkout is not ready; activation, credentials, signed webhook and explicit environment are required.',
+    note: stripe.checkoutReady && env.STRIPE_TAX_POLICY_APPROVED==='true'
+      ? 'Stripe configuration prerequisites exist; order-specific fulfillment, state sales tax and checkout activation still require verification.'
+      : 'Stripe online checkout is not ready; approved tax policy, activation, credentials and signed webhook are required.',
   }, {
     headers: {
       'cache-control': 'no-store, no-cache, must-revalidate, max-age=0',
