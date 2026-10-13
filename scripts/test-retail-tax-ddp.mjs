@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+import {readFileSync} from 'node:fs';
+const source=await build({entryPoints:['lib/retail-tax-policy.ts'],bundle:true,write:false,platform:'node',format:'esm',target:'es2022',logLevel:'silent'});
+const {noSalesTaxCollectionRequired,reviewedZeroTaxStates}=await import('data:text/javascript;base64,'+Buffer.from(source.outputFiles[0].text).toString('base64'));
+const time=new Date('2026-10-14T12:00:00Z');
+const env={
+ RETAIL_US_TAX_POLICY_JSON:JSON.stringify({
+  reviewed_on:'2026-10-13',review_reference:'Synthetic CPA review for test purposes only',
+  states:{KY:'NO_COLLECTION_REQUIRED',NY:'COLLECT_SALES_TAX',CA:'UNREVIEWED'}
+ })
+};
+assert.equal(noSalesTaxCollectionRequired(env,'KY',time),true);
+assert.equal(noSalesTaxCollectionRequired(env,'NY',time),false);
+assert.equal(noSalesTaxCollectionRequired(env,'CA',time),false);
+assert.equal(noSalesTaxCollectionRequired(env,'ZZ',time),false);
+assert.deepEqual([...reviewedZeroTaxStates(env,time)],['KY']);
+assert.equal(noSalesTaxCollectionRequired({RETAIL_US_TAX_POLICY_JSON:''},'KY',time),false);
+assert.equal(noSalesTaxCollectionRequired({RETAIL_US_TAX_POLICY_JSON:'bad'},'KY',time),false);
+const stale={RETAIL_US_TAX_POLICY_JSON:JSON.stringify({
+ reviewed_on:'2026-08-01',review_reference:'stale CPA review older than a month',states:{KY:'NO_COLLECTION_REQUIRED'}
+})};
+assert.equal(noSalesTaxCollectionRequired(stale,'KY',time),false);
+assert.equal(noSalesTaxCollectionRequired({...env,RETAIL_US_TAX_POLICY_JSON:JSON.stringify({reviewed_on:'2026-11-01',review_reference:'future review unacceptable',states:{KY:'NO_COLLECTION_REQUIRED'}})},'KY',time),false);
+const invalid={RETAIL_US_TAX_POLICY_JSON:JSON.stringify({reviewed_on:'2026-10-13',states:{KY:'NO_COLLECTION_REQUIRED'}})};
+assert.equal(noSalesTaxCollectionRequired(invalid,'KY',time),false);
+const reference=JSON.parse(readFileSync('public/us-single-parcel-shipping.json','utf8'));
+assert.equal(reference.confirmedDdpSingleItem.sku,'P1-S7');
+assert.equal(reference.confirmedDdpSingleItem.shippingUSD,14);
+assert(reference.confirmedDdpSingleItem.includes.includes('applicable_import_duties'));
+assert(reference.confirmedDdpSingleItem.excludes.includes('US_state_local_sales_tax'));
+console.log('PASS: tax policy is state-specific, reviewed recently and documented; unreviewed/registered states fail closed; one-SKU customs and tariff approval is scoped.');

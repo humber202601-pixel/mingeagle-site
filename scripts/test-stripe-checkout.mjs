@@ -15,7 +15,7 @@ const ready={
  STRIPE_WEBHOOK_SECRET:'whsec_synthetic_secret_for_tests',
  STRIPE_CHECKOUT_ENABLED:'true',STRIPE_TAX_POLICY_APPROVED:'true',
  RETAIL_CHECKOUT_ENABLED:'true',RETAIL_STOCK_FULFILLMENT_APPROVED:'true',
- RETAIL_TAX_POLICY_APPROVED:'true'
+ RETAIL_TAX_POLICY_APPROVED:'true',RETAIL_US_TAX_POLICY_JSON:JSON.stringify({reviewed_on:new Date().toISOString().slice(0,10),review_reference:'TEST_ONLY_NO_LIVE_TAX_APPROVAL',states:{NY:'NO_COLLECTION_REQUIRED'}})
 };
 assert.equal(stripeCheckoutReadiness(ready).checkoutReady,true);
 assert.equal(stripeCheckoutReadiness({...ready,STRIPE_SECRET_KEY:'rk_test_syntheticRestrictedKey'}).checkoutReady,true);
@@ -61,19 +61,24 @@ try{
     dbReads++;
     if(sql.includes('FROM quotes q JOIN orders o'))return {
       id:'ord_synthetic',reference:'ME-RO-SYNTHETIC',status:'PAYMENT_PENDING',
-      payment_status:'UNPAID',total:21.4,subtotal:9.9,discount:0,
-      shipping:11.5,tax:0,currency:'USD',quote_status:'SENT',
+      payment_status:'UNPAID',total:28.9,subtotal:14.9,discount:0,
+      shipping:14,tax:0,currency:'USD',quote_status:'SENT',
+      shipping_address:JSON.stringify({state:'NY',country:'US'}),
       received:0,email:'buyer@example.net'
     };
     if(sql.includes("WHERE order_id=? AND provider='STRIPE'"))return null;
-    if(sql.includes("WHERE provider='STRIPE' AND provider_intent_id=?"))return stored?{order_id:'ord_synthetic',amount:21.4,currency:'USD',status:'OPEN'}:null;
+    if(sql.includes("WHERE provider='STRIPE' AND provider_intent_id=?"))return stored?{order_id:'ord_synthetic',amount:28.9,currency:'USD',status:'OPEN'}:null;
     if(sql.includes('FROM payment_webhook_events'))return {processed_at:null};
     if(sql.includes('FROM orders WHERE id='))return {
       id:'ord_synthetic',reference:'ME-RO-SYNTHETIC',lead_id:null,company_id:null,contact_id:null,
-      total:21.4,currency:'USD',payment_status:'UNPAID'
+      total:28.9,currency:'USD',payment_status:'UNPAID'
     };
-    if(sql.includes('FROM payments WHERE order_id='))return {received:21.4};
+    if(sql.includes('FROM payments WHERE order_id='))return {received:28.9};
     throw Error('Unexpected SQL read '+sql);
+   },
+   async all(){
+    if(sql.includes('FROM order_items WHERE order_id='))return {results:[{description:'P1-S7 / Orange Retail silent ball',quantity:1,unit_price:14.9}]};
+    throw Error('Unexpected SQL list '+sql);
    },
    async run(){
     dbWrites++;
@@ -90,9 +95,9 @@ try{
   assert(String(init.headers.get('authorization')).startsWith('Bearer sk_test_'));
   const params=new URLSearchParams(init.body);
   assert.equal(params.get('client_reference_id'),'ME-RO-SYNTHETIC');
-  assert.equal(params.get('line_items[0][price_data][unit_amount]'),'990');
-  assert.equal(params.get('line_items[1][price_data][unit_amount]'),'1150');
-  requestAmount=2140;
+  assert.equal(params.get('line_items[0][price_data][unit_amount]'),'1490');
+  assert.equal(params.get('line_items[1][price_data][unit_amount]'),'1400');
+  requestAmount=2890;
   return Response.json({
    id:'cs_test_synthetic',url:'https://checkout.stripe.com/c/pay/cs_test_synthetic',
    amount_total:requestAmount,currency:'usd',status:'open'
@@ -110,7 +115,7 @@ try{
  const event={id:'evt_paid_test',type:'checkout.session.completed',data:{object:{
   id:'cs_test_synthetic',client_reference_id:'ME-RO-SYNTHETIC',
   metadata:{order_id:'ord_synthetic',order_reference:'ME-RO-SYNTHETIC'},
-  payment_status:'paid',amount_total:2140,currency:'usd'
+  payment_status:'paid',amount_total:2890,currency:'usd'
  }}};
  const eventText=JSON.stringify(event);
  const signed=createHmac('sha256',ready.STRIPE_WEBHOOK_SECRET).update(now+'.'+eventText).digest('hex');
