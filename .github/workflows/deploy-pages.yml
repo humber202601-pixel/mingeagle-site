@@ -48,6 +48,11 @@ jobs:
           node scripts/build-b2b-quote-planner.cjs
           node scripts/test-b2b-quote-planner.cjs
 
+      - name: Build original buyer product answers and share previews
+        run: |
+          node scripts/build-product-buyer-answers.cjs
+          node scripts/test-product-buyer-answers.cjs
+
       - name: Align canonical host and sitemap with live www redirect
         run: python scripts/normalize-canonical-host.py
 
