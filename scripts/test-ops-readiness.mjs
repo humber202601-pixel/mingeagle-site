@@ -47,7 +47,7 @@ try{
  assert.equal(r.body.security.turnstileMisconfigured,true);
  assert.equal(r.body.payments.checkoutConfigurationReady,false);
  r=await read({TURNSTILE_ENABLED:'true',TURNSTILE_SITE_KEY:'test-only',TURNSTILE_SECRET_KEY:'test-only',AIRWALLEX_CHECKOUT_ENABLED:'true',AIRWALLEX_ENV:'prod',AIRWALLEX_CLIENT_ID:'test-only',AIRWALLEX_API_KEY:'test-only',AIRWALLEX_WEBHOOK_SECRET:'test-only'});
- assert.equal(r.body.security.turnstileEnabled,true);assert.equal(r.body.payments.checkoutConfigurationReady,true);
+ assert.equal(r.body.security.turnstileEnabled,true);assert.equal(r.body.payments.webhookConfigured,true);assert.equal(r.body.payments.checkoutConfigurationReady,true);
  assert(!JSON.stringify(r.body).includes('test-only'),'never leak credential values');assert.equal(writes,0);
  sqlite.close();console.log('PASS: read-only readiness uses real aggregate counts, unknown vs zero, no secrets or business record mutation.');
 }finally{rmSync(temp,{recursive:true,force:true})}
