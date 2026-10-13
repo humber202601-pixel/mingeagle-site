@@ -1,0 +1,24 @@
+/* Conversion-oriented B2B planner, separate from the actual CRM inquiry form. */
+.b2bQuickSection{background:#f5f8fb;color:#172438;border-top:1px solid #dae6ef;border-bottom:1px solid #dae6ef;padding:45px 0}
+.b2bQuickWrap{max-width:1150px;margin:auto;padding:0 24px;display:grid;grid-template-columns:minmax(230px,.9fr) minmax(0,1.3fr);gap:28px;align-items:start}
+.b2bQuickEyebrow{margin:0 0 9px;color:#ac4c27;font-size:12px;font-weight:800;letter-spacing:.08em}
+.b2bQuickCopy h2{font-size:clamp(25px,3vw,36px);line-height:1.16;margin:0 0 17px;color:#172438}
+.b2bQuickCopy p{font-size:15px;line-height:1.75;color:#42536a}
+.b2bQuickCopy ul{margin:14px 0;padding-left:20px;color:#42536a;font-size:14px;line-height:1.9}
+.b2bQuickBox{border-radius:17px;background:#fff;border:1px solid #dce4ef;padding:25px;box-shadow:0 9px 35px rgba(18,44,69,.06)}
+.b2bQuickBox h3{font-size:21px;margin:0 0 13px}
+.b2bQuickGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.b2bQuickGrid label{font-size:12px;font-weight:700;color:#42536a;display:grid;gap:6px;min-width:0}
+.b2bQuickGrid label:first-child{grid-column:span 2}
+.b2bQuickGrid input,.b2bQuickGrid select{width:100%;box-sizing:border-box;min-width:0;height:44px;border:1px solid #b9c7d4;border-radius:9px;padding:9px 10px;color:#172438;background:#fff;font-size:14px}
+.b2bQuickGrid input:focus-visible,.b2bQuickGrid select:focus-visible,.b2bQuickSubmit:focus-visible{outline:3px solid #f49c68;outline-offset:2px}
+.b2bQuickHint{font-size:12px;line-height:1.7;color:#475569;margin:13px 0}
+.b2bQuickConsent{font-size:13px;display:flex;gap:9px;line-height:1.6;align-items:flex-start;margin:13px 0}
+.b2bQuickConsent input{margin-top:3px;min-width:18px;width:18px;height:18px}
+.b2bQuickSubmit{width:100%;min-height:48px;font-weight:800;font-size:15px;border:0;border-radius:10px;background:#e35e34;color:#fff;cursor:pointer}
+.b2bQuickSubmit:hover{background:#ba4522}
+.b2bQuickStatus{color:#985024;font-size:12px;min-height:1.2em;margin:8px 0 0;line-height:1.5}
+.b2bQuickFallback{font-size:12px;margin-top:14px;line-height:1.6}
+.b2bQuickFallback a{color:#255987;text-decoration:underline}
+@media(max-width:800px){.b2bQuickWrap{grid-template-columns:1fr;gap:15px}.b2bQuickBox{padding:18px}}
+@media(max-width:440px){.b2bQuickGrid{grid-template-columns:1fr}.b2bQuickGrid label:first-child{grid-column:auto}.b2bQuickWrap{padding:0 16px}}
