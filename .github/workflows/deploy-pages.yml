@@ -38,6 +38,11 @@ jobs:
       - name: Build V37 search discovery metadata
         run: node scripts/build-seo-v37.cjs
 
+      - name: Publish verified US one-item delivery price and 12–15-day estimated air parcel
+        run: |
+          node scripts/build-us-delivered-prices.cjs
+          node scripts/test-us-delivered-prices.cjs
+
       - name: Align canonical host and sitemap with live www redirect
         run: python scripts/normalize-canonical-host.py
 
