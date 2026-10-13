@@ -1,8 +1,10 @@
 import {calculate, type Comparison} from '../../lib/quote-math-core.mjs';
+import {airwallexCheckoutReadiness} from '../_shared/airwallex';
 interface Env {
   MINGEAGLE_DB: D1Database;
   AIRWALLEX_CLIENT_ID?: string;
   AIRWALLEX_API_KEY?: string;
+  AIRWALLEX_WEBHOOK_SECRET?: string;
   AIRWALLEX_CHECKOUT_ENABLED?: string;
   AIRWALLEX_ENV?: string;
 }
@@ -169,9 +171,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
       const paymentReference = `PAY-${String(order.reference)}`;
       const trackLink = order.tracking_url && /^https:\/\//i.test(String(order.tracking_url))
         ? `<a class="track-link" target="_blank" rel="noreferrer" href="${esc(order.tracking_url)}">Open carrier tracking ↗</a>` : '';
-      const airwallexReady = env.AIRWALLEX_CHECKOUT_ENABLED === 'true' &&
-        ['sandbox','prod'].includes(String(env.AIRWALLEX_ENV || '').toLowerCase()) &&
-        Boolean(env.AIRWALLEX_CLIENT_ID && env.AIRWALLEX_API_KEY);
+      const airwallexReady = airwallexCheckoutReadiness(env).checkoutReady;
       const recommendBank = outstanding >= 1500;
       const providerNotice = paymentStateNotice(order.provider_status);
       const providerPending = ['PENDING','PENDING_REVIEW'].includes(String(order.provider_status || '').toUpperCase());
