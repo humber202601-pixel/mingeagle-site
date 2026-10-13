@@ -95,6 +95,7 @@ try{
   assert(String(init.headers.get('authorization')).startsWith('Bearer sk_test_'));
   const params=new URLSearchParams(init.body);
   assert.equal(params.get('client_reference_id'),'ME-RO-SYNTHETIC');
+  assert.equal(params.get('shipping_address_collection[allowed_countries][0]'),null,'No second buyer-selected ship-to state after order tax review');
   assert.equal(params.get('line_items[0][price_data][unit_amount]'),'1490');
   assert.equal(params.get('line_items[1][price_data][unit_amount]'),'1400');
   requestAmount=2890;
@@ -103,6 +104,10 @@ try{
    amount_total:requestAmount,currency:'usd',status:'open'
   });
  };
+ const denied=await createCheckout({env:{...ready,RETAIL_US_TAX_POLICY_JSON:JSON.stringify({reviewed_on:new Date().toISOString().slice(0,10),review_reference:'TEST_REVIEW_FOR_CA_ONLY',states:{CA:'NO_COLLECTION_REQUIRED'}}),MINGEAGLE_DB:db},request:request()});
+ assert.equal(denied.status,409,'No Checkout for a state excluded from the verified tax review');
+ assert.equal(providerCalls,0,'Tax-denied state must not call Stripe');
+ assert.equal(dbWrites,0,'Tax-denied state must not mutate D1');
  const result=await createCheckout({env:{...ready,MINGEAGLE_DB:db},request:request()});
  assert.equal(result.status,200,await result.clone().text());
  const checkout=await result.json();
