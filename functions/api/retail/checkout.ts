@@ -91,6 +91,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   const price=await q.json() as {ok?:boolean;wholesale?:boolean;productsUSD?:number;productUSD?:number;
     shippingUSD?:number;totalBeforeTaxesUSD?:number;ddpConfirmed?:boolean};
   if(!q.ok||!price.ok||price.wholesale)return bad('Unable to confirm current retail shipping price',409);
+  if(price.ddpConfirmed!==true)
+   return bad('Import duties are not yet confirmed as prepaid for this basket. Please request a retail order quote.',409);
   const goods=amount(price.productsUSD??price.productUSD),freight=amount(price.shippingUSD),
     total=amount(price.totalBeforeTaxesUSD);
   if(![goods,freight,total].every(x=>Number.isSafeInteger(x)&&x>=0)||
