@@ -9,7 +9,7 @@ type Env=AirwallexEnv&{
 };
 const allowedOrigins=new Set(['https://www.mingeagle.com','https://mingeagle.com']);
 export function retailCheckoutReady(env:Env){
- return airwallexCheckoutReadiness(env).checkoutReady&&
+ return airwallexCheckoutReadiness(env).checkoutReady&&env.AIRWALLEX_ENV==='prod'&&
   env.RETAIL_DIRECT_CHECKOUT_ENABLED==='true'&&
   env.RETAIL_FULFILLMENT_APPROVED==='true'&&
   env.RETAIL_TAX_COMPLIANCE_APPROVED==='true'&&
