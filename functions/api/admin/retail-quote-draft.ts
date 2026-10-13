@@ -26,6 +26,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  cbm+=Number(pack.length_cm)*Number(pack.width_cm)*Number(pack.height_cm)*Math.ceil(quantity/Number(pack.units_per_package))/1e6;
  items.push({sku:m[1],quantity,unit,line:line/100});}
  if(count>10000)return bad('Quantity too large');
+ if(count>=10)return bad('10+ units require a separate volume-based wholesale quote with sea freight consent; retail drafts must not auto-price bulk orders.',409);
  const country=/^Destination country: ([A-Z]{2})$/m.exec(message)?.[1]||'';
  const method=/^Preferred shipping: (Sea freight|Air parcel)$/m.exec(message)?.[1]==='Sea freight'?'sea':'air';
  if(!country)return bad('Missing destination');
