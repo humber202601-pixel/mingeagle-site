@@ -393,6 +393,37 @@ jobs:
               print('PASS live exact canonical host',url)
           PY
 
+      - name: Verify live model comparison and creator discovery from an ordinary HTTP crawler
+        run: |
+          python - <<'PY'
+          import urllib.request
+          root='https://www.mingeagle.com/'
+          pages={
+            'index.html':('id="real-indoor-product-demos"','href="videos.html"','href="fabric-silent-basketball.html"'),
+            'silent-basketball.html':('id="flocked-or-fabric-comparison"','href="fabric-silent-basketball.html"','href="videos.html"'),
+            'fabric-silent-basketball.html':('id="fabric-vs-flocked-set"','Compact adhesive mini hoop','href="silent-basketball.html"'),
+            'products.html':('id="indoor-ball-selection-guide"','href="fabric-silent-basketball.html"','href="videos.html"'),
+            'videos.html':('id="creator-video-buying-advice"','href="silent-basketball.html"','og:image')
+          }
+          for page,required in pages.items():
+              req=urllib.request.Request(root+page,headers={
+                'Cache-Control':'no-cache',
+                'User-Agent':'MING-EAGLE-search-paths-live-verify/1.0'
+              })
+              with urllib.request.urlopen(req,timeout=25) as resp:
+                  if resp.status!=200 or resp.geturl()!=root+page:
+                      raise SystemExit('FAIL live HTML status/redirect '+page)
+                  html=resp.read().decode('utf-8')
+              for needle in required:
+                  if needle not in html:
+                      raise SystemExit('FAIL live editorial discovery '+page+' missing '+needle)
+              if 'MING EAGLE SEARCH BUYER PATHS BEGIN' not in html:
+                  raise SystemExit('FAIL buyer content removed by later build '+page)
+              if page=='videos.html' and '"@type":"VideoObject"' in html:
+                  raise SystemExit('FAIL unsupported video rich-result claims')
+              print('PASS real served buyer pathways',page)
+          PY
+
       - name: Verify live pricing JSON and calculator HTTP responses
         run: |
           python - <<'PY'
