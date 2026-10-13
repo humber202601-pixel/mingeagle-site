@@ -199,9 +199,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       error?: string;
     };
     if (!response.ok || !body.id || !body.client_secret) {
-      const reason = body.message || body.error || body.code || `Airwallex PaymentIntent failed (${response.status}).`;
-      console.error('airwallex_payment_intent_failed', { status: response.status, reason, orderReference });
-      return Response.json({ ok: false, error: reason }, { status: 502 });
+      // Never expose provider diagnostics; they may contain markup or account details.
+      console.error('airwallex_payment_intent_failed', {status:response.status});
+      return Response.json({ok:false,error:'Unable to start secure checkout. Please retry or contact MING EAGLE.'},{status:502});
     }
 
     const providerStatus = String(body.status || 'REQUIRES_PAYMENT_METHOD').toUpperCase();
@@ -232,7 +232,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       shopperName: fullName || undefined,
     });
   } catch (error) {
-    console.error('airwallex_checkout_create_failed', error);
-    return Response.json({ ok: false, error: error instanceof Error ? error.message : 'Unable to start secure payment.' }, { status: 500 });
+    console.error('airwallex_checkout_create_failed', {type:error instanceof Error ? error.name : 'UnknownError'});
+    return Response.json({ok:false,error:'Secure checkout is temporarily unavailable. Please contact MING EAGLE for payment options.'},{status:500});
   }
 };
