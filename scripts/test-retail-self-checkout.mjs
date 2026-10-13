@@ -14,11 +14,12 @@ const full={MINGEAGLE_DB:null,AIRWALLEX_CLIENT_ID:'synthetic',
  AIRWALLEX_API_KEY:'synthetic',AIRWALLEX_ENV:'sandbox',
  AIRWALLEX_WEBHOOK_SECRET:'synthetic',AIRWALLEX_CHECKOUT_ENABLED:'true',
  RETAIL_CHECKOUT_ENABLED:'true',RETAIL_STOCK_FULFILLMENT_APPROVED:'true',
- RETAIL_TAX_POLICY_APPROVED:'true',TURNSTILE_ENABLED:'true',
+ RETAIL_TAX_POLICY_APPROVED:'true',
+ RETAIL_US_TAX_POLICY_JSON:JSON.stringify({reviewed_on:new Date().toISOString().slice(0,10),review_reference:'TEST_ONLY_NO_LIVE_TAX_APPROVAL',states:{NY:'NO_COLLECTION_REQUIRED'}}),TURNSTILE_ENABLED:'true',
  TURNSTILE_SITE_KEY:'synthetic-site',TURNSTILE_SECRET_KEY:'synthetic-secret'};
 const requestId='ab44e012-00da-469b-9000-b50406b1fb70';
 const base={requestId,country:'US',method:'air',
- lines:[{sku:'P1-S3',quantity:1,color:'Orange'}],name:'Example Customer',
+ lines:[{sku:'P1-S7',quantity:1,color:'Orange'}],name:'Example Customer',
  email:'example.customer@example.net',phone:'+1 212 555 0100',
  street1:'1 Sample Ave',city:'New York',state:'NY',postalCode:'10001',
  privacyAck:true,turnstileToken:'synthetic-captcha'};
@@ -41,7 +42,7 @@ const db={prepare(sql){reads++;let parameters=[];
  },seen:false};
 try{
  globalThis.fetch=async()=>{network++;throw Error('Provider network must not be called before readiness')};
- for(const changes of [{AIRWALLEX_API_KEY:''},{AIRWALLEX_CHECKOUT_ENABLED:'false'},
+ for(const changes of [{RETAIL_US_TAX_POLICY_JSON:''},{AIRWALLEX_API_KEY:''},{AIRWALLEX_CHECKOUT_ENABLED:'false'},
   {AIRWALLEX_WEBHOOK_SECRET:''},{RETAIL_CHECKOUT_ENABLED:'false'},
   {RETAIL_STOCK_FULFILLMENT_APPROVED:'false'},
   {RETAIL_TAX_POLICY_APPROVED:'false'},{TURNSTILE_ENABLED:'false'}]){
@@ -55,6 +56,7 @@ try{
  assert.equal(reads,0);assert.equal(writes,0);assert.equal(network,0);
  const env={...full,MINGEAGLE_DB:db};
  const cases=[
+  [{...base,state:'CA'},409],
   [{...base,lines:[{sku:'P1-S3',quantity:10,color:'Orange'}]},400],
   [{...base,lines:[{sku:'P1-S3',quantity:9,color:'Orange'},{sku:'P2-S3',quantity:1,color:'Orange'}]},409],
   [{...base,method:'sea'},400],
@@ -78,7 +80,7 @@ try{
  const result=await positive.json();
  assert.equal(positive.status,200,JSON.stringify(result));
  assert.equal(result.quantity,1);
- assert.equal(result.totalBeforeTaxesUSD,21.4);
+ assert.equal(result.totalBeforeTaxesUSD,28.9);
  assert.equal(result.paymentStatus,'UNPAID');
  assert.match(result.paymentPage,/^https:\/\/app\.mingeagle\.com\/quote\/[0-9a-f]{64}$/);
  assert(writes>=7,'Quote+order+items+customer request must persist atomically');
