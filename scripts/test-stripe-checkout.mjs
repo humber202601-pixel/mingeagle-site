@@ -61,7 +61,7 @@ try{
       received:0,email:'buyer@example.net'
     };
     if(sql.includes("WHERE order_id=? AND provider='STRIPE'"))return null;
-    if(sql.includes("WHERE provider='STRIPE' AND provider_intent_id=?"))return stored?{order_id:'ord_synthetic'}:null;
+    if(sql.includes("WHERE provider='STRIPE' AND provider_intent_id=?"))return stored?{order_id:'ord_synthetic',amount:21.4,currency:'USD',status:'OPEN'}:null;
     if(sql.includes('FROM payment_webhook_events'))return {processed_at:null};
     if(sql.includes('FROM orders WHERE id='))return {
       id:'ord_synthetic',reference:'ME-RO-SYNTHETIC',lead_id:null,company_id:null,contact_id:null,
