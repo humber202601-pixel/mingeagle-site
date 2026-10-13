@@ -51,7 +51,7 @@ const AI_REFERRERS={
 // missing referrers cannot be inferred to be AI traffic.
 export function aiReferrerPlatform(value){
  if(typeof value!=='string')return null;
- const host=value.toLowerCase().replace(/\\.$/,'');
+ const host=value.toLowerCase().replace(/\.$/,'');
  for(const [platform,domains] of Object.entries(AI_REFERRERS)){
   if(domains.some(d=>host===d||host.endsWith('.'+d)))return platform;
  }
