@@ -19,19 +19,24 @@ const titles={
  'silent-basketball.html':'Flocked silent basketball set',
  'wholesale-product-catalog.html':'Wholesale product catalog',
  'for-schools.html':'Silent sports balls for schools',
- 'for-coaches.html':'Indoor basketballs for coaches'
+ 'for-coaches.html':'Indoor basketballs for coaches',
+ 'quiet-indoor-sports-for-kids.html':'How to keep kids active indoors with less ball noise',
+ 'indoor-school-sports-equipment-guide.html':'Indoor PE and academy equipment buyer checklist'
 };
 const groups={
- 'index.html':['products.html','wholesale.html','inquiry.html','fabric-silent-basketball.html','weighted-flocked-basketball.html','silent-soccer.html','learn.html'],
- 'products.html':['fabric-silent-basketball.html','weighted-flocked-basketball.html','silent-soccer.html','silent-basketball.html','inquiry.html'],
- 'wholesale.html':['wholesale-product-catalog.html','silent-basketball-bulk-buying-guide.html','inquiry.html','for-schools.html','for-coaches.html'],
- 'learn.html':['silent-basketball-for-apartments.html','silent-basketball-vs-regular.html','silent-basketball-bulk-buying-guide.html','products.html'],
- 'silent-basketball-guide.html':['silent-basketball-vs-regular.html','silent-basketball-for-apartments.html','products.html'],
+ 'index.html':['products.html','wholesale.html','inquiry.html','fabric-silent-basketball.html','weighted-flocked-basketball.html','silent-soccer.html','learn.html','quiet-indoor-sports-for-kids.html','indoor-school-sports-equipment-guide.html'],
+ 'products.html':['fabric-silent-basketball.html','weighted-flocked-basketball.html','silent-soccer.html','silent-basketball.html','inquiry.html','quiet-indoor-sports-for-kids.html'],
+ 'wholesale.html':['wholesale-product-catalog.html','silent-basketball-bulk-buying-guide.html','inquiry.html','for-schools.html','for-coaches.html','indoor-school-sports-equipment-guide.html'],
+ 'learn.html':['silent-basketball-for-apartments.html','silent-basketball-vs-regular.html','silent-basketball-bulk-buying-guide.html','quiet-indoor-sports-for-kids.html','indoor-school-sports-equipment-guide.html','products.html'],
+ 'silent-basketball-guide.html':['silent-basketball-vs-regular.html','silent-basketball-for-apartments.html','quiet-indoor-sports-for-kids.html','products.html'],
  'inquiry.html':['products.html','wholesale.html','wholesale-product-catalog.html'],
  'fabric-silent-basketball.html':['products.html','inquiry.html','weighted-flocked-basketball.html'],
  'weighted-flocked-basketball.html':['products.html','inquiry.html','fabric-silent-basketball.html'],
  'silent-soccer.html':['products.html','inquiry.html','fabric-silent-basketball.html'],
- 'silent-basketball-bulk-buying-guide.html':['wholesale.html','inquiry.html','products.html']
+ 'silent-basketball-bulk-buying-guide.html':['wholesale.html','inquiry.html','products.html'],
+ 'for-schools.html':['indoor-school-sports-equipment-guide.html','products.html','inquiry.html'],
+ 'for-coaches.html':['indoor-school-sports-equipment-guide.html','weighted-flocked-basketball.html','inquiry.html'],
+ 'silent-basketball-for-apartments.html':['quiet-indoor-sports-for-kids.html','products.html','inquiry.html']
 };
 for(const [filename,links] of Object.entries(groups)){
  const file=path.join(root,filename);
