@@ -28,7 +28,7 @@ try{
   assert.match(s,/estimated delivery 12–15 days after dispatch/i,f);
   assert.match(s,/not guaranteed/i,f);
   assert.match(s,/excluding taxes and import duties/i,f);
-  assert.match(s,/Multi-item orders and destinations outside the US are quoted separately/i,f);
+  assert.match(s,/For 2–9 items, combined shipping is calculated separately/i,f);
   assert(!/free shipping|guaranteed delivery|in stock now/i.test(s),'No unverified fulfillment claim');
  }
  for(const [id,f] of Object.entries(products)){

@@ -1,0 +1,28 @@
+{
+  "retail": {
+    "minUnits": 1,
+    "maxUnits": 9,
+    "shippingMethod": "air",
+    "checkoutMode": "AIRWALLEX_WHEN_VERIFIED",
+    "estimatedUSSingleAirDays": {
+      "min": 12,
+      "max": 15
+    }
+  },
+  "wholesale": {
+    "minUnits": 10,
+    "shippingMethod": "sea",
+    "shippingConsentRequired": true,
+    "estimatedSeaDeliveryDays": {
+      "min": 25,
+      "max": 30
+    },
+    "discount": "quantity-dependent, quoted after review",
+    "fixedDiscountPercent": null
+  },
+  "disclosures": [
+    "Retail prices are publicly shown in USD; stock and payable tax/duties must be verified before live payment.",
+    "Wholesale from 10 total items requires explicit acceptance of ocean freight and estimated 25–30 days after dispatch; delivery is not guaranteed.",
+    "Wholesale discounts vary by quantity and final quotation; no unsupported percentages are advertised."
+  ]
+}
