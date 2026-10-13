@@ -35,7 +35,28 @@ const admin=readFileSync('src/AdminApp.tsx','utf8');
 assert(admin.includes('<ProspectActionQueue leads={data.leads}/>'));
 const api=readFileSync('functions/api/admin/data.ts','utf8');
 assert(api.includes('l.source, l.lead_score')&&api.includes('l.last_contact_at'));
-assert(ui.includes('不自动发送开发信')&&ui.includes('需人工核实'));
+assert(api.includes('contact_email_present')&&api.includes('contact_email_verified'));
+assert(api.includes('contact_do_not_contact')&&api.includes('discovery_source_url'));
+
+assert(ui.includes('不自动发送')&&ui.includes('人工核实'));
+const recordsWithEvidence=[
+ {id:'00000000-0000-4000-8000-000000000031',source:'DISCOVERY',status:'READY_TO_CONTACT',company:'Has unverified public email',lead_score:40,contact_email_present:1,contact_email_verified:0,discovery_source_count:1,discovery_source_url:'https://example.org/basketball',discovery_grade:'A'},
+ {id:'00000000-0000-4000-8000-000000000032',source:'DISCOVERY',status:'READY_TO_CONTACT',company:'No email',lead_score:40,contact_email_present:0,discovery_source_count:1},
+ {id:'00000000-0000-4000-8000-000000000033',source:'DISCOVERY',status:'READY_TO_CONTACT',company:'Opted out',contact_email_present:1,contact_email_verified:1,contact_do_not_contact:1}
+];
+const examined=lib.prioritizeProspects(recordsWithEvidence,now);
+assert.equal(examined.length,2,'Contact do-not-contact suppresses review action');
+assert.equal(examined[0].company,'Has unverified public email');
+assert.equal(examined[0].emailPresent,true);
+assert.equal(examined[0].emailVerified,false,'Email presence is not validation');
+assert.equal(examined[0].sourceUrl,'https://example.org/basketball');
+assert.equal(examined[1].emailPresent,false);
+assert.equal(lib.safeEvidenceUrl('http://example.org/'),'');
+assert.equal(lib.safeEvidenceUrl('https://127.0.0.1/'),'');
+assert.equal(lib.safeEvidenceUrl('https://example.org/'),'https://example.org/');
+assert(ui.includes('有邮箱 · 尚未经验证'));
+assert(ui.includes('无邮箱 · 补充官网联系信息'));
+assert(ui.includes('MISSING_EMAIL'));
 assert(!ui.includes('customer-email-send')&&!ui.includes('fetch('),'Read-only triage panel may not send emails or write data');
 const outreach=readFileSync('functions/api/admin/outreach-draft.ts','utf8');
 const shared=readFileSync('shared/outreach.ts','utf8');
