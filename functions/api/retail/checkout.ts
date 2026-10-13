@@ -2,10 +2,11 @@ import {type AirwallexEnv} from '../../_shared/airwallex';
 import {type StripeEnv} from '../../_shared/stripe';
 import {verifyInquiryTurnstile,turnstileConfiguration,type TurnstileEnv} from '../../../lib/turnstile-inquiry';
 import {SKU_USD} from '../../../lib/retail-reference';
+import {noSalesTaxCollectionRequired,type RetailTaxEnv} from '../../../lib/retail-tax-policy';
 import {onRequestPost as calculateShipping} from '../shipping/cart';
 import {retailCheckoutReady} from './checkout-status';
 
-interface Env extends AirwallexEnv,StripeEnv,TurnstileEnv {
+interface Env extends AirwallexEnv,StripeEnv,TurnstileEnv,RetailTaxEnv {
  STRIPE_TAX_POLICY_APPROVED?:string;
  MINGEAGLE_DB:D1Database;
  RETAIL_CHECKOUT_ENABLED?:string;
@@ -68,6 +69,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  if(!name||!emailRe.test(email)||!phone||!street1||!city||!state||!/^[0-9]{5}(?:-[0-9]{4})?$/.test(zip)||
     input.privacyAck!==true)
   return bad('Name, valid email, phone, US delivery address, ZIP and privacy consent required');
+ if(!noSalesTaxCollectionRequired(env,state))
+  return bad('Sales-tax collection obligations for this delivery state are not yet verified. Please request a retail quote instead.',409);
  if(!turnstileConfiguration(env).enabled)return bad('Checkout security verification not ready',503);
  const captcha=await verifyInquiryTurnstile(env,input.turnstileToken,request);
  if(!captcha.ok||captcha.code!=='OK')return bad('Security challenge must be completed again',403);
@@ -86,7 +89,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     })
   } as Parameters<typeof calculateShipping>[0]);
   const price=await q.json() as {ok?:boolean;wholesale?:boolean;productsUSD?:number;productUSD?:number;
-    shippingUSD?:number;totalBeforeTaxesUSD?:number};
+    shippingUSD?:number;totalBeforeTaxesUSD?:number;ddpConfirmed?:boolean};
   if(!q.ok||!price.ok||price.wholesale)return bad('Unable to confirm current retail shipping price',409);
   const goods=amount(price.productsUSD??price.productUSD),freight=amount(price.shippingUSD),
     total=amount(price.totalBeforeTaxesUSD);
@@ -111,7 +114,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   statements.push(
    db.prepare("INSERT INTO leads(id,primary_contact_id,source,source_detail,status,product_interest) VALUES (?,?,'WEBSITE','DIRECT_RETAIL_CHECKOUT','INTERESTED','SILENT_BALL')").bind(lead,contact),
    db.prepare("INSERT INTO inquiries(id,reference,lead_id,contact_id,request_type,customer_type,estimated_quantity,shipping_country,shipping_city,shipping_postal_code,message,status) VALUES (?,?,?,?, 'RETAIL','Family / consumer',?,'US',?,?,?,'QUOTED')").bind(inquiry,ref,lead,contact,String(quantity),city,zip,'Self-service retail checkout: '+descriptions.join(', ')),
-   db.prepare("INSERT INTO quotes(id,reference,lead_id,inquiry_id,contact_id,status,currency,subtotal,discount,shipping,tax,total,payment_terms,shipping_terms,notes,valid_until,sent_at,public_token_hash) VALUES (?,?,?,?,?,'SENT','USD',?,0,?,0,?,'Online payment through verified secure checkout','US air parcel from China; expected timing is an estimate, not guaranteed','Customer-approved self-service retail subtotal and air freight; tax handling approved by merchant',datetime('now','+7 days'),CURRENT_TIMESTAMP,?)")
+   db.prepare("INSERT INTO quotes(id,reference,lead_id,inquiry_id,contact_id,status,currency,subtotal,discount,shipping,tax,total,payment_terms,shipping_terms,notes,valid_until,sent_at,public_token_hash) VALUES (?,?,?,?,?,'SENT','USD',?,0,?,0,?,'Online payment through verified secure checkout','Single-item China-to-US air parcel, merchant-paid import clearance and duties; state sales tax reviewed separately; delivery timing not guaranteed','DDP confirmed for eligible one-unit shipping only; tax zero only after state-specific reviewed no-collection decision',datetime('now','+7 days'),CURRENT_TIMESTAMP,?)")
     .bind(quote,quoteRef,lead,inquiry,contact,goods/100,freight/100,total/100,tokenHash),
    db.prepare("INSERT INTO orders(id,reference,quote_id,lead_id,contact_id,status,currency,subtotal,discount,shipping,tax,total,payment_status,shipping_address,customer_notes) VALUES (?,?,?,?,?,'PAYMENT_PENDING','USD',?,0,?,0,?,'UNPAID',?,?)")
     .bind(order,orderRef,quote,lead,contact,goods/100,freight/100,total/100,address,'Retail self-service checkout awaiting provider-confirmed payment')
