@@ -34,7 +34,7 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
  try{
   const recent=await db.prepare(`SELECT prompt_id,platform,test_mode,status,cited_url,tested_at FROM
    (SELECT prompt_id,platform,test_mode,status,cited_url,tested_at,
-     ROW_NUMBER() OVER(PARTITION BY prompt_id,platform,test_mode ORDER BY tested_at DESC,id DESC) AS rn
+     ROW_NUMBER() OVER(PARTITION BY prompt_id,platform,test_mode ORDER BY tested_at DESC,rowid DESC) AS rn
     FROM ai_visibility_observations) WHERE rn=1
    ORDER BY tested_at DESC,prompt_id,platform LIMIT 240`).all<Observation>();
   const rows=recent.results||[];
