@@ -10,6 +10,9 @@ on:
       - '.github/workflows/monitor-production.yml'
       - 'scripts/check-production-endpoints.cjs'
       - 'scripts/test-production-monitor.cjs'
+      - 'public/robots.txt'
+      - 'public/sitemap.xml'
+      - 'public/llms.txt'
 
 permissions:
   contents: read
