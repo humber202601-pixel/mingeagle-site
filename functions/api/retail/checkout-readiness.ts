@@ -1,4 +1,6 @@
 import {retailCheckoutReady} from '../../_shared/retail-checkout';
+import type {AirwallexEnv} from '../../_shared/airwallex';
+interface Env extends AirwallexEnv {RETAIL_DIRECT_CHECKOUT_ENABLED?:string;RETAIL_FULFILLMENT_APPROVED?:string;RETAIL_TAX_COMPLIANCE_APPROVED?:string;RETAIL_US_TAX_RULES_JSON?:string;TURNSTILE_SECRET_KEY?:string;MINGEAGLE_DB:D1Database;}
 const origins=new Set(['https://www.mingeagle.com','https://mingeagle.com','https://app.mingeagle.com']);
 export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
  const origin=request.headers.get('origin');
