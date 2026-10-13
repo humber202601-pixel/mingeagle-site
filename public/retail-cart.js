@@ -139,7 +139,11 @@ function render(){
  $('cartRoute').textContent=bulk?
   'Wholesale · '+n+' items. Quantity-based discounts; sea freight required (estimated 25–30 days after dispatch, not guaranteed).':
   'Retail · '+n+' of 9 maximum items. Public USD unit prices; air parcel shipping.';
- $('cartCheckout').textContent=bulk?'Request tiered wholesale quote →':'Request secure retail payment →';
+ $('cartCheckout').textContent=bulk?'Request tiered wholesale quote →':'Check retail checkout availability →';
+ const oneConfirmedDDP = n===1 && lines.length===1 && lines[0].sku==='P1-S7' && country()==='US';
+ $('cartCustomsNote').textContent=oneConfirmedDDP?
+  'China → US, one P1-S7 item: the $14 shipping rate includes customs clearance and import duties paid by MING EAGLE. US state/local sales tax is separate and depends on your delivery state.':
+  'China-direct delivery: customs clearance and import-duty coverage is not yet confirmed for this size or quantity. US sales tax is separate. Request a confirmed delivered-price quote before payment.';
  $('cartStatus').textContent=!lines.length?'Your cart is empty.':
   bulk?'Agree to sea freight terms before calculating the wholesale freight estimate.':
   'Review air freight and taxes before requesting secure payment. Online checkout is activated only when the payment provider is ready.';
@@ -182,7 +186,9 @@ $('cartEstimateForm').addEventListener('submit',async e=>{
   $('cartCheckout').disabled=false;
   $('cartStatus').textContent=bulk?
    'Preliminary wholesale sea freight only. Quantity discounts and final total require a written quote; delivery estimated 25–30 days after dispatch.':
-   'Retail cost estimated. No funds are collected on this page. Payment requires confirmed stock, final taxes and an activated secure payment gateway.';
+   result.ddpConfirmed===true?
+    'US one-item DDP freight verified: customs clearance and import duties included in shipping. State/local sales tax must be separately reviewed before payment.':
+    'Duty-paid freight is not confirmed for this SKU/quantity; request a delivered-price confirmation before paying. US sales tax is separate.';
  }catch(err){$('cartStatus').textContent='Cannot calculate shipping: '+String(err?.message||err)}
  finally{loading=false}
 });
@@ -191,6 +197,10 @@ $('cartCheckout').addEventListener('click',async()=>{
  if(isWholesale()){
   if(!sourceConsent()){$('cartStatus').textContent='Accept sea freight before requesting wholesale terms.';return}
   linkToInquiry('quote');return;
+ }
+ if(last.ddpConfirmed!==true){
+  $('cartStatus').textContent='Import-duty-paid delivery for this item or quantity needs confirmation. Please submit a retail order inquiry.';
+  linkToInquiry('retail');return;
  }
  // Only switch from inquiry fallback to real retail checkout after the
  // server reports *all* merchant/payment/stock/tax/Turnstile gates ready.
