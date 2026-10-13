@@ -85,7 +85,7 @@ export default function RetailCheckout(){
       <label>US address line 1 *<input name="street1" required maxLength={200} autoComplete="address-line1"/></label>
       <label>Apartment / suite<input name="street2" maxLength={200} autoComplete="address-line2"/></label>
       <label>City *<input name="city" required maxLength={100} autoComplete="address-level2"/></label>
-      <label>State *<input name="state" required maxLength={60} autoComplete="address-level1"/></label>
+      <label>State (2-letter code, e.g. KY) *<input name="state" required maxLength={2} minLength={2} pattern="[A-Za-z]{2}" placeholder="KY" autoComplete="address-level1" style={{textTransform:'uppercase'}}/></label>
       <label>ZIP code *<input name="postalCode" required maxLength={10} autoComplete="postal-code" pattern="[0-9]{5}(-[0-9]{4})?"/></label>
      </div>
      <div ref={captcha.container} aria-label="Checkout security verification"/>
