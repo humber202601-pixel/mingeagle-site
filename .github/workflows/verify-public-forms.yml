@@ -27,6 +27,11 @@ on:
       - 'scripts/test-product-cart-journey.cjs'
       - 'scripts/build-product-buyer-answers.cjs'
       - 'scripts/test-product-buyer-answers.cjs'
+      - 'scripts/build-creator-to-product.cjs'
+      - 'scripts/test-creator-to-product.cjs'
+      - 'public/retail-buy.js'
+      - 'public/forms-core.js'
+      - 'public/inquiry.js'
       - 'scripts/build-b2b-quote-planner.cjs'
       - 'scripts/test-b2b-quote-planner.cjs'
       - 'public/b2b-quote-planner.js'
@@ -100,6 +105,7 @@ jobs:
           node --check scripts/build-us-delivered-prices.cjs
           node scripts/test-us-delivered-prices.cjs
           node scripts/test-product-buyer-answers.cjs
+          node scripts/test-creator-to-product.cjs
           node scripts/build-seo-discovery-links.cjs
           node scripts/build-product-listing-discovery.cjs
           node scripts/check-product-listing-discovery.cjs

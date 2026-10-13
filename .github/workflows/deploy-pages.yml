@@ -53,6 +53,11 @@ jobs:
           node scripts/build-product-buyer-answers.cjs
           node scripts/test-product-buyer-answers.cjs
 
+      - name: Build 16 genuine creator-to-product shopping links
+        run: |
+          node scripts/build-creator-to-product.cjs
+          node scripts/test-creator-to-product.cjs
+
       - name: Align canonical host and sitemap with live www redirect
         run: python scripts/normalize-canonical-host.py
 

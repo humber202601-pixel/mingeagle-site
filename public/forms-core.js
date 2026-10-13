@@ -20,6 +20,7 @@ function crmPayload(d,ctx){
   products:d.products?d.products.split('\n').filter(Boolean):[],
   customization:d.customization||'',orderTiming:d.timing||'',
   message:[d.message||'',d.orderReference?'Order / quote reference: '+d.orderReference:''].filter(Boolean).join('\n'),
+  creatorVideoCode:/^V0(?:0[1-9]|1[0-6])$/.test(String(d.creatorVideoCode||''))?String(d.creatorVideoCode):'',
   leadSource:aiAssisted?'Website AI Assistant':'MING EAGLE official website',landingPage:ctx.landingPage||ctx.pageUri,
   referrer:ctx.referrer||'',utmSource:campaign.get('utm_source')||'',
   utmMedium:campaign.get('utm_medium')||'',utmCampaign:campaign.get('utm_campaign')||'',

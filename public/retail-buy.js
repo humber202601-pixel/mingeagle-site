@@ -108,6 +108,21 @@ if(productId&&hero&&!document.querySelector('.productHero .retailBuyPicker')){
  const area=hero.firstElementChild;
  if(area)area.appendChild(picker(productId,'detail'));
 }
+if(productId==='p1'){
+ const demo=new URL(window.location.href).searchParams.get('demo');
+ // A navigation hint from the first-party creator wall, not a video-view event.
+ if(/^V0(?:0[1-9]|1[0-6])$/.test(demo||'')){
+  try{window.sessionStorage.setItem('mingeagle_video_to_product_v1',
+   JSON.stringify({code:demo,at:Date.now()}))}catch{}
+  const pickerArea=document.querySelector('.productHero .retailBuyPicker');
+  if(pickerArea){
+   const hint=document.createElement('p');
+   hint.className='retailBuyNote';
+   hint.textContent='Arrived from on-site creator clip '+demo+'. The creator clip shows this flocked set only; playback and purchase are not recorded by this link.';
+   pickerArea.appendChild(hint);
+  }
+ }
+}
 // Hash anchors from the USA delivered-price table target dynamically
 // inserted selectors. Scroll only after the selector exists in the DOM.
 const anchor=window.location.hash?.slice(1)||'';
