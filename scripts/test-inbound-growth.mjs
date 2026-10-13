@@ -88,6 +88,40 @@ try{
  const bad=await call(2);assert.equal(bad.status,400);assert.equal(bad.reads,0);
  const missing=await onRequestGet({request:new Request('https://app.mingeagle.com/api/admin/inbound-growth'),env:{}});
  assert.equal(missing.status,503);
+
+ // Source-aware GEO conversion regression: source labels are browser-supplied
+ // attribution, never evidence of an actual ChatGPT/Gemini/Copilot citation.
+ const aiCases=[
+  {channel:'CHATGPT',referrer:'https://chatgpt.com/c/abc',landingPage:'https://www.mingeagle.com/quiet-indoor-sports-for-kids.html'},
+  {channel:'PERPLEXITY',referrer:'https://www.perplexity.ai/search/question',landingPage:'https://www.mingeagle.com/indoor-school-sports-equipment-guide.html'},
+  {channel:'CLAUDE',referrer:'https://claude.ai/chat',landingPage:'https://www.mingeagle.com/quiet-indoor-sports-for-kids.html'},
+  {channel:'GEMINI',referrer:'https://gemini.google.com/app',landingPage:'https://www.mingeagle.com/indoor-school-sports-equipment-guide.html'},
+  {channel:'COPILOT',referrer:'https://copilot.microsoft.com/chats',landingPage:'https://www.mingeagle.com/for-coaches.html'},
+  {channel:'CHATGPT',utmSource:'chatgpt',referrer:'https://unrelated.example/',landingPage:'https://www.mingeagle.com/products.html'},
+  {channel:'DIRECT_UNKNOWN',referrer:'https://chatgpt.com.evil.example/answer',landingPage:'https://www.mingeagle.com/products.html'},
+  {channel:'GOOGLE',utmSource:'google',referrer:'https://chatgpt.com/search',landingPage:'https://www.mingeagle.com/products.html'}
+ ];
+ for(let i=0;i<aiCases.length;i++){
+  const x=aiCases[i],id='ai-l'+i,qid='ai-i'+i;
+  sqlite.prepare('INSERT INTO leads(id,source) VALUES (?,?)').run(id,'WEBSITE');
+  sqlite.prepare('INSERT INTO inquiries(id,reference,lead_id,request_type,customer_type) VALUES (?,?,?,?,?)').run(qid,'ME-GEO-'+i,id,'GENERAL','Personal buyer');
+  sqlite.prepare('INSERT INTO activities(id,entity_type,entity_id,activity_type,title,description,metadata_json) VALUES (?,?,?,?,?,?,?)')
+   .run('ai-a'+i,'LEAD',id,'INQUIRY_CREATED','Source audit','',JSON.stringify({inquiryId:qid,...x}));
+ }
+ const geo=await call();
+ assert.equal(geo.status,200);
+ assert.equal(geo.writes,0,'Referral classification remains read-only');
+ assert.equal(geo.reads,2,'No extra D1 reads to classify AI sources');
+ assert.equal(geo.data.summary.inquiries,13,'Only real inquiry rows are counted');
+ for(const [label,expected] of [['CHATGPT',2],['PERPLEXITY',1],['CLAUDE',1],['GEMINI',1],['COPILOT',1]]){
+  assert.equal(geo.data.sources.find(x=>x.channel===label)?.inquiries,expected,label+' requires distinct tracked inquiry attribution');
+ }
+ assert.equal(geo.data.sources.find(x=>x.channel==='GOOGLE')?.inquiries,2,'Recognized Google UTM takes priority over AI referrer');
+ assert.equal(geo.data.sources.find(x=>x.channel==='DIRECT_UNKNOWN')?.inquiries,3,'Lookalike host must not be credited as ChatGPT');
+ assert.equal(geo.data.entryPages.find(x=>x.entryPage==='KIDS_QUIET_GUIDE')?.inquiries,2);
+ assert.equal(geo.data.entryPages.find(x=>x.entryPage==='SCHOOL_EQUIPMENT_GUIDE')?.inquiries,2);
+ assert.equal(geo.data.sources.find(x=>x.channel==='CHATGPT')?.exactQuoted,0,'A source label must not fabricate a quote');
+ assert(geo.data.limitations.some(x=>x.includes('不代表 AI 官方引用')),'Display AI referrers as unverified user-reported clues');
  const ui=readFileSync('src/InboundGrowth.tsx','utf8');
  assert(ui.includes('网站访问统计与搜索曝光')&&ui.includes('Google Search Console'));
  assert(ui.includes('直接关联订单的询盘'));
