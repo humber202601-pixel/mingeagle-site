@@ -191,7 +191,8 @@
       "language": "de",
       "audience": "parent",
       "prompt": "Welcher Basketball eignet sich für leiseres Spielen in einer Wohnung?",
-      "targetUrl": "https://www.mingeagle.com/silent-basketball-for-apartments.html"
+      "targetUrl": "https://www.mingeagle.com/silent-basketball-for-apartments.html",
+      "targetLanguage": "en"
     },
     {
       "id": "ME-AI-022",
@@ -200,7 +201,8 @@
       "language": "fr",
       "audience": "parent",
       "prompt": "Quels jeux de ballon peut-on faire à l'intérieur avec moins de bruit ?",
-      "targetUrl": "https://www.mingeagle.com/quiet-indoor-sports-for-kids.html"
+      "targetUrl": "https://www.mingeagle.com/quiet-indoor-sports-for-kids.html",
+      "targetLanguage": "en"
     },
     {
       "id": "ME-AI-023",
@@ -218,7 +220,8 @@
       "language": "pt",
       "audience": "buyer",
       "prompt": "Onde encontrar bolas de basquete silenciosas para comprar no atacado?",
-      "targetUrl": "https://www.mingeagle.com/wholesale.html"
+      "targetUrl": "https://www.mingeagle.com/wholesale.html",
+      "targetLanguage": "en"
     }
   ]
 }
