@@ -29,28 +29,47 @@ if(assistantSummary&&/^((Product|Size|Quantity|Destination postal code|Destinati
 }
 
 form.querySelectorAll('[name="products[]"]').forEach(cb=>{if(cb.value===q.get('product'))cb.checked=true});
-if(q.get('type')==='retail'&&q.get('cart')){
+if(['retail','wholesale'].includes(q.get('cart_flow'))&&q.get('cart')){
+ const wholesale=q.get('cart_flow')==='wholesale';
  const raw=String(q.get('cart')||'');
- const entries=raw.split(', ').slice(0,11).map(item=>/^((?:P1-S[357]|P2-S[357]|P3-S[3467]|P4-S5)) × (\\d{1,5})$/.exec(item)).filter(Boolean);
+ const entries=raw.split(', ').slice(0,11).map(item=>/^(P(?:1-S[357]|2-S[357]|3-S[3467]|4-S5)) (?:x|×) (\d{1,5})$/.exec(item)).filter(Boolean);
  const chosen=new Map();
- entries.forEach(match=>{const qty=Number(match[2]);if(qty>=1&&qty<=10000)chosen.set(match[1],qty)});
+ entries.forEach(m=>{const qty=Number(m[2]);if(qty>=1&&qty<=10000&&!chosen.has(m[1]))chosen.set(m[1],qty)});
  const totalUnits=[...chosen.values()].reduce((sum,n)=>sum+n,0);
- const iso=String(q.get('cart_country')||'').toUpperCase();
- const country=/^[A-Z]{2}$/.test(iso)?iso:'';
- const mode=q.get('cart_method')==='sea'?'Sea freight':'Air parcel';
- const lines=[...chosen].map(([sku,units])=>sku+' x '+units);
- // This is a customer-provided estimate, not a trusted or payable quote.
- const summary=['Retail cart order request (NOT PAID)','Products: '+lines.join(', '),'Total items: '+totalUnits,'Destination country: '+country,'Preferred shipping: '+mode,'Estimated freight USD (unverified): '+String(q.get('cart_shipping')||'').slice(0,20),'Estimated total before tax USD (unverified): '+String(q.get('cart_total')||'').slice(0,20),'Final item prices, freight, taxes and availability must be confirmed before payment.'].join('\\n');
- if($('message'))$('message').value=summary.slice(0,3900);
- if($('country'))$('country').value=country;
- for(const sku of chosen.keys()){const id='p'+sku[1],check=$('choose-'+id),size=$('size-'+id);
-  if(check)check.checked=true;
-  const number=sku.slice(-1);
-  if(size){const options=[...size.options];if(options.some(o=>o.value==='No. '+number))size.value='No. '+number;}
+ const country=String(q.get('cart_country')||'').toUpperCase();
+ const destination=/^[A-Z]{2}$/.test(country)?country:'';
+ const seaAccepted=q.get('sea_accepted')==='yes';
+ const valid=totalUnits>0&&totalUnits<=10000&&(wholesale?totalUnits>=10:totalUnits<10);
+ if(valid){
+  const lines=[...chosen].map(([sku,n])=>sku+' x '+n);
+  const title=wholesale?'Wholesale volume-discount request (NOT PAID)':'Retail purchase assistance request (NOT PAID)';
+  const summary=[title,'Products: '+lines.join(', '),'Total items: '+totalUnits,
+   'Destination country: '+destination,'Preferred shipping: '+(wholesale?'Sea freight':'Air parcel'),
+   wholesale?'Requested discount: based on actual quantity; no guaranteed percentage':'Retail prices published by SKU; final payable freight and tax require confirmation',
+   wholesale?'Sea freight estimate: 25–30 days after dispatch, not guaranteed':'Retail transit subject to confirmation',
+   wholesale?'Sea consent selected on cart: '+(seaAccepted?'yes, pending confirmation on this form':'NO'):'',
+   'This request is not a payment or a finalized sales contract.'].filter(Boolean).join('\n');
+  if($('message'))$('message').value=summary.slice(0,3900);
+  if($('country'))$('country').value=destination;
+  for(const sku of chosen.keys()){
+   const pid='p'+sku[1],check=$('choose-'+pid),size=$('size-'+pid);
+   if(check)check.checked=true;
+   if(size&&[...size.options].some(o=>o.value==='No. '+sku.slice(-1)))size.value='No. '+sku.slice(-1);
+  }
+  const tier=totalUnits<=2?'1–2 samples':totalUnits<=49?'3–49 units':totalUnits<=99?'50–99 units':totalUnits<=499?'100–499 units':totalUnits<=999?'500–999 units':'1,000+ units';
+  if($('estimated_quantity'))$('estimated_quantity').value=tier;
+  if($('quoteUnits'))$('quoteUnits').value=String(totalUnits);
+  window.__mingEagleCartOrder={lines,country:destination,mode:wholesale?'Sea freight':'Air parcel',totalUnits};
+  if(wholesale){
+   $('request_type').value='Wholesale quote';
+   const agreement=document.createElement('label');
+   agreement.id='wholesaleSeaAgreementBlock';agreement.style.cssText='display:block;margin:12px 0;font-size:14px;line-height:1.7';
+   const check=document.createElement('input');check.id='wholesaleSeaAgreement';check.type='checkbox';check.required=true;
+   check.style.marginRight='8px';
+   agreement.append(check,document.createTextNode('I agree to sea freight for this 10+ unit wholesale inquiry and understand estimated delivery takes 25–30 days after dispatch, subject to the written quote.'));
+   $('quoteFields').appendChild(agreement);
+  }else $('request_type').value='Retail purchase inquiry';
  }
- if(totalUnits>0&&totalUnits<=10000){const selector=$('estimated_quantity');const tier=totalUnits<=2?'1–2 samples':totalUnits<=49?'3–49 units':totalUnits<=99?'50–99 units':totalUnits<=499?'100–499 units':totalUnits<=999?'500–999 units':'1,000+ units';if(selector)selector.value=tier;}
- // Keep actual per-SKU quantities in the message: the inquiry's coarse quantity is only a sales filter.
- if(totalUnits>0&&totalUnits<=10000)window.__mingEagleCartOrder={lines,country,mode,totalUnits};
 }
 
 try{
