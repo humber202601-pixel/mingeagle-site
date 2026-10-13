@@ -25,7 +25,7 @@ form.addEventListener('submit',async e=>{
   pick('shippingGoods').textContent='$'+Number(data.productUSD).toFixed(2);
   pick('shippingFee').textContent='$'+Number(data.shippingUSD).toFixed(2);
   pick('shippingTotal').textContent='$'+Number(data.totalBeforeTaxesUSD).toFixed(2);
-  details.hidden=false;status.textContent='Estimate only. Taxes, customs duties and availability require confirmation before payment.';
+  details.hidden=false;status.textContent='Estimate only. Taxes, customs duties and availability require confirmation before payment.'+(data.deliveryEstimateDaysMin===12&&data.deliveryEstimateDaysMax===15?' US single-item air parcel: delivery estimated 12–15 days after dispatch, not guaranteed.':'');
 
  }catch{status.textContent='Unable to load live shipping rates. Please ask for a manual quote.'}
 });
