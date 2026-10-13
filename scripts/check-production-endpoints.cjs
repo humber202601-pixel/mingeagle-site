@@ -54,7 +54,24 @@ async function checkProduction({expectedRevision, fetcher=globalThis.fetch, atte
   assert.equal(Object.keys(crmPrices.catalog?.products||{}).length,4,'Expected four verified products');
   assert.deepEqual(crmPrices.catalog,publicPrices,'CRM and public retail reference prices differ');
 
-  return {revision:expectedRevision,crmBinding:true,priceProducts:4,priceCatalogsMatch:true};
+  // Public crawl assets must be served as documents, not a branded 404 fallback.
+  for (const [path,needle] of [
+    ['robots.txt','Sitemap: https://www.mingeagle.com/sitemap.xml'],
+    ['sitemap.xml','<urlset'],
+    ['llms.txt','MING EAGLE']
+  ]) {
+    const url=BASE+path;
+    const response=await fetcher(url,{
+      method:'GET',redirect:'follow',
+      headers:{'accept':'text/plain, application/xml, text/xml','cache-control':'no-cache','user-agent':'MING-EAGLE-production-smoke/1.0'},
+      signal:AbortSignal.timeout(12000)
+    });
+    if(!response.ok)throw new Error('Public discovery asset '+path+' returned HTTP '+response.status);
+    const body=await response.text();
+    if(!body.includes(needle))throw new Error('Public discovery asset '+path+' has unexpected content');
+  }
+
+  return {revision:expectedRevision,crmBinding:true,priceProducts:4,priceCatalogsMatch:true,discoveryAssets:3};
 }
 
 if (require.main===module) {

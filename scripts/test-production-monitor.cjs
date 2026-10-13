@@ -10,19 +10,23 @@ const mapping={
  [crm+'api/health']:{ok:true,service:'MING EAGLE V2 API',databaseBinding:true,databaseReadOk:true,schedulerReadOk:true,scheduler:{discovery:'healthy',hubspotRecovery:'healthy',dailyFollowup:'healthy'}},
  [crm+'api/quote-reference']:{ok:true,testEnvironment:false,catalog:price},
  [base+'retail-reference-prices.json']:price,
+ [base+'robots.txt']:'User-agent: *\nSitemap: https://www.mingeagle.com/sitemap.xml',
+ [base+'sitemap.xml']:'<?xml version="1.0"?><urlset></urlset>',
+ [base+'llms.txt']:'# MING EAGLE\nOfficial product information',
 };
 const makeFetch=(override={},counter={})=>async(url,options)=>{
  assert.equal(options.method,'GET','Monitoring must only make read-only GET requests');
- assert.equal(options.headers['accept'],'application/json');
+ assert(['application/json','text/plain, application/xml, text/xml'].includes(options.headers['accept']));
  assert(!('authorization' in options.headers),'Monitoring must not use credentials');
  counter[url]=(counter[url]||0)+1;
  const data=Object.prototype.hasOwnProperty.call(override,url)?override[url]:mapping[url];
  if (!data) throw Error('Unexpected URL: '+url);
- return {ok:true,status:200,json:async()=>data};
+ return {ok:true,status:200,json:async()=>data,text:async()=>String(data)};
 };
 (async()=>{
  const result=await checkProduction({expectedRevision:sha,fetcher:makeFetch(),attempts:1});
  assert.equal(result.priceProducts,4);
+ assert.equal(result.discoveryAssets,3);
  await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[base+'deployment-version.json']:{revision:'old',workflow:'github-pages'}}),attempts:1}),/version does not match/);
  await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[crm+'api/health']:{ok:true,service:'MING EAGLE V2 API',databaseBinding:false}}),attempts:1}),/binding is absent/);
  const goodHealth=mapping[crm+'api/health'];
