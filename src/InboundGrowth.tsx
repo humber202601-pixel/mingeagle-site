@@ -17,8 +17,8 @@ type AnalyticsDaily={ok:boolean;source?:string;host?:string;connected:boolean;da
 }>;coverage:{observedDays:number;fromUTC:string|null;toUTC:string|null;latestFetchUTC:string|null};
  caveats:string[];error?:string};
 type GscDaily={ok:boolean;source?:string;connected:boolean;days:number;timezone:string;rows:Array<{datePacific:string;clicks:number;impressions:number;ctr:number;averagePosition:number;fetchedAt:string}>;coverage:{observedDays:number;from:string|null;to:string|null;lastFetchedAt:string|null};caveats:string[];error?:string};
-const sources:Record<string,string>={GOOGLE:'Google',BING:'Bing',TIKTOK:'TikTok',YOUTUBE:'YouTube',INSTAGRAM:'Instagram',FACEBOOK:'Facebook',PARTNER:'合作推荐',OTHER_TAGGED:'其他带标签渠道',DIRECT_UNKNOWN:'未知 / 直接访问'};
-const pages:Record<string,string>={APARTMENT_GUIDE:'公寓家庭指南',CAMP_GUIDE:'篮球训练营采购指南',BULK_GUIDE:'批量采购指南',WHOLESALE_CATALOG:'批发产品目录',TEAM_CUSTOM:'球队定制篮球',HOME:'首页',FOR_COACHES:'教练采购',FOR_SCHOOLS:'学校采购',WHOLESALE:'批发采购',PRODUCTS:'产品目录',PRODUCT_DETAIL:'产品详情',NOT_RECORDED:'未记录落地页',OTHER_PAGE:'其他页面'};
+const sources:Record<string,string>={CHATGPT:'ChatGPT（访问来源）',PERPLEXITY:'Perplexity（访问来源）',CLAUDE:'Claude（访问来源）',GEMINI:'Gemini（访问来源）',COPILOT:'Copilot（访问来源）',GOOGLE:'Google',BING:'Bing',TIKTOK:'TikTok',YOUTUBE:'YouTube',INSTAGRAM:'Instagram',FACEBOOK:'Facebook',PARTNER:'合作推荐',OTHER_TAGGED:'其他带标签渠道',DIRECT_UNKNOWN:'未知 / 直接访问'};
+const pages:Record<string,string>={KIDS_QUIET_GUIDE:'孩子室内安静运动专题',SCHOOL_EQUIPMENT_GUIDE:'学校与培训机构采购专题',APARTMENT_GUIDE:'公寓家庭指南',CAMP_GUIDE:'篮球训练营采购指南',BULK_GUIDE:'批量采购指南',WHOLESALE_CATALOG:'批发产品目录',TEAM_CUSTOM:'球队定制篮球',HOME:'首页',FOR_COACHES:'教练采购',FOR_SCHOOLS:'学校采购',WHOLESALE:'批发采购',PRODUCTS:'产品目录',PRODUCT_DETAIL:'产品详情',NOT_RECORDED:'未记录落地页',OTHER_PAGE:'其他页面'};
 const audiences:Record<string,string>={B2B:'B2B 批发 / 机构',B2C:'B2C 个人客户',UNKNOWN:'尚不能分类'};
 const num=(x:number)=>Number(x||0).toLocaleString('zh-CN');
 const pageAdvice=(row:PageRow)=>{
