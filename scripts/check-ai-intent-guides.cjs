@@ -39,9 +39,11 @@ for(const name of pages){
 }
 for(const [source,target] of [
  ['index.html','quiet-indoor-sports-for-kids.html'],
+ ['silent-basketball.html','quiet-indoor-sports-for-kids.html'],
  ['index.html','indoor-school-sports-equipment-guide.html'],
  ['learn.html','quiet-indoor-sports-for-kids.html'],
  ['learn.html','indoor-school-sports-equipment-guide.html'],
+ ['wholesale.html','indoor-school-sports-equipment-guide.html'],
  ['for-schools.html','indoor-school-sports-equipment-guide.html'],
  ['for-coaches.html','indoor-school-sports-equipment-guide.html'],
  ['silent-basketball-for-apartments.html','quiet-indoor-sports-for-kids.html']
@@ -53,4 +55,4 @@ for(const ua of ['Googlebot','Bingbot','OAI-SearchBot','PerplexityBot','Claude-S
  assert(new RegExp('User-agent: '+ua+'\\s+Allow: /').test(robots),'Crawler rule missing: '+ua);
 }
 assert(robots.includes('Sitemap: '+base+'sitemap.xml'));
-console.log('PASS: two user-intent buyer guides, site-safe JSON-LD, robots/search crawlers, canonical URLs, sitemap and seven validated in-site entry points.');
+console.log('PASS: two user-intent buyer guides, site-safe JSON-LD, robots/search crawlers, canonical URLs, sitemap and nine validated in-site entry points.');
