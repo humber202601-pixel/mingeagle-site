@@ -57,3 +57,4 @@ $('cartCheckout').addEventListener('click',()=>{
  location.href='retail-checkout.html';
 });
 redraw();
+})();
