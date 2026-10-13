@@ -37,6 +37,11 @@ try {
   async batch(stmts){state.batches++;state.statements=stmts.map(x=>({sql:x.sql,args:x.args}));return stmts.map(()=>({success:true}));}
  };
  const row=(dimension)=>({dimension,clicks:1,impressions:8,ctr:0.125,position:9});
+ const published=JSON.parse(readFileSync('data/ai-discovery-public-urls.json','utf8'));
+ assert.equal(published.urls.length,25,'CRM GSC whitelist must use the same 25 indexed-eligible source URLs as AI visibility dashboard');
+ assert(published.urls.includes('https://www.mingeagle.com/quiet-indoor-sports-for-kids.html'));
+ assert(published.urls.includes('https://www.mingeagle.com/indoor-school-sports-equipment-guide.html'));
+
  const base={property:'sc-domain:mingeagle.com',kind:'pages',startDate:'2026-10-01',endDate:'2026-10-10'};
  const run=async(input)=>{
   const request=new Request('https://app.mingeagle.com/api/admin/search-console-import',{
@@ -53,8 +58,17 @@ try {
  result=await run({...base,property:'https://www.mingeagle.com/',rows:[row('https://www.mingeagle.com/silent-soccer.html')]});
  assert.equal(result.status,200);
  assert.equal(state.batches,2);
+ result=await run({...base,rows:[
+  row('https://www.mingeagle.com/quiet-indoor-sports-for-kids.html'),
+  row('https://www.mingeagle.com/indoor-school-sports-equipment-guide.html')
+ ]});
+ assert.equal(result.status,200,'Both new GEO intent guides must be accepted by the real GSC importer');
+ assert.equal(state.batches,3);
+
  const invalid=[
   'https://notmingeagle.com/products.html',
+  'https://www.mingeagle.com/nonexistent-ai-guide.html',
+  'https://www.mingeagle.com/quiet-indoor-sports-for-kids.html?private=1',
   'https://mingeagle.com.evil.example/wholesale.html',
   'https://www.mingeagle.com.evil.example/products.html',
   'https://user:secret@www.mingeagle.com/products.html',
@@ -70,7 +84,7 @@ try {
  for(const dimension of invalid){
   const attempt=await run({...base,rows:[row(dimension)]});
   assert.equal(attempt.status,400,'reject unsafe URL: '+dimension);
-  assert.equal(state.batches,2,'rejected data never persisted');
+  assert.equal(state.batches,3,'rejected data never persisted');
  }
  for(const wrong of [
   {...base,rows:[{...row('https://www.mingeagle.com/products.html'),clicks:'1'}]},
@@ -82,7 +96,7 @@ try {
  ]){
   const response=await run(wrong);
   assert.equal(response.status,400,'bad import rejected');
-  assert.equal(state.batches,2);
+  assert.equal(state.batches,3);
  }
  const queries=await run({...base,kind:'queries',rows:[row('silent basketball wholesale')]});
  assert.equal(queries.status,200,'normal keyword CSV remains supported');
