@@ -72,6 +72,14 @@ const attribution=`WITH inquiry_base AS (
   WHEN referring LIKE '%facebook.com%' THEN 'FACEBOOK'
   ELSE 'DIRECT_UNKNOWN' END AS channel,
  CASE
+  -- UTM labels are user/browser supplied; referrer is also unverified.
+  -- Neither proves an actual AI citation or a specific page view from RUM.
+  WHEN utm IN ('chatgpt','chatgpt_search','openai',
+   'perplexity','perplexity_ai','claude','claude_ai','anthropic',
+   'gemini','google_gemini','copilot','microsoft_copilot')
+    THEN 'FORM_UTM'
+  ELSE 'FORM_REFERRER' END AS evidence_kind,
+ CASE
   WHEN request_type IN ('WHOLESALE','RETAIL_PARTNERSHIP') THEN 'B2B'
   WHEN LOWER(customer_type) LIKE '%personal%' THEN 'B2C'
   WHEN LOWER(customer_type) LIKE '%coach%' OR LOWER(customer_type) LIKE '%trainer%'
@@ -117,6 +125,13 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
    SELECT entry_page,COUNT(*) AS inquiries,SUM(quoted) AS quoted,SUM(ordered) AS ordered,
      SUM(exact_quoted) AS exactQuoted,SUM(exact_ordered) AS exactOrdered FROM buckets GROUP BY entry_page ORDER BY inquiries DESC,entry_page`)
    .bind(days,days).all<Row>()).results;
+  const aiRows=(await db.prepare(`${attribution}
+   SELECT channel,entry_page,evidence_kind,COUNT(*) AS inquiries,
+    SUM(exact_quoted) AS exactQuoted,SUM(exact_ordered) AS exactOrdered
+   FROM buckets WHERE channel IN ('CHATGPT','PERPLEXITY','CLAUDE','GEMINI','COPILOT')
+   GROUP BY channel,entry_page,evidence_kind
+   ORDER BY inquiries DESC,channel,entry_page,evidence_kind`)
+   .bind(days,days).all<Row>()).results;
   const summary={inquiries:0,b2b:0,b2c:0,unknown:0,quoted:0,ordered:0,exactQuoted:0,exactOrdered:0};
   const sources=sourceRows.map(r=>{
    const row={channel:String(r.channel||'DIRECT_UNKNOWN'),audience:String(r.audience||'UNKNOWN'),
@@ -130,10 +145,15 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
    return row;
   });
   return json({ok:true,generatedAt:new Date().toISOString(),filters:{days},summary,sources,
+   aiEvidence:aiRows.map(r=>({channel:String(r.channel),entryPage:String(r.entry_page),
+    evidenceKind:String(r.evidence_kind),inquiries:n(r.inquiries),
+    exactQuoted:n(r.exactQuoted),exactOrdered:n(r.exactOrdered)})),
+
    entryPages:pages.map(p=>({entryPage:String(p.entry_page),inquiries:n(p.inquiries),
      quoted:n(p.quoted),ordered:n(p.ordered),exactQuoted:n(p.exactQuoted),exactOrdered:n(p.exactOrdered)})),
    dataProvenance:{
      inquiries:'D1 inquiries.id (deduplicated by persisted inquiry row)',
+     aiInquiryAttribution:'FORM_SUBMITTED_UTM_OR_REFERRER_NOT_PLATFORM_VERIFIED',
      exactQuote:'D1 quotes.inquiry_id = inquiries.id; quote is no longer draft',
      exactOrder:'D1 orders.quote_id = quotes.id, linked by quotes.inquiry_id; order not draft/cancelled',
      leadAssociated:'Legacy association by leads.id; not evidence of a specific inquiry causing a quote/order',
@@ -145,6 +165,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
     '本页只计算已经进入 CRM 的真实网站询盘；没有 Google 曝光、网页访问、广告点击或购物车数据。',
     '渠道优先采用询盘提交时的 UTM，其次参考 Referrer；Direct/Unknown 包含缺失归因，不代表都来自直接访问。',
     'AI 平台来源（ChatGPT、Perplexity、Claude、Gemini、Copilot）只基于客户浏览器传来的 UTM/Referrer，可能丢失或被伪造；不代表 AI 官方引用，也不能推断 AI 自然回答推荐。',
+    'AI 询盘证据单独按表单 UTM 和 Referrer 分类；Cloudflare RUM 是独立匿名数据源，没有同一访客键，不能把两表相除当作会话转化率。',
     'Google AI Overviews 或 Bing/Copilot 搜索页面可能共享普通 Google/Bing 的跳转来源，无法从 Referrer 可靠拆分；未分类来源不代表没有 AI 影响。',
     'B2C 仅在用户明确选择个人客户类型时识别；未说明身份的普通咨询与样品申请归入未确定，不能强行当作零售订单。',
     '直接关联报价：quotes.inquiry_id 明确指向该询盘；直接关联订单：经该报价 quotes.id / orders.quote_id 找到订单，均不按订单行数重复统计。',
