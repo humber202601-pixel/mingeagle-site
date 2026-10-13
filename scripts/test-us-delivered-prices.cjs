@@ -41,7 +41,8 @@ try{
   assert(s.includes('id="us-single-parcel"'),f+' deep link');
  }
  const catalog=actual['products.html'];
- assert.equal((catalog.match(/<tr>/g)||[]).length,11);
+ const usTable=catalog.match(/<!-- MING EAGLE US DELIVERED PRICES BEGIN -->([\s\S]*?)<!-- MING EAGLE US DELIVERED PRICES END -->/)?.[1]||'';
+ assert.equal((usTable.match(/<tr>/g)||[]).length,11);
  assert.equal((catalog.match(/<th scope="col">US total before tax<\/th>/g)||[]).length,1);
  for(const link of Object.values(products))assert(catalog.includes('href="'+link+'#us-single-parcel"'));
  assert(actual['index.html'].includes('from $21.40 shipped to the US'));
