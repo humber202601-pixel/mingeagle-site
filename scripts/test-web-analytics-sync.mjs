@@ -47,7 +47,7 @@ const mock=(groups,errors=null,status=200)=>async(url,req)=>{
   const body=JSON.parse(req.body);
   assert.match(body.query,/siteTag:"c229a4f21594480eb5a1381a1b1e67f0"/);
   assert.match(body.query,/datetime_lt:"2026-10-13T00:00:00.000Z"/);
-  assert.match(body.query,/dimensions \{date requestHost\}/);
+  assert.match(body.query,/dimensions \{date requestHost refererHost\}/);
   return {ok:status===200,status,json:async()=>({
     data:{viewer:{accounts:[{rumPageloadEventsAdaptiveGroups:groups}]}},errors
   })};
