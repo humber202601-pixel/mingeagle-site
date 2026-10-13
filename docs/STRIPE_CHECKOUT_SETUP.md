@@ -14,7 +14,7 @@
 Open Cloudflare → Workers & Pages → mingeagle-site → Settings → Variables and Secrets → Production.
 
 Secrets (NEVER commit or paste into chat):
-- STRIPE_SECRET_KEY: matching test (sk_test_) or live (sk_live_) key.
+- STRIPE_SECRET_KEY: test (sk_test_ or rk_test_) or live (sk_live_ or rk_live_) server-side key. Restricted keys must have the Checkout Sessions read/write permissions required by the integration.
 - STRIPE_WEBHOOK_SECRET: whsec_ signing secret for this exact webhook endpoint.
 
 Plain text flags:
