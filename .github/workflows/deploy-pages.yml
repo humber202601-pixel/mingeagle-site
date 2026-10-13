@@ -187,6 +187,33 @@ jobs:
                   print('PASS live AI discovery resource',filename)
           PY
 
+      - name: Confirm publicly served AI product facts match this exact approved build
+        run: |
+          python - <<'PY'
+          import json, pathlib, urllib.request
+          base='https://www.mingeagle.com/'
+          root=pathlib.Path('public')
+          for filename in ('llms.txt','ai-product-facts.json'):
+              request=urllib.request.Request(
+                  base+filename,
+                  headers={'Cache-Control':'no-cache','User-Agent':'MING-EAGLE-ai-facts-verify/1.0'}
+              )
+              with urllib.request.urlopen(request,timeout=20) as response:
+                  body=response.read()
+                  if response.status!=200 or not body:
+                      raise SystemExit('FAIL AI facts HTTP status/body for '+filename)
+              expected=(root/filename).read_bytes()
+              if body!=expected:
+                  raise SystemExit('FAIL AI facts live CDN body differs from approved published catalog '+filename)
+              print('PASS public AI source exact bytes',filename,len(body))
+          facts=json.loads((root/'ai-product-facts.json').read_text())
+          assert facts['documentType']=='first-party-public-product-facts'
+          assert len(facts['products'])==4 and len(facts['guides'])==5
+          assert facts['publisher']['website']==base
+          assert 'llms.txt' not in [x['url'] for x in facts['products']]
+          print('PASS verified live AI product data remains first-party, canonical and complete')
+          PY
+
       - name: Verify live pricing JSON and calculator HTTP responses
         run: |
           python - <<'PY'
