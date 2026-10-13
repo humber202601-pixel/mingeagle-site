@@ -1,4 +1,4 @@
-import {airwallexCheckoutReadiness, type AirwallexEnv} from '../../_shared/airwallex';
+import {airwallexCheckoutReadiness, type AirwallexEnv} from './airwallex';
 type Env=AirwallexEnv&{
  RETAIL_DIRECT_CHECKOUT_ENABLED?:string;
  RETAIL_FULFILLMENT_APPROVED?:string;
