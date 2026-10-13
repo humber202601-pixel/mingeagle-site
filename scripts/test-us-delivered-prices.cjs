@@ -37,12 +37,15 @@ try{
    const amount='$'+(Math.round((pr[size]+post[size])*100)/100).toFixed(2);
    assert(s.includes(amount),f+' missing delivered amount '+size+' '+amount);
   }
-  assert.equal((s.match(/<tr>/g)||[]).length,Object.keys(pr).length,f+' row count');
+  const block=s.match(/<!-- MING EAGLE US DELIVERED PRICES BEGIN -->([\s\S]*?)<!-- MING EAGLE US DELIVERED PRICES END -->/)?.[1]||'';
+  const tbody=block.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1]||'';
+  assert.equal((tbody.match(/<tr>/g)||[]).length,Object.keys(pr).length,f+' row count');
   assert(s.includes('id="us-single-parcel"'),f+' deep link');
  }
  const catalog=actual['products.html'];
  const usTable=catalog.match(/<!-- MING EAGLE US DELIVERED PRICES BEGIN -->([\s\S]*?)<!-- MING EAGLE US DELIVERED PRICES END -->/)?.[1]||'';
- assert.equal((usTable.match(/<tr>/g)||[]).length,11);
+ const usRows=usTable.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1]||'';
+ assert.equal((usRows.match(/<tr>/g)||[]).length,11);
  assert.equal((catalog.match(/<th scope="col">US total before tax<\/th>/g)||[]).length,1);
  for(const link of Object.values(products))assert(catalog.includes('href="'+link+'#us-single-parcel"'));
  assert(actual['index.html'].includes('from $21.40 shipped to the US'));
