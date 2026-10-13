@@ -23,6 +23,7 @@ on:
       - 'scripts/check-seo-v37.cjs'
       - 'scripts/build-seo-discovery-links.cjs'
       - 'scripts/check-ai-intent-guides.cjs'
+      - 'scripts/check-coach-ai-answers.cjs'
       - 'scripts/check-public-crawl-graph.cjs'
       - 'scripts/check-geo-source-capture.cjs'
       - 'scripts/check-seo-discovery-links.cjs'
@@ -66,6 +67,7 @@ jobs:
           node scripts/build-seo-discovery-links.cjs
           node scripts/check-seo-discovery-links.cjs
           node scripts/check-ai-intent-guides.cjs
+          node scripts/check-coach-ai-answers.cjs
           node scripts/check-public-crawl-graph.cjs
           node scripts/check-geo-source-capture.cjs
           node scripts/check-native-media.cjs
