@@ -22,3 +22,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://www.mingeagle.com/sitemap.xml
+Sitemap: https://www.mingeagle.com/sitemap-localized.xml
