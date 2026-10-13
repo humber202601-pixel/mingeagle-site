@@ -13,6 +13,8 @@ try{
  const sqlite=new DatabaseSync(':memory:');
  const benchmark=JSON.parse(readFileSync('data/ai-discovery-benchmark.json','utf8'));
  assert.equal(benchmark.prompts.length,24);
+ assert.equal(benchmark.prompts.find(p=>p.id==='ME-AI-023')?.targetUrl,'https://www.mingeagle.com/school-sports-equipment-es.html');
+ for(const id of ['ME-AI-021','ME-AI-022','ME-AI-024'])assert.equal(benchmark.prompts.find(p=>p.id===id)?.targetLanguage,'en','Unlocalized intent must explicitly document English content fallback');
  const pages=JSON.parse(readFileSync('data/ai-discovery-public-urls.json','utf8'));
  assert.equal(pages.urls.length,29);
  for(const lang of ['de','fr','es','pt'])assert(pages.urls.includes('https://www.mingeagle.com/school-sports-equipment-'+lang+'.html'));
