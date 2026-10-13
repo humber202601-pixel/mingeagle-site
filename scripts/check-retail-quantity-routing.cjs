@@ -23,7 +23,9 @@ assert(!cart.includes('window.location.href=\'https://airwallex.com'), 'Never in
 const page=fs.readFileSync('public/retail-cart.html','utf8');
 assert(page.includes('id="cartSeaConsent"')&&page.includes('25–30 days'));
 assert(page.includes('id="cartRetail"')&&page.includes('id="cartWholesale"'));
-assert(page.includes('retail-cart.js?v=20261013-cartfix1'));
+assert(page.includes('retail-cart.js?v=20261014-ddp-1'));
+assert(page.includes('id="cartCustomsNote"')&&page.includes('import duties'));
+assert(cart.includes('last.ddpConfirmed!==true'), 'Unconfirmed duty-paid routes must use an inquiry');
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'retail-route-'));
 try{
  const files=['index.html','products.html','silent-basketball.html','fabric-silent-basketball.html',
