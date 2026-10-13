@@ -2,6 +2,7 @@ import SeoOpportunities from './SeoOpportunities';
 import {containsPartialInitialDay,describeSnapshotAge,FIRST_CAPTURE_TIME_UTC} from './analyticsStatus';
 import SearchConsoleImport from './SearchConsoleImport';
 import AiVisibilityPanel from './AiVisibilityPanel';
+import AiReferralTraffic from './AiReferralTraffic';
 import BingAiPerformanceImport from './BingAiPerformanceImport';
 import {useEffect,useState} from 'react';
 import {ArrowUpRight,RefreshCcw} from 'lucide-react';
@@ -83,6 +84,7 @@ export default function InboundGrowth({accessKey}:{accessKey:string}){
     </div>
     <p style={{margin:'12px 0 0',fontSize:12,color:'#667085'}}>询盘转化按 CRM 真实记录计算；Cloudflare 网页访问按已有的独立 UTC 日期快照显示。搜索曝光仍未接入，不合并不同数据口径做营销归因。</p>
    </section>
+   <AiReferralTraffic accessKey={accessKey} days={days} refresh={refresh}/>
    {loading&&<section className="panel" style={{padding:18}}>正在统计实际询盘…</section>}
    {error&&<section className="panel" style={{padding:18}}><p role="alert">{error}。不要频繁刷新，以免耗尽 D1 免费额度。</p></section>}
    {data&&!loading&&<>
