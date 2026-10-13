@@ -235,7 +235,7 @@ jobs:
                       raise SystemExit('FAIL live canonical HTTP status/redirect '+url)
                   html=response.read().decode('utf-8')
               head=html.split('</head>')[0]
-              canonical=re.findall(r'<link\\b[^>]*rel=["\\x27]canonical["\\x27][^>]*>',head,re.I)
+              canonical=re.findall(r'<link\b[^>]*rel=["\x27]canonical["\x27][^>]*>',head,re.I)
               if len(canonical)!=1 or ('href="'+url+'"') not in canonical[0]:
                   raise SystemExit('FAIL live canonical mismatch '+url)
               if 'https://mingeagle.com/' in head:
