@@ -29,6 +29,8 @@ on:
       - 'scripts/test-product-buyer-answers.cjs'
       - 'scripts/build-creator-to-product.cjs'
       - 'scripts/test-creator-to-product.cjs'
+      - 'scripts/build-search-buyer-paths.cjs'
+      - 'scripts/test-search-buyer-paths.cjs'
       - 'scripts/test-creator-build-cache.cjs'
       - 'scripts/build-conversion.py'
       - 'public/retail-buy.js'
@@ -108,6 +110,7 @@ jobs:
           node scripts/test-us-delivered-prices.cjs
           node scripts/test-product-buyer-answers.cjs
           node scripts/test-creator-to-product.cjs
+          node scripts/test-search-buyer-paths.cjs
           node scripts/test-creator-build-cache.cjs
           node scripts/build-seo-discovery-links.cjs
           node scripts/build-product-listing-discovery.cjs
