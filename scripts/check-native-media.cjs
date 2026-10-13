@@ -21,3 +21,6 @@ try{
  });
  console.log('PASS: eager first image, lazy subsequent images, preserved alt/src, idempotent.');
 }finally{fs.rmSync(t,{recursive:true,force:true})}
+// Adjacent public-media regression suite runs offline in PR checks as well.
+cp.execFileSync(process.execPath,['scripts/check-performance-budget.cjs'],{stdio:'inherit'});
+cp.execFileSync(process.execPath,['scripts/test-performance-budget.cjs'],{stdio:'inherit'});

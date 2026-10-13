@@ -52,6 +52,11 @@ jobs:
           node scripts/optimize-native-media.cjs
           node scripts/check-native-media.cjs
 
+      - name: Enforce first-party static asset size regression budgets
+        run: |
+          node scripts/check-performance-budget.cjs
+          node scripts/test-performance-budget.cjs
+
       - name: Keep product-specific direct quote links in built catalog
         run: |
           node scripts/build-product-direct-rfq.cjs
