@@ -18,6 +18,19 @@ for(const path of paths)routes.set('/api/'+path,await load(path.replaceAll('/','
 const customer=await load('customer','functions/quote/[token].ts');
 const sqlite=new DatabaseSync(':memory:');
 for(const file of ['0001_core.sql','0002_quote_public_links.sql','0003_airwallex_payment_sessions.sql','0004_shipping_rates.sql','0005_supplier_purchase_terms.sql'])sqlite.exec(readFileSync('migrations/'+file,'utf8'));
+/* Production discovery candidate data is provisioned by the discovery intake
+   subsystem, not the five core pricing migrations. The isolated quote browser
+   fixture needs its read-only projection to match the deployed CRM schema. */
+sqlite.exec(`CREATE TABLE IF NOT EXISTS discovery_candidates (
+ id TEXT PRIMARY KEY,
+ crm_lead_id TEXT,
+ grade TEXT NOT NULL DEFAULT 'C',
+ source_url TEXT,
+ website_contact_url TEXT,
+ discovered_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+); CREATE INDEX IF NOT EXISTS idx_quote_fixture_discovery_lead
+ ON discovery_candidates(crm_lead_id);`);
+
 const database={
  prepare(sql){const s={args:[],bind(...args){s.args=args;return s;},async first(){return sqlite.prepare(sql).get(...s.args)||null;},async all(){return {success:true,results:sqlite.prepare(sql).all(...s.args)};},async run(){return {success:true,meta:{changes:Number(sqlite.prepare(sql).run(...s.args).changes)}};}};return s;},
  async batch(statements){sqlite.exec('BEGIN');try{const result=[];for(const s of statements)result.push(await s.run());sqlite.exec('COMMIT');return result;}catch(error){sqlite.exec('ROLLBACK');throw error;}}
