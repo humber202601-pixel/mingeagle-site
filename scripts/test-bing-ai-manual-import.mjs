@@ -15,15 +15,15 @@ try {
  ]);
  const {onRequestGet,onRequestPost}=await import(pathToFileURL(backend));
  const {parseBingAiCsv,mapBingAiCsv}=await import(pathToFileURL(csv));
- const raw='\uFEFFPage,Citations,Clicks\\n"https://www.mingeagle.com/quiet-indoor-sports-for-kids.html",2,1\\n"https://www.mingeagle.com/indoor-school-sports-equipment-guide.html",0,0';
+ const raw='\uFEFFPage,Citations,Clicks\n"https://www.mingeagle.com/quiet-indoor-sports-for-kids.html",2,1\n"https://www.mingeagle.com/indoor-school-sports-equipment-guide.html",0,0';
  const parsed=parseBingAiCsv(raw);
  assert.deepEqual(parsed.headers,['Page','Citations','Clicks']);
  assert.equal(mapBingAiCsv(parsed,'Page','Citations').length,2);
  assert.equal(mapBingAiCsv(parsed,'Page','Citations')[1].citations,0);
- assert.throws(()=>mapBingAiCsv(parseBingAiCsv('Page,Citations\\nhttps://www.mingeagle.com/products.html,'),'Page','Citations'));
- assert.throws(()=>mapBingAiCsv(parseBingAiCsv('Page,Citations\\nhttps://www.mingeagle.com/products.html,1.5'),'Page','Citations'));
- assert.throws(()=>mapBingAiCsv(parseBingAiCsv('Page,Citations\\nhttps://www.mingeagle.com/products.html,1\\nhttps://www.mingeagle.com/products.html,2'),'Page','Citations'));
- assert.equal(mapBingAiCsv(parseBingAiCsv('Query,Citations\\n"indoor basketball, quiet",12'),'Query','Citations')[0].dimension,'indoor basketball, quiet');
+ assert.throws(()=>mapBingAiCsv(parseBingAiCsv('Page,Citations\nhttps://www.mingeagle.com/products.html,'),'Page','Citations'));
+ assert.throws(()=>mapBingAiCsv(parseBingAiCsv('Page,Citations\nhttps://www.mingeagle.com/products.html,1.5'),'Page','Citations'));
+ assert.throws(()=>mapBingAiCsv(parseBingAiCsv('Page,Citations\nhttps://www.mingeagle.com/products.html,1\nhttps://www.mingeagle.com/products.html,2'),'Page','Citations'));
+ assert.equal(mapBingAiCsv(parseBingAiCsv('Query,Citations\n"indoor basketball, quiet",12'),'Query','Citations')[0].dimension,'indoor basketball, quiet');
 
  const sqlite=new DatabaseSync(':memory:');
  sqlite.exec(readFileSync('migrations/0010_bing_ai_manual_reports.sql','utf8'));
