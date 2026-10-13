@@ -12,15 +12,15 @@
 | Upgrade | Actual state | Evidence / remaining gate |
 |---|---|---|
 | 1. Google indexing | 23 URLs registered in GSC Indexing Tracker; source URL Inspection: 11 indexed, 6 unknown, 6 discovered-not-indexed; official weekly check active | Public PR #57 merged/deployed 777defa (contextual crawlable links). Google needs to independently recrawl; newly discovered URLs not guaranteed to index |
-| 2. Real visitor data | Cloudflare RUM tag is collecting; PR #55 native Worker sync source and CI merged. PR #56 admin partial-first-day/freshness shipped | Worker not activated because scoped Analytics Token unavailable (9109). Existing ChatGPT daily safe sync active. Wait for first completed UTC day and verify D1 row/CRM count |
+| 2. Real visitor data | Cloudflare RUM tag is collecting; PR #55 native Worker sync source and CI merged. PR #56 admin partial-first-day/freshness shipped | Native Cron Worker not activated because scoped Analytics Token unavailable (9109). Existing ChatGPT daily safe sync remains active. At 2026-10-13 00:05 UTC the first COMPLETED provider UTC date 2026-10-12 (collection started only ~17:05 UTC) returned **1 provider Visit, 3 sampled pageload events**; D1 `web_analytics_daily` upsert and exact read-back were verified. UI admin auth read not independently re-checked. One-off planned first-day task disabled after manual success |
 | 3. Website inquiry conversion | Four product detail CTA links already carried exact product; public PR #64 adds direct four-product quote links to catalog cards | PR #64 merged/deployed 436e3b4; actual conversion improvement requires enough real conversions and UTM attribution; no paid campaigns started |
 
 ## Phase 2 · Commercial RFQ and quotation safety
 
 | Upgrade | Actual state | Evidence / remaining gate |
 |---|---|---|
-| 4. Smarter B2B quote / MOQ | Existing structured multi-line RFQ backend, MOQ/case-pack review, approved supplier cost floor and final manual quote approval | Issue #42 open. Production supplier_purchase_terms: 0 rows. **Cannot certify margins** without real approved supplier price tiers and delivery/packing costs |
-| 5. GSC performance analysis | PR #58 merged/deployed a794c66, production D1 migration 0007 applied (gsc_search_daily), private admin daily endpoint and CRM display shipped | Daily GSC Wizard-to-D1 sync task active. GSC last settled reports currently only zero placeholder; real nonzero day snapshot still pending. Search queries/pages snapshot analysis remains manual CSV |
+| 4. Smarter B2B quote / MOQ | Existing structured multi-line RFQ backend, MOQ/case-pack review, approved supplier cost floor and final manual quote approval | Issue #42 remains open. PR #68 merged and production deployed `1197a992` with read-only procurement preflight before quote release; backend still rechecks at final POST. Production supplier_purchase_terms: 0 actual rows at latest procurement gate check. **Cannot certify margins** without real approved supplier price tiers and delivery/packing costs |
+| 5. GSC performance analysis | PR #58 merged/deployed a794c66, production D1 migration 0007 applied (gsc_search_daily), private admin daily endpoint and CRM display shipped | Daily GSC Wizard-to-D1 sync active. GSC latest settled-through 2026-10-10 showed only two zero-placeholder date rows; no fake snapshots inserted. PR #67 merged/deployed `aef18946`: accepts the canonical public www/apex URLs for manual CSV with strict English/Chinese parser and private URL rejection; migration 0008 created verified EMPTY manual import tables. Actual nonzero API day snapshot and genuine CSV reports are still pending |
 
 ## Phase 3 · Customer self-service, outreach safety and operations
 
@@ -36,6 +36,14 @@
 | Upgrade | Actual state | Evidence / remaining gate |
 |---|---|---|
 | 10. Languages and performance | Public PR #60 deployed 6b86fe1 (eager-first/lazy-secondary/async image), PR #63 deployed 7f31cb7 (nine languages × 164 complete keys with placeholder safety) | Actual translations require native review; CrUX API not connected, hence no verified live speed measurement |
+
+## Latest source-to-storage acceptance (2026-10-13 00:05 UTC)
+
+- Cloudflare's first finished UTC source date `2026-10-12` returned one host group, `www.mingeagle.com`, `sum.visits=1`, `count=3`. The source started around 17:05 UTC, so this remains an **initial partial tracking day**, not a true full-day benchmark.
+- The trusted Cloudflare connector validated the account, site tag, date, approved host, group cardinality and safe integer values, upserted **only** `web_analytics_daily` in production D1 and read back the exact date, tag, host, totals and source. No fake rows or raw visitor identifiers.
+- The one-off first-day verification automation has been disabled to prevent duplicate runs. Existing daily ChatGPT task stays enabled; switching to native Cron still requires a minimum-scope Analytics read credential.
+- GSC report `sc-domain:mingeagle.com` settled through 2026-10-10 has no nonzero clicks or impressions in its reported date rows; corresponding daily D1 rows are still absent, **not zero traffic**.
+- PR #69 adds UTC observed-source freshness/initial-day caveats to the admin read-only readiness view; it never treats lack of a newer observed date as proof that cron failed.
 
 ## Production/environment separation
 
