@@ -55,7 +55,7 @@ try{
  assert.equal(reads,0);assert.equal(writes,0);assert.equal(network,0);
  const env={...full,MINGEAGLE_DB:db};
  const cases=[
-  [{...base,lines:[{sku:'P1-S3',quantity:10}]},409],
+  [{...base,lines:[{sku:'P1-S3',quantity:10}]},400],
   [{...base,lines:[{sku:'P1-S3',quantity:9},{sku:'P2-S3',quantity:1}]},409],
   [{...base,method:'sea'},400],
   [{...base,country:'CA'},400],
