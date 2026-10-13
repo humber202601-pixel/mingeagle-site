@@ -49,6 +49,8 @@ jobs:
           node scripts/check-product-listing-discovery.cjs
           node scripts/check-seo-discovery-links.cjs
           node scripts/check-ai-intent-guides.cjs
+          node scripts/check-localized-school-guides.cjs
+          node scripts/test-localized-school-guides.cjs
           node scripts/check-coach-ai-answers.cjs
           node scripts/check-public-crawl-graph.cjs
           node scripts/check-wholesale-product-deep-links.cjs
@@ -169,6 +171,45 @@ jobs:
               if attempt == 11:
                   raise SystemExit('FAIL: public site did not serve deployed revision')
               time.sleep(10)
+          PY
+
+      - name: Verify real HTTPS school buying guides in four additional languages
+        run: |
+          python - <<'PY'
+          import json, re, urllib.request
+          base='https://www.mingeagle.com/'
+          versions={
+            'en':'indoor-school-sports-equipment-guide.html',
+            'de':'school-sports-equipment-de.html',
+            'fr':'school-sports-equipment-fr.html',
+            'es':'school-sports-equipment-es.html',
+            'pt':'school-sports-equipment-pt.html'
+          }
+          common=dict(versions)
+          common['x-default']=versions['en']
+          for lang,filename in versions.items():
+              url=base+filename
+              req=urllib.request.Request(url,headers={'Cache-Control':'no-cache','User-Agent':'MING-EAGLE-hreflang-live-check/1.0'})
+              with urllib.request.urlopen(req,timeout=20) as response:
+                  if response.status!=200 or response.geturl()!=url:
+                      raise SystemExit('FAIL translated guide HTTP: '+url)
+                  html=response.read().decode('utf-8')
+              head=html.split('</head>')[0]
+              if '<html lang="'+lang+'">' not in html or '<link rel="canonical" href="'+url+'">' not in head:
+                  raise SystemExit('FAIL wrong language or self canonical: '+url)
+              for code,page in common.items():
+                  expected='<link rel="alternate" hreflang="'+code+'" href="'+base+page+'">'
+                  if head.count(expected)!=1:
+                      raise SystemExit('FAIL missing reciprocal hreflang '+code+' on '+url)
+              if html.count('<h1>')!=1:
+                  raise SystemExit('FAIL missing native page title '+url)
+              print('PASS live localized school buying guide, self canonical and six reciprocal alternates',lang,url)
+          for doc,tag in [('robots.txt','sitemap-localized.xml'),('sitemap-localized.xml','school-sports-equipment-pt.html')]:
+              with urllib.request.urlopen(urllib.request.Request(base+doc,headers={'Cache-Control':'no-cache'}),timeout=20) as response:
+                  text=response.read().decode('utf-8')
+                  if response.status!=200 or tag not in text:
+                      raise SystemExit('FAIL local-language sitemap advertised/available '+doc)
+              print('PASS live multilingual sitemap discovery',doc)
           PY
 
       - name: Verify live AI scenario guides and search-crawler discovery
