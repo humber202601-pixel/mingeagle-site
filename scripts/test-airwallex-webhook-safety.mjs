@@ -14,7 +14,7 @@ assert(src.includes("CASE WHEN status='SUCCEEDED' THEN status ELSE ? END"),'late
 const fs=await import('node:fs/promises');
 const checkout=await fs.readFile(new URL('../functions/api/payments/airwallex/create.ts',import.meta.url),'utf8');
 const quotePage=await fs.readFile(new URL('../functions/quote/[token].ts',import.meta.url),'utf8');
-assert(checkout.includes("env.AIRWALLEX_CHECKOUT_ENABLED !== 'true'"),'checkout API must require explicit enable');
-assert(quotePage.includes("env.AIRWALLEX_CHECKOUT_ENABLED === 'true'"),'customer page must hide checkout by default');
-assert(checkout.includes("['sandbox','prod'].includes"),'checkout API must require explicit environment');
+assert(checkout.includes('airwallexCheckoutReadiness(env)'),'checkout API must use shared readiness');
+assert(quotePage.includes('airwallexCheckoutReadiness(env).checkoutReady'),'customer page must hide checkout under same gate');
+assert(checkout.includes('if (!readiness.checkoutReady)'),'create API must fail closed without signed webhook');
 console.log('PASS: webhook intent ownership, amount reconciliation and fulfillment gating safety checks.');
