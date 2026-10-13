@@ -1,4 +1,4 @@
-import { OUTREACH_SIGNATURE, WEBSITE_INTRO, buyerPlannerIntro, customerGreeting } from '../../../shared/outreach';
+import { OUTREACH_SIGNATURE, buyerPlannerIntro, customerGreeting } from '../../../shared/outreach';
 
 interface Env { MINGEAGLE_DB: D1Database }
 
