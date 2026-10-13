@@ -18,5 +18,5 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
   country:'US',method:'air',
   notice:ready?'Retail checkout is available subject to checkout validation':
    'Direct retail payment is not yet activated. Submit an order inquiry instead.'},
-  {headers:{'cache-control':'no-store'}});
+  {headers:{'cache-control':'no-store','access-control-allow-origin':'*'}});
 };
