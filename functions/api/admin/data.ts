@@ -46,7 +46,17 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
       db.prepare(`SELECT
         l.id, COALESCE(c.name, 'Individual buyer') AS company,
         COALESCE(ct.full_name, ct.email, 'Unknown contact') AS contact,
-        l.source, l.lead_score, l.status, l.next_best_action, l.next_action_at, l.last_contact_at, l.created_at
+        l.source, l.lead_score, l.status, l.next_best_action, l.next_action_at, l.last_contact_at, l.created_at,
+        CASE WHEN ct.email IS NOT NULL AND TRIM(ct.email)<>'' THEN 1 ELSE 0 END AS contact_email_present,
+        CASE WHEN ct.email_verified=1 THEN 1 ELSE 0 END AS contact_email_verified,
+        CASE WHEN ct.do_not_contact=1 THEN 1 ELSE 0 END AS contact_do_not_contact,
+        (SELECT MAX(CASE WHEN dc.grade='A' THEN 'A' WHEN dc.grade='B' THEN 'B' ELSE 'C' END)
+         FROM discovery_candidates dc WHERE dc.crm_lead_id=l.id) AS discovery_grade,
+        (SELECT COUNT(*) FROM discovery_candidates dc WHERE dc.crm_lead_id=l.id AND TRIM(COALESCE(dc.source_url,''))<>'') AS discovery_source_count,
+        (SELECT COUNT(*) FROM discovery_candidates dc WHERE dc.crm_lead_id=l.id AND TRIM(COALESCE(dc.website_contact_url,''))<>'') AS discovery_contact_page_count,
+        (SELECT dc.source_url FROM discovery_candidates dc
+         WHERE dc.crm_lead_id=l.id AND TRIM(COALESCE(dc.source_url,''))<>''
+         ORDER BY dc.grade ASC,dc.discovered_at DESC LIMIT 1) AS discovery_source_url
         FROM leads l
         LEFT JOIN companies c ON c.id = l.company_id
         LEFT JOIN contacts ct ON ct.id = l.primary_contact_id
