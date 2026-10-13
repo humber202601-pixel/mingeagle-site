@@ -114,7 +114,7 @@ const categoryBlock='<section class="buyerAnswers" id="buyer-product-answers" la
  '<div class="buyerAnswersInner"><h2 id="buyer-answers-collection">Which quiet indoor sports ball should you choose?</h2>'+
  '<p class="buyerAnswersNote">Compare confirmed first-party options rather than assuming every foam basketball has the same feel, size or hoop contents.</p>'+
  '<div class="buyerAnswerCards">'+cards+'</div>'+
- '<p class="buyerAnswersNote">For US single-item air parcels, estimated delivery is 12–15 days after dispatch, subject to actual shipping arrangements. All published USD prices exclude taxes and import duties. <a href="retail-cart.html">View the retail cart</a> or <a href="for-schools.html">request school equipment guidance</a>. Payment processing is not yet active.</p>'+
+ '<p class="buyerAnswersNote">For US single-item air parcels, estimated delivery is 12–15 days after dispatch, not guaranteed and subject to actual shipping arrangements. All published USD prices exclude taxes and import duties. <a href="retail-cart.html">View the retail cart</a> or <a href="for-schools.html">request school equipment guidance</a>. Payment processing is not yet active.</p>'+
  '</div></section>';
 write('products.html',catalog.title,catalog.description,master.p1.hero,categoryBlock,'website');
 console.log('PASS: five verified buyer answer and social preview sections from published MING EAGLE products, no invented ratings, acoustic metrics or stock.');
