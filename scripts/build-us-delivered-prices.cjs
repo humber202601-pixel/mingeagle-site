@@ -18,8 +18,8 @@ for(const [id,bySize] of Object.entries(prices.products)){
  assert.deepEqual(Object.keys(bySize).sort(),Object.keys(post.productSizeShippingUSD[id]).sort(),id+' shipping size mismatch');
  for(const [size,price] of Object.entries(bySize)){
   const shipping=post.productSizeShippingUSD[id][size];
-  assert(Number.isInteger(price*100)&&price>0,'Invalid retail cents for '+id+size);
-  assert(Number.isInteger(shipping*100)&&shipping>0,'Invalid US shipping cents for '+id+size);
+  assert(Number.isFinite(price)&&price>0&&Math.abs(price*100-Math.round(price*100))<1e-7,'Invalid retail cents for '+id+size);
+  assert(Number.isFinite(shipping)&&shipping>0&&Math.abs(shipping*100-Math.round(shipping*100))<1e-7,'Invalid US shipping cents for '+id+size);
   list.push({id,size,price,shipping,total:Math.round((price+shipping)*100)/100,name:catalog[id].name,page:pages[id]});
  }
 }
