@@ -11,7 +11,8 @@ export function stripeCheckoutReadiness(env: StripeEnv) {
   const mode = String(env.STRIPE_MODE || '').trim().toLowerCase();
   const key = String(env.STRIPE_SECRET_KEY || '').trim();
   const signature = String(env.STRIPE_WEBHOOK_SECRET || '').trim();
-  const keyValid = mode === 'test' ? key.startsWith('sk_test_') : mode === 'live' ? key.startsWith('sk_live_') : false;
+  const keyValid = mode === 'test' ? /^(?:sk|rk)_test_[A-Za-z0-9]+$/.test(key)
+    : mode === 'live' ? /^(?:sk|rk)_live_[A-Za-z0-9]+$/.test(key) : false;
   const webhookConfigured = signature.startsWith('whsec_') && signature.length > 12;
   const checkoutRequested = env.STRIPE_CHECKOUT_ENABLED === 'true';
   return {
