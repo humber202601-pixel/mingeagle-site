@@ -122,6 +122,9 @@ jobs:
       - name: Verify CRM payload source attribution
         run: node scripts/check-forms-core.cjs
 
+      - name: Verify retail and wholesale cart routing (including secure checkout)
+        run: node scripts/test-retail-tier-router.cjs
+
       - name: Verify shipping quote calculator
         run: node scripts/check-shipping.cjs
 
