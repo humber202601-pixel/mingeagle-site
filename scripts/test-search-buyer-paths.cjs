@@ -45,7 +45,7 @@ try{
  assert(head.includes('og:image" content="https://www.mingeagle.com/assets/hero-flocked-silent-basketball-set.webp'));
  assert.equal((head.match(/MING EAGLE VIDEO SHARE METADATA BEGIN/g)||[]).length,1);
  assert(video.includes('id="creator-video-buying-advice"'));
- assert(video.includes('original accounts'));
+ assert(video.includes('credited to their TikTok creators'),'Creator attribution must be explicit in visible text');
  assert(video.includes('not this fabric-covered version')===false);
  assert(!video.includes('"@type":"VideoObject"'),'Do not invent TikTok first-publication dates or per-video thumbnails');
  assert(!video.includes('video:sitemap'),'No unverified video sitemap');
