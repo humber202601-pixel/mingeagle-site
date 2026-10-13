@@ -1,6 +1,7 @@
 import {stripeApi, stripeCheckoutReadiness, type StripeEnv} from '../../../_shared/stripe';
+import {noSalesTaxCollectionRequired,type RetailTaxEnv} from '../../../../lib/retail-tax-policy';
 
-interface Env extends StripeEnv {
+interface Env extends StripeEnv,RetailTaxEnv {
   MINGEAGLE_DB: D1Database;
   STRIPE_TAX_POLICY_APPROVED?:string;
   RETAIL_STOCK_FULFILLMENT_APPROVED?:string;
@@ -28,7 +29,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  try{
   const hash=await tokenHash(token);
   const order=await db.prepare(
-   "SELECT o.id,o.reference,o.status,o.payment_status,o.total,o.subtotal,o.discount,o.shipping,o.tax,o.currency,"+
+   "SELECT o.id,o.reference,o.status,o.payment_status,o.total,o.subtotal,o.discount,o.shipping,o.tax,o.currency,o.shipping_address,"+
    "q.status AS quote_status,q.valid_until,q.reference AS quote_reference,ct.email AS email,"+
    "(SELECT COALESCE(SUM(amount),0) FROM payments WHERE order_id=o.id AND status='RECEIVED') AS received "+
    "FROM quotes q JOIN orders o ON o.quote_id=q.id LEFT JOIN contacts ct ON ct.id=o.contact_id "+
@@ -41,6 +42,23 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   const isRetail=String(order.reference).startsWith('ME-RO-');
   if(isRetail&&(env.RETAIL_STOCK_FULFILLMENT_APPROVED!=='true'||env.RETAIL_TAX_POLICY_APPROVED!=='true'))
    return fail('Retail stock, shipping and tax approval is required.',503);
+  if(isRetail){
+   let ship:{state?:string;country?:string};
+   try{ship=JSON.parse(String(order.shipping_address||'null'))}catch{return fail('Retail shipping address requires review.',409)}
+   const state=String(ship?.state||'').toUpperCase();
+   if(ship?.country!=='US'||!noSalesTaxCollectionRequired(env,state))
+    return fail('This delivery state has not been approved for zero sales-tax collection.',409);
+   if(Math.round(Number(order.shipping)*100)!==1400||
+      Math.round(Number(order.subtotal)*100)!==1490||
+      Math.round(Number(order.tax)*100)!==0)
+    return fail('Import-duty-paid shipping is not approved for this basket.',409);
+   const orderItems=await db.prepare('SELECT description,quantity,unit_price FROM order_items WHERE order_id=?')
+    .bind(String(order.id)).all<{description:string;quantity:number;unit_price:number}>();
+   const items=orderItems.results||[];
+   if(items.length!==1||!/^P1-S7 \/ /.test(String(items[0].description))||
+      Number(items[0].quantity)!==1||Math.round(Number(items[0].unit_price)*100)!==1490)
+    return fail('Duty-paid delivery is not verified for the requested products.',409);
+  }
   if(!isRetail&&!['ACCEPTED','CONVERTED'].includes(String(order.quote_status)))
    return fail('Please accept the quotation before paying.',409);
   const received=cents(order.received);
@@ -79,7 +97,11 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   form.set('metadata[order_reference]',String(order.reference));
   form.set('metadata[source]','MING_EAGLE_STRIPE_CHECKOUT');
   form.set('billing_address_collection','required');
-  if(isRetail)form.set('shipping_address_collection[allowed_countries][0]','US');
+  // Customer shipping address was confirmed and checked against a state tax policy
+  // when the D1 order was created. Do not let Stripe collect a second, potentially
+  // different delivery state after the fixed price and tax decision are recorded.
+  if(isRetail)form.set('custom_text[submit][message]',
+   'Delivery will be made to the US shipping address on your MING EAGLE order. The seller covers confirmed import duties for this item; US sales tax is reviewed separately.');
   if(typeof order.email==='string'&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(order.email))
    form.set('customer_email',order.email);
   let index=0;
