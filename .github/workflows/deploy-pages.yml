@@ -51,6 +51,9 @@ jobs:
           node scripts/check-public-crawl-graph.cjs
           node scripts/check-geo-source-capture.cjs
           node scripts/check-ai-discovery-benchmark.cjs
+          node scripts/build-ai-product-facts.cjs
+          node scripts/check-ai-product-facts.cjs
+          node scripts/build-ai-product-facts.cjs --check
           node scripts/check-indexnow-key.cjs
 
       - name: Optimize first-party native image loading
