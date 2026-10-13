@@ -108,6 +108,15 @@ if(productId&&hero&&!document.querySelector('.productHero .retailBuyPicker')){
  const area=hero.firstElementChild;
  if(area)area.appendChild(picker(productId,'detail'));
 }
+// Hash anchors from the USA delivered-price table target dynamically
+// inserted selectors. Scroll only after the selector exists in the DOM.
+const anchor=window.location.hash?.slice(1)||'';
+if(/^buy-(?:now|p[1-4])$/.test(anchor)){
+ const target=document.getElementById(anchor);
+ if(target&&typeof window.requestAnimationFrame==='function'){
+  window.requestAnimationFrame(()=>target.scrollIntoView({block:'center'}));
+ }
+}
 if(cards.length||productId){
  const float=document.createElement('a');float.href='retail-cart.html';float.className='retailCartFloating';
  float.setAttribute('aria-label','Go to shopping cart');
