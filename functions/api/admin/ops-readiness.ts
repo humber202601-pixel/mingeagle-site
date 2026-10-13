@@ -1,3 +1,4 @@
+import {airwallexCheckoutReadiness} from '../../_shared/airwallex';
 // Authenticated production readiness: booleans and aggregate counts only.
 // Never returns API keys, supplier prices, customer data, or guessed business metrics.
 interface Env{MINGEAGLE_DB?:D1Database;TURNSTILE_SITE_KEY?:string;TURNSTILE_SECRET_KEY?:string;TURNSTILE_ENABLED?:string;AIRWALLEX_CLIENT_ID?:string;AIRWALLEX_API_KEY?:string;AIRWALLEX_WEBHOOK_SECRET?:string;AIRWALLEX_CHECKOUT_ENABLED?:string;AIRWALLEX_ENV?:string}
@@ -30,16 +31,15 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
   ]);
   const turnstileCredentials=Boolean(env.TURNSTILE_SITE_KEY&&env.TURNSTILE_SECRET_KEY);
   const turnstileRequested=env.TURNSTILE_ENABLED==='1'||env.TURNSTILE_ENABLED==='true';
-  const paymentCredentials=Boolean(env.AIRWALLEX_CLIENT_ID&&env.AIRWALLEX_API_KEY&&env.AIRWALLEX_WEBHOOK_SECRET);
-  const requestedCheckout=env.AIRWALLEX_CHECKOUT_ENABLED==='true';
-  const paymentEnv=env.AIRWALLEX_ENV==='sandbox'?'sandbox':env.AIRWALLEX_ENV==='prod'?'prod':null;
+  const payment=airwallexCheckoutReadiness(env);
   return json({ok:true,checkedAt:new Date().toISOString(),
    analytics:{cloudflare:{schemaPresent:names.has('web_analytics_daily'),observedDates:rum?.days??null,latestDateUTC:rum?.latest||null,lastFetchedAtUTC:rum?.lastFetchedAt||null,partialInitialDayObserved:Number(rum?.partialInitialDay||0)>0,observedDateCoverage:utcCoverage(rum?.latest,names.has('web_analytics_daily'),rum?.days??null)},google:{schemaPresent:names.has('gsc_search_daily'),observedDates:gsc?.days??null,latestDatePacific:gsc?.latest||null,lastFetchedAtUTC:gsc?.lastFetchedAt||null}},
    procurement:{catalogPresent:names.has('supplier_purchase_terms'),supplierSources:cost?.total??null,approvedSourceCount:cost?.approved??null,
     shippingRates:freight?.total??null,activeShippingRates:freight?.active??null,packagingSkus:packages?.total??null},
    security:{turnstileConfigured:turnstileCredentials,turnstileEnabled:turnstileRequested&&turnstileCredentials,turnstileMisconfigured:turnstileRequested&&!turnstileCredentials},
-   payments:{checkoutRequested:requestedCheckout,providerCredentialsConfigured:paymentCredentials,environment:paymentEnv,
-    checkoutConfigurationReady:requestedCheckout&&paymentCredentials&&Boolean(paymentEnv)},
+   payments:{checkoutRequested:payment.checkoutRequested,providerCredentialsConfigured:payment.providerCredentialsConfigured,
+    webhookConfigured:payment.webhookConfigured,environment:payment.environment,
+    checkoutConfigurationReady:payment.checkoutReady},
    caveats:['GSC search metrics use Pacific reporting dates; Cloudflare RUM uses UTC. Do not compute a raw conversion ratio.',
     'An empty supplier catalog means purchase cost and profit are not validated; prices cannot be inferred from public retail.',
     'Payment configuration readiness does not prove Airwallex account activation or webhook sandbox validation.',

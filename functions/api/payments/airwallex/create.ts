@@ -1,4 +1,4 @@
-import { airwallexApiBase, airwallexSdkEnv, getAirwallexAccessToken, type AirwallexEnv } from '../../../_shared/airwallex';
+import { airwallexApiBase, airwallexSdkEnv, getAirwallexAccessToken, airwallexCheckoutReadiness, type AirwallexEnv } from '../../../_shared/airwallex';
 
 interface Env extends AirwallexEnv {
   MINGEAGLE_DB: D1Database;
@@ -88,11 +88,11 @@ async function latestReusableSession(db: D1Database, orderId: string, amount: nu
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.MINGEAGLE_DB) return Response.json({ ok: false, error: 'Database is not configured.' }, { status: 503 });
-  if (env.AIRWALLEX_CHECKOUT_ENABLED !== 'true' || !['sandbox','prod'].includes(String(env.AIRWALLEX_ENV || '').toLowerCase())) {
-    return Response.json({ ok: false, error: 'Online checkout is not enabled.' }, { status: 503 });
-  }
-  if (!env.AIRWALLEX_CLIENT_ID || !env.AIRWALLEX_API_KEY) {
-    return Response.json({ ok: false, error: 'Airwallex checkout is not configured yet.' }, { status: 503 });
+  const readiness=airwallexCheckoutReadiness(env);
+  if (!readiness.checkoutReady) {
+    // Never create PaymentIntents if the signed webhook cannot reconcile payments.
+    return Response.json({ok:false,error:'Secure online checkout is not ready. Please contact support for payment instructions.'},
+      {status:503,headers:{'cache-control':'no-store'}});
   }
 
   const originHeader = request.headers.get('origin');
