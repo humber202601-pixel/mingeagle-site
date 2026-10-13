@@ -20,7 +20,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  // A multi-item cart intentionally uses the existing tariff/packaging engine.
  const one=lines.length===1&&quantity===1?
   oneItemUsAirParcel(lines[0].sku,country,String(method),1):null;
- if(one)return result({ok:true,quantity:1,productsUSD:one.productUSD,lines:[{sku:one.sku,quantity:1,
+ if(one)return result({ok:true,productsUSD:one.productUSD,lines:[{sku:one.sku,quantity:1,
   unitPriceUSD:one.productUSD,lineTotalUSD:one.productUSD}],
   ...one,volumeCBM:null,
   notice:'Single-item US air small parcel; 12–15 days estimated after dispatch, not guaranteed. Final terms and taxes require confirmation.'});
