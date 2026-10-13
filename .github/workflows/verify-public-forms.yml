@@ -25,6 +25,8 @@ on:
       - 'scripts/check-ai-intent-guides.cjs'
       - 'scripts/check-coach-ai-answers.cjs'
       - 'scripts/check-public-crawl-graph.cjs'
+      - 'scripts/build-ai-product-facts.cjs'
+      - 'scripts/check-ai-product-facts.cjs'
       - 'scripts/check-geo-source-capture.cjs'
       - 'scripts/check-seo-discovery-links.cjs'
       - 'scripts/optimize-native-media.cjs'
@@ -69,6 +71,9 @@ jobs:
           node scripts/check-ai-intent-guides.cjs
           node scripts/check-coach-ai-answers.cjs
           node scripts/check-public-crawl-graph.cjs
+          node scripts/build-ai-product-facts.cjs
+          node scripts/check-ai-product-facts.cjs
+          node scripts/build-ai-product-facts.cjs --check
           node scripts/check-geo-source-capture.cjs
           node scripts/check-native-media.cjs
           node --check public/sales-assistant.js
