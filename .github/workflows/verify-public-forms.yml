@@ -29,6 +29,10 @@ on:
       - 'scripts/test-product-buyer-answers.cjs'
       - 'scripts/build-creator-to-product.cjs'
       - 'scripts/test-creator-to-product.cjs'
+      - 'scripts/check-priority-indexing-pages.cjs'
+      - 'public/videos.html'
+      - 'public/products.html'
+      - 'public/fabric-silent-basketball.html'
       - 'scripts/build-search-buyer-paths.cjs'
       - 'scripts/test-search-buyer-paths.cjs'
       - 'scripts/test-creator-build-cache.cjs'
@@ -110,6 +114,7 @@ jobs:
           node scripts/test-us-delivered-prices.cjs
           node scripts/test-product-buyer-answers.cjs
           node scripts/test-creator-to-product.cjs
+          node scripts/check-priority-indexing-pages.cjs
           node scripts/test-search-buyer-paths.cjs
           node scripts/test-creator-build-cache.cjs
           node scripts/build-seo-discovery-links.cjs
