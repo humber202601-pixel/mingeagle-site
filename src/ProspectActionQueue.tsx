@@ -27,7 +27,7 @@ export function safeEvidenceUrl(value:unknown){
   if(url.protocol!=='https:'||url.username||url.password||url.port)return '';
   const hostname=url.hostname.toLowerCase();
   if(hostname==='localhost'||hostname.endsWith('.localhost')||
-    hostname.endsWith('.local')||/^\\d+(?:\\.\\d+){3}$/.test(hostname)||hostname.includes(':'))return '';
+    hostname.endsWith('.local')||/^\d+(?:\.\d+){3}$/.test(hostname)||hostname.includes(':'))return '';
   return url.href;
  }catch{return ''}
 }
