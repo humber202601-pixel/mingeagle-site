@@ -16,7 +16,7 @@ function query(w){
   return 'query {viewer {accounts(filter:{accountTag:"'+ACCOUNT+'"}) {'+
    'rumPageloadEventsAdaptiveGroups(limit:'+LIMIT+',filter:{siteTag:"'+TAG+'",'+
    'datetime_geq:"'+w.from+'",datetime_lt:"'+w.to+'"}) {'+
-   'count dimensions {date requestHost} sum {visits}}}}}';
+   'count dimensions {date requestHost refererHost} sum {visits}}}}}';
 }
 const valid=n=>typeof n==='number'&&Number.isSafeInteger(n)&&n>=0;
 export function dailyRows(groups,w){
@@ -39,6 +39,52 @@ export function dailyRows(groups,w){
   // No provider group = unknown. Explicit group of 0 is a real provider 0.
   return [...map.values()].sort((a,b)=>a.date.localeCompare(b.date));
 }
+
+const AI_REFERRERS={
+ CHATGPT:['chatgpt.com','chat.openai.com'],
+ PERPLEXITY:['perplexity.ai'],
+ CLAUDE:['claude.ai'],
+ GEMINI:['gemini.google.com'],
+ COPILOT:['copilot.microsoft.com']
+};
+// Only explicit AI-service referrer hostnames count. Ordinary Google/Bing and
+// missing referrers cannot be inferred to be AI traffic.
+export function aiReferrerPlatform(value){
+ if(typeof value!=='string')return null;
+ const host=value.toLowerCase().replace(/\\.$/,'');
+ for(const [platform,domains] of Object.entries(AI_REFERRERS)){
+  if(domains.some(d=>host===d||host.endsWith('.'+d)))return platform;
+ }
+ return null;
+}
+export function aiReferralRows(groups,baseRows,w){
+ if(!Array.isArray(groups)||groups.length>=LIMIT)throw Error('missing/truncated referrer groups');
+ const dates=new Set(baseRows.map(r=>r.date));
+ const totals=new Map([...dates].map(d=>[d,{date:d,platform:'ALL_AI',visits:0,sampledPageviews:0}]));
+ const perPlatform=new Map();
+ for(const g of groups){
+  const date=g?.dimensions?.date,host=g?.dimensions?.requestHost,ref=g?.dimensions?.refererHost;
+  if(!HOSTS.has(String(host||'').toLowerCase()))continue;
+  if(typeof date!=='string'||!dates.has(date)||date<w.start||date>=w.end||
+     typeof ref!=='string'||!valid(g.count)||!valid(g.sum?.visits))
+   throw Error('invalid AI referrer source data');
+  const platform=aiReferrerPlatform(ref);
+  if(!platform)continue;
+  const key=date+'|'+platform;
+  const row=perPlatform.get(key)||{date,platform,visits:0,sampledPageviews:0};
+  row.visits+=g.sum.visits;row.sampledPageviews+=g.count;
+  const all=totals.get(date);
+  all.visits+=g.sum.visits;all.sampledPageviews+=g.count;
+  if(![row.visits,row.sampledPageviews,all.visits,all.sampledPageviews].every(valid))
+   throw Error('AI referral metric overflow');
+  perPlatform.set(key,row);
+ }
+ // Record ALL_AI=0 only on dates when Cloudflare actually supplied site traffic.
+ // Missing provider days remain unknown, never fabricated zeroes.
+ return [...totals.values(),...perPlatform.values()]
+   .sort((a,b)=>a.date.localeCompare(b.date)||a.platform.localeCompare(b.platform));
+}
+
 export async function synchronize(env,{now=new Date(),fetchImpl=fetch}={}){
   if(!env?.MINGEAGLE_DB)throw Error('missing D1 binding');
   if(typeof env.CF_ANALYTICS_GRAPHQL_TOKEN!=='string'||
@@ -54,7 +100,9 @@ export async function synchronize(env,{now=new Date(),fetchImpl=fetch}={}){
     throw Error('Cloudflare GraphQL errors');
   const accounts=(payload?.data?.viewer??payload?.result?.viewer)?.accounts;
   if(!Array.isArray(accounts)||accounts.length!==1)throw Error('ambiguous account response');
-  const rows=dailyRows(accounts[0]?.rumPageloadEventsAdaptiveGroups,w);
+  const groups=accounts[0]?.rumPageloadEventsAdaptiveGroups;
+  const rows=dailyRows(groups,w);
+  const referrals=aiReferralRows(groups,rows,w);
   // D1 batch is transactional: a failure never leaves a partly updated day set.
   const sql=['INSERT INTO web_analytics_daily',
     '(date_utc,site_tag,host,provider_visits,sampled_pageviews,source,fetched_at)',
@@ -64,15 +112,26 @@ export async function synchronize(env,{now=new Date(),fetchImpl=fetch}={}){
     'WHERE web_analytics_daily.site_tag=excluded.site_tag',
     'AND web_analytics_daily.host=excluded.host',
     'AND web_analytics_daily.source=excluded.source'].join(' ');
-  if(rows.length){
-    const statements=rows.map(r=>env.MINGEAGLE_DB.prepare(sql)
-      .bind(r.date,TAG,r.visits,r.sampledPageviews));
+  const aiSql=['INSERT INTO ai_referrals_daily',
+    '(date_utc,platform,site_tag,host,provider_visits,sampled_pageviews,source,fetched_at)',
+    "VALUES (?,? ,?,'mingeagle.com',?,?,'CLOUDFLARE_RUM_GRAPHQL',CURRENT_TIMESTAMP)",
+    'ON CONFLICT(date_utc,platform) DO UPDATE SET provider_visits=excluded.provider_visits,',
+    'sampled_pageviews=excluded.sampled_pageviews,fetched_at=CURRENT_TIMESTAMP',
+    'WHERE ai_referrals_daily.site_tag=excluded.site_tag',
+    'AND ai_referrals_daily.host=excluded.host',
+    'AND ai_referrals_daily.source=excluded.source'].join(' ');
+  const statements=[
+    ...rows.map(r=>env.MINGEAGLE_DB.prepare(sql).bind(r.date,TAG,r.visits,r.sampledPageviews)),
+    ...referrals.map(r=>env.MINGEAGLE_DB.prepare(aiSql)
+      .bind(r.date,r.platform,TAG,r.visits,r.sampledPageviews))
+  ];
+  if(statements.length){
     const results=await env.MINGEAGLE_DB.batch(statements);
     if(!Array.isArray(results)||results.length!==statements.length||
       results.some(r=>!r||r.success===false))
       throw Error('D1 batch write not confirmed');
   }
-  return {providerDates:rows.length,written:rows.length,checkedCompleteDays:DAYS};
+  return {providerDates:rows.length,written:rows.length,aiReferralRows:referrals.length,checkedCompleteDays:DAYS};
 }
 export default {
   async scheduled(_event,env,ctx){
