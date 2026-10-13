@@ -1,0 +1,224 @@
+{
+  "version": 1,
+  "createdOn": "2026-10-13",
+  "property": "https://www.mingeagle.com/",
+  "method": "Neutral, unbranded prompts. Proposed matching URL is a content target, never proof of a model citation.",
+  "prompts": [
+    {
+      "id": "ME-AI-001",
+      "intent": "HOME_NOISE",
+      "market": "US",
+      "language": "en",
+      "audience": "parent",
+      "prompt": "What can my child use to practice basketball at home without bothering downstairs neighbors?",
+      "targetUrl": "https://www.mingeagle.com/quiet-indoor-sports-for-kids.html"
+    },
+    {
+      "id": "ME-AI-002",
+      "intent": "HOME_NOISE",
+      "market": "US",
+      "language": "en",
+      "audience": "parent",
+      "prompt": "My son's basketball is too loud in our apartment. What are some quieter alternatives?",
+      "targetUrl": "https://www.mingeagle.com/silent-basketball-for-apartments.html"
+    },
+    {
+      "id": "ME-AI-003",
+      "intent": "HOME_NOISE",
+      "market": "US",
+      "language": "en",
+      "audience": "parent",
+      "prompt": "Does a foam basketball actually make less noise than a regular basketball on wood floors?",
+      "targetUrl": "https://www.mingeagle.com/silent-basketball-vs-regular.html"
+    },
+    {
+      "id": "ME-AI-004",
+      "intent": "HOME_NOISE",
+      "market": "US",
+      "language": "en",
+      "audience": "parent",
+      "prompt": "How can kids practice ball-handling indoors without disturbing neighbors?",
+      "targetUrl": "https://www.mingeagle.com/quiet-indoor-sports-for-kids.html"
+    },
+    {
+      "id": "ME-AI-005",
+      "intent": "INDOOR_ACTIVITY",
+      "market": "US",
+      "language": "en",
+      "audience": "parent",
+      "prompt": "What are safe indoor ball games for an eight-year-old on a rainy day?",
+      "targetUrl": "https://www.mingeagle.com/quiet-indoor-sports-for-kids.html"
+    },
+    {
+      "id": "ME-AI-006",
+      "intent": "INDOOR_ACTIVITY",
+      "market": "US",
+      "language": "en",
+      "audience": "parent",
+      "prompt": "What indoor sports equipment is better suited to a small living room?",
+      "targetUrl": "https://www.mingeagle.com/products.html"
+    },
+    {
+      "id": "ME-AI-007",
+      "intent": "INDOOR_ACTIVITY",
+      "market": "US",
+      "language": "en",
+      "audience": "parent",
+      "prompt": "What is the difference between flocked foam and fabric-covered silent basketballs?",
+      "targetUrl": "https://www.mingeagle.com/products.html"
+    },
+    {
+      "id": "ME-AI-008",
+      "intent": "INDOOR_ACTIVITY",
+      "market": "US",
+      "language": "en",
+      "audience": "parent",
+      "prompt": "Can kids practice indoor soccer footwork with a softer ball?",
+      "targetUrl": "https://www.mingeagle.com/silent-soccer.html"
+    },
+    {
+      "id": "ME-AI-009",
+      "intent": "SCHOOLS",
+      "market": "US",
+      "language": "en",
+      "audience": "school",
+      "prompt": "What low-noise sports balls can be used for supervised indoor PE sessions?",
+      "targetUrl": "https://www.mingeagle.com/indoor-school-sports-equipment-guide.html"
+    },
+    {
+      "id": "ME-AI-010",
+      "intent": "SCHOOLS",
+      "market": "US",
+      "language": "en",
+      "audience": "school",
+      "prompt": "How should schools compare indoor foam basketball options before buying?",
+      "targetUrl": "https://www.mingeagle.com/for-schools.html"
+    },
+    {
+      "id": "ME-AI-011",
+      "intent": "SCHOOLS",
+      "market": "US",
+      "language": "en",
+      "audience": "school",
+      "prompt": "What do school buyers need to confirm before purchasing bulk indoor sports equipment?",
+      "targetUrl": "https://www.mingeagle.com/indoor-school-sports-equipment-guide.html"
+    },
+    {
+      "id": "ME-AI-012",
+      "intent": "SCHOOLS",
+      "market": "US",
+      "language": "en",
+      "audience": "school",
+      "prompt": "Where can a school request samples of quieter indoor basketball sets?",
+      "targetUrl": "https://www.mingeagle.com/for-schools.html"
+    },
+    {
+      "id": "ME-AI-013",
+      "intent": "ACADEMIES",
+      "market": "US",
+      "language": "en",
+      "audience": "coach",
+      "prompt": "What basketball handling equipment could students use in a shared indoor training space?",
+      "targetUrl": "https://www.mingeagle.com/for-coaches.html"
+    },
+    {
+      "id": "ME-AI-014",
+      "intent": "ACADEMIES",
+      "market": "US",
+      "language": "en",
+      "audience": "coach",
+      "prompt": "What is a weighted foam basketball, and when is it suitable for practice?",
+      "targetUrl": "https://www.mingeagle.com/weighted-flocked-basketball.html"
+    },
+    {
+      "id": "ME-AI-015",
+      "intent": "ACADEMIES",
+      "market": "US",
+      "language": "en",
+      "audience": "coach",
+      "prompt": "What should a basketball camp check when sourcing take-home practice equipment?",
+      "targetUrl": "https://www.mingeagle.com/basketball-camp-equipment-supplier.html"
+    },
+    {
+      "id": "ME-AI-016",
+      "intent": "ACADEMIES",
+      "market": "US",
+      "language": "en",
+      "audience": "coach",
+      "prompt": "How do I request training samples for a youth basketball academy?",
+      "targetUrl": "https://www.mingeagle.com/for-coaches.html"
+    },
+    {
+      "id": "ME-AI-017",
+      "intent": "B2B",
+      "market": "US",
+      "language": "en",
+      "audience": "buyer",
+      "prompt": "Where can I source silent basketballs in bulk for a sporting goods store?",
+      "targetUrl": "https://www.mingeagle.com/wholesale.html"
+    },
+    {
+      "id": "ME-AI-018",
+      "intent": "B2B",
+      "market": "US",
+      "language": "en",
+      "audience": "buyer",
+      "prompt": "Can a supplier make custom-logo foam basketballs for a basketball club?",
+      "targetUrl": "https://www.mingeagle.com/custom-basketball-for-teams.html"
+    },
+    {
+      "id": "ME-AI-019",
+      "intent": "B2B",
+      "market": "US",
+      "language": "en",
+      "audience": "buyer",
+      "prompt": "What information should I include in a wholesale foam basketball RFQ?",
+      "targetUrl": "https://www.mingeagle.com/silent-basketball-bulk-buying-guide.html"
+    },
+    {
+      "id": "ME-AI-020",
+      "intent": "B2B",
+      "market": "US",
+      "language": "en",
+      "audience": "buyer",
+      "prompt": "Where can a distributor compare indoor silent ball SKUs before asking for a quote?",
+      "targetUrl": "https://www.mingeagle.com/wholesale-product-catalog.html"
+    },
+    {
+      "id": "ME-AI-021",
+      "intent": "HOME_NOISE",
+      "market": "DE",
+      "language": "de",
+      "audience": "parent",
+      "prompt": "Welcher Basketball eignet sich für leiseres Spielen in einer Wohnung?",
+      "targetUrl": "https://www.mingeagle.com/silent-basketball-for-apartments.html"
+    },
+    {
+      "id": "ME-AI-022",
+      "intent": "INDOOR_ACTIVITY",
+      "market": "FR",
+      "language": "fr",
+      "audience": "parent",
+      "prompt": "Quels jeux de ballon peut-on faire à l'intérieur avec moins de bruit ?",
+      "targetUrl": "https://www.mingeagle.com/quiet-indoor-sports-for-kids.html"
+    },
+    {
+      "id": "ME-AI-023",
+      "intent": "SCHOOLS",
+      "market": "ES",
+      "language": "es",
+      "audience": "school",
+      "prompt": "¿Qué material deportivo menos ruidoso puede usar un colegio en espacios interiores?",
+      "targetUrl": "https://www.mingeagle.com/indoor-school-sports-equipment-guide.html"
+    },
+    {
+      "id": "ME-AI-024",
+      "intent": "B2B",
+      "market": "BR",
+      "language": "pt",
+      "audience": "buyer",
+      "prompt": "Onde encontrar bolas de basquete silenciosas para comprar no atacado?",
+      "targetUrl": "https://www.mingeagle.com/wholesale.html"
+    }
+  ]
+}
