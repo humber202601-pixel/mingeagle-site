@@ -59,7 +59,7 @@ try {
  const valid={kind:'PAGES',startDate:'2026-10-01',endDate:'2026-10-12',
   manualConfirmation:true,rows:[
    {dimension:'https://www.mingeagle.com/quiet-indoor-sports-for-kids.html',citations:2},
-   {dimension:'https://www.mingeagle.com/indoor-school-sports-equipment-guide.html',citations:0}
+   {dimension:'https://www.mingeagle.com/school-sports-equipment-pt.html',citations:0}
   ]};
  for(const bad of [
   {...valid,manualConfirmation:false},
@@ -101,5 +101,5 @@ try {
  sqlite.close();
  const error=await onRequestGet({env:{MINGEAGLE_DB:{prepare(){throw Error('Quota exceeded')}}}});
  assert.equal(error.status,503,'unavailable data may never masquerade as zero citations');
- console.log('PASS: owner-attested Bing AI CSV snapshots, 25-page allowlist, non-PII grounding phrases, no fake zero, isolated sampled report kinds and transactional writes.');
+ console.log('PASS: owner-attested Bing AI CSV snapshots, 29-page allowlist, non-PII grounding phrases, no fake zero, isolated sampled report kinds and transactional writes.');
 }finally{rmSync(temp,{recursive:true,force:true})}
