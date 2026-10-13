@@ -96,6 +96,9 @@ jobs:
           node scripts/test-indexnow-notify-changed.cjs
           python scripts/check-live-public-crawl.py --self-test
 
+      - name: Verify priority catalog, fabric and creator indexing context
+        run: node scripts/check-priority-indexing-pages.cjs
+
       - name: Optimize first-party native image loading
         run: |
           node scripts/optimize-native-media.cjs
