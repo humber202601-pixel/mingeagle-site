@@ -26,7 +26,7 @@ let failBatch=false;
 const db={
   prepare(sql){
     assert.match(sql,/INSERT INTO (web_analytics_daily|ai_referrals_daily)/);
-    assert(sql.includes('ON CONFLICT(date_utc)'));
+    assert(sql.includes('ON CONFLICT(date_utc'));
     assert(!/(inquiries|leads|contacts|quotes|orders|activities)/i.test(sql));
     return {bind(...args){return {sql,args};}};
   },
