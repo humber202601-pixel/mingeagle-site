@@ -56,7 +56,7 @@ for(const [lang,filename] of Object.entries(map)){
  for(const link of ['products.html','inquiry.html','wholesale.html','quiet-indoor-sports-for-kids.html'])
   assert(links.includes(link),'Missing relevant conversion or take-home guide '+link+' from '+filename);
  assert((html.match(/<h1\b/gi)||[]).length===1,'Exactly one h1 in '+filename);
- const sections=[...body.matchAll(/<section\b[^>]*class="card"[^>]*>/gi)].length;
+ const sections=[...body.matchAll(lang==='en'?/<section\b[^>]*class="guide-section"[^>]*>/gi:/<section\b[^>]*class="card"[^>]*>/gi)].length;
  assert(sections>=6,'Each locale must have at least six substantive original buyer topic sections '+filename);
  const text=body.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
  assert(text.split(/\s+/).length>=300,'This is only a thin translated shell, not a useful complete guide: '+filename);
