@@ -9,7 +9,45 @@ const $=id=>document.getElementById(id);const prices={'P1-S3':9.9,'P1-S5':11.9,'
 const products={P1:'Flocked Silent Basketball Set',P2:'Fabric-Cover Silent Basketball Set',P3:'Weighted Flocked Silent Basketball',P4:'Flocked Silent Soccer Ball'};
 let latest=null,quoteRequest=0;
 function invalidate(){quoteRequest++;latest=null;$('cartCheckout').disabled=true;$('cartEstimate').hidden=true;$('cartSummaryShipping').textContent='Not calculated';$('cartSummaryTotal').textContent='—';}
-const money=n=>'$'+Number(n).toFixed(2);
+const money=n=>'
+
+function updateAirLabel(){const el=$('cartAir');if(!el)return;el.textContent=$('cartCountry').value.trim().toUpperCase()==='US'?'Air parcel · US estimated 12–15 days after dispatch':'Air parcel · delivery timing confirmed on request';}
+function redraw(){const lines=read(),body=$('cartLines');body.replaceChildren();let sub=0;
+ for(const l of lines){if(!(l.sku in prices))continue;const tr=document.createElement('tr'),title=document.createElement('td');title.textContent=products[l.sku.slice(0,2)]+' · Size '+l.sku.slice(4);
+ const qcell=document.createElement('td'),q=document.createElement('input');q.type='number';q.min='1';q.max='10000';q.value=String(l.quantity);q.setAttribute('aria-label','Quantity '+l.sku);
+ q.addEventListener('change',()=>{const x=read().find(x=>x.sku===l.sku);if(x){x.quantity=Math.max(1,Math.min(10000,Math.floor(Number(q.value)||1)));save(read().map(z=>z.sku===x.sku?x:z));invalidate();redraw()}});qcell.append(q);
+ const price=document.createElement('td');price.textContent=money(prices[l.sku]*l.quantity);sub+=prices[l.sku]*l.quantity;
+ const rem=document.createElement('td'),b=document.createElement('button');b.type='button';b.textContent='Remove';b.addEventListener('click',()=>{save(read().filter(x=>x.sku!==l.sku));latest=null;redraw()});rem.append(b);tr.append(title,qcell,price,rem);body.append(tr)}
+ $('cartEmpty').hidden=lines.length>0;$('cartTable').hidden=lines.length===0;
+ $('cartSubtotal').textContent=money(sub);$('cartSummaryGoods').textContent=money(sub);$('cartSummaryShipping').textContent='Not calculated';$('cartSummaryTotal').textContent='—';$('cartEstimate').hidden=true;$('cartCheckout').disabled=true;
+ const total=lines.reduce((n,x)=>n+x.quantity,0);if(total<10)$('bulkSeaConsent').checked=false;wholesaleMode();
+ $('cartStatus').textContent=lines.length?(total>=10?'10+ items: accept sea freight and request a volume-discounted quote.':'1–9 items: calculate air freight before continuing to secure retail checkout.'):'Your cart is empty.';
+}
+$('cartEstimateForm').addEventListener('submit',async e=>{e.preventDefault();const lines=read();if(!lines.length)return;invalidate();const requestId=quoteRequest;$('cartCheckout').disabled=true;$('cartStatus').textContent='Calculating live shipping…';
+try{const r=await fetch('https://app.mingeagle.com/api/shipping/cart',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({lines,country:$('cartCountry').value.trim().toUpperCase(),method:$('cartMethod').value})});const d=await r.json();if(requestId!==quoteRequest)return;if(!r.ok||!d.ok)throw Error(d.error||'Shipping unavailable');latest=d;$('cartGoods').textContent=money(d.productsUSD);$('cartFreight').textContent=money(d.shippingUSD);$('cartTotal').textContent=money(d.totalBeforeTaxesUSD);$('cartSummaryGoods').textContent=money(d.productsUSD);$('cartSummaryShipping').textContent=money(d.shippingUSD);$('cartSummaryTotal').textContent=money(d.totalBeforeTaxesUSD);$('cartEstimate').hidden=false;$('cartCheckout').disabled=false;$('cartStatus').textContent='Estimate only. No payment is collected. Taxes and duties are not included.';}catch(err){$('cartStatus').textContent='Unable to quote: '+String(err.message||err)}});
+$('cartCountry').addEventListener('input',invalidate);$('cartMethod').addEventListener('change',invalidate);
+$('cartCheckout').addEventListener('click',()=>{if(!latest)return;const summary=latest.lines.map(x=>x.sku+' × '+x.quantity).join(', ');const q=new URLSearchParams({type:'retail',cart:summary,cart_country:latest.country,cart_method:latest.method,cart_total:String(latest.totalBeforeTaxesUSD),cart_shipping:String(latest.shippingUSD)});location.href='inquiry.html?'+q});
+redraw();
+})();+Number(n).toFixed(2);
+const quantity=()=>read().reduce((sum,item)=>sum+item.quantity,0);
+function wholesaleMode(){
+ const bulk=quantity()>=10;
+ $('cartWholesale').hidden=!bulk;
+ $('cartEstimateForm').hidden=bulk;
+ $('cartSea').disabled=!bulk;
+ $('cartAir').disabled=bulk;
+ $('cartMethod').value=bulk?'sea':'air';
+ $('cartShippingTitle').textContent=bulk?'Wholesale sea-freight inquiry':'Retail air-shipping estimate';
+ $('cartSummaryHeading').textContent=bulk?'Wholesale quote request':'Retail order summary';
+ $('cartSubtotalLabel').textContent=bulk?'Retail reference only':'Product price';
+ $('cartCheckout').textContent=bulk?'Request a discounted wholesale quote →':'Continue to secure retail checkout →';
+ $('cartCheckoutInfo').textContent=bulk?'Discount varies by quantity. No payment until a written wholesale quote is approved.':'The secure payment step will confirm whether checkout is currently active.';
+ $('cartNote').textContent=bulk?
+  '10+ items: buyer must agree to sea freight. Estimated transit 25–30 days after dispatch, not guaranteed. Price, discounts, duties and final freight require a written wholesale quote.':
+  '1–9 items: published retail prices; air freight calculated separately. Taxes, duties and final delivery are confirmed before payment.';
+ if(bulk){$('cartSummaryShipping').textContent='Quoted individually';$('cartSummaryTotal').textContent='Quantity discount available';}
+ $('cartCheckout').disabled=bulk?!$('bulkSeaConsent').checked:!latest;
+}
 
 function updateAirLabel(){const el=$('cartAir');if(!el)return;el.textContent=$('cartCountry').value.trim().toUpperCase()==='US'?'Air parcel · US estimated 12–15 days after dispatch':'Air parcel · delivery timing confirmed on request';}
 function redraw(){const lines=read(),body=$('cartLines');body.replaceChildren();let sub=0;
