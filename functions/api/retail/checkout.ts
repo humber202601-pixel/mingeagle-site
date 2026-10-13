@@ -118,7 +118,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   statements.push(db.prepare("INSERT INTO retail_checkout_requests(request_id,order_id,quote_id) VALUES (?,?,?)")
    .bind(requestId,order,quote));
   const result=await db.batch(statements);
-  if(!Array.isArray(result)||result.length!==statements.length||result.some(x=>x.success===false))
+  if(!Array.isArray(result)||result.length!==statements.length||result.some(x=>!x.success))
    throw Error('Checkout write unconfirmed');
   return Response.json({ok:true,orderReference:orderRef,quantity,totalBeforeTaxesUSD:total/100,
     paymentStatus:'UNPAID',paymentPage:allowedOrigin+'/quote/'+rawToken},
