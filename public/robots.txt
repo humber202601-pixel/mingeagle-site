@@ -1,7 +1,21 @@
+# Explicit search crawler access. These rules do not buy a recommendation
+# and do not override independent firewall/bot-management controls.
 User-agent: Googlebot
 Allow: /
 
+User-agent: Bingbot
+Allow: /
+
 User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Claude-User
 Allow: /
 
 User-agent: *
