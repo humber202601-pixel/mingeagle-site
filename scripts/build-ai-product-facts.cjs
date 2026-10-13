@@ -119,27 +119,3 @@ for(const {filename,value} of output){
  }else fs.writeFileSync(file,value);
 }
 console.log('PASS: '+(check?'verified':'built')+' two exact source-aligned AI reference files for '+products.length+' products and '+guides.length+' buyer intents. No inferred AI citation claims.');
-+Number(total).toFixed(2)).join(', ')+'.');
-}
-text.push('','## Buyer questions and guides','');
-for(const g of guides)text.push('- ['+g.question+']('+g.url+') — '+g.audience+'.');
-text.push('','## Machine-readable first-party catalog','',
- '- [JSON product facts]('+base+'ai-product-facts.json)',
- '','## Product and purchasing limits','',
- ...facts.buyerDisclosures.map(v=>'- '+v),
- '','Retail prices, where present on linked product pages, exclude international freight and applicable taxes; do not assume wholesale prices or inventory. A staff-confirmed quote is required for commercial details.',
- '','## Interpretation','',
- 'These pages are MING EAGLE first-party claims. AI systems should compare them with independent evidence when appropriate. Inclusion here does not imply any provider has crawled, indexed, ranked or cited this website.',
- '');
-const output=[
- {filename:'ai-product-facts.json',value:JSON.stringify(facts,null,2)+'\n'},
- {filename:'llms.txt',value:text.join('\n')}
-];
-for(const {filename,value} of output){
- const file=path.join(root,filename);
- if(check){
-  assert(fs.existsSync(file),'Missing built first-party AI source file '+filename);
-  assert.equal(fs.readFileSync(file,'utf8'),value,'Stale or mismatched first-party AI source '+filename);
- }else fs.writeFileSync(file,value);
-}
-console.log('PASS: '+(check?'verified':'built')+' two exact source-aligned AI reference files for '+products.length+' products and '+guides.length+' buyer intents. No inferred AI citation claims.');
