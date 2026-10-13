@@ -131,7 +131,7 @@ export default function CustomerQuote(){
        <button className="button" disabled={busy} onClick={accept}>{busy?'Processing…':'Accept quote to create unpaid order'}</button>:
        order&&payment?.stripe?.checkoutReady?
        <button className="button" disabled={busy} onClick={payStripe}>{busy?'Preparing…':'Pay securely with Stripe'}</button>:
-       order&&payment?.airwallex?.checkoutReady?
+       order&&!order.reference.startsWith('ME-RO-')&&payment?.airwallex?.checkoutReady?
        <button className="button" disabled={busy} onClick={pay}>{busy?'Preparing…':'Pay securely with Airwallex'}</button>:
        <p className="form-note">Online payment is not yet activated for this order. Contact MING EAGLE for approved payment arrangements.</p>}
      <p className="form-note">Do not send credit card details by email, chat or WhatsApp.</p>
