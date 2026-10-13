@@ -14,7 +14,7 @@ body{background:#f7f9fc;color:var(--cart-ink)}
 @media(max-width:520px){.cart-panel{padding:20px 15px}.cart-fields{grid-template-columns:1fr}.cart-head{margin-top:16px}.cart-head h1{font-size:34px}.cart-panel h2{font-size:20px}}
 </style></head><body>
 <main id="retailCart" class="cart-shell"><a class="cart-back" href="products.html">← Continue shopping</a>
-<header class="cart-head"><div class="kicker">MING EAGLE / SECURE ORDER REQUEST</div><h1>Shopping Cart</h1><p>Review your products and estimate delivery from China. All prices are in USD. You can request confirmation of the final total before payment.</p></header>
+<header class="cart-head"><div class="kicker">MING EAGLE / RETAIL &amp; WHOLESALE</div><h1>Shopping Cart</h1><p>Buy 1–9 items at public retail prices by air parcel. For 10 or more items, request quantity-based wholesale discounts with sea freight and estimated delivery 25–30 days after dispatch. Delivery dates are not guaranteed.</p><p id="cartRoute" role="status"></p></header>
 <div class="cart-layout"><div class="cart-column">
 <section class="cart-panel"><h2>Cart items</h2>
 <div id="cartEmpty" class="cart-empty"><div class="cart-empty-icon" aria-hidden="true">🛒</div><h3>Your cart is empty</h3><p>Explore our quiet-play products, choose a size and add items to see your delivered price.</p><div class="cart-browse"><a class="cart-primary" href="silent-basketball.html">Shop basketballs →</a><a class="cart-link-btn" href="silent-soccer.html">Shop soccer balls</a></div></div>
@@ -22,8 +22,11 @@ body{background:#f7f9fc;color:var(--cart-ink)}
 <p class="cart-subtotal">Products subtotal: <strong id="cartSubtotal">$0.00</strong></p></section>
 <section class="cart-panel"><h2>Shipping estimate</h2><form id="cartEstimateForm">
 <div class="cart-fields"><label>Destination country (ISO code)<input id="cartCountry" name="country" value="US" maxlength="2" minlength="2" autocomplete="country" required></label>
-<label>Delivery method<select id="cartMethod" name="method"><option value="air" id="cartAir">Air parcel · US estimated 12–15 days after dispatch</option><option value="sea" id="cartSea">Sea freight · approx. 25 days (10+)</option></select></label></div>
-<div class="cart-shipping-action"><button type="submit" class="cart-primary">Calculate shipping</button></div></form><p id="cartStatus" class="cart-status" role="status">Add products to calculate shipping.</p><div class="cart-eta">✈ US single-item air parcel: estimated 12–15 days after dispatch &nbsp; · &nbsp; 🚢 Sea freight from 10 balls</div></section>
+<label>Delivery method<select id="cartMethod" name="method"><option value="air" id="cartAir">Air parcel · US estimated 12–15 days after dispatch</option><option value="sea" id="cartSea">Wholesale sea freight · estimated 25–30 days after dispatch</option></select></label></div>
+<div id="cartRetail"><p>Retail: 1–9 total items, public USD prices, air shipment. Tax and stock confirmation are required before secure payment can be activated.</p></div>
+<div id="cartWholesale" hidden><p><strong>Wholesale · 10+ items.</strong> Ask for a customized price: larger quantities may receive greater discounts after review. Ocean freight is required, and delivery is estimated 25–30 days after dispatch, not guaranteed.</p>
+<label style="display:flex;align-items:flex-start;gap:10px;line-height:1.5;font-size:14px"><input type="checkbox" id="cartSeaConsent" style="width:auto;height:auto;min-width:18px;margin-top:4px">I agree to use sea freight for this wholesale order and understand that 25–30 days after dispatch is an estimate, not a guaranteed delivery date.</label></div>
+<div class="cart-shipping-action"><button type="submit" class="cart-primary">Calculate shipping</button></div></form><p id="cartStatus" class="cart-status" role="status">Add products to calculate shipping.</p><div class="cart-eta">✈ US single-item air parcel: estimated 12–15 days after dispatch &nbsp; · &nbsp; 🚢 Sea freight 10+ items: estimated 25–30 days</div></section>
 </div>
 <aside class="cart-panel cart-summary" aria-label="Order summary"><h2>Order summary</h2>
 <div class="cart-total-line"><span>Products</span><strong id="cartSummaryGoods">$0.00</strong></div>
@@ -31,6 +34,6 @@ body{background:#f7f9fc;color:var(--cart-ink)}
 <div class="cart-total-line cart-grand"><span>Total before tax</span><strong id="cartSummaryTotal">—</strong></div>
 <div class="cart-note">Ships from China. Duties and taxes are not included. Stock, final freight and delivery terms are confirmed before any payment.</div>
 <div id="cartEstimate" hidden><span id="cartGoods" hidden></span><span id="cartFreight" hidden></span><span id="cartTotal" hidden></span></div>
-<button class="cart-primary" id="cartCheckout" type="button" disabled>Continue to order request →</button><p class="cart-small">No payment is collected at this step.</p>
+<button class="cart-primary" id="cartCheckout" type="button" disabled>Choose retail payment or wholesale quote →</button><p class="cart-small">No payment is collected on this page. Retail payment is offered only after the secure payment gateway and final order terms have been verified.</p>
 </aside></div></main>
-<script defer src="forms-core.js"></script><script defer src="direct-contact.js"></script><script defer src="retail-cart.js?v=20261011-2"></script></body></html>
+<script defer src="forms-core.js"></script><script defer src="direct-contact.js"></script><script defer src="retail-cart.js?v=20261013-quantity-routing"></script></body></html>
