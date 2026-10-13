@@ -1,6 +1,6 @@
 {
   "updated": "2026-10-13",
-  "source": "official MING EAGLE public/sitemap.xml",
+  "source": "official MING EAGLE public/sitemap.xml + public/sitemap-localized.xml (PR #92, 2026-10-13)",
   "urls": [
     "https://www.mingeagle.com/",
     "https://www.mingeagle.com/products.html",
@@ -26,6 +26,10 @@
     "https://www.mingeagle.com/order-status.html",
     "https://www.mingeagle.com/policies.html",
     "https://www.mingeagle.com/quiet-indoor-sports-for-kids.html",
-    "https://www.mingeagle.com/indoor-school-sports-equipment-guide.html"
+    "https://www.mingeagle.com/indoor-school-sports-equipment-guide.html",
+    "https://www.mingeagle.com/school-sports-equipment-de.html",
+    "https://www.mingeagle.com/school-sports-equipment-fr.html",
+    "https://www.mingeagle.com/school-sports-equipment-es.html",
+    "https://www.mingeagle.com/school-sports-equipment-pt.html"
   ]
 }
