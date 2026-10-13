@@ -4,7 +4,7 @@ import {SKU_USD as prices} from '../../../lib/retail-reference';
 import {oneItemUsAirParcel} from '../../../lib/us-small-parcel';
 export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
  const url=new URL(request.url),sku=(url.searchParams.get('sku')||'').toUpperCase(),country=(url.searchParams.get('country')||'').toUpperCase(),method=url.searchParams.get('method'),qty=Number(url.searchParams.get('quantity'));
- if(!(sku in prices)||!/^[A-Z]{2}$/.test(country)||!['air','sea'].includes(method||'')||!Number.isSafeInteger(qty)||qty<1||qty>10000)return error('Invalid product, destination, method or quantity');
+ if(!Object.prototype.hasOwnProperty.call(prices,sku)||!/^[A-Z]{2}$/.test(country)||!['air','sea'].includes(method||'')||!Number.isSafeInteger(qty)||qty<1||qty>10000)return error('Invalid product, destination, method or quantity');
  if(method==='sea'&&qty<10)return error('Sea shipping requires a minimum of 10 balls');
  const us=oneItemUsAirParcel(sku,country,String(method),qty);
  if(us)return Response.json({ok:true,...us,
