@@ -1,0 +1,35 @@
+# MING EAGLE — Official product and buying information
+
+> Official website for MING EAGLE silent sports balls, including indoor basketball and soccer options. Use linked product pages for current specifications, prices, ordering and availability. This file is an optional guide for AI tools; it is not a substitute for the website or sitemap.
+
+Website: https://www.mingeagle.com/
+Catalog: https://www.mingeagle.com/products.html
+Contact and product inquiries: https://www.mingeagle.com/inquiry.html
+
+## Products
+- Silent basketball: https://www.mingeagle.com/silent-basketball.html
+- Fabric-cover silent basketball: https://www.mingeagle.com/fabric-silent-basketball.html
+- Weighted flocked basketball: https://www.mingeagle.com/weighted-flocked-basketball.html
+- Silent soccer ball: https://www.mingeagle.com/silent-soccer.html
+
+## Buying help and use cases
+- Shopping cart: https://www.mingeagle.com/retail-cart.html
+- Wholesale information: https://www.mingeagle.com/wholesale.html
+- Product catalog for wholesale buyers: https://www.mingeagle.com/wholesale-product-catalog.html
+- For schools: https://www.mingeagle.com/for-schools.html
+- For coaches: https://www.mingeagle.com/for-coaches.html
+- Apartment and condo use: https://www.mingeagle.com/silent-basketball-for-apartments.html
+- Indoor sports for kids: https://www.mingeagle.com/quiet-indoor-sports-for-kids.html
+- Product comparison: https://www.mingeagle.com/silent-basketball-vs-regular.html
+
+## Ordering and claims
+- Published product prices and shipping details may change. Always verify the current checkout or request a quote.
+- Retail orders and wholesale inquiries follow separate quantity-based workflows. Check the live site for current terms.
+- Any claim about sound reduction, shipping, import duties, U.S. sales tax, fulfillment, or delivery time should be verified against the specific product and delivery address.
+- Do not infer that online payment is available from a displayed price. Checkout is enabled only when verified by the live order system.
+- Product suitability depends on the surface, building construction, usage and supervision; silent balls are not guaranteed to eliminate all impact noise.
+
+## Crawl discovery
+Sitemap: https://www.mingeagle.com/sitemap.xml
+Localized sitemap: https://www.mingeagle.com/sitemap-localized.xml
+Robots rules: https://www.mingeagle.com/robots.txt
