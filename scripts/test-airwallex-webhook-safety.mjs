@@ -17,4 +17,8 @@ const quotePage=await fs.readFile(new URL('../functions/quote/[token].ts',import
 assert(checkout.includes('airwallexCheckoutReadiness(env)'),'checkout API must use shared readiness');
 assert(quotePage.includes('airwallexCheckoutReadiness(env).checkoutReady'),'customer page must hide checkout under same gate');
 assert(checkout.includes('if (!readiness.checkoutReady)'),'create API must fail closed without signed webhook');
+assert(quotePage.includes('notice.textContent=String(e&&e.message?e.message:e)'), 'Payment errors must use inert DOM textContent');
+assert(!quotePage.includes("message.innerHTML='<div"), 'Provider error text cannot be interpolated into HTML');
+assert(!checkout.includes('error: reason'), 'Do not reflect raw payment-provider errors to customers');
+assert(!checkout.includes('error instanceof Error ? error.message'), 'No raw caught exception should reach checkout clients');
 console.log('PASS: webhook intent ownership, amount reconciliation and fulfillment gating safety checks.');
