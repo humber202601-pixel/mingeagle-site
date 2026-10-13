@@ -46,13 +46,26 @@ for(const [source,target] of [
  ['wholesale.html','indoor-school-sports-equipment-guide.html'],
  ['for-schools.html','indoor-school-sports-equipment-guide.html'],
  ['for-coaches.html','indoor-school-sports-equipment-guide.html'],
+ ['indoor-school-sports-equipment-guide.html','quiet-indoor-sports-for-kids.html'],
+ ['basketball-camp-equipment-supplier.html','quiet-indoor-sports-for-kids.html'],
  ['silent-basketball-for-apartments.html','quiet-indoor-sports-for-kids.html']
 ]){
  const html=read(source);
  assert(html.includes('href="'+target+'"'),source+' must link to '+target+' in visible HTML');
 }
+for(const [filename,sectionId,phrase] of [
+ ['indoor-school-sports-equipment-guide.html','take-home-practice','students practise at home'],
+ ['basketball-camp-equipment-supplier.html','take-home-ball-sessions','take-home practice for camp participants']
+]){
+ const source=read(filename);
+ const block=source.match(new RegExp('<section\\b[^>]*id="'+sectionId+'"[^>]*>[\\s\\S]*?<\\/section>','i'))?.[0]||'';
+ assert(block.includes('<a href="quiet-indoor-sports-for-kids.html">'),filename+' must contain a visible contextual family guide HTML link');
+ assert(block.toLowerCase().includes(phrase.toLowerCase()),'Link must be attached to real buyer guidance');
+ assert(/supervis/i.test(block)&&/noise|sound/i.test(block),'Unsubstantiated safety/noise-free assertions prohibited');
+ assert(!/guaranteed silent|\\d+% quieter|\\d+\\s*dB|certified safe/i.test(block),'No invented acoustic/safety evidence');
+}
 for(const ua of ['Googlebot','Bingbot','OAI-SearchBot','PerplexityBot','Claude-SearchBot','Claude-User']){
  assert(new RegExp('User-agent: '+ua+'\\s+Allow: /').test(robots),'Crawler rule missing: '+ua);
 }
 assert(robots.includes('Sitemap: '+base+'sitemap.xml'));
-console.log('PASS: two user-intent buyer guides, site-safe JSON-LD, robots/search crawlers, canonical URLs, sitemap and nine validated in-site entry points.');
+console.log('PASS: two user-intent buyer guides, site-safe JSON-LD, robots/search crawlers, canonical URLs, sitemap and eleven validated in-site entry points.');
