@@ -14,6 +14,10 @@ assert.equal((cart.match(/function redraw\(/g)||[]).length,0,'No stale duplicate
 assert.equal((cart.match(/function render\(/g)||[]).length,1,'One current cart implementation');
 assert(cart.includes('n>=10')&&cart.includes("bulk?'sea':'air'"));
 assert(cart.includes('seaFreightAccepted:sourceConsent()'));
+assert(cart.includes('/api/retail/checkout-status'));
+assert(cart.includes('data.retailCheckoutReady===true'));
+assert(cart.includes("new URL('https://app.mingeagle.com/retail/checkout')"));
+assert(cart.includes("linkToInquiry('retail')"),'Keep fallback while payment is not ready');
 assert(cart.includes("linkToInquiry('quote')")&&cart.includes("linkToInquiry('retail')"));
 assert(!cart.includes('window.location.href=\'https://airwallex.com'), 'Never invent an unverified checkout payment link');
 const page=fs.readFileSync('public/retail-cart.html','utf8');
