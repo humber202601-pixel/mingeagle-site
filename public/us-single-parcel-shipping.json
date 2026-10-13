@@ -31,8 +31,24 @@
     }
   },
   "disclosures": [
-    "Applies to a single item shipped to the United States by air small parcel. Multi-item and other destination rates require separate calculation or written confirmation.",
-    "Expected delivery roughly 12–15 days after dispatch, not a guaranteed arrival date. Customs, remote areas and carrier delays may apply.",
-    "Product stock, final freight, tax, duties and payment total are subject to written confirmation."
-  ]
+    "Confirmed for one P1-S7 unit shipping China-to-USA at $14: merchant-arranged import customs clearance and import duties are included in that $14 shipping charge; no separate import duty charged to the buyer.",
+    "US state/local sales or use tax is separate. Whether MING EAGLE must collect depends on the delivery state and the merchant's sales-tax registrations and nexus.",
+    "DDP coverage is not yet independently documented for other sizes, SKUs or multi-item shipments; these continue to require confirmation.",
+    "Expected delivery roughly 12–15 days after dispatch, not a guaranteed arrival date. Customs, remote areas and carrier delays may apply."
+  ],
+  "confirmedDdpSingleItem": {
+    "sku": "P1-S7",
+    "shippingUSD": 14,
+    "origin": "CN",
+    "destination": "US",
+    "scope": "one-unit-only",
+    "includes": [
+      "import_customs_clearance",
+      "applicable_import_duties"
+    ],
+    "excludes": [
+      "US_state_local_sales_tax"
+    ],
+    "verifiedBy": "Merchant confirmation on 2026-10-13"
+  }
 }
