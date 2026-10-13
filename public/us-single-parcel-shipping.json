@@ -1,0 +1,38 @@
+{
+  "currency": "USD",
+  "destinationCountry": "US",
+  "shippingMethod": "air",
+  "service": "air_small_parcel",
+  "scope": "one_product_unit_per_parcel",
+  "estimatedDeliveryDays": {
+    "min": 12,
+    "max": 15,
+    "basis": "estimated_after_dispatch_not_guaranteed"
+  },
+  "productSizeShippingUSD": {
+    "p1": {
+      "3": 11.5,
+      "5": 12,
+      "7": 14
+    },
+    "p2": {
+      "3": 11.5,
+      "5": 12,
+      "7": 14
+    },
+    "p3": {
+      "3": 12,
+      "4": 13,
+      "6": 15,
+      "7": 16
+    },
+    "p4": {
+      "5": 12
+    }
+  },
+  "disclosures": [
+    "Applies to a single item shipped to the United States by air small parcel. Multi-item and other destination rates require separate calculation or written confirmation.",
+    "Expected delivery roughly 12–15 days after dispatch, not a guaranteed arrival date. Customs, remote areas and carrier delays may apply.",
+    "Product stock, final freight, tax, duties and payment total are subject to written confirmation."
+  ]
+}

@@ -31,6 +31,15 @@ async function run(message,opts={}){
  return {status:res.status,body:await res.json(),writes};
 }
 function message(products,method='Air parcel'){return ['Retail cart order request (NOT PAID)','Products: '+products,'Total items: 10','Destination country: US','Preferred shipping: '+method,'Estimated freight USD (unverified): 0.01','Estimated total before tax USD (unverified): 0.02'].join('\n')}
+const usSingle=await run(message('P1-S3 x 1'));
+assert.equal(usSingle.status,200,JSON.stringify(usSingle.body));
+assert.equal(usSingle.body.quantity,1);
+assert.equal(usSingle.body.subtotalUSD,9.9);
+assert.equal(usSingle.body.shippingUSD,11.5);
+assert.equal(usSingle.body.totalBeforeTaxesUSD,21.4);
+assert.equal(usSingle.body.status,'DRAFT');
+assert.equal(usSingle.body.paymentEnabled,false);
+assert.equal(usSingle.writes.length,3);
 const good=await run(message('P1-S3 x 4, P4-S5 x 6'));
 assert.equal(good.status,200,JSON.stringify(good.body));
 assert.equal(good.body.status,'DRAFT');assert.equal(good.body.paymentEnabled,false);

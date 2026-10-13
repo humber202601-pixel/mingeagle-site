@@ -1,10 +1,15 @@
 interface Env {MINGEAGLE_DB:D1Database}
 const error=(message:string,status=400)=>Response.json({ok:false,error:message},{status,headers:{'cache-control':'no-store'}});
 import {SKU_USD as prices} from '../../../lib/retail-reference';
+import {oneItemUsAirParcel} from '../../../lib/us-small-parcel';
 export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
  const url=new URL(request.url),sku=(url.searchParams.get('sku')||'').toUpperCase(),country=(url.searchParams.get('country')||'').toUpperCase(),method=url.searchParams.get('method'),qty=Number(url.searchParams.get('quantity'));
  if(!(sku in prices)||!/^[A-Z]{2}$/.test(country)||!['air','sea'].includes(method||'')||!Number.isSafeInteger(qty)||qty<1||qty>10000)return error('Invalid product, destination, method or quantity');
  if(method==='sea'&&qty<10)return error('Sea shipping requires a minimum of 10 balls');
+ const us=oneItemUsAirParcel(sku,country,String(method),qty);
+ if(us)return Response.json({ok:true,...us,
+  notice:'USA one-item air small-parcel estimate; approximately 12–15 days after dispatch, not guaranteed. Taxes, duties, stock and final amount require confirmation before payment.'},
+  {headers:{'cache-control':'no-store','access-control-allow-origin':'*','vary':'Origin'}});
  if(!env.MINGEAGLE_DB)return error('Shipping quotes unavailable',503);
  try{
  const rate=await env.MINGEAGLE_DB.prepare('SELECT * FROM shipping_rates WHERE country=? AND method=? AND active=1').bind(country,method).first<Record<string,number>>();

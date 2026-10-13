@@ -1,6 +1,7 @@
 interface Env { MINGEAGLE_DB:D1Database }
 type Line={sku:string;quantity:number};
 import {SKU_USD as prices} from '../../../lib/retail-reference';
+import {oneItemUsAirParcel} from '../../../lib/us-small-parcel';
 const cors={'access-control-allow-origin':'*','access-control-allow-methods':'POST, OPTIONS','access-control-allow-headers':'Content-Type','vary':'Origin','cache-control':'no-store'};
 const result=(v:object,status=200)=>Response.json(v,{status,headers:cors});
 export const onRequestOptions:PagesFunction<Env>=async()=>new Response(null,{status:204,headers:cors});
@@ -13,6 +14,14 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  for(const line of lines){if(!line||typeof line.sku!=='string'||!(line.sku in prices)||keys.has(line.sku)||!Number.isSafeInteger(line.quantity)||line.quantity<1||line.quantity>10000)return result({ok:false,error:'Invalid or duplicate basket line'},400);keys.add(line.sku);quantity+=line.quantity;subtotalCents+=Math.round(prices[line.sku]*100)*line.quantity}
  if(quantity>10000)return result({ok:false,error:'Too many items'},400);
  if(method==='sea'&&quantity<10)return result({ok:false,error:'Sea shipping requires at least 10 balls'},400);
+ // Exactly one US retail unit uses the owner-confirmed small-parcel price.
+ // A multi-item cart intentionally uses the existing tariff/packaging engine.
+ const one=lines.length===1&&quantity===1?
+  oneItemUsAirParcel(lines[0].sku,country,String(method),1):null;
+ if(one)return result({ok:true,lines:[{sku:one.sku,quantity:1,
+  unitPriceUSD:one.productUSD,lineTotalUSD:one.productUSD}],
+  ...one,volumeCBM:null,
+  notice:'Single-item US air small parcel; 12–15 days estimated after dispatch, not guaranteed. Final terms and taxes require confirmation.'});
  if(!env.MINGEAGLE_DB)return result({ok:false,error:'Database unavailable'},503);
  try{
  const rate=await env.MINGEAGLE_DB.prepare('SELECT * FROM shipping_rates WHERE country=? AND method=? AND active=1').bind(country,method).first<Record<string,number>>();
