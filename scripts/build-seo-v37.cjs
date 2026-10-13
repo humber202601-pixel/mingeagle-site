@@ -12,8 +12,8 @@ const settings={
    email:'mingeaglecommerce@gmail.com',contactPoint:[{'@type':'ContactPoint',contactType:'sales inquiries',email:'mingeaglecommerce@gmail.com',availableLanguage:'English'}]}
  },
  'products.html':{
-  title:'Silent Basketball Sets & Indoor Soccer Balls | MING EAGLE',
-  description:'Compare four MING EAGLE silent indoor sports products: flocked basketball set, fabric-cover basketball set, weighted flocked basketball and indoor soccer ball.'
+  title:'Compare Quiet Indoor Basketball Sets & Soccer Balls | MING EAGLE',
+  description:'Compare flocked and fabric-cover mini hoop sets, weighted indoor practice balls and soft soccer. Browse real sizes, colors, product details and US shipping options.'
  },
  'wholesale.html':{
   title:'Silent Basketball Wholesale & Bulk Orders | MING EAGLE',
@@ -34,8 +34,8 @@ const settings={
    description:'Flocked non-inflatable basketball and adhesive mini hoop set for quieter indoor family play. Sizes 3, 5 and 7.'}
  },
  'fabric-silent-basketball.html':{
-  title:'Fabric-Cover Silent Basketball Set with Hoop | MING EAGLE',
-  description:'Fabric-cover quiet indoor basketball set with adhesive mini hoop. Sizes 3, 5 and 7; available in orange and green.',
+  title:'Fabric-Cover Soft Silent Basketball & Mini Hoop Set | MING EAGLE',
+  description:'Explore the fabric-cover indoor basketball plus adhesive mini hoop. Sizes 3, 5 and 7 in orange or green, surface comparison and US parcel shipping estimates.',
   product:{name:'Fabric-Cover Silent Basketball Set',image:'assets/hero-fabric-cover-silent-basketball-set.webp',
    description:'Fabric-covered quiet indoor basketball set with matching adhesive mini hoop. Sizes 3, 5 and 7.'}
  },
