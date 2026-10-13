@@ -206,7 +206,23 @@ function enforcePolicy(){
 }
 let reference=null,busy=false,prepared='';
 function sync(){enforcePolicy();const r=rules($('request_type').value);$('quoteFields').hidden=!r.purchase;$('quoteFields').querySelectorAll('input,select').forEach(el=>{el.disabled=!r.purchase;el.required=r.purchase});$('orderFields').hidden=!r.order;$('order_reference').disabled=!r.order;$('order_reference').required=r.order;$('message').required=r.message;$('messageRequired').hidden=!r.message;$('productHelp').textContent=r.purchase?'Select at least one product. Size and color choices appear below each selection.':'Select a product if relevant, or describe your question below.';form.querySelectorAll('.inquiryProduct').forEach(card=>{const selected=card.querySelector('[name="products[]"]').checked;card.classList.toggle('selected',selected);const opts=card.querySelector('.productOptions');opts.hidden=!selected;opts.querySelectorAll('select').forEach(el=>el.disabled=!selected)});$('productError').hidden=true}
-function read(){const fd=new FormData(form),r=rules($('request_type').value),v=n=>String(fd.get(n)||'').trim();const products=[...form.querySelectorAll('[name="products[]"]:checked')].map(cb=>{const id=cb.closest('[data-product]').dataset.product;return cb.value+' — '+($('size-'+id).value||'size: please advise')+' / '+($('color-'+id).value||'color: please advise')}).join('\n');if(!reference)reference=core.reference();return {reference,requestType:v('request_type'),firstname:v('firstname'),email:v('email'),products,quantity:r.purchase?v('estimated_quantity'):'',country:r.purchase?v('country'):'',orderReference:r.order?v('order_reference'):'',company:v('company'),phone:v('phone'),customerType:v('customer_type'),zip:v('zip'),customization:v('customization')+(logoPolicyAvailable&&isLogo()?' | '+$('logoKind').value+' logo | exact units: '+$('logoQuantity').value:''),timing:v('order_timing'),message:v('message')+(assistantSummary&&!v('message').includes(assistantSummary)?'\nAI-assisted RFQ details (customer-reviewed): '+assistantSummary:'')+(assistedInquiry?'\nInquiry origin: Website AI sales assistant (customer-reviewed handoff).':'')+(wholesaleRfqLines.length?'\nCombined wholesale RFQ (customer-selected; not a final price):\n'+wholesaleRfqLines.join('\n'):'')+(q.get('buyer_plan')==='sea_accepted'&&wholesalePrefillUnits>=10?'\nSea-freight quote planner: visitor acknowledged sea transport estimates before this inquiry; US arrival is estimated 25–30 days after dispatch, not guaranteed. Written terms are required.':'')+(logoPolicyAvailable&&rules($('request_type').value).purchase?'\nShipping method: '+$('shippingMethod').value+'\nExact requested units: '+($('quoteUnits').value||'Not specified')+'\nFreight, stock readiness, delivery timeline and final total subject to confirmation before payment.':'')}}
+// Navigation context comes from an explicit on-site video-to-product link.
+// It is not evidence of playback, watch duration, creator attribution or purchase.
+function creatorVideoContext(){
+ try{
+  const raw=sessionStorage.getItem('mingeagle_video_to_product_v1');
+  if(!raw)return '';
+  const item=JSON.parse(raw);
+  const age=Date.now()-item.at;
+  if(!Number.isFinite(age)||age<0||age>30*60*1000)return '';
+  if(!/^V0(?:0[1-9]|1[0-6])$/.test(item.code||''))return '';
+  const chosen=[...form.querySelectorAll('[name="products[]"]:checked')];
+  if(!chosen.some(el=>el.closest('[data-product]')?.dataset.product==='p1'))return '';
+  return item.code;
+ }catch{return ''}
+}
+function clearCreatorContext(){try{sessionStorage.removeItem('mingeagle_video_to_product_v1')}catch{}}
+function read(){const fd=new FormData(form),r=rules($('request_type').value),v=n=>String(fd.get(n)||'').trim();const products=[...form.querySelectorAll('[name="products[]"]:checked')].map(cb=>{const id=cb.closest('[data-product]').dataset.product;return cb.value+' — '+($('size-'+id).value||'size: please advise')+' / '+($('color-'+id).value||'color: please advise')}).join('\n');if(!reference)reference=core.reference();const creatorVideoCode=creatorVideoContext();return {reference,creatorVideoCode,requestType:v('request_type'),firstname:v('firstname'),email:v('email'),products,quantity:r.purchase?v('estimated_quantity'):'',country:r.purchase?v('country'):'',orderReference:r.order?v('order_reference'):'',company:v('company'),phone:v('phone'),customerType:v('customer_type'),zip:v('zip'),customization:v('customization')+(logoPolicyAvailable&&isLogo()?' | '+$('logoKind').value+' logo | exact units: '+$('logoQuantity').value:''),timing:v('order_timing'),message:v('message')+(assistantSummary&&!v('message').includes(assistantSummary)?'\nAI-assisted RFQ details (customer-reviewed): '+assistantSummary:'')+(assistedInquiry?'\nInquiry origin: Website AI sales assistant (customer-reviewed handoff).':'')+(wholesaleRfqLines.length?'\nCombined wholesale RFQ (customer-selected; not a final price):\n'+wholesaleRfqLines.join('\n'):'')+(q.get('buyer_plan')==='sea_accepted'&&wholesalePrefillUnits>=10?'\nSea-freight quote planner: visitor acknowledged sea transport estimates before this inquiry; US arrival is estimated 25–30 days after dispatch, not guaranteed. Written terms are required.':'')+(creatorVideoCode?'\nOn-site creator video-to-product link: '+creatorVideoCode+' (browser navigation hint, not proof of playback or sale).':'')+(logoPolicyAvailable&&rules($('request_type').value).purchase?'\nShipping method: '+$('shippingMethod').value+'\nExact requested units: '+($('quoteUnits').value||'Not specified')+'\nFreight, stock readiness, delivery timeline and final total subject to confirmation before payment.':'')}}
 function review(d,hint){prepared=summary(d,core.context('MING EAGLE product / wholesale inquiry'));$('reviewContent').textContent=prepared;$('sendEmail').href='mailto:mingeaglecommerce@gmail.com?subject='+encodeURIComponent('MING EAGLE inquiry '+d.reference)+'&body='+encodeURIComponent(prepared);$('sendWhatsApp').href='https://wa.me/8613851585237?text='+encodeURIComponent(prepared);$('reviewHint').textContent=hint||'Choose email or WhatsApp and press Send in that app. Preparing this request does not submit it to MING EAGLE.';$('inquiryReview').hidden=false;$('inquiryReview').scrollIntoView({behavior:'smooth',block:'nearest'})}
 form.addEventListener('change',()=>{sync();$('inquiryReview').hidden=true;$('formStatus').textContent=''});form.addEventListener('input',()=>{$('inquiryReview').hidden=true;$('formStatus').textContent=''});
 let autoSampleQuantity=false;function syncSampleQuantity(){const el=$('estimated_quantity');if($('request_type').value==='Sample request'&&!el.value){el.value='1–2 samples';autoSampleQuantity=true}else if($('request_type').value!=='Sample request'&&autoSampleQuantity){if(el.value==='1–2 samples')el.value='';autoSampleQuantity=false}}$('estimated_quantity').addEventListener('change',()=>{autoSampleQuantity=false});$('request_type').addEventListener('change',syncSampleQuantity);syncSampleQuantity();sync();
@@ -234,6 +250,7 @@ form.addEventListener('submit',async e=>{
   }
   $('formStatus').textContent='Saving your request to MING EAGLE…';
   await sendCrmInquiry(c,d,context,undefined,challenge?challenge.token():'');
+  clearCreatorContext();
   // Preserve the existing HubSpot lead source on a best-effort basis.
   // A HubSpot outage cannot undo a successfully persisted CRM inquiry.
   try{await sendPayload(c,buildPayload(d,c,context),undefined,4500)}
@@ -257,6 +274,7 @@ form.addEventListener('submit',async e=>{
   // Keep HubSpot as the known working fallback rather than lose a buyer inquiry.
   try{
    await sendPayload(c,buildPayload(d,c,context));
+   clearCreatorContext();
    core.saveReceipt(d,'inquiry');
    $('formStatus').textContent='Your request was received by our backup form. Reference: '+d.reference+'. Our sales team will review it; synchronization to the customer management system has not yet been confirmed.';
    $('inquiryReview').hidden=true;
