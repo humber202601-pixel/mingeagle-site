@@ -35,7 +35,7 @@ try{
  ];
  let external=0,dbReads=0,dbWrites=0;
  globalThis.fetch=async()=>{external++;throw Error('Network must not be used while checkout is not ready');};
- const db={prepare(sql){if(/^\\s*(INSERT|UPDATE|CREATE|DELETE|ALTER|DROP)/i.test(sql))dbWrites++;else dbReads++;throw Error('No D1 access allowed before payment readiness');}};
+ const db={prepare(sql){if(/^\s*(INSERT|UPDATE|CREATE|DELETE|ALTER|DROP)/i.test(sql))dbWrites++;else dbReads++;throw Error('No D1 access allowed before payment readiness');}};
  for(const env of missing){
   assert.equal(airwallexCheckoutReadiness(env).checkoutReady,false);
   const response=await onRequestPost({env:{...env,MINGEAGLE_DB:db},
