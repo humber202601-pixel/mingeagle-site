@@ -131,12 +131,32 @@ $('cartEstimateForm').addEventListener('submit',async e=>{
  }catch(err){$('cartStatus').textContent='Cannot calculate shipping: '+String(err?.message||err)}
  finally{loading=false}
 });
-$('cartCheckout').addEventListener('click',()=>{
+$('cartCheckout').addEventListener('click',async()=>{
  if(!last)return;
  if(isWholesale()){
   if(!sourceConsent()){$('cartStatus').textContent='Accept sea freight before requesting wholesale terms.';return}
-  linkToInquiry('quote');
- }else{linkToInquiry('retail')}
+  linkToInquiry('quote');return;
+ }
+ // Only switch from inquiry fallback to real retail checkout after the
+ // server reports *all* merchant/payment/stock/tax/Turnstile gates ready.
+ const button=$('cartCheckout');button.disabled=true;
+ $('cartStatus').textContent='Checking secure retail payment availability…';
+ try{
+  const response=await fetch('https://app.mingeagle.com/api/retail/checkout-status',{cache:'no-store'});
+  if(response.ok){
+   const data=await response.json();
+   if(data.ok&&data.retailCheckoutReady===true&&quantity(read())<=9){
+    const url=new URL('https://app.mingeagle.com/retail/checkout');
+    url.searchParams.set('cart',JSON.stringify(read()));
+    url.searchParams.set('country',country());
+    location.href=url.href;return;
+   }
+  }
+  $('cartStatus').textContent='Online retail payment is not yet active. Request a retail order now; payment will be arranged after confirmation.';
+ }catch{
+  $('cartStatus').textContent='Unable to check online payment availability. You can submit a retail order request instead.';
+ }finally{button.disabled=false}
+ linkToInquiry('retail');
 });
 render();
 })();
