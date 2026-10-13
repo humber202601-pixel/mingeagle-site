@@ -46,7 +46,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
       db.prepare(`SELECT
         l.id, COALESCE(c.name, 'Individual buyer') AS company,
         COALESCE(ct.full_name, ct.email, 'Unknown contact') AS contact,
-        l.lead_score, l.status, l.next_best_action, l.next_action_at, l.created_at
+        l.source, l.lead_score, l.status, l.next_best_action, l.next_action_at, l.last_contact_at, l.created_at
         FROM leads l
         LEFT JOIN companies c ON c.id = l.company_id
         LEFT JOIN contacts ct ON ct.id = l.primary_contact_id

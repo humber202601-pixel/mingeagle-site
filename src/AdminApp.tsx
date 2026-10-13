@@ -27,6 +27,7 @@ import AutomationCenter from './AutomationCenter';
 import DiscoveryCenter from './DiscoveryCenter';
 import ConversionFunnel from './ConversionFunnel';
 import InboundGrowth from './InboundGrowth';
+import ProspectActionQueue from './ProspectActionQueue';
 import ShippingManager from './ShippingManager';
 import SupplierPricingManager from './SupplierPricingManager';
 import {
@@ -255,7 +256,7 @@ export default function AdminApp() {
   else if (page === 'leads' && detailId) content = <AdminDetail type="lead" id={detailId} accessKey={key}/>;
   else if (page === 'inquiries' && detailId) content = <AdminDetail type="inquiry" id={detailId} accessKey={key}/>;
   else if (page === 'companies' && detailId) content = <AdminDetail type="company" id={detailId} accessKey={key}/>;
-  else if (page === 'leads') content = <><Top title="潜在客户" description="统一管理来自网站和主动开发的潜在客户，并根据优先级持续推进。"/><DataTable filterKey="status" rows={data.leads} columns={[
+  else if (page === 'leads') content = <><Top title="潜在客户" description="优先核实真实网站询盘及待联系的公开来源候选；所有开发信必须人工审阅。"/><ProspectActionQueue leads={data.leads}/><DataTable filterKey="status" rows={data.leads} columns={[
     {key:'company',label:'公司 / 机构'},{key:'contact',label:'联系人'},{key:'lead_score',label:'潜客评分'},{key:'status',label:'阶段',format:r=>statusLabel(r.status)},{key:'next_best_action',label:'下一步行动',format:r=>systemText(r.next_best_action)},{key:'created_at',label:'创建时间',format:r=>zhDate(r.created_at)},{key:'detail',label:'操作',format:r=><div className="lead-actions"><Link to={`/app/leads/${text(r.id)}`}>查看详情</Link><Link to={`/app/communications?leadId=${encodeURIComponent(text(r.id))}`}>开始沟通</Link></div>}
   ]}/></>;
   else if (page === 'inquiries') content = <><Top title="询盘" description="网站提交的每条询盘都会自动进入销售流程并形成结构化记录。"/><DataTable filterKey="status" rows={data.inquiries} columns={[

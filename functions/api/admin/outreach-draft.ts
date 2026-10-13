@@ -1,4 +1,4 @@
-import { OUTREACH_SIGNATURE, WEBSITE_INTRO, customerGreeting } from '../../../shared/outreach';
+import { OUTREACH_SIGNATURE, buyerPlannerIntro, customerGreeting } from '../../../shared/outreach';
 
 interface Env { MINGEAGLE_DB: D1Database }
 
@@ -91,9 +91,9 @@ function introDraft(params:{company:string;greeting:string;location:string;fit:R
   const body=[
     greeting,
     [foundLine,roleLine].filter(Boolean).join(' '),
-    `We make MING EAGLE silent basketballs for quieter indoor practice. Our silent basketball line has sold more than 30,000 sets in the U.S. market. ${fit.sentence}`,
+    `We make MING EAGLE soft indoor basketballs for controlled, quieter play and training activities. ${fit.sentence}`,
     productLine,
-    WEBSITE_INTRO,
+    buyerPlannerIntro(customerType),
     `We can discuss a sample and a quantity-based wholesale quote if the products suit your program.`,
     `Are you the right person for equipment purchasing, or could you point me to the colleague who handles it?`,
     OUTREACH_SIGNATURE,
