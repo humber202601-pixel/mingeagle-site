@@ -18,7 +18,7 @@ const full={MINGEAGLE_DB:null,AIRWALLEX_CLIENT_ID:'synthetic',
  TURNSTILE_SITE_KEY:'synthetic-site',TURNSTILE_SECRET_KEY:'synthetic-secret'};
 const requestId='ab44e012-00da-469b-9000-b50406b1fb70';
 const base={requestId,country:'US',method:'air',
- lines:[{sku:'P1-S3',quantity:1}],name:'Example Customer',
+ lines:[{sku:'P1-S3',quantity:1,color:'Orange'}],name:'Example Customer',
  email:'example.customer@example.net',phone:'+1 212 555 0100',
  street1:'1 Sample Ave',city:'New York',state:'NY',postalCode:'10001',
  privacyAck:true,turnstileToken:'synthetic-captcha'};
