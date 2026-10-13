@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { Link, Route, Routes } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 import AdminApp from './AdminApp';
+import RetailCheckout from './RetailCheckout';
+import CustomerQuote from './CustomerQuote';
 import {safeReorderReference,reorderMessage} from './reorderIntent';
 import {useInquiryTurnstile} from './useInquiryTurnstile';
 
@@ -167,6 +169,8 @@ export default function App() {
     <Route path="/sample" element={<WholesalePage sample/>}/>
     <Route path="/privacy" element={<PrivacyPage/>}/>
     <Route path="/terms" element={<TermsPage/>}/>
+    <Route path="/retail/checkout" element={<RetailCheckout/>}/>
+    <Route path="/quote/:token" element={<CustomerQuote/>}/>
     <Route path="/app/*" element={<AdminApp/>}/>
     <Route path="*" element={<HomePage/>}/>
   </Routes>;
