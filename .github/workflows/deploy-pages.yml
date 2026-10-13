@@ -47,6 +47,7 @@ jobs:
           node scripts/build-seo-discovery-links.cjs
           node scripts/check-seo-discovery-links.cjs
           node scripts/check-ai-intent-guides.cjs
+          node scripts/check-geo-source-capture.cjs
           node scripts/check-ai-discovery-benchmark.cjs
           node scripts/check-indexnow-key.cjs
 
