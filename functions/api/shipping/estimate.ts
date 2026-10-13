@@ -5,7 +5,8 @@ import {oneItemUsAirParcel} from '../../../lib/us-small-parcel';
 export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
  const url=new URL(request.url),sku=(url.searchParams.get('sku')||'').toUpperCase(),country=(url.searchParams.get('country')||'').toUpperCase(),method=url.searchParams.get('method'),qty=Number(url.searchParams.get('quantity'));
  if(!(sku in prices)||!/^[A-Z]{2}$/.test(country)||!['air','sea'].includes(method||'')||!Number.isSafeInteger(qty)||qty<1||qty>10000)return error('Invalid product, destination, method or quantity');
- if(method==='sea'&&qty<10)return error('Sea shipping requires a minimum of 10 balls');
+ if(qty>=10&&method!=='sea')return error('10 or more items require a sea freight wholesale quotation, estimated 25–30 days after dispatch.',409);
+ if(qty<10&&method!=='air')return error('Orders of 1–9 items require air parcel shipping.',409);
  const us=oneItemUsAirParcel(sku,country,String(method),qty);
  if(us)return Response.json({ok:true,...us,
   notice:'USA one-item air small-parcel estimate; approximately 12–15 days after dispatch, not guaranteed. Taxes, duties, stock and final amount require confirmation before payment.'},
@@ -19,6 +20,6 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
  const charge=method==='air'?cbm*1000000/Number(rate.volume_divisor)*Number(rate.usd_per_unit):cbm*Number(rate.usd_per_unit);
  const freight=Math.round((Math.max(charge,Number(rate.min_charge_usd))+Number(rate.handling_usd))*100)/100;
  const products=Math.round(prices[sku]*qty*100)/100;
- return Response.json({ok:true,sku,country,method,quantity:qty,productUSD:products,shippingUSD:freight,totalBeforeTaxesUSD:Math.round((products+freight)*100)/100,cbm:Number(cbm.toFixed(6)),currency:'USD',paymentEnabled:false,taxesNotIncluded:true,notice:'Shipping estimate only. Dispatch from China. Stock, packaging, delivery time, applicable duties and final payable amount require confirmation before payment.',rateUpdatedAt:rate.updated_at},{headers:{'cache-control':'no-store','access-control-allow-origin':'*','vary':'Origin'}});
+ return Response.json({ok:true,sku,country,method,quantity:qty,productUSD:products,shippingUSD:freight,totalBeforeTaxesUSD:Math.round((products+freight)*100)/100,cbm:Number(cbm.toFixed(6)),currency:'USD',paymentEnabled:false,taxesNotIncluded:true,wholesale:qty>=10,deliveryEstimateDaysMin:qty>=10?25:undefined,deliveryEstimateDaysMax:qty>=10?30:undefined,discountPolicy:qty>=10?'QUANTITY_DEPENDENT_QUOTE_NO_FIXED_PERCENT':undefined,notice:'Shipping estimate only. Dispatch from China. Stock, packaging, delivery time, applicable duties and final payable amount require confirmation before payment.',rateUpdatedAt:rate.updated_at},{headers:{'cache-control':'no-store','access-control-allow-origin':'*','vary':'Origin'}});
  }catch{return error('Shipping rates are unavailable or migration pending',503)}
 };
