@@ -12,6 +12,7 @@ assert.equal(fs.readFileSync(path.join(root,'llms.txt'),'utf8'),txtBefore,'LLM d
 const data=JSON.parse(jsonBefore);
 const master=JSON.parse(fs.readFileSync(path.join(root,'product-master.json'),'utf8'));
 const retail=JSON.parse(fs.readFileSync(path.join(root,'retail-prices.json'),'utf8'));
+const us=JSON.parse(fs.readFileSync(path.join(root,'us-single-parcel-shipping.json'),'utf8'));
 const siteMap=fs.readFileSync(path.join(root,'sitemap.xml'),'utf8');
 assert.equal(data.documentType,'first-party-public-product-facts');
 assert.equal(data.publisher.website,'https://www.mingeagle.com/');
@@ -24,6 +25,13 @@ for(const item of data.products){
  assert.equal(item.colors,master[item.id].colors);
  assert.equal(item.image,'https://www.mingeagle.com/'+master[item.id].hero);
  assert.deepEqual(item.retailReferencePricesUsdBySize,retail.products[item.id]);
+ const usFees=us.productSizeShippingUSD[item.id];
+ assert.deepEqual(item.usSingleItemAirParcelShippingUsdBySize,usFees);
+ for(const size of Object.keys(retail.products[item.id])){
+  const expected=Math.round((retail.products[item.id][size]+usFees[size])*100)/100;
+  assert.equal(item.usSingleItemTotalBeforeTaxUsdBySize[size],expected);
+  assert(txtBefore.includes('Size '+size+' USD '+expected.toFixed(2)),'US totals must be readable for AI '+item.id+' '+size);
+ }
  const sourceSizes=[...master[item.id].sizes.matchAll(/No\.\s*(\d+)/g)].map(m=>'No. '+m[1]);
  assert.deepEqual(item.sizes,sourceSizes);
  assert(siteMap.includes('<loc>'+item.url+'</loc>'));
@@ -38,10 +46,12 @@ assert(!/\b(?:inStock|InStock|aggregateRating|reviewCount|ratingValue|guaranteed
 assert(txtBefore.includes('not an independent test report'));
 assert(txtBefore.includes('not imply any provider has crawled, indexed, ranked or cited'));
 assert(data.retailPricing.limitations.includes('Excludes international shipping'));
+assert.equal(data.usSingleItemAirParcel.deliveryEstimateGuaranteed,false);
+assert.deepEqual(data.usSingleItemAirParcel.estimatedDeliveryDaysAfterDispatch,{min:12,max:15});
 assert(!Object.keys(data).includes('searchRanking'));
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'ai-facts-negative-'));
 try{
- const files=['product-master.json','retail-prices.json','sitemap.xml',...data.products.map(p=>p.url.split('/').at(-1)),...data.guides.map(g=>g.url.split('/').at(-1)),'products.html','inquiry.html'];
+ const files=['product-master.json','retail-prices.json','us-single-parcel-shipping.json','sitemap.xml',...data.products.map(p=>p.url.split('/').at(-1)),...data.guides.map(g=>g.url.split('/').at(-1)),'products.html','inquiry.html'];
  for(const name of new Set(files))fs.copyFileSync(path.join(root,name),path.join(tmp,name));
  fs.mkdirSync(path.join(tmp,'assets'));
  for(const x of data.products)fs.copyFileSync(path.join(root,master[x.id].hero),path.join(tmp,master[x.id].hero));

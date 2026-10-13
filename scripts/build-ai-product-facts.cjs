@@ -7,6 +7,8 @@ const root=path.resolve(args.find(v=>v!=='--check')||'public');
 const base='https://www.mingeagle.com/';
 const master=JSON.parse(fs.readFileSync(path.join(root,'product-master.json'),'utf8'));
 const prices=JSON.parse(fs.readFileSync(path.join(root,'retail-prices.json'),'utf8'));
+const usShipping=JSON.parse(fs.readFileSync(path.join(root,'us-single-parcel-shipping.json'),'utf8'));
+assert.equal(usShipping.destinationCountry,'US');assert.equal(usShipping.scope,'one_product_unit_per_parcel');
 const sitemap=fs.readFileSync(path.join(root,'sitemap.xml'),'utf8');
 assert.equal(prices.currency,'USD');
 const models=[
@@ -26,6 +28,13 @@ assert.deepEqual(Object.keys(master).sort(),models.map(x=>x.id).sort(),'Facts re
 assert.deepEqual(Object.keys(prices.products).sort(),Object.keys(master).sort(),'Retail sizes must match published product catalog');
 const products=models.map(m=>{
  const item=master[m.id],priceBySize=prices.products[m.id];
+ const oneItemShippingBySize=usShipping.productSizeShippingUSD[m.id];
+ assert(oneItemShippingBySize,'Missing approved US shipping for '+m.id);
+ assert.deepEqual(Object.keys(priceBySize).sort(),Object.keys(oneItemShippingBySize).sort(),'US parcel coverage mismatch '+m.id);
+ const usSingleItemTotalBeforeTaxUSDBySize=Object.fromEntries(Object.entries(priceBySize).map(([size,price])=>{
+  const freight=oneItemShippingBySize[size];assert(typeof freight==='number'&&Number.isFinite(freight)&&freight>0);
+  return [size,Math.round((price+freight)*100)/100];
+ }));
  assert(typeof item.name==='string'&&item.name.length>8);
  assert(typeof item.colors==='string'&&item.colors.length>4);
  assert(typeof item.hero==='string'&&/^assets\/[a-z0-9-]+\.webp$/.test(item.hero));
@@ -36,7 +45,9 @@ const products=models.map(m=>{
  for(const amount of Object.values(priceBySize))assert(typeof amount==='number'&&Number.isFinite(amount)&&amount>0);
  return {id:m.id,name:item.name,url:makeUrl(m.page),image:base+item.hero,
   sizes:sizes.map(s=>'No. '+s),colors:item.colors,intendedUse:m.use,
-  retailReferencePricesUsdBySize:priceBySize};
+  retailReferencePricesUsdBySize:priceBySize,
+  usSingleItemAirParcelShippingUsdBySize:oneItemShippingBySize,
+  usSingleItemTotalBeforeTaxUsdBySize:usSingleItemTotalBeforeTaxUSDBySize};
 });
 const guides=[
  {audience:'parents and apartment households',question:'What can children use for quieter indoor ball games?',url:makeUrl('quiet-indoor-sports-for-kids.html')},
@@ -51,6 +62,10 @@ const facts={
  source:'MING EAGLE website product-master.json and retail-prices.json',
  publisher:{brand:'MING EAGLE',legalName:'MING EAGLE COMMERCE LLC',website:base,
   productCatalog:makeUrl('products.html'),inquiry:makeUrl('inquiry.html')},
+ usSingleItemAirParcel:{destinationCountry:'US',shippingMethod:'air small parcel',scope:'one item per parcel only',
+  estimatedDeliveryDaysAfterDispatch:{min:12,max:15},deliveryEstimateGuaranteed:false,
+  includes:'one approved product with its listed air shipping charge',
+  excludes:'taxes and import duties; final stock and freight require written confirmation; multi-item and non-US rates differ'},
  retailPricing:{currency:'USD',scope:'Published product-only reference price by size; colors do not change the price for a given size',
   limitations:'Excludes international shipping and applicable taxes. Stock, delivery and final payable total are confirmed before payment. Do not treat prices as wholesale offers.'},
  products,guides,
@@ -60,6 +75,7 @@ const facts={
   'Foam and weighted-feel balls are not identical substitutes for regulation competitive basketballs.',
   'Model suitability, child supervision, required safety documentation and training use must be evaluated for the actual setting.',
   'Minimum order quantities, branding, packaging, inventory, freight charges and delivery terms require a written quote.',
+  'US single-item air small-parcel figures are estimates for exactly one unit; 12–15 days after dispatch is not guaranteed and excludes taxes or import duties.',
   'This file is first-party supplier information, not an independent review, platform endorsement or AI placement claim.'
  ]
 };
@@ -78,7 +94,8 @@ const text=[
  ''
 ];
 for(const p of products){
- text.push('- ['+p.name+']('+p.url+'): '+p.intendedUse+'. Sizes: '+p.sizes.join(', ')+'. Colors: '+p.colors+'. Product image: '+p.image+'.');
+ const totals=Object.entries(p.usSingleItemTotalBeforeTaxUsdBySize).map(([size,total])=>'Size '+size+' USD '+Number(total).toFixed(2)).join(', ');
+ text.push('- ['+p.name+']('+p.url+'): '+p.intendedUse+'. Sizes: '+p.sizes.join(', ')+'. Colors: '+p.colors+'. Product image: '+p.image+'. US one-item total before tax: '+totals+'.');
 }
 text.push('','## Buyer questions and guides','');
 for(const g of guides)text.push('- ['+g.question+']('+g.url+') — '+g.audience+'.');
