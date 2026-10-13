@@ -5,7 +5,7 @@ type Quote={reference:string;status:string;currency:string;subtotal:number;
 type Item={description:string;quantity:number;unit_price:number;line_total:number};
 type Order={reference:string;status:string;payment_status:string};
 type Info={ok:boolean;error?:string;quote?:Quote;items?:Item[];order?:Order};
-type PayStatus={ok:boolean;airwallex?:{checkoutReady:boolean;environment:'sandbox'|'prod'|null}};
+type PayStatus={ok:boolean;stripe?:{checkoutReady:boolean;mode:'test'|'live'|null};airwallex?:{checkoutReady:boolean;environment:'sandbox'|'prod'|null}};
 type Sdk={payments:{redirectToCheckout:(opts:Record<string,unknown>)=>void}};
 declare global{interface Window{AirwallexComponentsSDK?:{init:(o:Record<string,unknown>)=>Promise<Sdk>}}}
 function loadProvider(){
@@ -47,6 +47,20 @@ export default function CustomerQuote(){
    .catch(()=>{if(active)setError('Unable to load this secure order.')});
   return ()=>{active=false;tag.remove();ref.remove()};
  },[token,valid]);
+ async function payStripe(){
+  if(!valid||!payment?.stripe?.checkoutReady||!data?.order||busy)return;
+  setBusy(true);setError('');
+  try{
+   const response=await fetch('/api/payments/stripe/create',{
+    method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token})
+   });
+   const result=await response.json() as {ok?:boolean;url?:string;error?:string};
+   if(!response.ok||!result.ok||!result.url)throw Error(result.error||'Unable to start Stripe checkout');
+   const url=new URL(result.url);
+   if(url.protocol!=='https:'||url.hostname!=='checkout.stripe.com')throw Error('Invalid Stripe destination');
+   window.location.assign(url.href);
+  }catch(e){setError(e instanceof Error?e.message:'Stripe checkout unavailable');setBusy(false)}
+ }
  async function pay(){
   if(!valid||!payment?.airwallex?.checkoutReady||!data?.order||busy)return;
   setBusy(true);setError('');
@@ -90,7 +104,7 @@ export default function CustomerQuote(){
  return <div className="public-shell"><main className="form-page">
   <div className="form-intro"><span className="eyebrow">PRIVATE COMMERCIAL ORDER</span>
    <h1>MING EAGLE Secure Order</h1>
-   <p>This private link contains a quotation. Payment is verified by Airwallex and the signed server-side payment notification, not by this browser redirect.</p></div>
+   <p>This private link contains a quotation. Payment is verified by our payment provider and a signed server-side notification, not by this browser redirect.</p></div>
   {!valid?<p role="alert">The secure order link is invalid.</p>:
    error&&!data?<p role="alert">{error}</p>:
    !data?<p role="status">Loading order…</p>:
@@ -115,6 +129,8 @@ export default function CustomerQuote(){
       Payment confirmed. Thank you for your order.</p>:
       !order&&['SENT','VIEWED'].includes(q.status)&&!q.is_expired?
        <button className="button" disabled={busy} onClick={accept}>{busy?'Processing…':'Accept quote to create unpaid order'}</button>:
+       order&&payment?.stripe?.checkoutReady?
+       <button className="button" disabled={busy} onClick={payStripe}>{busy?'Preparing…':'Pay securely with Stripe'}</button>:
        order&&payment?.airwallex?.checkoutReady?
        <button className="button" disabled={busy} onClick={pay}>{busy?'Preparing…':'Pay securely with Airwallex'}</button>:
        <p className="form-note">Online payment is not yet activated for this order. Contact MING EAGLE for approved payment arrangements.</p>}
