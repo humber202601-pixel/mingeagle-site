@@ -30,7 +30,7 @@ async function run(message,opts={}){
  const res=await onRequestPost({request,env:{MINGEAGLE_DB:db}});
  return {status:res.status,body:await res.json(),writes};
 }
-function message(products,method='Air parcel'){return ['Retail cart order request (NOT PAID)','Products: '+products,'Total items: 10','Destination country: US','Preferred shipping: '+method,'Estimated freight USD (unverified): 0.01','Estimated total before tax USD (unverified): 0.02'].join('\n')}
+function message(products,method='Air parcel'){return ['Retail cart order request (NOT PAID)','Products: '+products,'Total items: '+products.split(', ').reduce((n,line)=>n+Number(line.match(/ x (\\d+)$/)?.[1]||0),0),'Destination country: US','Preferred shipping: '+method,'Estimated freight USD (unverified): 0.01','Estimated total before tax USD (unverified): 0.02'].join('\n')}
 const usSingle=await run(message('P1-S3 x 1'));
 assert.equal(usSingle.status,200,JSON.stringify(usSingle.body));
 assert.equal(usSingle.body.quantity,1);
@@ -40,19 +40,22 @@ assert.equal(usSingle.body.totalBeforeTaxesUSD,21.4);
 assert.equal(usSingle.body.status,'DRAFT');
 assert.equal(usSingle.body.paymentEnabled,false);
 assert.equal(usSingle.writes.length,3);
-const good=await run(message('P1-S3 x 4, P4-S5 x 6'));
+const good=await run(message('P1-S3 x 4, P4-S5 x 5'));
 assert.equal(good.status,200,JSON.stringify(good.body));
 assert.equal(good.body.status,'DRAFT');assert.equal(good.body.paymentEnabled,false);
-assert.equal(good.body.quantity,10);assert.equal(good.body.items,2);
-assert.equal(good.body.subtotalUSD,147);assert.equal(good.body.shippingUSD,167.75);assert.equal(good.body.totalBeforeTaxesUSD,314.75);
+assert.equal(good.body.quantity,9);assert.equal(good.body.items,2);
+assert.equal(good.body.subtotalUSD,129.1);assert.equal(good.body.shippingUSD,150.97);assert.equal(good.body.totalBeforeTaxesUSD,280.07);
 assert.equal(good.writes.length,4);
 assert.match(good.writes[0].sql,/INSERT INTO quotes/);
 assert.match(good.writes[0].sql,/'DRAFT'/);
 assert.match(good.writes[3].sql,/UPDATE inquiries/);
 const dup=await run(message('P1-S3 x 5, P1-S3 x 5'));assert.equal(dup.status,400);assert.equal(dup.writes.length,0);
 const seaMin=await run(message('P1-S3 x 9','Sea freight'));assert.equal(seaMin.status,400);
-const configuredMin=await run(message('P1-S3 x 10'),{minimum:11});assert.equal(configuredMin.status,409);
+const bulk=await run(message('P1-S3 x 10','Sea freight'));
+assert.equal(bulk.status,409,'10+ must use manual tiered wholesale quote');
+assert.equal(bulk.writes.length,0,'No payable retail draft from bulk');
+const configuredMin=await run(message('P1-S3 x 9'),{minimum:11});assert.equal(configuredMin.status,409);
 const existing=await run(message('P1-S3 x 10'),{existingQuote:true});assert.equal(existing.status,409);
 const closed=await run(message('P1-S3 x 10'),{inquiryStatus:'CLOSED'});assert.equal(closed.status,409);
 const invalid=await run(message('P4-S7 x 10'));assert.equal(invalid.status,400);
-console.log('PASS: retail quote draft normal multi-SKU flow, server-priced totals, draft-only, duplicate protection, quantity minimums, existing quote, closed inquiry, invalid SKU.');
+console.log('PASS: retail quote draft 1–9 item multi-SKU flow; 10+ wholesale blocked, server-priced totals, draft-only, duplicate protection, quantity minimums, existing quote, closed inquiry, invalid SKU.');
