@@ -12,6 +12,7 @@ assert.equal(fs.readFileSync(path.join(root,'llms.txt'),'utf8'),txtBefore,'LLM d
 const data=JSON.parse(jsonBefore);
 const master=JSON.parse(fs.readFileSync(path.join(root,'product-master.json'),'utf8'));
 const retail=JSON.parse(fs.readFileSync(path.join(root,'retail-prices.json'),'utf8'));
+const us=JSON.parse(fs.readFileSync(path.join(root,'us-single-parcel-shipping.json'),'utf8'));
 const siteMap=fs.readFileSync(path.join(root,'sitemap.xml'),'utf8');
 assert.equal(data.documentType,'first-party-public-product-facts');
 assert.equal(data.publisher.website,'https://www.mingeagle.com/');
@@ -24,6 +25,50 @@ for(const item of data.products){
  assert.equal(item.colors,master[item.id].colors);
  assert.equal(item.image,'https://www.mingeagle.com/'+master[item.id].hero);
  assert.deepEqual(item.retailReferencePricesUsdBySize,retail.products[item.id]);
+ const shipping=us.productSizeShippingUSD[item.id];
+ assert.deepEqual(item.usSingleItemAirParcelShippingUsdBySize,shipping);
+ for(const size of Object.keys(retail.products[item.id])){
+  const total=Math.round((retail.products[item.id][size]+shipping[size])*100)/100;
+  assert.equal(item.usSingleItemTotalBeforeTaxUsdBySize[size],total);
+  assert(txtBefore.includes('Size '+size+' 
+ const sourceSizes=[...master[item.id].sizes.matchAll(/No\.\s*(\d+)/g)].map(m=>'No. '+m[1]);
+ assert.deepEqual(item.sizes,sourceSizes);
+ assert(siteMap.includes('<loc>'+item.url+'</loc>'));
+ assert(txtBefore.includes('['+item.name+']('+item.url+')'),'Missing product navigational text');
+ assert(fs.existsSync(path.join(root,item.image.replace('https://www.mingeagle.com/',''))));
+}
+for(const g of data.guides){
+ assert(siteMap.includes('<loc>'+g.url+'</loc>'));
+ assert(txtBefore.includes(']('+g.url+')'));
+}
+assert(!/\b(?:inStock|InStock|aggregateRating|reviewCount|ratingValue|guaranteed silent|certified safe)\b/i.test(jsonBefore),'Do not publish unverified availability/review/certification claims');
+assert(txtBefore.includes('not an independent test report'));
+assert(txtBefore.includes('not imply any provider has crawled, indexed, ranked or cited'));
+assert(data.retailPricing.limitations.includes('Excludes international shipping'));
+assert.equal(data.usSingleItemAirParcel.deliveryEstimateGuaranteed,false);
+assert.deepEqual(data.usSingleItemAirParcel.estimatedDeliveryDaysAfterDispatch,{min:12,max:15});
+assert(!Object.keys(data).includes('searchRanking'));
+const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'ai-facts-negative-'));
+try{
+ const files=['product-master.json','retail-prices.json','us-single-parcel-shipping.json','sitemap.xml',...data.products.map(p=>p.url.split('/').at(-1)),...data.guides.map(g=>g.url.split('/').at(-1)),'products.html','inquiry.html'];
+ for(const name of new Set(files))fs.copyFileSync(path.join(root,name),path.join(tmp,name));
+ fs.mkdirSync(path.join(tmp,'assets'));
+ for(const x of data.products)fs.copyFileSync(path.join(root,master[x.id].hero),path.join(tmp,master[x.id].hero));
+ const testFailure=()=>{assert.throws(()=>run(tmp),'Invalid source data must stop AI catalog generation')};
+ let p=JSON.parse(fs.readFileSync(path.join(tmp,'retail-prices.json'),'utf8'));
+ delete p.products.p3['7'];fs.writeFileSync(path.join(tmp,'retail-prices.json'),JSON.stringify(p));
+ testFailure();
+ fs.copyFileSync(path.join(root,'retail-prices.json'),path.join(tmp,'retail-prices.json'));
+ let m=JSON.parse(fs.readFileSync(path.join(tmp,'product-master.json'),'utf8'));
+ m.p1.hero='assets/nonexistent-product.webp';fs.writeFileSync(path.join(tmp,'product-master.json'),JSON.stringify(m));
+ testFailure();
+ fs.copyFileSync(path.join(root,'product-master.json'),path.join(tmp,'product-master.json'));
+ fs.writeFileSync(path.join(tmp,'sitemap.xml'),siteMap.replace('<loc>https://www.mingeagle.com/for-coaches.html</loc>',''));
+ testFailure();
+}finally{fs.rmSync(tmp,{recursive:true,force:true})}
+console.log('PASS: first-party AI JSON/llms text identical on repeat builds, all four product specs/prices source aligned, five real buyer pages, and rejects missing evidence/invalid SKUs.');
++total.toFixed(2)),'US total must be readable for AI '+item.id+' '+size);
+ }
  const sourceSizes=[...master[item.id].sizes.matchAll(/No\.\s*(\d+)/g)].map(m=>'No. '+m[1]);
  assert.deepEqual(item.sizes,sourceSizes);
  assert(siteMap.includes('<loc>'+item.url+'</loc>'));
