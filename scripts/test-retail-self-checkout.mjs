@@ -100,5 +100,9 @@ try{
  const quoteUi=readFileSync('src/CustomerQuote.tsx','utf8');
  assert(quoteUi.includes('payment_status')&&quoteUi.includes('noindex,nofollow'));
  assert(quoteUi.includes('/api/payments/airwallex/create'));
+ assert(quoteUi.includes("order&&!order.reference.startsWith('ME-RO-')&&payment?.airwallex?.checkoutReady?"),
+  'Retail orders must not expose legacy Airwallex fallback');
+ assert(quoteUi.includes('order&&payment?.stripe?.checkoutReady?'),
+  'Stripe payment remains available only after readiness validation');
  console.log('PASS: Stripe-only readiness gates, quantity & origin bounds, Turnstile, verified 1-unit price, atomic pending order and idempotency.');
 }finally{globalThis.fetch=saved}
