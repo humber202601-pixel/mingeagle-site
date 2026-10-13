@@ -1,3 +1,4 @@
+import publicUrls from '../../../data/ai-discovery-public-urls.json';
 // Admin-authenticated import of Google Search Console Performance CSV (Queries or Pages).
 // These are verified report exports supplied by an operator, not API-sourced live data.
 interface Env { MINGEAGLE_DB?: D1Database }
@@ -6,16 +7,7 @@ const err=(message:string,status=400)=>Response.json({ok:false,error:message},{s
 // The canonical public website is www.mingeagle.com. Legacy apex URLs may still
 // appear in genuine Search Console exports. Never accept arbitrary lookalike
 // domains, admin/quote tokens, credentials, query strings, or off-site URLs.
-const allowedPublicPages=new Set([
- '/','/products.html','/silent-basketball.html','/fabric-silent-basketball.html',
- '/weighted-flocked-basketball.html','/silent-soccer.html','/wholesale.html',
- '/wholesale-product-catalog.html','/inquiry.html','/custom-logo.html',
- '/custom-basketball-for-teams.html','/for-schools.html','/for-coaches.html',
- '/basketball-camp-equipment-supplier.html','/silent-basketball-bulk-buying-guide.html',
- '/silent-basketball-guide.html','/silent-basketball-vs-regular.html',
- '/silent-basketball-for-apartments.html','/learn.html','/stories.html',
- '/videos.html','/order-status.html','/policies.html',
-]);
+const allowedPublicPages=new Set(publicUrls.urls.map((url:string)=>new URL(url).pathname));
 const permittedPage=(value:string):boolean=>{
  if(value.length>500)return false;
  try{
