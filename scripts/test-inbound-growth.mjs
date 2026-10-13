@@ -23,11 +23,11 @@ try{
  ('a1','LEAD','l1','INQUIRY_CREATED','Inbound','',
  '{"inquiryId":"i1","utmSource":"google","landingPage":"https://www.mingeagle.com/for-coaches.html"}'),
  ('a2','LEAD','l2','INQUIRY_CREATED','Inbound','',
- '{"inquiryId":"i2","utmSource":"tiktok","landingPage":"https://www.mingeagle.com/silent-basketball.html"}'),
+ '{"inquiryId":"i2","utmSource":"tiktok","creatorVideoCode":"V005","landingPage":"https://www.mingeagle.com/silent-basketball.html"}'),
  ('a4','LEAD','l4','INQUIRY_CREATED','Inbound','',
  '{"inquiryId":"i4","utmSource":"partner","landingPage":"https://www.mingeagle.com/wholesale.html"}'),
  ('a5','LEAD','l1','INQUIRY_CREATED','Duplicate webhook retry','',
- '{"inquiryId":"i1","utmSource":"spam-tag","landingPage":"https://www.mingeagle.com/products.html"}');
+ '{"inquiryId":"i1","utmSource":"spam-tag","creatorVideoCode":"V009","landingPage":"https://www.mingeagle.com/products.html"}');
  INSERT INTO quotes(id,reference,lead_id,status)
  VALUES('q1','Q-A','l1','SENT'),('q2','Q-B','l1','EXPIRED'),('qd','Q-D','l2','DRAFT');
  UPDATE quotes SET inquiry_id='i1' WHERE id='q1';
@@ -54,6 +54,10 @@ try{
  assert.equal(r.status,200,JSON.stringify(r.data));assert.equal(r.reads,3,'three grouped read-only queries, including AI form evidence');
  assert.equal(r.writes,0);
  assert.equal(r.data.summary.inquiries,5,'Original 4 + an additional distinct same-lead inquiry; retry activity not duplicated');
+ assert.equal(r.data.summary.videoContextInquiries,1,'Count only first saved creator-code inquiry; duplicate webhook hint does not count');
+ assert.equal(r.data.sources.find(x=>x.channel==='TIKTOK')?.videoContext,1);
+ assert.equal(r.data.entryPages.find(x=>x.entryPage==='PRODUCT_DETAIL')?.videoContext,1);
+
  assert.equal(r.data.summary.b2b,3);
  assert.equal(r.data.summary.b2c,1);
  assert.equal(r.data.summary.unknown,1,'unclassified visitor is never guessed to be a retail buyer');
@@ -92,8 +96,8 @@ try{
  // Source-aware GEO conversion regression: source labels are browser-supplied
  // attribution, never evidence of an actual ChatGPT/Gemini/Copilot citation.
  const aiCases=[
-  {channel:'CHATGPT',referrer:'https://chatgpt.com/c/abc',landingPage:'https://www.mingeagle.com/quiet-indoor-sports-for-kids.html'},
-  {channel:'PERPLEXITY',referrer:'https://www.perplexity.ai/search/question',landingPage:'https://www.mingeagle.com/indoor-school-sports-equipment-guide.html'},
+  {channel:'CHATGPT',referrer:'https://chatgpt.com/c/abc',landingPage:'https://www.mingeagle.com/quiet-indoor-sports-for-kids.html',creatorVideoCode:'V009'},
+  {channel:'PERPLEXITY',referrer:'https://www.perplexity.ai/search/question',landingPage:'https://www.mingeagle.com/indoor-school-sports-equipment-guide.html',creatorVideoCode:'V099'},
   {channel:'CLAUDE',referrer:'https://claude.ai/chat',landingPage:'https://www.mingeagle.com/quiet-indoor-sports-for-kids.html'},
   {channel:'GEMINI',referrer:'https://gemini.google.com/app',landingPage:'https://www.mingeagle.com/indoor-school-sports-equipment-guide.html'},
   {channel:'COPILOT',referrer:'https://copilot.microsoft.com/chats',landingPage:'https://www.mingeagle.com/for-coaches.html'},
@@ -117,6 +121,7 @@ try{
  assert.equal(geo.writes,0,'Referral classification remains read-only');
  assert.equal(geo.reads,3,'AI-source form-and-quote evidence needs one extra read-only grouped query');
  assert.equal(geo.data.summary.inquiries,13,'Only real inquiry rows are counted');
+ assert.equal(geo.data.summary.videoContextInquiries,2,'Valid buyer browser hints can overlap marketing channels; never count invalid V099');
  for(const [label,expected] of [['CHATGPT',2],['PERPLEXITY',1],['CLAUDE',1],['GEMINI',1],['COPILOT',1]]){
   assert.equal(geo.data.sources.find(x=>x.channel===label)?.inquiries,expected,label+' requires distinct tracked inquiry attribution');
  }
@@ -136,6 +141,9 @@ try{
  assert(geo.data.limitations.some(x=>x.includes('不代表 AI 官方引用')),'Display AI referrers as unverified user-reported clues');
  const ui=readFileSync('src/InboundGrowth.tsx','utf8');
  assert(ui.includes('网站访问统计与搜索曝光')&&ui.includes('Google Search Console'));
+ assert(ui.includes('来自创作者视频选购入口的询盘'));
+ assert(ui.includes('不能证明实际观看')&&ui.includes('无法证明该视频促成采购'));
+ assert(!ui.includes('视频播放量：'),'No fake video view counts');
  assert(ui.includes('直接关联订单的询盘'));
  assert(ui.includes('同客户关联订单'));
  assert(ui.includes('等待有效快照')&&ui.includes('无数据不能当作零'),

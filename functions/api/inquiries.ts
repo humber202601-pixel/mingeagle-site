@@ -37,6 +37,7 @@ type InquiryInput = {
   utmMedium?: string;
   utmCampaign?: string;
   utmContent?: string;
+  creatorVideoCode?: string;
   marketingConsent?: boolean;
   privacyAck?: boolean;
   requestLabel?: string;
@@ -474,6 +475,12 @@ async function processInquiryPost(context:Parameters<PagesFunction<Env>>[0],noti
           utmMedium: clean(input.utmMedium, 200),
           utmCampaign: clean(input.utmCampaign, 200),
           utmContent: clean(input.utmContent, 200),
+          // Only an allowlisted clip code with the matching flocked product is
+          // recorded, and ONLY upon the legitimate saved inquiry. This is
+          // browser-submitted navigation context, not playback proof.
+          creatorVideoCode: /^V0(?:0[1-9]|1[0-6])$/.test(clean(input.creatorVideoCode, 12))&&
+            products.some(p=>p.startsWith('Flocked Silent Basketball Set'))
+              ? clean(input.creatorVideoCode, 12):null,
           marketingConsent: Boolean(input.marketingConsent),
           leadScore,
         }),

@@ -10,6 +10,7 @@ const attribution=`WITH inquiry_base AS (
   LOWER(TRIM(COALESCE(json_extract(a.metadata_json,'$.utmSource'),''))) AS utm,
   LOWER(TRIM(COALESCE(json_extract(a.metadata_json,'$.referrer'),''))) AS referring,
   COALESCE(json_extract(a.metadata_json,'$.landingPage'),'') AS landing,
+  COALESCE(json_extract(a.metadata_json,'$.creatorVideoCode'),'') AS creator_demo,
   CASE WHEN i.lead_id IS NOT NULL AND EXISTS(SELECT 1 FROM quotes q WHERE q.lead_id=i.lead_id
      AND q.status IN ('SENT','VIEWED','ACCEPTED','DECLINED','EXPIRED','CONVERTED'))
     THEN 1 ELSE 0 END AS quoted,
@@ -36,6 +37,7 @@ const attribution=`WITH inquiry_base AS (
  WHERE (?=0 OR i.created_at>=datetime('now','-' || ? || ' days'))
 ), buckets AS (
  SELECT id,quoted,ordered,exact_quoted,exact_ordered,
+ CASE WHEN creator_demo BETWEEN 'V001' AND 'V016' THEN 1 ELSE 0 END AS video_context,
  CASE
   -- Only allowlisted UTM labels and exact host-prefix referral paths; this
   -- remains visitor supplied attribution, not verified AI citations.
@@ -118,12 +120,14 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
   // channels x 3 audiences, plus entry-page buckets; only two SELECTs.
   const sourceRows=(await db.prepare(`${attribution}
    SELECT channel,audience,COUNT(*) AS inquiries,SUM(quoted) AS quoted,SUM(ordered) AS ordered,
-     SUM(exact_quoted) AS exactQuoted,SUM(exact_ordered) AS exactOrdered
+     SUM(exact_quoted) AS exactQuoted,SUM(exact_ordered) AS exactOrdered,
+     SUM(video_context) AS videoContext
    FROM buckets GROUP BY channel,audience ORDER BY inquiries DESC,channel,audience`)
    .bind(days,days).all<Row>()).results;
   const pages=(await db.prepare(`${attribution}
    SELECT entry_page,COUNT(*) AS inquiries,SUM(quoted) AS quoted,SUM(ordered) AS ordered,
-     SUM(exact_quoted) AS exactQuoted,SUM(exact_ordered) AS exactOrdered FROM buckets GROUP BY entry_page ORDER BY inquiries DESC,entry_page`)
+     SUM(exact_quoted) AS exactQuoted,SUM(exact_ordered) AS exactOrdered,
+     SUM(video_context) AS videoContext FROM buckets GROUP BY entry_page ORDER BY inquiries DESC,entry_page`)
    .bind(days,days).all<Row>()).results;
   const aiRows=(await db.prepare(`${attribution}
    SELECT channel,entry_page,evidence_kind,COUNT(*) AS inquiries,
@@ -132,13 +136,14 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
    GROUP BY channel,entry_page,evidence_kind
    ORDER BY inquiries DESC,channel,entry_page,evidence_kind`)
    .bind(days,days).all<Row>()).results;
-  const summary={inquiries:0,b2b:0,b2c:0,unknown:0,quoted:0,ordered:0,exactQuoted:0,exactOrdered:0};
+  const summary={inquiries:0,b2b:0,b2c:0,unknown:0,quoted:0,ordered:0,exactQuoted:0,exactOrdered:0,videoContextInquiries:0};
   const sources=sourceRows.map(r=>{
    const row={channel:String(r.channel||'DIRECT_UNKNOWN'),audience:String(r.audience||'UNKNOWN'),
     inquiries:n(r.inquiries),quoted:n(r.quoted),ordered:n(r.ordered),
-    exactQuoted:n(r.exactQuoted),exactOrdered:n(r.exactOrdered)};
+    exactQuoted:n(r.exactQuoted),exactOrdered:n(r.exactOrdered),videoContext:n(r.videoContext)};
    summary.inquiries+=row.inquiries;summary.quoted+=row.quoted;summary.ordered+=row.ordered;
    summary.exactQuoted+=row.exactQuoted;summary.exactOrdered+=row.exactOrdered;
+   summary.videoContextInquiries+=row.videoContext;
    if(row.audience==='B2B')summary.b2b+=row.inquiries;
    else if(row.audience==='B2C')summary.b2c+=row.inquiries;
    else summary.unknown+=row.inquiries;
@@ -150,10 +155,12 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
     exactQuoted:n(r.exactQuoted),exactOrdered:n(r.exactOrdered)})),
 
    entryPages:pages.map(p=>({entryPage:String(p.entry_page),inquiries:n(p.inquiries),
-     quoted:n(p.quoted),ordered:n(p.ordered),exactQuoted:n(p.exactQuoted),exactOrdered:n(p.exactOrdered)})),
+     quoted:n(p.quoted),ordered:n(p.ordered),exactQuoted:n(p.exactQuoted),exactOrdered:n(p.exactOrdered),
+     videoContext:n(p.videoContext)})),
    dataProvenance:{
      inquiries:'D1 inquiries.id (deduplicated by persisted inquiry row)',
      aiInquiryAttribution:'FORM_SUBMITTED_UTM_OR_REFERRER_NOT_PLATFORM_VERIFIED',
+     creatorVideoContext:'FORM_SUBMITTED_ALLOWLISTED_FIRST_PARTY_LINK_CODE_NOT_PLAYBACK_VERIFIED',
      exactQuote:'D1 quotes.inquiry_id = inquiries.id; quote is no longer draft',
      exactOrder:'D1 orders.quote_id = quotes.id, linked by quotes.inquiry_id; order not draft/cancelled',
      leadAssociated:'Legacy association by leads.id; not evidence of a specific inquiry causing a quote/order',
@@ -163,6 +170,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
    },
    limitations:[
     '本页只计算已经进入 CRM 的真实网站询盘；没有 Google 曝光、网页访问、广告点击或购物车数据。',
+    '创作者视频入口只计算已保存的实际询盘中带有有效站内链接代码的记录：仅说明浏览器携带了导航提示，不能证明用户观看视频、创作者带来销售或平台正式归因。',
     '渠道优先采用询盘提交时的 UTM，其次参考 Referrer；Direct/Unknown 包含缺失归因，不代表都来自直接访问。',
     'AI 平台来源（ChatGPT、Perplexity、Claude、Gemini、Copilot）只基于客户浏览器传来的 UTM/Referrer，可能丢失或被伪造；不代表 AI 官方引用，也不能推断 AI 自然回答推荐。',
     'AI 询盘证据单独按表单 UTM 和 Referrer 分类；Cloudflare RUM 是独立匿名数据源，没有同一访客键，不能把两表相除当作会话转化率。',
