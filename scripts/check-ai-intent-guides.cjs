@@ -39,6 +39,7 @@ for(const name of pages){
 }
 for(const [source,target] of [
  ['index.html','quiet-indoor-sports-for-kids.html'],
+ ['silent-basketball.html','quiet-indoor-sports-for-kids.html'],
  ['index.html','indoor-school-sports-equipment-guide.html'],
  ['learn.html','quiet-indoor-sports-for-kids.html'],
  ['learn.html','indoor-school-sports-equipment-guide.html'],
