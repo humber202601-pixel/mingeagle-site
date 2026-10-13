@@ -61,6 +61,11 @@ jobs:
           node scripts/build-creator-to-product.cjs
           node scripts/test-creator-to-product.cjs
 
+      - name: Build priority Google discovery and buyer decision pathways
+        run: |
+          node scripts/build-search-buyer-paths.cjs
+          node scripts/test-search-buyer-paths.cjs
+
       - name: Align canonical host and sitemap with live www redirect
         run: python scripts/normalize-canonical-host.py
 
