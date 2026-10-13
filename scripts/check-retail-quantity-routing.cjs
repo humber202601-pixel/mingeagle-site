@@ -23,7 +23,7 @@ assert(!cart.includes('window.location.href=\'https://airwallex.com'), 'Never in
 const page=fs.readFileSync('public/retail-cart.html','utf8');
 assert(page.includes('id="cartSeaConsent"')&&page.includes('25–30 days'));
 assert(page.includes('id="cartRetail"')&&page.includes('id="cartWholesale"'));
-assert(page.includes('retail-cart.js?v=20261013-quantity-routing'));
+assert(page.includes('retail-cart.js?v=20261013-cartfix1'));
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'retail-route-'));
 try{
  const files=['index.html','products.html','silent-basketball.html','fabric-silent-basketball.html',
@@ -37,7 +37,10 @@ try{
   assert(html.includes('25–30 days'),file);
  }
  const catalog=fs.readFileSync(path.join(tmp,'products.html'),'utf8');
- assert(catalog.includes('Build retail cart (1–9 items)'));
+ assert(catalog.includes('Select product size and color above'));
  assert(catalog.includes('Request wholesale quote (10+)'));
+ assert(catalog.includes('Choose size, color &amp; add →'));
+ for(const size of [3,5,7])assert(catalog.includes('silent-basketball.html?size='+size+'#buy-now'));
+
 }finally{fs.rmSync(tmp,{recursive:true,force:true})}
 console.log('PASS: 9/10 routing and buyer consent, no duplicated cart, no fake checkout, transparent retail and tiered sea wholesale pages.');
