@@ -88,3 +88,7 @@ Do not set `AIRWALLEX_ENV=prod` or `AIRWALLEX_CHECKOUT_ENABLED=true` for live cr
 - Production webhook subscription is active and delivery test succeeds.
 - Sandbox acceptance tests pass.
 - A low-value real production transaction is tested and reconciled before normal customer use.
+
+## Fail-closed readiness gate (2026-10-13)
+
+The customer quote page, create-Intent API, public `/api/payments/status` and admin readiness page now share one rule: explicitly `AIRWALLEX_CHECKOUT_ENABLED=true`, valid `AIRWALLEX_ENV=sandbox|prod`, nonblank Client ID, API key, and **signed `AIRWALLEX_WEBHOOK_SECRET`**. Missing a prerequisite hides the online checkout button and stops PaymentIntent creation before provider calls and database writes. This is only local configuration readiness, **not** proof of merchant activation or successful sandbox payment acceptance. No secrets are exposed in status; no payment is activated by this change.
