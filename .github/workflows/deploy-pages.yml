@@ -63,6 +63,7 @@ jobs:
           node scripts/check-ai-product-facts.cjs
           node scripts/build-ai-product-facts.cjs --check
           node scripts/check-indexnow-key.cjs
+          python scripts/check-live-public-crawl.py --self-test
 
       - name: Optimize first-party native image loading
         run: |
@@ -370,3 +371,15 @@ jobs:
                   else:
                       assert b'calculateFromCatalog' in body
           PY
+
+      - name: Audit all 29 live public sitemap URLs after deployment
+        run: python scripts/check-live-public-crawl.py
+
+      - name: Preserve 29-page HTTP crawl and synthetic UA diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-public-crawl-audit
+          path: public-crawl-audit.json
+          if-no-files-found: ignore
+          retention-days: 14
