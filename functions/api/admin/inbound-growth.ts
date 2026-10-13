@@ -37,6 +37,13 @@ const attribution=`WITH inquiry_base AS (
 ), buckets AS (
  SELECT id,quoted,ordered,exact_quoted,exact_ordered,
  CASE
+  -- Only allowlisted UTM labels and exact host-prefix referral paths; this
+  -- remains visitor supplied attribution, not verified AI citations.
+  WHEN utm IN ('chatgpt','chatgpt_search','openai') THEN 'CHATGPT'
+  WHEN utm IN ('perplexity','perplexity_ai') THEN 'PERPLEXITY'
+  WHEN utm IN ('claude','claude_ai','anthropic') THEN 'CLAUDE'
+  WHEN utm IN ('gemini','google_gemini') THEN 'GEMINI'
+  WHEN utm IN ('copilot','microsoft_copilot') THEN 'COPILOT'
   WHEN utm IN ('google','googleads','adwords') THEN 'GOOGLE'
   WHEN utm IN ('bing','microsoft','microsoft_ads') THEN 'BING'
   WHEN utm IN ('tiktok','tik_tok') THEN 'TIKTOK'
@@ -45,6 +52,18 @@ const attribution=`WITH inquiry_base AS (
   WHEN utm IN ('facebook','fb','meta') THEN 'FACEBOOK'
   WHEN utm IN ('partner','coach','referral','affiliate') THEN 'PARTNER'
   WHEN utm<>'' THEN 'OTHER_TAGGED'
+  -- Require the full HTTPS hostname and following slash (not a substring),
+  -- so chatgpt.com.evil.example cannot impersonate chatgpt.com.
+  WHEN referring LIKE 'https://chatgpt.com/%' OR referring='https://chatgpt.com'
+    OR referring LIKE 'https://chat.openai.com/%' OR referring='https://chat.openai.com' THEN 'CHATGPT'
+  WHEN referring LIKE 'https://www.perplexity.ai/%' OR referring='https://www.perplexity.ai'
+    OR referring LIKE 'https://perplexity.ai/%' OR referring='https://perplexity.ai'
+    OR referring LIKE 'https://www.perplexity.com/%' OR referring='https://www.perplexity.com'
+    OR referring LIKE 'https://perplexity.com/%' OR referring='https://perplexity.com' THEN 'PERPLEXITY'
+  WHEN referring LIKE 'https://claude.ai/%' OR referring='https://claude.ai' THEN 'CLAUDE'
+  WHEN referring LIKE 'https://gemini.google.com/%' OR referring='https://gemini.google.com' THEN 'GEMINI'
+  WHEN referring LIKE 'https://copilot.microsoft.com/%' OR referring='https://copilot.microsoft.com'
+    OR referring LIKE 'https://copilot.microsoft365.com/%' OR referring='https://copilot.microsoft365.com' THEN 'COPILOT'
   WHEN referring LIKE '%google.%' THEN 'GOOGLE'
   WHEN referring LIKE '%bing.com%' THEN 'BING'
   WHEN referring LIKE '%tiktok.com%' THEN 'TIKTOK'
@@ -62,6 +81,8 @@ const attribution=`WITH inquiry_base AS (
     THEN 'B2B'
   ELSE 'UNKNOWN' END AS audience,
  CASE
+  WHEN landing LIKE '%/quiet-indoor-sports-for-kids.html' THEN 'KIDS_QUIET_GUIDE'
+  WHEN landing LIKE '%/indoor-school-sports-equipment-guide.html' THEN 'SCHOOL_EQUIPMENT_GUIDE'
   WHEN landing LIKE '%/silent-basketball-for-apartments.html' THEN 'APARTMENT_GUIDE'
   WHEN landing LIKE '%/basketball-camp-equipment-supplier.html' THEN 'CAMP_GUIDE'
   WHEN landing LIKE '%/silent-basketball-bulk-buying-guide.html' THEN 'BULK_GUIDE'
@@ -123,6 +144,8 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
    limitations:[
     '本页只计算已经进入 CRM 的真实网站询盘；没有 Google 曝光、网页访问、广告点击或购物车数据。',
     '渠道优先采用询盘提交时的 UTM，其次参考 Referrer；Direct/Unknown 包含缺失归因，不代表都来自直接访问。',
+    'AI 平台来源（ChatGPT、Perplexity、Claude、Gemini、Copilot）只基于客户浏览器传来的 UTM/Referrer，可能丢失或被伪造；不代表 AI 官方引用，也不能推断 AI 自然回答推荐。',
+    'Google AI Overviews 或 Bing/Copilot 搜索页面可能共享普通 Google/Bing 的跳转来源，无法从 Referrer 可靠拆分；未分类来源不代表没有 AI 影响。',
     'B2C 仅在用户明确选择个人客户类型时识别；未说明身份的普通咨询与样品申请归入未确定，不能强行当作零售订单。',
     '直接关联报价：quotes.inquiry_id 明确指向该询盘；直接关联订单：经该报价 quotes.id / orders.quote_id 找到订单，均不按订单行数重复统计。',
     '同客户关联报价/订单仅按 lead_id 计算，不证明某一条特定询盘带来该订单，也不应与直接关联数量相加。',
