@@ -14,7 +14,8 @@ try{
  const benchmark=JSON.parse(readFileSync('data/ai-discovery-benchmark.json','utf8'));
  assert.equal(benchmark.prompts.length,24);
  const pages=JSON.parse(readFileSync('data/ai-discovery-public-urls.json','utf8'));
- assert.equal(pages.urls.length,25);
+ assert.equal(pages.urls.length,29);
+ for(const lang of ['de','fr','es','pt'])assert(pages.urls.includes('https://www.mingeagle.com/school-sports-equipment-'+lang+'.html'));
  for(const p of benchmark.prompts)assert(pages.urls.includes(p.targetUrl),'Benchmark targets must have a known public source URL');
  sqlite.exec(readFileSync('migrations/0009_ai_visibility_observations.sql','utf8'));
  const db={prepare(sql){
@@ -71,7 +72,7 @@ try{
  assert.equal(r.data.summary.WEB_SEARCH.manualCitationRate,0);
  const citedUrl=benchmark.prompts[0].targetUrl;
  assert.equal((await submit({...fixture,platform:'GEMINI',status:'CITED',citedUrl})).status,200);
- assert.equal((await submit({...fixture,platform:'COPILOT',status:'CITED',citedUrl:'https://www.mingeagle.com/silent-basketball.html'})).status,200,'Sitemap-listed product can be cited even if not the suggested target');
+ assert.equal((await submit({...fixture,platform:'COPILOT',status:'CITED',citedUrl:'https://www.mingeagle.com/school-sports-equipment-de.html'})).status,200,'Verified localized school guide can be cited even if not the expected target');
  r=await get();assert.equal(r.data.summary.WEB_SEARCH.observedPairs,3);
  assert.equal(r.data.summary.WEB_SEARCH.counts.CITED,2);
  assert.equal(r.data.summary.WEB_SEARCH.manualCitationRate,2/3);

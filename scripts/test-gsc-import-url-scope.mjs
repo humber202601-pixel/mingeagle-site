@@ -38,7 +38,8 @@ try {
  };
  const row=(dimension)=>({dimension,clicks:1,impressions:8,ctr:0.125,position:9});
  const published=JSON.parse(readFileSync('data/ai-discovery-public-urls.json','utf8'));
- assert.equal(published.urls.length,25,'CRM GSC whitelist must use the same 25 indexed-eligible source URLs as AI visibility dashboard');
+ assert.equal(published.urls.length,29,'CRM GSC whitelist must reflect all 29 public pages across the two sitemap files');
+ for(const lang of ['de','fr','es','pt'])assert(published.urls.includes('https://www.mingeagle.com/school-sports-equipment-'+lang+'.html'),'Missing localized school buyer URL');
  assert(published.urls.includes('https://www.mingeagle.com/quiet-indoor-sports-for-kids.html'));
  assert(published.urls.includes('https://www.mingeagle.com/indoor-school-sports-equipment-guide.html'));
 
@@ -60,10 +61,13 @@ try {
  assert.equal(state.batches,2);
  result=await run({...base,rows:[
   row('https://www.mingeagle.com/quiet-indoor-sports-for-kids.html'),
-  row('https://www.mingeagle.com/indoor-school-sports-equipment-guide.html')
+  row('https://www.mingeagle.com/indoor-school-sports-equipment-guide.html'),
+  row('https://www.mingeagle.com/school-sports-equipment-de.html'),
+  row('https://www.mingeagle.com/school-sports-equipment-fr.html')
  ]});
  assert.equal(result.status,200,'Both new GEO intent guides must be accepted by the real GSC importer');
  assert.equal(state.batches,3);
+ assert.equal(result.data.rows,4,'Both new localized GEO landing pages must be accepted');
 
  const invalid=[
   'https://notmingeagle.com/products.html',

@@ -20,7 +20,7 @@ export default function SearchConsoleImport({accessKey}:{accessKey:string}){
  }catch(e){setMessage(e instanceof Error?e.message:'导入失败')}finally{setBusy(false)}};
  return <section className="panel" style={{padding:18,display:'grid',gap:12}}>
  <div className="panel-head"><h2>Google 搜索表现 · 手动导入</h2><span>真实报表快照</span></div>
- <p style={{fontSize:13,color:'#475467'}}>从已验证的 Google Search Console → 搜索结果 →「查询」或「网页」导出 CSV，填写与报表一致的日期范围。仅支持官网已核验站点地图中的 25 个公开页面（包括最新的家庭与学校 AI 专题）；同时接受 www 和历史非 www 的 HTTPS 网址，不导入带参数的询盘、订单或私人页面。手动 CSV 快照不会自动访问 Google 账号，也不是实时流量。</p>
+ <p style={{fontSize:13,color:'#475467'}}>从已验证的 Google Search Console → 搜索结果 →「查询」或「网页」导出 CSV，填写与报表一致的日期范围。仅支持官网两份已核验站点地图中的 29 个公开页面（包括家庭、学校 AI 专题及德语、法语、西班牙语、葡萄牙语学校采购页面）；同时接受 www 和历史非 www 的 HTTPS 网址，不导入带参数的询盘、订单或私人页面。手动 CSV 快照不会自动访问 Google 账号，也不是实时流量。</p>
  <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
  <label>报表类型 <select value={kind} onChange={e=>setKind(e.target.value as 'queries'|'pages')}><option value="queries">查询关键词</option><option value="pages">落地网页</option></select></label>
  <label>网站资源 <select value={property} onChange={e=>setProperty(e.target.value)}><option value="sc-domain:mingeagle.com">sc-domain:mingeagle.com（已连接域名属性）</option><option value="https://www.mingeagle.com/">https://www.mingeagle.com/（官网正式域名）</option><option value="https://mingeagle.com/">https://mingeagle.com/（历史域名）</option></select></label>
