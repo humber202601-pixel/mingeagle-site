@@ -13,6 +13,9 @@ try{
  const sqlite=new DatabaseSync(':memory:');
  const benchmark=JSON.parse(readFileSync('data/ai-discovery-benchmark.json','utf8'));
  assert.equal(benchmark.prompts.length,24);
+ const pages=JSON.parse(readFileSync('data/ai-discovery-public-urls.json','utf8'));
+ assert.equal(pages.urls.length,25);
+ for(const p of benchmark.prompts)assert(pages.urls.includes(p.targetUrl),'Benchmark targets must have a known public source URL');
  sqlite.exec(readFileSync('migrations/0009_ai_visibility_observations.sql','utf8'));
  const db={prepare(sql){
   const make=(params=[])=>({
@@ -68,14 +71,15 @@ try{
  assert.equal(r.data.summary.WEB_SEARCH.manualCitationRate,0);
  const citedUrl=benchmark.prompts[0].targetUrl;
  assert.equal((await submit({...fixture,platform:'GEMINI',status:'CITED',citedUrl})).status,200);
- r=await get();assert.equal(r.data.summary.WEB_SEARCH.observedPairs,2);
- assert.equal(r.data.summary.WEB_SEARCH.counts.CITED,1);
- assert.equal(r.data.summary.WEB_SEARCH.manualCitationRate,0.5);
+ assert.equal((await submit({...fixture,platform:'COPILOT',status:'CITED',citedUrl:'https://www.mingeagle.com/silent-basketball.html'})).status,200,'Sitemap-listed product can be cited even if not the suggested target');
+ r=await get();assert.equal(r.data.summary.WEB_SEARCH.observedPairs,3);
+ assert.equal(r.data.summary.WEB_SEARCH.counts.CITED,2);
+ assert.equal(r.data.summary.WEB_SEARCH.manualCitationRate,2/3);
  assert.equal((await submit({...fixture,status:'UNAVAILABLE'})).status,200);
  r=await get();
- assert.equal(total(),3,'Manual reviews must be append-only');
- assert.equal(r.data.summary.WEB_SEARCH.observedPairs,2,'Latest entry replaces status but not history');
- assert.equal(r.data.summary.WEB_SEARCH.eligible,1,'UNAVAILABLE excluded from rate denominator');
+ assert.equal(total(),4,'Manual reviews must be append-only');
+ assert.equal(r.data.summary.WEB_SEARCH.observedPairs,3,'Latest entry replaces status but not history');
+ assert.equal(r.data.summary.WEB_SEARCH.eligible,2,'UNAVAILABLE excluded from rate denominator');
  assert.equal(r.data.summary.WEB_SEARCH.manualCitationRate,1);
  assert.equal((await submit({...fixture,testMode:'STANDARD',status:'MENTIONED_NO_LINK'})).status,200);
  r=await get();
@@ -83,7 +87,7 @@ try{
  assert.equal(r.data.summary.STANDARD.observedPairs,1);
  assert.equal(r.data.summary.STANDARD.counts.MENTIONED_NO_LINK,1);
  assert.equal(r.data.summary.STANDARD.manualCitationRate,0);
- assert.equal(r.data.snapshots.length,3);
+ assert.equal(r.data.snapshots.length,4);
  assert.equal((await get({})).status,503);
  sqlite.close();
  console.log('PASS: 24 neutral benchmark questions, missing=unknown, real manual attestation, private cited URLs rejected, append-only history, search/standard denominators isolated.');
