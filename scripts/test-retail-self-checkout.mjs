@@ -10,7 +10,9 @@ const bundle=async entry=>{
 };
 const {onRequestPost}=await bundle('functions/api/retail/checkout.ts');
 const {onRequestGet}=await bundle('functions/api/retail/checkout-status.ts');
-const full={MINGEAGLE_DB:null,AIRWALLEX_CLIENT_ID:'synthetic',
+const full={MINGEAGLE_DB:null,STRIPE_SECRET_KEY:'sk_test_synthetic_only',
+ STRIPE_WEBHOOK_SECRET:'whsec_synthetic_only',STRIPE_MODE:'test',
+ STRIPE_CHECKOUT_ENABLED:'true',STRIPE_TAX_POLICY_APPROVED:'true',AIRWALLEX_CLIENT_ID:'synthetic',
  AIRWALLEX_API_KEY:'synthetic',AIRWALLEX_ENV:'sandbox',
  AIRWALLEX_WEBHOOK_SECRET:'synthetic',AIRWALLEX_CHECKOUT_ENABLED:'true',
  RETAIL_CHECKOUT_ENABLED:'true',RETAIL_STOCK_FULFILLMENT_APPROVED:'true',
@@ -42,8 +44,8 @@ const db={prepare(sql){reads++;let parameters=[];
  },seen:false};
 try{
  globalThis.fetch=async()=>{network++;throw Error('Provider network must not be called before readiness')};
- for(const changes of [{RETAIL_US_TAX_POLICY_JSON:''},{AIRWALLEX_API_KEY:''},{AIRWALLEX_CHECKOUT_ENABLED:'false'},
-  {AIRWALLEX_WEBHOOK_SECRET:''},{RETAIL_CHECKOUT_ENABLED:'false'},
+ for(const changes of [{RETAIL_US_TAX_POLICY_JSON:''},{STRIPE_SECRET_KEY:''},{STRIPE_CHECKOUT_ENABLED:'false'},
+  {STRIPE_WEBHOOK_SECRET:''},{STRIPE_TAX_POLICY_APPROVED:'false'},{RETAIL_CHECKOUT_ENABLED:'false'},
   {RETAIL_STOCK_FULFILLMENT_APPROVED:'false'},
   {RETAIL_TAX_POLICY_APPROVED:'false'},{TURNSTILE_ENABLED:'false'}]){
   const env={...full,...changes,MINGEAGLE_DB:db};
@@ -98,5 +100,5 @@ try{
  const quoteUi=readFileSync('src/CustomerQuote.tsx','utf8');
  assert(quoteUi.includes('payment_status')&&quoteUi.includes('noindex,nofollow'));
  assert(quoteUi.includes('/api/payments/airwallex/create'));
- console.log('PASS: payment off by default, quantity & origin bounds, Turnstile, verified 1-unit price, atomic pending order and idempotency, hosted Airwallex webhook-only payment status.');
+ console.log('PASS: Stripe-only readiness gates, quantity & origin bounds, Turnstile, verified 1-unit price, atomic pending order and idempotency.');
 }finally{globalThis.fetch=saved}
