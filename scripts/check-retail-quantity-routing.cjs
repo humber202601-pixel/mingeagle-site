@@ -31,11 +31,13 @@ assert(!cart.includes('window.location.href=\'https://airwallex.com'), 'Never in
 const page=fs.readFileSync('public/retail-cart.html','utf8');
 assert(page.includes('id="cartSeaConsent"')&&page.includes('25–30 days'));
 assert(page.includes('id="cartRetail"')&&page.includes('id="cartWholesale"'));
-assert(page.includes('retail-cart.js?v=20261014-checkout-choice-2'));
+assert(page.includes('retail-cart.js?v=20261014-p1s3-ddp-1'));
 assert(page.includes('id="cartInquiry"')&&page.includes('#cartInquiry[hidden]{display:none}'),
  'Secondary quote button must be accessible only after checkout readiness failure');
 assert(page.includes('id="cartCustomsNote"')&&page.includes('import duties'));
 assert(cart.includes('last.ddpConfirmed!==true'), 'Unconfirmed duty-paid routes must use an inquiry');
+assert(cart.includes("['P1-S3','P1-S7'].includes(lines[0].sku)"),'Only merchant-confirmed single-item P1-S3/P1-S7 show DDP');
+assert(cart.includes('$11.50 shipping')&&cart.includes('$14.00 shipping'),'Customer sees exact duty-paid shipping rates');
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'retail-route-'));
 try{
  const files=['index.html','products.html','silent-basketball.html','fabric-silent-basketball.html',

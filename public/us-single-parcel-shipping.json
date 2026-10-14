@@ -31,24 +31,42 @@
     }
   },
   "disclosures": [
-    "Confirmed for one P1-S7 unit shipping China-to-USA at $14: merchant-arranged import customs clearance and import duties are included in that $14 shipping charge; no separate import duty charged to the buyer.",
-    "US state/local sales or use tax is separate. Whether MING EAGLE must collect depends on the delivery state and the merchant's sales-tax registrations and nexus.",
-    "DDP coverage is not yet independently documented for other sizes, SKUs or multi-item shipments; these continue to require confirmation.",
-    "Expected delivery roughly 12–15 days after dispatch, not a guaranteed arrival date. Customs, remote areas and carrier delays may apply."
+    "For exactly one P1-S3 unit China-to-USA: $9.90 merchandise + $11.50 shipping ($21.40 before US sales tax); merchant-arranged customs clearance and US import duties are included in shipping. Buyer owes no additional import duties.",
+    "For exactly one P1-S7 unit China-to-USA: $14.90 merchandise + $14.00 shipping ($28.90 before US sales tax); merchant-arranged customs clearance and US import duties are included in shipping. Buyer owes no additional import duties.",
+    "US state/local sales or use tax remains separate and depends on state-specific merchant registration, nexus and tax review; no zero-tax claim is implied.",
+    "DDP coverage is not confirmed for other sizes, SKUs or multi-item shipments, which require a final delivered-price quote.",
+    "Delivery approximately 12–15 days after dispatch is an estimate, not a guarantee; customs, remote areas and carriers may delay delivery."
   ],
-  "confirmedDdpSingleItem": {
-    "sku": "P1-S7",
-    "shippingUSD": 14,
-    "origin": "CN",
-    "destination": "US",
-    "scope": "one-unit-only",
-    "includes": [
-      "import_customs_clearance",
-      "applicable_import_duties"
-    ],
-    "excludes": [
-      "US_state_local_sales_tax"
-    ],
-    "verifiedBy": "Merchant confirmation on 2026-10-13"
-  }
+  "confirmedDdpSingleItems": [
+    {
+      "sku": "P1-S3",
+      "shippingUSD": 11.5,
+      "origin": "CN",
+      "destination": "US",
+      "scope": "one-unit-only",
+      "includes": [
+        "import_customs_clearance",
+        "applicable_import_duties"
+      ],
+      "excludes": [
+        "US_state_local_sales_tax"
+      ],
+      "verifiedBy": "Merchant confirmation on 2026-10-14"
+    },
+    {
+      "sku": "P1-S7",
+      "shippingUSD": 14,
+      "origin": "CN",
+      "destination": "US",
+      "scope": "one-unit-only",
+      "includes": [
+        "import_customs_clearance",
+        "applicable_import_duties"
+      ],
+      "excludes": [
+        "US_state_local_sales_tax"
+      ],
+      "verifiedBy": "Merchant confirmation on 2026-10-13"
+    }
+  ]
 }

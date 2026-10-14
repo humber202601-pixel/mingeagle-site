@@ -24,12 +24,19 @@ for(const [id,bySize] of Object.entries(prices.products)){
  }
 }
 assert.equal(list.length,11,'US parcel matrix must cover all 11 retail SKUs');
+assert.deepEqual(post.confirmedDdpSingleItems.map(x=>[x.sku,x.shippingUSD]).sort(),
+ [['P1-S3',11.5],['P1-S7',14]].sort(),'Only explicitly merchant-confirmed single-unit DDP tariffs');
+for(const ddp of post.confirmedDdpSingleItems){
+ const line=list.find(x=>x.id.toUpperCase()+'-S'+x.size===ddp.sku);
+ assert(line&&line.shipping===ddp.shippingUSD&&ddp.origin==='CN'&&ddp.destination==='US'
+  &&ddp.scope==='one-unit-only','DDP rate must match the public one-unit US shipping tariff');
+}
 const begin='<!-- MING EAGLE US DELIVERED PRICES BEGIN -->';
 const end='<!-- MING EAGLE US DELIVERED PRICES END -->';
 const cssBegin='<!-- MING EAGLE US DELIVERED CSS BEGIN -->';
 const cssEnd='<!-- MING EAGLE US DELIVERED CSS END -->';
 const style=cssBegin+'<style>.usPriceSummary{background:#fff9f3;border-block:1px solid #f1dfcd}.usPriceIntro{max-width:850px;line-height:1.65}.usPriceTableWrap{max-width:100%;overflow-x:auto}.usPriceTable{width:100%;border-collapse:collapse;min-width:520px;background:#fff;border-radius:12px}.usPriceTable th,.usPriceTable td{padding:12px 15px;border-bottom:1px solid #e7e9ed;text-align:left;vertical-align:middle;font-size:14px}.usPriceTable th{background:#f5f7fb;color:#374151;font-weight:700}.usPriceTable td strong{color:#1c6b46;font-size:16px}.usPriceTable a{color:#a54220;text-underline-offset:3px}.usPriceNote{font-size:13px;color:#475569;line-height:1.6;max-width:850px}.usPriceHero{font-size:16px;line-height:1.55;margin:16px 0 0}.usPriceHero strong{color:#127049;font-size:24px}.usPriceHero a{font-weight:700;text-decoration:underline}@media(max-width:650px){.usPriceTable th,.usPriceTable td{padding:10px 9px;font-size:12px}.usPriceTable td strong{font-size:14px}}</style>'+cssEnd;
-const disclaimer='US single-item air small parcel from China; estimated delivery 12–15 days after dispatch, not guaranteed. Estimates include one product and its listed shipping charge, excluding taxes and import duties. Availability, final freight and payable total require written confirmation. For 2–9 items, combined shipping is calculated separately. From 10 items, request a quantity-based wholesale discount; sea freight agreement is required and delivery is estimated 25–30 days after dispatch, not guaranteed. Destinations outside the US require separate confirmation.';
+const disclaimer='US single-item air small parcel from China; estimated delivery 12–15 days after dispatch, not guaranteed. Only the merchant-confirmed one-unit P1-S3 ($11.50 delivery) and P1-S7 ($14 delivery) rates include US import customs clearance and import duties, with no additional import duty due from the buyer. Other SKUs and multi-item orders require an import-duty-inclusive delivered-price confirmation. US state/local sales tax is separate, subject to independent review before any payment. For 2–9 items, combined shipping is calculated separately. From 10 items, request a quantity-based wholesale discount; sea freight agreement is required and delivery is estimated 25–30 days after dispatch, not guaranteed. Destinations outside the US require separate confirmation.';
 function row(item,includeName){
  const link=item.page+'#us-single-parcel';
  return '<tr>'+(includeName?'<td><a href="'+link+'">'+safe(item.name)+'</a></td>':'')+

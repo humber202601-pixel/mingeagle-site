@@ -140,9 +140,12 @@ function render(){
   'Wholesale · '+n+' items. Quantity-based discounts; sea freight required (estimated 25–30 days after dispatch, not guaranteed).':
   'Retail · '+n+' of 9 maximum items. Public USD unit prices; air parcel shipping.';
  $('cartCheckout').textContent=bulk?'Request tiered wholesale quote →':'Calculate shipping before checkout →';
- const oneConfirmedDDP = n===1 && lines.length===1 && lines[0].sku==='P1-S7' && country()==='US';
- $('cartCustomsNote').textContent=oneConfirmedDDP?
-  'China → US, one P1-S7 item: the $14 shipping rate includes customs clearance and import duties paid by MING EAGLE. US state/local sales tax is separate and depends on your delivery state.':
+ const oneConfirmedDDP = n===1 && lines.length===1 && country()==='US' &&
+  ['P1-S3','P1-S7'].includes(lines[0].sku);
+ const ddpNote=lines[0]?.sku==='P1-S3'?
+  'China → US, one P1-S3 item: $9.90 product plus $11.50 shipping. The shipping includes customs clearance and US import duties, with no additional import duty charged to the buyer. US state/local sales tax is separate.':
+  'China → US, one P1-S7 item: $14.90 product plus $14.00 shipping. The shipping includes customs clearance and US import duties, with no additional import duty charged to the buyer. US state/local sales tax is separate.';
+ $('cartCustomsNote').textContent=oneConfirmedDDP?ddpNote:
   'China-direct delivery: customs clearance and import-duty coverage is not yet confirmed for this size or quantity. US sales tax is separate. Request a confirmed delivered-price quote before payment.';
  $('cartStatus').textContent=!lines.length?'Your cart is empty.':
   bulk?'Agree to sea freight terms before calculating the wholesale freight estimate.':
