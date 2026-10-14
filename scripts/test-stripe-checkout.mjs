@@ -55,6 +55,7 @@ try{
  assert(!await verifyStripeSignature(payload,'t='+now+',v1=invalid',ready.STRIPE_WEBHOOK_SECRET,now*1000));
 
  let stored=false;
+ let simulatedShippingState='NY';
  let retailSku='P1-S7', retailGoods=14.9, retailShipping=14;
  const processedEvents=new Set();
  let receivedInserts=0;
@@ -66,7 +67,7 @@ try{
       id:'ord_synthetic',reference:'ME-RO-SYNTHETIC',status:'PAYMENT_PENDING',
       payment_status:'UNPAID',total:retailGoods+retailShipping,subtotal:retailGoods,discount:0,
       shipping:retailShipping,tax:0,currency:'USD',quote_status:'SENT',
-      shipping_address:JSON.stringify({state:'NY',country:'US'}),
+      shipping_address:JSON.stringify({state:simulatedShippingState,country:'US'}),
       received:0,email:'buyer@example.net'
     };
     if(sql.includes("WHERE order_id=? AND provider='STRIPE'"))return null;
@@ -113,6 +114,19 @@ try{
  assert.equal(denied.status,409,'No Checkout for a state excluded from the verified tax review');
  assert.equal(providerCalls,0,'Tax-denied state must not call Stripe');
  assert.equal(dbWrites,0,'Tax-denied state must not mutate D1');
+ // Kentucky LLC registration and an unknown sales tax permit are NOT reviewed
+ // zero-tax decisions. COLLECT_SALES_TAX must not authorize the zero-tax path.
+ simulatedShippingState='KY';
+ const kyUnreviewed=await createCheckout({env:{...ready,MINGEAGLE_DB:db},request:request()});
+ assert.equal(kyUnreviewed.status,409,'KY must fail closed absent a KY-specific reviewed decision');
+ const kyMustCollect=await createCheckout({env:{...ready,
+  RETAIL_US_TAX_POLICY_JSON:JSON.stringify({reviewed_on:new Date().toISOString().slice(0,10),
+   review_reference:'SYNTHETIC_KY_COLLECTION_REQUIRED_NOT_ZERO',
+   states:{KY:'COLLECT_SALES_TAX'}}),MINGEAGLE_DB:db},request:request()});
+ assert.equal(kyMustCollect.status,409,'KY collection obligations cannot be silently treated as zero tax');
+ assert.equal(providerCalls,0,'Unreviewed KY tax must not open Stripe Checkout');
+ assert.equal(dbWrites,0,'Unreviewed KY tax must not mutate payments');
+ simulatedShippingState='NY';
  const result=await createCheckout({env:{...ready,MINGEAGLE_DB:db},request:request()});
  assert.equal(result.status,200,await result.clone().text());
  const checkout=await result.json();
