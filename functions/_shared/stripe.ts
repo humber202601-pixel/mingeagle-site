@@ -27,6 +27,14 @@ export function stripeCheckoutReadiness(env: StripeEnv) {
   };
 }
 
+// Stripe Checkout IDs are mode-qualified. A Checkout Session from another mode
+// must never be linked to this environment's D1 order or payment records.
+export function stripeSessionMatchesMode(sessionId:unknown, mode:unknown):boolean {
+ const id=typeof sessionId==='string'?sessionId:'';
+ return mode==='test'?/^cs_test_[A-Za-z0-9]+$/.test(id):
+  mode==='live'?/^cs_live_[A-Za-z0-9]+$/.test(id):false;
+}
+
 export async function stripeApi(env: StripeEnv, path: string, init?: RequestInit) {
   const key = String(env.STRIPE_SECRET_KEY || '').trim();
   if (!stripeCheckoutReadiness(env).checkoutReady) throw Error('Stripe payment is not enabled.');
