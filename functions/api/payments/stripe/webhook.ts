@@ -1,4 +1,5 @@
 import {stripeSessionMatchesMode} from '../../../_shared/stripe';
+import {automaticTaxAmount} from '../../../_shared/retail-stripe-tax';
 
 interface Env {
  MINGEAGLE_DB:D1Database;
@@ -7,7 +8,8 @@ interface Env {
 }
 type CheckoutSession={
  id?:string;client_reference_id?:string;payment_status?:string;status?:string;
- amount_total?:number;currency?:string;metadata?:{order_id?:string;order_reference?:string;purpose?:string};
+ amount_total?:number;currency?:string;customer?:string;automatic_tax?:{enabled?:boolean;status?:string};
+ total_details?:{amount_tax?:number};metadata?:{order_id?:string;order_reference?:string;purpose?:string;tax_mode?:string;tax_state?:string};
 };
 type Event={id?:string;type?:string;data?:{object?:CheckoutSession}};
 const invalid=(reason:string,status=400)=>new Response(reason,{status,headers:{'cache-control':'no-store'}});
@@ -66,13 +68,14 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    await processed();return Response.json({ok:true,ignored:true,launchProbe:true});
   }
   const matched=await db.prepare(
-   "SELECT order_id,amount,currency,status FROM payment_provider_sessions "+
+   "SELECT order_id,amount,currency,status,tax_mode,base_amount_cents,tax_amount_cents,tax_state,tax_customer_id FROM payment_provider_sessions "+
    "WHERE provider='STRIPE' AND provider_intent_id=? LIMIT 1"
-  ).bind(session.id).first<{order_id:string;amount:number;currency:string;status:string}>();
+  ).bind(session.id).first<{order_id:string;amount:number;currency:string;status:string;tax_mode?:string;
+   base_amount_cents?:number;tax_amount_cents?:number;tax_state?:string;tax_customer_id?:string}>();
   // Out-of-order Stripe notification: retry until the session is saved.
   if(!matched)return invalid('Unknown checkout session',409);
   const order=await db.prepare(
-   "SELECT id,reference,lead_id,company_id,contact_id,total,currency,payment_status "+
+   "SELECT id,reference,lead_id,company_id,contact_id,total,currency,payment_status,subtotal,discount,shipping,tax,shipping_address,status,quote_id "+
    "FROM orders WHERE id=? LIMIT 1"
   ).bind(matched.order_id).first<Record<string,unknown>>();
   if(!order)return invalid('Order missing',409);
@@ -88,6 +91,26 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    if(session.currency?.toLowerCase()!=='usd'||matched.currency.toUpperCase()!=='USD'||
       !Number.isSafeInteger(session.amount_total)||expected!==session.amount_total)
     return invalid('Payment amount or currency mismatch',409);
+   if(matched.tax_mode==='STRIPE_AUTOMATIC'){
+    const base=Math.round((Number(order.subtotal)-Number(order.discount)+Number(order.shipping))*100);
+    let address:{state?:string;country?:string};
+    try{address=JSON.parse(String(order.shipping_address||'null'))}catch{return invalid('Tax address missing',409)}
+    if(['CANCELLED','REFUNDED'].includes(String(order.status))||!Number.isSafeInteger(base)||
+     matched.base_amount_cents!==base||automaticTaxAmount(session,base)!==matched.tax_amount_cents||
+     session.metadata?.tax_mode!=='STRIPE_AUTOMATIC'||session.metadata.tax_state!==matched.tax_state||
+     address?.state!==matched.tax_state||address?.country!=='US'||session.customer!==matched.tax_customer_id)
+     return invalid('Automatic tax confirmation mismatch',409);
+    const totals=await db.batch([
+     db.prepare('UPDATE orders SET tax=?,total=?,updated_at=CURRENT_TIMESTAMP WHERE id=?')
+      .bind(Number(matched.tax_amount_cents)/100,expected/100,matched.order_id),
+     db.prepare("UPDATE quotes SET tax=?,total=?,notes='Stripe-confirmed sales tax for the order delivery address',updated_at=CURRENT_TIMESTAMP WHERE id=?")
+      .bind(Number(matched.tax_amount_cents)/100,expected/100,String(order.quote_id))
+    ]);
+    if(totals.length!==2||totals.some(r=>!r.success)||totals.some(r=>Number(r.meta?.changes)!==1))
+     return invalid('Tax totals could not be recorded',503);
+    order.total=expected/100;
+   }else if(session.metadata?.tax_mode==='STRIPE_AUTOMATIC'||session.automatic_tax?.enabled===true)
+    return invalid('Unexpected automatic tax session',409);
   }
   await db.prepare("UPDATE payment_provider_sessions "+
    "SET status=CASE WHEN status='SUCCEEDED' THEN status ELSE ? END,updated_at=CURRENT_TIMESTAMP "+

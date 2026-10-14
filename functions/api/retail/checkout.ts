@@ -2,7 +2,8 @@ import {type AirwallexEnv} from '../../_shared/airwallex';
 import {type StripeEnv} from '../../_shared/stripe';
 import {verifyInquiryTurnstile,turnstileConfiguration,type TurnstileEnv} from '../../../lib/turnstile-inquiry';
 import {SKU_USD} from '../../../lib/retail-reference';
-import {noSalesTaxCollectionRequired,remoteStartupState,remoteStartupWithinLimits,type RetailTaxEnv} from '../../../lib/retail-tax-policy';
+import {retailTaxTreatment,remoteStartupState,remoteStartupWithinLimits,type RetailTaxEnv} from '../../../lib/retail-tax-policy';
+import {registeredStripeTaxState} from '../../_shared/retail-stripe-tax';
 import {onRequestPost as calculateShipping} from '../shipping/cart';
 import {retailCheckoutReady} from './checkout-status';
 
@@ -74,13 +75,16 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  if((state==='OR'&&!/^97[0-9]{3}(?:-[0-9]{4})?$/.test(zip))||
     (state==='NH'&&!/^03[0-8][0-9]{2}(?:-[0-9]{4})?$/.test(zip)))
   return bad('Delivery ZIP does not match the approved state. Check the address or request a confirmed quote.');
- if(!noSalesTaxCollectionRequired(env,state))
+ const treatment=retailTaxTreatment(env,state);
+ if(!treatment)
   return bad('Sales-tax collection obligations for this delivery state are not yet verified. Please request a retail quote instead.',409);
  if(!turnstileConfiguration(env).enabled)return bad('Checkout security verification not ready',503);
  const captcha=await verifyInquiryTurnstile(env,input.turnstileToken,request);
  if(!captcha.ok||captcha.code!=='OK')return bad('Security challenge must be completed again',403);
  const db=env.MINGEAGLE_DB;
  try{
+  if(treatment==='STRIPE_AUTOMATIC'&&!await registeredStripeTaxState(env,state))
+   return bad('Secure payment for this delivery address is awaiting tax configuration. Please request a confirmed quote.',409);
   // Reject duplicated checkout actions before doing any CRM writes.
   const previous=await db.prepare('SELECT request_id FROM retail_checkout_requests WHERE request_id=?')
    .bind(requestId).first<R>();
@@ -130,6 +134,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     .bind(order,orderRef,quote,lead,contact,goods/100,freight/100,total/100,address,'Retail self-service checkout awaiting provider-confirmed payment')
   );
   if(startupReview)statements.push(db.prepare("UPDATE quotes SET notes='REMOTE_STARTUP: China-direct merchant factual declaration; bounded no-collection launch; duties prepaid; sales tax is not a product exemption' WHERE id=?").bind(quote));
+  if(treatment==='STRIPE_AUTOMATIC')statements.push(db.prepare("UPDATE quotes SET notes='STRIPE_AUTOMATIC_TAX_PENDING: Final sales tax and total are confirmed at secure payment for the fixed delivery address' WHERE id=?").bind(quote));
   for(let i=0;i<lines.length;i++){
    const line=lines[i],unit=SKU_USD[line.sku],sum=Math.round(unit*100)*line.quantity/100;
    statements.push(

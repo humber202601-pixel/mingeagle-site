@@ -1,0 +1,84 @@
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync,readdirSync} from 'node:fs';
+import {randomUUID,createHmac} from 'node:crypto';
+import {build} from 'esbuild';
+const load=async path=>{const r=await build({entryPoints:[path],bundle:true,write:false,platform:'node',format:'esm',logLevel:'silent'});return import('data:text/javascript;base64,'+Buffer.from(r.outputFiles[0].text).toString('base64'))};
+const {onRequestPost:retail}=await load('functions/api/retail/checkout.ts');
+const {onRequestPost:checkout}=await load('functions/api/payments/stripe/create.ts');
+const {onRequestPost:webhook}=await load('functions/api/payments/stripe/webhook.ts');
+const {onRequestGet:quotePage}=await load('functions/quote/[token].ts');
+const {onRequestGet:document}=await load('functions/api/admin/quote-document.ts');
+const {retailTaxTreatment}=await load('lib/retail-tax-policy.ts');
+const sql=new DatabaseSync(':memory:');
+for(const f of readdirSync('migrations').filter(f=>f.endsWith('.sql')).sort())sql.exec(readFileSync('migrations/'+f,'utf8'));
+const db={prepare(query){return {args:[],bind(...args){this.args=args;return this},async first(){return sql.prepare(query).get(...this.args)||null},async all(){return {success:true,results:sql.prepare(query).all(...this.args)}},async run(){const r=sql.prepare(query).run(...this.args);return {success:true,meta:{changes:Number(r.changes)}}}}},async batch(statements){sql.exec('BEGIN');try{const r=[];for(const s of statements)r.push(await s.run());sql.exec('COMMIT');return r}catch(e){sql.exec('ROLLBACK');throw e}}};
+const origin='https://app.mingeagle.com';
+const policy={reviewed_on:new Date().toISOString().slice(0,10),review_reference:'SYNTHETIC_REVIEW_NOT_A_REAL_PERMIT',states:{CA:'COLLECT_WITH_STRIPE_TAX'},registration_references:{CA:'SYNTHETIC_REGISTERED_ENTITY_CA'}};
+const env={MINGEAGLE_DB:db,STRIPE_MODE:'test',STRIPE_SECRET_KEY:'sk_test_synthetic_tax_only',STRIPE_WEBHOOK_SECRET:'whsec_synthetic_tax_only',STRIPE_CHECKOUT_ENABLED:'true',STRIPE_TAX_POLICY_APPROVED:'true',RETAIL_CHECKOUT_ENABLED:'true',RETAIL_STOCK_FULFILLMENT_APPROVED:'true',RETAIL_TAX_POLICY_APPROVED:'true',TURNSTILE_ENABLED:'true',TURNSTILE_SITE_KEY:'synthetic-site',TURNSTILE_SECRET_KEY:'synthetic-secret',RETAIL_US_TAX_POLICY_JSON:JSON.stringify(policy)};
+assert.equal(retailTaxTreatment(env,'CA'),'STRIPE_AUTOMATIC');
+assert.equal(retailTaxTreatment(env,'NY'),null);
+assert.equal(retailTaxTreatment({...env,RETAIL_US_TAX_POLICY_JSON:JSON.stringify({...policy,registration_references:{}})},'CA'),null);
+assert.equal(retailTaxTreatment({...env,RETAIL_US_TAX_POLICY_JSON:JSON.stringify({...policy,basis:'NO_GENERAL_SALES_USE_TAX'})},'CA'),null);
+const input={requestId:randomUUID(),country:'US',method:'air',lines:[{sku:'P1-S7',color:'Orange',quantity:1}],name:'Synthetic Buyer',email:'synthetic@example.invalid',phone:'+1 415 555 0100',street1:'1 Synthetic St',city:'San Francisco',state:'CA',postalCode:'94103',privacyAck:true,turnstileToken:'synthetic'};
+const req=(path,body)=>new Request(origin+path,{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify(body)});
+let registration=true,registrationLive=false,customerCalls=0,checkoutCalls=0,invalidTax=false;
+let activeSession;
+const saved=globalThis.fetch;
+globalThis.fetch=async(url,init)=>{
+ if(url==='https://challenges.cloudflare.com/turnstile/v0/siteverify')return Response.json({success:true,hostname:'app.mingeagle.com',action:'mingeagle_inquiry'});
+ assert.equal(init.redirect,'manual');
+ if(url.includes('/tax/registrations?'))return Response.json({data:registration?[{country:'US',status:'active',livemode:registrationLive,country_options:{us:{state:'CA',type:'state_sales_tax'}}}]:[],has_more:false});
+ const p=new URLSearchParams(init.body);
+ if(url.endsWith('/customers')){
+  customerCalls++;assert.equal(p.get('shipping[address][state]'),'CA');assert.equal(p.get('shipping[address][postal_code]'),'94103');assert.equal(p.get('address[state]'),'CA');assert.equal(p.get('tax_exempt'),'none');
+  return Response.json({id:'cus_syntheticTax',livemode:false});
+ }
+ if(init.method!=='POST')return Response.json(activeSession);
+ assert.equal(url,'https://api.stripe.com/v1/checkout/sessions');checkoutCalls++;
+ assert.equal(p.get('automatic_tax[enabled]'),'true');assert.equal(p.get('customer'),'cus_syntheticTax');
+ assert.equal(p.get('customer_email'),null);assert.equal(p.get('customer_update[shipping]'),null);assert.equal(p.get('customer_update[address]'),null);assert.equal(p.get('shipping_address_collection[allowed_countries][0]'),null);
+ assert.equal(p.get('line_items[0][price_data][product_data][tax_code]'),'txcd_99999999');assert.equal(p.get('line_items[1][price_data][product_data][tax_code]'),'txcd_92010001');
+ assert.equal(p.get('line_items[0][price_data][tax_behavior]'),'exclusive');
+ const base=Number(p.get('line_items[0][price_data][unit_amount]'))+Number(p.get('line_items[1][price_data][unit_amount]'));
+ assert.equal(base,2890);
+ activeSession={id:'cs_test_syntheticTax',url:'https://checkout.stripe.com/c/pay/cs_test_syntheticTax',status:'open',payment_status:'unpaid',customer:'cus_syntheticTax',currency:'usd',amount_total:3136,automatic_tax:{enabled:true,status:invalidTax?'requires_location_inputs':'complete'},total_details:{amount_tax:246},client_reference_id:p.get('client_reference_id'),metadata:{order_id:p.get('metadata[order_id]'),order_reference:p.get('metadata[order_reference]'),tax_mode:p.get('metadata[tax_mode]'),tax_state:p.get('metadata[tax_state]')}};
+ return Response.json(activeSession);
+};
+const sign=(id,patch={})=>{
+ const raw=JSON.stringify({id,type:'checkout.session.completed',data:{object:{...activeSession,status:'complete',payment_status:'paid',...patch}}});
+ const t=Math.floor(Date.now()/1000),sig=createHmac('sha256',env.STRIPE_WEBHOOK_SECRET).update(t+'.'+raw).digest('hex');
+ return new Request(origin+'/api/payments/stripe/webhook',{method:'POST',body:raw,headers:{'stripe-signature':'t='+t+',v1='+sig}});
+};
+try{
+ for(const [present,live] of [[false,false],[true,true]]){
+  registration=present;registrationLive=live;
+  assert.equal((await retail({env,request:req('/api/retail/checkout',input)})).status,409);
+  assert.equal(sql.prepare('SELECT COUNT(*) n FROM orders').get().n,0);assert.equal(customerCalls+checkoutCalls,0);
+ }
+ registration=true;registrationLive=false;
+ const created=await retail({env,request:req('/api/retail/checkout',input)});assert.equal(created.status,200,await created.clone().text());
+ const result=await created.json(),token=new URL(result.paymentPage).pathname.split('/').at(-1);
+ const order=sql.prepare('SELECT * FROM orders WHERE reference=?').get(result.orderReference);
+ assert.equal((await document({env,request:new Request(origin+'/api/admin/quote-document?kind=quotation&quoteId='+order.quote_id)})).status,409,'A tax-pending amount is not issued as a final commercial document');
+ const beforePage=await quotePage({env,params:{token},request:new Request(result.paymentPage)});
+ const html=await beforePage.text();assert(html.includes('Total before sales tax'));assert(html.includes('Confirmed at secure payment'));assert(!html.includes('STRIPE_AUTOMATIC_TAX_PENDING:'));
+ registration=false;
+ assert.equal((await checkout({env,request:req('/api/payments/stripe/create',{token})})).status,409);assert.equal(customerCalls+checkoutCalls,0);
+ registration=true;invalidTax=true;
+ assert.equal((await checkout({env,request:req('/api/payments/stripe/create',{token})})).status,502);assert.equal(sql.prepare('SELECT COUNT(*) n FROM payment_provider_sessions').get().n,0);
+ invalidTax=false;
+ const started=await checkout({env,request:req('/api/payments/stripe/create',{token})});assert.equal(started.status,200,await started.clone().text());
+ const snapshot=sql.prepare('SELECT * FROM payment_provider_sessions').get();assert.equal(snapshot.amount,31.36);assert.equal(snapshot.base_amount_cents,2890);assert.equal(snapshot.tax_amount_cents,246);assert.equal(snapshot.tax_state,'CA');
+ const calls=checkoutCalls;assert.equal((await checkout({env,request:req('/api/payments/stripe/create',{token})})).status,200);assert.equal(checkoutCalls,calls,'Open taxed sessions are reused');
+ for(const [id,patch] of [['evt_tax_amount',{total_details:{amount_tax:245}}],['evt_customer',{customer:'cus_wrong'}],['evt_state',{metadata:{...activeSession.metadata,tax_state:'NY'}}],['evt_total',{amount_total:2890}],['evt_tax_incomplete',{automatic_tax:{enabled:true,status:'failed'}}]]){
+  assert.equal((await webhook({env,request:sign(id,patch)})).status,409,id);assert.equal(sql.prepare('SELECT COUNT(*) n FROM payments').get().n,0);
+ }
+ const paid=await webhook({env,request:sign('evt_tax_paid')});assert.equal(paid.status,200,await paid.clone().text());assert.equal((await paid.json()).paymentStatus,'PAID');
+ const finalOrder=sql.prepare('SELECT * FROM orders WHERE id=?').get(order.id),finalQuote=sql.prepare('SELECT * FROM quotes WHERE id=?').get(order.quote_id);
+ assert.equal(finalOrder.total,31.36);assert.equal(finalOrder.tax,2.46);assert.equal(finalQuote.total,31.36);assert.equal(finalQuote.tax,2.46);
+ assert.equal((await webhook({env,request:sign('evt_tax_paid')})).status,200);assert.equal((await webhook({env,request:sign('evt_tax_same_payment_new_event')})).status,200);
+ assert.equal(sql.prepare('SELECT COUNT(*) n FROM payments').get().n,1);assert.equal(sql.prepare("SELECT COUNT(*) n FROM tasks WHERE type='FULFILLMENT'").get().n,1);
+ const paidPage=await quotePage({env,params:{token},request:new Request(result.paymentPage)});const paidHtml=await paidPage.text();assert(paidHtml.includes('USD 31.36'));assert(paidHtml.includes('USD 2.46'));assert(!paidHtml.includes('Confirmed at secure payment'));
+ console.log('PASS: actual SQLite order → registered tax state → fixed-address Checkout → signed taxed payment; exact tax totals, inactive/wrong-mode registration rejection and replay safety. Providers are isolated fixtures, no real permits or payments.');
+}finally{globalThis.fetch=saved;sql.close()}

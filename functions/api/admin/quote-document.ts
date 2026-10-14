@@ -19,6 +19,8 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
     FROM quotes q LEFT JOIN companies c ON c.id=q.company_id
     LEFT JOIN contacts ct ON ct.id=q.contact_id WHERE q.id=? LIMIT 1`).bind(quoteId).first<QuoteRow>();
   if(!quote)return error('Quote not found.',404);
+  if(String(quote.notes||'').startsWith('STRIPE_AUTOMATIC_TAX_PENDING:'))
+   return error('Sales tax and the final total must be confirmed before issuing this document.',409);
   if(!['SENT','VIEWED','ACCEPTED','CONVERTED'].includes(quote.status))
    return error('Only released quotations can be exported. Draft and withdrawn quotes must not be issued.',409);
   let data:DocAmounts=quote,rows:DocLine[]=[],orderReference:string|undefined,orderDate:string|null=null;

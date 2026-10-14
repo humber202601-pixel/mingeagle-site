@@ -50,6 +50,33 @@ export function reviewedZeroTaxStates(env:RetailTaxEnv,now=new Date()):Set<strin
  if(remoteStartupFactsCurrent(env,now))for(const state of Object.keys(US_DELIVERY_STATES))states.add(state);
  return states;
 }
+// A collection decision is distinct from a no-collection decision. The reference
+// records the merchant's actual registration; runtime also verifies Stripe.
+export function reviewedStripeTaxStates(env:RetailTaxEnv,now=new Date()):Set<string>{
+ const states=new Set<string>();
+ try{
+  const p=JSON.parse(env.RETAIL_US_TAX_POLICY_JSON||'');
+  const day=String(p.reviewed_on||''),date=new Date(day+'T00:00:00Z');
+  if(p.basis==='NO_GENERAL_SALES_USE_TAX'||!/^\d{4}-\d{2}-\d{2}$/.test(day)||
+   !Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==day||
+   now.getTime()<date.getTime()||now.getTime()-date.getTime()>31*86400000||
+   typeof p.review_reference!=='string'||p.review_reference.length<8||p.review_reference.length>200||
+   !p.states||typeof p.states!=='object'||Array.isArray(p.states))return states;
+  for(const [state,decision] of Object.entries(p.states)){
+   const reference=p.registration_references?.[state];
+   if(validStates.has(state)&&decision==='COLLECT_WITH_STRIPE_TAX'&&
+    typeof reference==='string'&&reference.trim().length>=8&&reference.length<=200)states.add(state);
+  }
+ }catch{ /* Unknown registration is never a zero-tax decision. */ }
+ return states;
+}
+export function retailTaxTreatment(env:RetailTaxEnv,state:string,now=new Date()){
+ if(reviewedStripeTaxStates(env,now).has(state))return 'STRIPE_AUTOMATIC' as const;
+ return reviewedZeroTaxStates(env,now).has(state)?'FIXED' as const:null;
+}
+export function reviewedRetailTaxStates(env:RetailTaxEnv,now=new Date()){
+ return new Set([...reviewedZeroTaxStates(env,now),...reviewedStripeTaxStates(env,now)]);
+}
 export function remoteStartupState(env:RetailTaxEnv,state:string,now=new Date()){
  return remoteStartupFactsCurrent(env,now)&&validStates.has(state)&&!reviewedGovernmentOrMerchantStates(env,now).has(state);
 }
