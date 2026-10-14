@@ -69,6 +69,11 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  if(!name||!emailRe.test(email)||!phone||!street1||!city||!state||!/^[0-9]{5}(?:-[0-9]{4})?$/.test(zip)||
     input.privacyAck!==true)
   return bad('Name, valid email, phone, US delivery address, ZIP and privacy consent required');
+ // The initial OR/NH route accepts standard destination ZIP prefixes only.
+ // A mistyped out-of-state ZIP must never use another state's tax decision.
+ if((state==='OR'&&!/^97[0-9]{3}(?:-[0-9]{4})?$/.test(zip))||
+    (state==='NH'&&!/^03[0-8][0-9]{2}(?:-[0-9]{4})?$/.test(zip)))
+  return bad('Delivery ZIP does not match the approved state. Check the address or request a confirmed quote.');
  if(!noSalesTaxCollectionRequired(env,state))
   return bad('Sales-tax collection obligations for this delivery state are not yet verified. Please request a retail quote instead.',409);
  if(!turnstileConfiguration(env).enabled)return bad('Checkout security verification not ready',503);

@@ -141,6 +141,9 @@ try{
  }
  // Disabling retail does not disable separately accepted wholesale quotations.
  orderReference='ME-O-SYNTHETIC';quoteStatus='ACCEPTED';
+ const limited=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'true',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
+ assert.equal(limited.status,503,'Retail launch must not enable unreviewed wholesale payments');
+ assert.equal(providerCalls,0);
  const wholesale=await createCheckout({env:{...ready,RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
  assert.equal(wholesale.status,200,await wholesale.clone().text());
  assert.equal(providerCalls,1);

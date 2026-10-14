@@ -16,6 +16,7 @@ interface Env {
   RETAIL_CHECKOUT_ENABLED?:string;
   RETAIL_STOCK_FULFILLMENT_APPROVED?:string;
   RETAIL_TAX_POLICY_APPROVED?:string;
+  STRIPE_RETAIL_ONLY_ENABLED?:string;
 }
 
 type Row = Record<string, unknown>;
@@ -182,6 +183,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
         ? `<a class="track-link" target="_blank" rel="noreferrer" href="${esc(order.tracking_url)}">Open carrier tracking ↗</a>` : '';
       const airwallexReady = airwallexCheckoutReadiness(env).checkoutReady;
       const stripeReady = stripeCheckoutReadiness(env).checkoutReady && env.STRIPE_TAX_POLICY_APPROVED==='true'
+        && (env.STRIPE_RETAIL_ONLY_ENABLED!=='true'||String(order.reference).startsWith('ME-RO-'))
         && (!String(order.reference).startsWith('ME-RO-') ||
           (env.RETAIL_CHECKOUT_ENABLED==='true' && env.RETAIL_STOCK_FULFILLMENT_APPROVED==='true' && env.RETAIL_TAX_POLICY_APPROVED==='true'));
       const recommendBank = outstanding >= 1500;

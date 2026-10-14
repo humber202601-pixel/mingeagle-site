@@ -17,9 +17,11 @@ export function retailCheckoutReady(env:Env){
 }
 export const onRequestGet:PagesFunction<Env>=async({env})=>{
  const ready=retailCheckoutReady(env);
+ const supportedStates=[...reviewedZeroTaxStates(env)].sort();
  return Response.json({ok:true,retailCheckoutReady:ready,maxRetailUnits:9,minWholesaleUnits:10,
+  supportedStates,eligibleSkus:['P1-S3','P1-S7'],maxDirectCheckoutUnits:1,
   country:'US',method:'air',
-  notice:ready?'Retail checkout is available subject to checkout validation':
+  notice:ready?'Card checkout supports one P1-S3 or P1-S7 set in '+supportedStates.join(', ')+'. Other orders can request a confirmed quote.':
    'Direct retail payment is not yet activated. Submit an order inquiry instead.'},
   {headers:{'cache-control':'no-store','access-control-allow-origin':'*'}});
 };
