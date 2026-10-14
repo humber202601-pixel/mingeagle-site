@@ -27,3 +27,7 @@ Only the existing owner-confirmed one-unit P1-S3/P1-S7 DDP prices are eligible. 
 - Cloudflare widget sizing: https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/widget-configurations/ . Normal/flexible require 300px; narrow forms use the compact size rather than overflowing.
 
 Validation includes current/absent/stale/false owner declarations, national address states, real SQLite gross/count reservation limits and rollback, retained gross on refunds, exact merchandise/freight totals, desktop/mobile layout and terms alignment, and security-widget initialization after delayed readiness. No live customer charge is authorized or performed.
+
+## Production migration verification
+
+The production D1 atomic guard was installed successfully on 2026-10-14. The initial CASE-expression form was rejected by D1's statement splitter; the equivalent single conditional SELECT RAISE form passes both real SQLite boundary tests and the production D1 API. National readiness and session creation also require the guard to exist. No customer order or payment was inserted to apply this schema change.
