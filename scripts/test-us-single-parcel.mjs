@@ -65,6 +65,11 @@ for(const [sku,fee] of Object.entries(US_SMALL_PARCEL_RATES)){
  assert.equal(c.shippingUSD,body.shippingUSD,sku);
  assert.equal(c.paymentEnabled,false);
  assert.equal(c.ddpConfirmed,['P1-S3','P1-S7'].includes(sku));
+ if(c.ddpConfirmed){
+  assert(c.notice.includes(sku),'DDP notice must name correct confirmed product');
+  assert(c.notice.includes(String.fromCharCode(36)+fee.toFixed(2)),'DDP notice must state exact shipping amount');
+  assert(c.notice.includes('no additional import duty'));
+ }else assert(c.notice.includes('not yet confirmed'),'Unconfirmed SKU must not claim DDP');
 }
 // No silent per-item multiplication for larger carts or non-US destinations.
 for(const test of [
