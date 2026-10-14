@@ -5,7 +5,7 @@ import {US_DELIVERY_STATES} from '../lib/us-delivery-states';
 import './retail-checkout.css';
 type Entry={sku:string;quantity:number;color:string};
 type Ready={ok?:boolean;retailCheckoutReady?:boolean;supportedStates?:string[];eligibleSkus?:string[];maxDirectCheckoutUnits?:number};
-type Price={ok?:boolean;productUSD?:number;productsUSD?:number;shippingUSD?:number;totalBeforeTaxesUSD?:number;ddpConfirmed?:boolean};
+type Price={ok?:boolean;productUSD?:number;productsUSD?:number;shippingUSD?:number;totalBeforeTaxesUSD?:number;ddpConfirmed?:boolean;shippingPlan?:string;parcelCount?:number};
 const colors:Record<string,string[]>={P1:['Orange','Blue','Green','Yellow'],P2:['Orange','Green'],P3:['Orange','Brown','Black','Aqua Blue'],P4:['Black/White','Black/Green','Black/Red','Yellow/Green','Black/Gold']};
 const valid=/^(?:P1-S[357]|P2-S[357]|P3-S[3467]|P4-S5)$/;
 const catalog:Record<string,string>={P1:'Flocked Silent Basketball Set',P2:'Fabric-Cover Silent Basketball Set',P3:'Weighted Flocked Silent Basketball',P4:'Flocked Silent Soccer Ball'};
@@ -31,6 +31,7 @@ export default function RetailCheckout(){
  const [ready,setReady]=useState<Ready|null>(null),[price,setPrice]=useState<Price|null>(null);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[state,setState]=useState('');
  const [requestId]=useState(()=>crypto.randomUUID());
+ const quantity=lines.reduce((n,x)=>n+x.quantity,0);
  const cartEligible=lines.length>0&&lines.reduce((n,x)=>n+x.quantity,0)<=(ready?.maxDirectCheckoutUnits??1)&&lines.every(x=>!ready?.eligibleSkus||ready.eligibleSkus.includes(x.sku));
  const stateEligible=!state||!ready?.supportedStates||ready.supportedStates.includes(state);
  const goods=price?.productsUSD??price?.productUSD,freight=price?.shippingUSD,total=price?.totalBeforeTaxesUSD;
@@ -42,7 +43,9 @@ export default function RetailCheckout(){
  useEffect(()=>{
   let active=true;
   fetch('/api/retail/checkout-status',{cache:'no-store'}).then(r=>r.json()).then(d=>{if(active)setReady(d as Ready)}).catch(()=>{if(active)setReady({ok:false,retailCheckoutReady:false})});
-  if(lines.length)fetch('/api/shipping/cart',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({country:'US',method:'air',lines:lines.map(({sku,quantity})=>({sku,quantity}))})}).then(r=>r.json()).then(d=>{if(active)setPrice(d as Price)}).catch(()=>{if(active)setPrice({ok:false})});
+  const grouped=new Map<string,number>();
+  for(const x of lines)grouped.set(x.sku,(grouped.get(x.sku)||0)+x.quantity);
+  if(lines.length)fetch('/api/shipping/cart',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({country:'US',method:'air',lines:[...grouped].map(([sku,quantity])=>({sku,quantity}))})}).then(r=>r.json()).then(d=>{if(active)setPrice(d as Price)}).catch(()=>{if(active)setPrice({ok:false})});
   return ()=>{active=false};
  },[lines]);
  async function submit(e:FormEvent<HTMLFormElement>){
@@ -82,6 +85,7 @@ export default function RetailCheckout(){
      {lines.map(x=><div className="rc-product" key={x.sku+'|'+x.color}>{x.sku.startsWith('P1-')&&<img src="https://www.mingeagle.com/assets/hero-flocked-silent-basketball-set.webp?v=20261007-1" alt="Flocked basketball with mini hoop"/>}<div><strong>{catalog[x.sku.slice(0,2)]}</strong><span>Size {x.sku.slice(4)} · {x.color}</span><small>Quantity {x.quantity}</small></div></div>)}
      <dl className="rc-prices"><div><dt>Products</dt><dd>{typeof goods==='number'?money(goods):'—'}</dd></div><div><dt>Air parcel delivery</dt><dd>{typeof freight==='number'?money(freight):'—'}</dd></div><div className="rc-total"><dt>Total before sales tax<small>USD</small></dt><dd>{typeof total==='number'?money(total):'—'}</dd></div></dl>
      <p className="rc-tax-note">Any applicable sales tax is confirmed before payment.</p>
+     {quantity>1&&price?.shippingPlan==='ONE_UNIT_PER_PARCEL'&&<p className="rc-tax-note">{quantity} sets ship in {price.parcelCount} separate parcels. Delivery is charged per set; parcels may arrive separately.</p>}
      <ul className="rc-benefits"><li><PackageCheck size={18}/><span>Dispatch within 3 days<small>Products replenished as needed</small></span></li><li><Truck size={18}/><span>Air parcel from China<small>Estimated 12–15 days after dispatch</small></span></li>{price?.ddpConfirmed&&<li><ShieldCheck size={18}/><span>Import duties included<small>No extra import duty on this order</small></span></li>}</ul>
      <div className="rc-help">Need a hand? <a href="https://www.mingeagle.com/inquiry.html?type=question">Contact us</a></div>
     </aside>

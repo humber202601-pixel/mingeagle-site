@@ -6,7 +6,7 @@ const approved=JSON.parse(readFileSync('public/us-single-parcel-shipping.json','
 const retail=JSON.parse(readFileSync('public/retail-reference-prices.json','utf8')).products;
 const source=await build({entryPoints:['lib/us-small-parcel.ts'],
  bundle:true,write:false,platform:'node',format:'esm',target:'es2022',logLevel:'silent'});
-const {oneItemUsAirParcel,US_SMALL_PARCEL_RATES}=await import(
+const {oneItemUsAirParcel,separateUnitUsAirParcels,US_SMALL_PARCEL_RATES}=await import(
  'data:text/javascript;base64,'+Buffer.from(source.outputFiles[0].text).toString('base64'));
 let total=0;
 for(const [id,sizes] of Object.entries(retail)){
@@ -71,15 +71,36 @@ for(const [sku,fee] of Object.entries(US_SMALL_PARCEL_RATES)){
   assert(c.notice.includes('no additional import duty'));
  }else assert(c.notice.includes('not yet confirmed'),'Unconfirmed SKU must not claim DDP');
 }
-// No silent per-item multiplication for larger carts or non-US destinations.
+// Unconfirmed SKUs, consolidated freight and non-US destinations retain quote pricing.
 for(const test of [
- {country:'US',method:'air',lines:[{sku:'P1-S3',quantity:2}]},
  {country:'US',method:'air',lines:[{sku:'P1-S3',quantity:1},{sku:'P2-S3',quantity:1}]},
  {country:'CA',method:'air',lines:[{sku:'P1-S3',quantity:1}]}
 ]){
  const res=await cart.onRequestPost({request:new Request('https://app.mingeagle.com/api/shipping/cart',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(test)}),env:{}});
  assert.equal(res.status,503,'Other shipping scenarios must use D1 tariff and cannot be guessed');
 }
+// Multi-unit prices are explicitly separate one-unit parcels, never a combined rate.
+for(const [lines,goods,shipping] of [
+ [[{sku:'P1-S3',quantity:2}],19.8,23],
+ [[{sku:'P1-S7',quantity:2}],29.8,28],
+ [[{sku:'P1-S3',quantity:1},{sku:'P1-S7',quantity:1}],24.8,25.5],
+ [[{sku:'P1-S7',quantity:9}],134.1,126]
+]){
+ const request=new Request('https://app.mingeagle.com/api/shipping/cart',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({country:'US',method:'air',lines})});
+ const res=await cart.onRequestPost({request,env:{MINGEAGLE_DB:{prepare(){throw Error('Confirmed separate-parcel rates must not use the bulk engine')}}}});
+ const data=await res.json();assert.equal(res.status,200,JSON.stringify(data));
+ assert.equal(data.productsUSD,goods);assert.equal(data.shippingUSD,shipping);
+ assert.equal(Math.round(data.totalBeforeTaxesUSD*100),Math.round(goods*100)+Math.round(shipping*100));
+ assert.equal(data.ddpConfirmed,true);assert.equal(data.shippingPlan,'ONE_UNIT_PER_PARCEL');
+ assert.equal(data.parcelCount,lines.reduce((n,x)=>n+x.quantity,0));assert.equal(data.unitsPerParcel,1);
+ assert(data.notice.includes('Parcels may arrive separately'));
+}
+for(const lines of [[],[{sku:'P1-S3',quantity:0}],[{sku:'P1-S7',quantity:1.5}],[{sku:'P1-S7',quantity:10}],[{sku:'P1-S5',quantity:2}],[{sku:'__proto__',quantity:1}]])
+ assert.equal(separateUnitUsAirParcels(lines,'US','air'),null);
+assert.equal(separateUnitUsAirParcels([{sku:'P1-S7',quantity:2}],'CA','air'),null);
+assert.equal(separateUnitUsAirParcels([{sku:'P1-S7',quantity:2}],'US','sea'),null);
+const duplicate=await cart.onRequestPost({request:new Request('https://app.mingeagle.com/api/shipping/cart',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({country:'US',method:'air',lines:[{sku:'P1-S3',quantity:1},{sku:'P1-S3',quantity:1}]})}),env:{}});
+assert.equal(duplicate.status,400,'Shipping callers must group the same SKU across colors');
 // Strict quantity boundary: retail air through 9, 10+ wholesale sea only.
 // No quantity discount percentage or payable wholesale invoice is fabricated.
 for(const spec of [
