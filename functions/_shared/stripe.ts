@@ -42,7 +42,10 @@ export async function stripeApi(env: StripeEnv, path: string, init?: RequestInit
   headers.set('authorization', 'Bearer ' + key);
   // Never log auth headers, request payloads, customer PII, or returned sessions.
   const response = await fetch('https://api.stripe.com/v1/' + path.replace(/^\/+/, ''), {
-    ...init, headers, redirect:'error'
+    ...init, headers, redirect:'manual'
   });
+  // Workers supports manual/follow redirect modes. Reject 3xx here so a
+  // provider redirect never forwards the authorization header elsewhere.
+  if(response.status>=300&&response.status<400)throw Error('Stripe API redirects are not allowed.');
   return response;
 }

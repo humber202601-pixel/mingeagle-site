@@ -68,6 +68,7 @@ try{
   network++;
   assert.equal(url,'https://api.stripe.com/v1/checkout/sessions');
   assert.equal(init.method,'POST');
+  assert.equal(init.redirect,'manual','Cloudflare supports manual; error throws before Stripe receives the request');
   assert.equal(init.headers.authorization,'Bearer sk_test_synthetic_for_ci_only');
   const params=new URLSearchParams(init.body);
   assert.equal(params.get('mode'),'payment');
@@ -109,6 +110,11 @@ try{
  const failure=await failed.json();
  assert.equal(failure.code,'STRIPE_TEST_HEADER_INVALID');
  assert(!JSON.stringify(failure).includes(env.STRIPE_SECRET_KEY),'Provider exceptions must never expose credentials');
+ globalThis.fetch=providerMock;
+ globalThis.fetch=async()=>new Response(null,{status:302,headers:{location:'https://evil.example/credential-trap'}});
+ const redirect=await onRequestPost({request:request(),env});
+ assert.equal(redirect.status,502);
+ assert.equal((await redirect.json()).code,'STRIPE_TEST_REDIRECT_REJECTED');
  globalThis.fetch=providerMock;
  const ui=readFileSync('public/stripe-sandbox.html','utf8');
  assert(ui.includes('noindex,nofollow')&&ui.includes('TEST ONLY'));

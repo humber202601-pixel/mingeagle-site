@@ -74,8 +74,10 @@ export const onRequestPost:PagesFunction<SandboxEnv>=async({request,env})=>{
     'authorization':'Bearer '+key,
     'content-type':'application/x-www-form-urlencoded',
     'idempotency-key':'mingeagle-preview-'+crypto.randomUUID()
-   },body:params.toString(),redirect:'error',signal:AbortSignal.timeout(12000)
+   },body:params.toString(),redirect:'manual',signal:AbortSignal.timeout(12000)
   });
+  if(provider.status>=300&&provider.status<400)
+   return rejected('Stripe test API redirects are not allowed.',502,'STRIPE_TEST_REDIRECT_REJECTED');
   if(!provider.ok)return rejected('Stripe test session could not be created.',502,
    provider.status===401?'STRIPE_TEST_KEY_REJECTED':
    provider.status===403?'STRIPE_TEST_KEY_PERMISSION_DENIED':'STRIPE_TEST_PROVIDER_REJECTED');

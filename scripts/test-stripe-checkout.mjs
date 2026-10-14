@@ -104,6 +104,7 @@ try{
   providerCalls++;
   assert.equal(url,'https://api.stripe.com/v1/checkout/sessions');
   assert.equal(init.method,'POST');
+  assert.equal(init.redirect,'manual','Never use Workers-unsupported error or credential-forwarding follow mode');
   assert(String(init.headers.get('authorization')).startsWith('Bearer sk_test_'));
   const params=new URLSearchParams(init.body);
   assert.equal(params.get('client_reference_id'),orderReference);
@@ -156,6 +157,12 @@ try{
  assert(!JSON.stringify(checkout).includes('sk_test_'));
  assert.equal(stored,true);
  assert(providerCalls===1 && dbWrites>=1);
+ const normalProvider=globalThis.fetch,writesBeforeRedirect=dbWrites;
+ globalThis.fetch=async()=>new Response(null,{status:302,headers:{location:'https://evil.example/credential-trap'}});
+ const redirectedCheckout=await createCheckout({env:{...ready,MINGEAGLE_DB:db},request:request()});
+ assert.equal(redirectedCheckout.status,503,'Provider redirects must fail without following Location');
+ assert.equal(dbWrites,writesBeforeRedirect,'A rejected redirect must not record a payment session');
+ globalThis.fetch=normalProvider;
  
  // A valid Stripe signature alone must not authorize a mismatched order or amount.
  for(const [eventId,change] of [
