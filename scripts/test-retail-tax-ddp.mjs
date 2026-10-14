@@ -25,8 +25,12 @@ assert.equal(noSalesTaxCollectionRequired({...env,RETAIL_US_TAX_POLICY_JSON:JSON
 const invalid={RETAIL_US_TAX_POLICY_JSON:JSON.stringify({reviewed_on:'2026-10-13',states:{KY:'NO_COLLECTION_REQUIRED'}})};
 assert.equal(noSalesTaxCollectionRequired(invalid,'KY',time),false);
 const reference=JSON.parse(readFileSync('public/us-single-parcel-shipping.json','utf8'));
-assert.equal(reference.confirmedDdpSingleItem.sku,'P1-S7');
-assert.equal(reference.confirmedDdpSingleItem.shippingUSD,14);
-assert(reference.confirmedDdpSingleItem.includes.includes('applicable_import_duties'));
-assert(reference.confirmedDdpSingleItem.excludes.includes('US_state_local_sales_tax'));
-console.log('PASS: tax policy is state-specific, reviewed recently and documented; unreviewed/registered states fail closed; one-SKU customs and tariff approval is scoped.');
+assert.deepEqual(reference.confirmedDdpSingleItems.map(x=>[x.sku,x.shippingUSD]).sort(),
+ [['P1-S3',11.5],['P1-S7',14]].sort());
+for(const confirmed of reference.confirmedDdpSingleItems){
+ assert.equal(confirmed.scope,'one-unit-only');
+ assert.equal(confirmed.destination,'US');
+ assert(confirmed.includes.includes('applicable_import_duties'));
+ assert(confirmed.excludes.includes('US_state_local_sales_tax'));
+}
+console.log('PASS: tax policy remains state-specific and review-gated; only P1-S3/P1-S7 one-unit customs and import-duty approvals are scoped.');
