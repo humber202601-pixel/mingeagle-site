@@ -27,6 +27,7 @@ const mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:output.out
   calls++;
   assert.equal(request.url,'https://api.stripe.com/v1/checkout/sessions');
   assert.equal(request.headers.get('authorization'),'Bearer sk_test_synthetic_runtime_only');
+  assert.equal(request.headers.get('stripe-version'),'2026-09-30.endive');
   if(redirect)return new Response(null,{status:302,headers:{location:'https://evil.example/trap'}});
   const body=new URLSearchParams(await request.text());
   const total=Number(body.get('line_items[0][price_data][unit_amount]'))+

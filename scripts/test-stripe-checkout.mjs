@@ -106,8 +106,10 @@ try{
   assert.equal(init.method,'POST');
   assert.equal(init.redirect,'manual','Never use Workers-unsupported error or credential-forwarding follow mode');
   assert(String(init.headers.get('authorization')).startsWith('Bearer sk_test_'));
+  assert.equal(init.headers.get('stripe-version'),'2026-09-30.endive');
   const params=new URLSearchParams(init.body);
   assert.equal(params.get('client_reference_id'),orderReference);
+  assert.equal(params.get('payment_method_types[0]'),null,'Checkout method configuration comes from Dashboard on Endive');
   assert.equal(params.get('shipping_address_collection[allowed_countries][0]'),null,'No second buyer-selected ship-to state after order tax review');
   assert.equal(params.get('line_items[0][price_data][unit_amount]'),String(Math.round(retailGoods*100)));
   assert.equal(params.get('line_items[1][price_data][unit_amount]'),String(Math.round(retailShipping*100)));

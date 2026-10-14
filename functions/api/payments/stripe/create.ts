@@ -96,7 +96,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   }
   const form=new URLSearchParams();
   form.set('mode','payment');
-  form.set('payment_method_types[0]','card');
+  // Current Stripe Checkout selects enabled methods from Dashboard settings.
   form.set('client_reference_id',String(order.reference));
   form.set('success_url',url.origin+'/quote/'+token+'?payment_return=1&session_id={CHECKOUT_SESSION_ID}');
   form.set('cancel_url',url.origin+'/quote/'+token+'?payment_cancel=1');

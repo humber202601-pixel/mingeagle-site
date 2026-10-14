@@ -70,8 +70,10 @@ try{
   assert.equal(init.method,'POST');
   assert.equal(init.redirect,'manual','Cloudflare supports manual; error throws before Stripe receives the request');
   assert.equal(init.headers.authorization,'Bearer sk_test_synthetic_for_ci_only');
+  assert.equal(init.headers['stripe-version'],'2026-09-30.endive');
   const params=new URLSearchParams(init.body);
   assert.equal(params.get('mode'),'payment');
+  assert.equal(params.get('payment_method_types[0]'),null,'Removed Endive parameter must not be sent');
   assert.equal(params.get('automatic_tax[enabled]'),'false');
   assert.equal(params.get('line_items[0][quantity]'),'1');
   assert.equal(params.get('line_items[1][quantity]'),'1');

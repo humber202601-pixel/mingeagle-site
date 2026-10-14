@@ -1,5 +1,5 @@
 import {oneItemUsAirParcel} from '../../../../lib/us-small-parcel';
-import {stripeSessionMatchesMode} from '../../../_shared/stripe';
+import {stripeSessionMatchesMode,STRIPE_API_VERSION} from '../../../_shared/stripe';
 
 interface SandboxEnv {
  TEST_ENVIRONMENT?:string;
@@ -52,7 +52,8 @@ export const onRequestPost:PagesFunction<SandboxEnv>=async({request,env})=>{
   return rejected('Invalid sandbox price.',409);
  const params=new URLSearchParams();
  params.set('mode','payment');
- params.set('payment_method_types[0]','card');
+ // API 2026-09-30.endive removed payment_method_types. Checkout uses the
+ // merchant's Dashboard payment-method configuration.
  params.set('success_url',origin+'/stripe-sandbox.html?result=success');
  params.set('cancel_url',origin+'/stripe-sandbox.html?result=cancel');
  params.set('metadata[source]','MING_EAGLE_PREVIEW_VISUAL_SANDBOX_ONLY');
@@ -72,6 +73,7 @@ export const onRequestPost:PagesFunction<SandboxEnv>=async({request,env})=>{
   const provider=await fetch('https://api.stripe.com/v1/checkout/sessions',{
    method:'POST',headers:{
     'authorization':'Bearer '+key,
+    'stripe-version':STRIPE_API_VERSION,
     'content-type':'application/x-www-form-urlencoded',
     'idempotency-key':'mingeagle-preview-'+crypto.randomUUID()
    },body:params.toString(),redirect:'manual',signal:AbortSignal.timeout(12000)

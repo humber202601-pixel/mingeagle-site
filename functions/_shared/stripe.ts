@@ -5,6 +5,8 @@ export interface StripeEnv {
   STRIPE_MODE?: string;
 }
 
+export const STRIPE_API_VERSION='2026-09-30.endive';
+
 // No client-visible key, live API call, or CRM mutation is allowed unless
 // merchant-controlled activation and a signed webhook are configured.
 export function stripeCheckoutReadiness(env: StripeEnv) {
@@ -40,6 +42,7 @@ export async function stripeApi(env: StripeEnv, path: string, init?: RequestInit
   if (!stripeCheckoutReadiness(env).checkoutReady) throw Error('Stripe payment is not enabled.');
   const headers = new Headers(init?.headers);
   headers.set('authorization', 'Bearer ' + key);
+  headers.set('stripe-version',STRIPE_API_VERSION);
   // Never log auth headers, request payloads, customer PII, or returned sessions.
   const response = await fetch('https://api.stripe.com/v1/' + path.replace(/^\/+/, ''), {
     ...init, headers, redirect:'manual'
