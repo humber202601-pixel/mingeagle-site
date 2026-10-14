@@ -1,0 +1,13 @@
+{
+  "seller": "MING EAGLE COMMERCE LLC",
+  "scope": "standard_retail_products",
+  "availability": "available_to_order",
+  "replenishment": "merchant_can_replenish_as_needed",
+  "inventoryQuantity": null,
+  "dispatchWithinDays": 3,
+  "dispatchDayType": "calendar_days",
+  "dispatchBasis": "order_placement",
+  "confirmedOn": "2026-10-14",
+  "confirmationSource": "Merchant statement: supply can be replenished as needed; dispatch within three days of ordering.",
+  "customAndWholesaleTerms": "Timing follows the confirmed quotation."
+}

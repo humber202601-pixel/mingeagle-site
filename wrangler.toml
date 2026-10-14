@@ -3,6 +3,7 @@ compatibility_date = "2026-10-04"
 pages_build_output_dir = "./dist"
 
 [vars]
+RETAIL_STOCK_FULFILLMENT_APPROVED = "true"
 TURNSTILE_SITE_KEY = "0x4AAAAAAFU4fZe_EszmlRsc"
 TURNSTILE_ENABLED = "false"
 
