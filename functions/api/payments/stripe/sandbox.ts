@@ -1,0 +1,92 @@
+import {oneItemUsAirParcel} from '../../../../lib/us-small-parcel';
+import {stripeSessionMatchesMode} from '../../../_shared/stripe';
+
+interface SandboxEnv {
+ TEST_ENVIRONMENT?:string;
+ STRIPE_MODE?:string;
+ STRIPE_SECRET_KEY?:string;
+ STRIPE_SANDBOX_ENABLED?:string;
+ STRIPE_SANDBOX_ACCESS_TOKEN?:string;
+}
+
+const rejected=(message:string,status:number)=>Response.json({ok:false,error:message},{
+ status,headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}
+});
+
+function equalToken(a:string,b:string){
+ if(a.length!==b.length)return false;
+ let mismatch=0;
+ for(let i=0;i<a.length;i++)mismatch|=a.charCodeAt(i)^b.charCodeAt(i);
+ return mismatch===0;
+}
+
+export const onRequestPost:PagesFunction<SandboxEnv>=async({request,env})=>{
+ // Absolutely no live keys, production hosts, CRM/D1 writes, or tax/stock
+ // activation flags are used by this isolated visual-only test checkout.
+ const origin=new URL(request.url).origin;
+ const hostname=new URL(request.url).hostname;
+ if(env.TEST_ENVIRONMENT!=='preview'||env.STRIPE_MODE!=='test'||
+    env.STRIPE_SANDBOX_ENABLED!=='true'||
+    !/^[a-z0-9-]+\.mingeagle-site\.pages\.dev$/.test(hostname))
+  return rejected('Stripe sandbox is not available on this environment.',404);
+ const key=String(env.STRIPE_SECRET_KEY||'');
+ const adminToken=String(env.STRIPE_SANDBOX_ACCESS_TOKEN||'');
+ if(!(key.startsWith('sk_test_')||key.startsWith('rk_test_'))||
+    key.length<16||adminToken.length<32)
+  return rejected('Preview Stripe test credentials are not configured.',503);
+ if(request.headers.get('origin')!==origin)return rejected('Invalid request origin.',403);
+ if(request.headers.get('content-type')?.split(';')[0]?.trim()!=='application/json')
+  return rejected('JSON required.',415);
+ const provided=request.headers.get('x-mingeagle-sandbox-token')||'';
+ if(provided.length>128||!equalToken(provided,adminToken))
+  return rejected('Sandbox access denied.',403);
+ let data:{sku?:unknown};
+ try{data=await request.json()}catch{return rejected('Invalid JSON.',400)}
+ if(data?.sku!=='P1-S3'&&data?.sku!=='P1-S7')
+  return rejected('Only verified one-item sandbox prices are supported.',400);
+ const rate=oneItemUsAirParcel(data.sku,'US','air',1);
+ if(!rate?.ddpConfirmed)return rejected('DDP rate is not approved.',409);
+ const goods=Math.round(rate.productUSD*100),shipping=Math.round(rate.shippingUSD*100);
+ const total=goods+shipping;
+ if(!Number.isSafeInteger(total)||total<500||total>5000)
+  return rejected('Invalid sandbox price.',409);
+ const params=new URLSearchParams();
+ params.set('mode','payment');
+ params.set('payment_method_types[0]','card');
+ params.set('success_url',origin+'/stripe-sandbox.html?result=success');
+ params.set('cancel_url',origin+'/stripe-sandbox.html?result=cancel');
+ params.set('metadata[source]','MING_EAGLE_PREVIEW_VISUAL_SANDBOX_ONLY');
+ params.set('metadata[sandbox_no_order]','true');
+ params.set('line_items[0][price_data][currency]','usd');
+ params.set('line_items[0][price_data][unit_amount]',String(goods));
+ params.set('line_items[0][price_data][product_data][name]','TEST ONLY – '+data.sku+' silent basketball, no real order');
+ params.set('line_items[0][quantity]','1');
+ params.set('line_items[1][price_data][currency]','usd');
+ params.set('line_items[1][price_data][unit_amount]',String(shipping));
+ params.set('line_items[1][price_data][product_data][name]','TEST ONLY – USA single-item DDP shipping');
+ params.set('line_items[1][quantity]','1');
+ // Not a sales-tax calculation; real checkout stays explicitly disabled.
+ params.set('automatic_tax[enabled]','false');
+ try{
+  const provider=await fetch('https://api.stripe.com/v1/checkout/sessions',{
+   method:'POST',headers:{
+    'authorization':'Bearer '+key,
+    'content-type':'application/x-www-form-urlencoded',
+    'idempotency-key':'mingeagle-preview-'+crypto.randomUUID()
+   },body:params.toString(),redirect:'error',signal:AbortSignal.timeout(12000)
+  });
+  if(!provider.ok)return rejected('Stripe test session could not be created.',502);
+  const session=await provider.json() as {id?:string;url?:string;amount_total?:number;currency?:string};
+  let checkoutHost='';
+  try{checkoutHost=new URL(String(session.url||'')).hostname}catch{/* invalid */}
+  if(!stripeSessionMatchesMode(session.id,'test')||checkoutHost!=='checkout.stripe.com'||
+     session.currency!=='usd'||session.amount_total!==total)
+   return rejected('Stripe returned an invalid test checkout session.',502);
+  return Response.json({ok:true,url:session.url,mode:'test',sku:data.sku,
+   goodsUSD:goods/100,shippingUSD:shipping/100,totalUSD:total/100,
+   notice:'Stripe visual sandbox only. No MING EAGLE order or sales-tax decision is created.'},
+   {headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}});
+ }catch{
+  return rejected('Stripe sandbox temporarily unavailable.',503);
+ }
+};

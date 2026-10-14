@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="robots" content="noindex,nofollow,noarchive"/><title>MING EAGLE | Preview-only Stripe Sandbox</title>
+<style>
+:root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f7fafc;color:#142337}
+*{box-sizing:border-box}body{margin:0;padding:40px 16px}.wrap{max-width:650px;margin:auto}
+main{padding:30px;border-radius:18px;background:white;box-shadow:0 10px 35px rgba(0,0,0,.06)}
+h1{line-height:1.15;font-size:29px}p{line-height:1.65}small{color:#506175}label{display:block;font-weight:700;margin-top:22px}
+input{padding:13px;width:100%;border:1px solid #93a2b2;border-radius:8px;margin-top:8px;font-size:16px}
+button{border:0;border-radius:9px;padding:13px 17px;background:#163b68;color:white;font-weight:700;cursor:pointer;margin:13px 8px 0 0}
+button:disabled{opacity:.5;cursor:wait}.alert{padding:12px 16px;background:#fff4db;border-radius:9px;font-weight:650}
+#status{margin-top:16px;white-space:pre-wrap}footer{margin-top:22px;color:#46566b;font-size:13px}
+</style></head><body><div class="wrap"><main>
+<h1>Stripe hosted checkout — TEST ONLY</h1>
+<p class="alert">Sandbox only. Fake test-card transactions do not charge real money. This page never creates MING EAGLE CRM orders and does not check US sales-tax obligations or fulfill products.</p>
+<p>Preview-domain access only. Choose one approved single-item price to inspect Stripe's hosted checkout. The server calculates each amount; the browser cannot supply prices.</p>
+<label for="token">Separate preview sandbox access token (not your Stripe API key)</label>
+<input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="Token configured as STRIPE_SANDBOX_ACCESS_TOKEN"/>
+<div><button type="button" data-sku="P1-S3">Test P1-S3 · $21.40</button>
+<button type="button" data-sku="P1-S7">Test P1-S7 · $28.90</button></div>
+<p id="status" role="status" aria-live="polite"></p>
+<footer>Import clearance and duties are included in these approved shipping rates. US sales tax is not modeled here. A successful redirect back to this page is not evidence that a live order or webhook was processed. Never enter a real payment card. <a href="https://docs.stripe.com/testing" rel="noopener noreferrer">Stripe testing reference</a></footer>
+</main></div><script>
+(function(){
+ 'use strict';
+ const status=document.getElementById('status');
+ const result=new URL(location.href).searchParams.get('result');
+ if(result==='success')status.textContent='You returned from Stripe test checkout. This is NOT a real order, tax validation or verified webhook receipt.';
+ if(result==='cancel')status.textContent='Stripe test checkout cancelled. No MING EAGLE order was created.';
+ const buttons=Array.from(document.querySelectorAll('button[data-sku]'));
+ async function start(sku){
+  const secret=document.getElementById('token').value;
+  if(!secret||secret.length<32){status.textContent='Enter your separate sandbox access token first.';return}
+  buttons.forEach(x=>x.disabled=true);
+  status.textContent='Requesting test-only Stripe Checkout session…';
+  try{
+   const response=await fetch('/api/payments/stripe/sandbox',{
+    method:'POST',cache:'no-store',
+    headers:{'content-type':'application/json','x-mingeagle-sandbox-token':secret},
+    body:JSON.stringify({sku})
+   });
+   const data=await response.json();
+   if(!response.ok||data.ok!==true)throw Error(data.error||'Stripe sandbox is unavailable');
+   const u=new URL(data.url);
+   if(u.protocol!=='https:'||u.hostname!=='checkout.stripe.com'||data.mode!=='test')
+    throw Error('Untrusted Stripe destination');
+   location.assign(u.href);
+  }catch(e){status.textContent=e instanceof Error?e.message:'Sandbox request failed';
+   buttons.forEach(x=>x.disabled=false)}
+ }
+ buttons.forEach(x=>x.addEventListener('click',()=>start(x.dataset.sku)));
+})();
+</script></body></html>
