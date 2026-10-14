@@ -4,12 +4,13 @@ import {readFileSync,readdirSync} from 'node:fs';
 import {randomUUID,createHmac} from 'node:crypto';
 import {build} from 'esbuild';
 const load=async path=>{const r=await build({entryPoints:[path],bundle:true,write:false,platform:'node',format:'esm',logLevel:'silent'});return import('data:text/javascript;base64,'+Buffer.from(r.outputFiles[0].text).toString('base64'))};
+const {onRequestGet:readiness}=await load('functions/api/retail/checkout-status.ts');
 const {onRequestPost:retail}=await load('functions/api/retail/checkout.ts');
 const {onRequestPost:checkout}=await load('functions/api/payments/stripe/create.ts');
 const {onRequestPost:webhook}=await load('functions/api/payments/stripe/webhook.ts');
 const {onRequestGet:quotePage}=await load('functions/quote/[token].ts');
 const {onRequestGet:document}=await load('functions/api/admin/quote-document.ts');
-const {retailTaxTreatment,reviewedRetailTaxStates}=await load('lib/retail-tax-policy.ts');
+const {retailTaxTreatment,reviewedRetailTaxStates,noSalesTaxCollectionRequired}=await load('lib/retail-tax-policy.ts');
 const {US_DELIVERY_STATES}=await load('lib/us-delivery-states.ts');
 const sql=new DatabaseSync(':memory:');
 for(const f of readdirSync('migrations').filter(f=>f.endsWith('.sql')).sort())sql.exec(readFileSync('migrations/'+f,'utf8'));
@@ -26,7 +27,7 @@ assert.equal(reviewedRetailTaxStates({...env,RETAIL_US_TAX_POLICY_JSON:JSON.stri
 const input={requestId:randomUUID(),country:'US',method:'air',lines:[{sku:'P1-S7',color:'Orange',quantity:1}],name:'Synthetic Buyer',email:'synthetic@example.invalid',phone:'+1 415 555 0100',street1:'1 Synthetic St',city:'San Francisco',state:'CA',postalCode:'94103',privacyAck:true,turnstileToken:'synthetic'};
 const req=(path,body)=>new Request(origin+path,{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify(body)});
 let registration=true,registrationLive=false,customerCalls=0,checkoutCalls=0,invalidTax=false,wrongLocation=false;
-let activeSession;
+let activeSession,expectedState='CA',expectedZip='94103',salesTax=246;
 const saved=globalThis.fetch;
 globalThis.fetch=async(url,init)=>{
  if(url==='https://challenges.cloudflare.com/turnstile/v0/siteverify')return Response.json({success:true,hostname:'app.mingeagle.com',action:'mingeagle_inquiry'});
@@ -34,9 +35,9 @@ globalThis.fetch=async(url,init)=>{
  if(url.includes('/tax/registrations?'))return Response.json({data:registration?[{country:'US',status:'active',livemode:registrationLive,country_options:{us:{state:'CA',type:'state_sales_tax'}}}]:[],has_more:false});
  const p=new URLSearchParams(init.body);
  if(url.endsWith('/customers')){
-  customerCalls++;assert.equal(p.get('shipping[address][state]'),'CA');assert.equal(p.get('shipping[address][postal_code]'),'94103');assert.equal(p.get('address[state]'),'CA');assert.equal(p.get('tax_exempt'),'none');
+  customerCalls++;assert.equal(p.get('shipping[address][state]'),expectedState);assert.equal(p.get('shipping[address][postal_code]'),expectedZip);assert.equal(p.get('address[state]'),expectedState);assert.equal(p.get('tax_exempt'),'none');
   assert.equal(p.get('tax[validate_location]'),'immediately');assert.equal(p.get('expand[0]'),'tax');
-  return Response.json({id:'cus_syntheticTax',livemode:false,tax:{location:{country:'US',state:wrongLocation?'NY':'CA'}}});
+  return Response.json({id:'cus_syntheticTax',livemode:false,tax:{location:{country:'US',state:wrongLocation?'NY':expectedState}}});
  }
  if(init.method!=='POST')return Response.json(activeSession);
  assert.equal(url,'https://api.stripe.com/v1/checkout/sessions');checkoutCalls++;
@@ -46,7 +47,7 @@ globalThis.fetch=async(url,init)=>{
  assert.equal(p.get('line_items[0][price_data][tax_behavior]'),'exclusive');
  const base=Number(p.get('line_items[0][price_data][unit_amount]'))+Number(p.get('line_items[1][price_data][unit_amount]'));
  assert.equal(base,2890);
- activeSession={id:'cs_test_syntheticTax',url:'https://checkout.stripe.com/c/pay/cs_test_syntheticTax',status:'open',payment_status:'unpaid',customer:'cus_syntheticTax',currency:'usd',amount_total:3136,automatic_tax:{enabled:true,status:invalidTax?'requires_location_inputs':'complete'},total_details:{amount_tax:246},client_reference_id:p.get('client_reference_id'),metadata:{order_id:p.get('metadata[order_id]'),order_reference:p.get('metadata[order_reference]'),tax_mode:p.get('metadata[tax_mode]'),tax_state:p.get('metadata[tax_state]')}};
+ activeSession={id:'cs_test_syntheticTax'+expectedState,url:'https://checkout.stripe.com/c/pay/cs_test_syntheticTax'+expectedState,status:'open',payment_status:'unpaid',customer:'cus_syntheticTax',currency:'usd',amount_total:2890+salesTax,automatic_tax:{enabled:true,status:invalidTax?'requires_location_inputs':'complete'},total_details:{amount_tax:salesTax},client_reference_id:p.get('client_reference_id'),metadata:{order_id:p.get('metadata[order_id]'),order_reference:p.get('metadata[order_reference]'),tax_mode:p.get('metadata[tax_mode]'),tax_state:p.get('metadata[tax_state]')}};
  return Response.json(activeSession);
 };
 const sign=(id,patch={})=>{
@@ -86,5 +87,17 @@ try{
  assert.equal((await webhook({env,request:sign('evt_tax_paid')})).status,200);assert.equal((await webhook({env,request:sign('evt_tax_same_payment_new_event')})).status,200);
  assert.equal(sql.prepare('SELECT COUNT(*) n FROM payments').get().n,1);assert.equal(sql.prepare("SELECT COUNT(*) n FROM tasks WHERE type='FULFILLMENT'").get().n,1);
  const paidPage=await quotePage({env,params:{token},request:new Request(result.paymentPage)});const paidHtml=await paidPage.text();assert(paidHtml.includes('USD 31.36'));assert(paidHtml.includes('USD 2.46'));assert(!paidHtml.includes('Confirmed at secure payment'));
+ const nationwide={...env,RETAIL_NATIONWIDE_STRIPE_TAX_ENABLED:'true',RETAIL_US_TAX_POLICY_JSON:'',RETAIL_REMOTE_STARTUP_FACTS_JSON:JSON.stringify({basis:'NEXUS_REVIEW_REQUIRED',reported_existing_us_sales:true,reported_us_return_agent_state:'KY'})};
+ const scope=await (await readiness({env:nationwide})).json();assert.equal(scope.supportedStates.length,51);assert.equal(scope.retailCheckoutReady,true);
+ assert.equal(noSalesTaxCollectionRequired(nationwide,'NY'),false,'Payment availability must not claim legal zero-tax eligibility');
+ expectedState='NY';expectedZip='10001';salesTax=0;registration=false;
+ const nationalCreated=await retail({env:nationwide,request:req('/api/retail/checkout',{...input,requestId:randomUUID(),state:'NY',city:'New York',postalCode:expectedZip})});
+ assert.equal(nationalCreated.status,200,await nationalCreated.clone().text());const nationalOrder=await nationalCreated.json(),nationalToken=new URL(nationalOrder.paymentPage).pathname.split('/').at(-1);
+ const nationalStarted=await checkout({env:nationwide,request:req('/api/payments/stripe/create',{token:nationalToken})});assert.equal(nationalStarted.status,200,await nationalStarted.clone().text());
+ const nationalSnapshot=sql.prepare('SELECT * FROM payment_provider_sessions WHERE provider_intent_id=?').get(activeSession.id);assert.equal(nationalSnapshot.tax_mode,'STRIPE_AUTOMATIC');assert.equal(nationalSnapshot.amount,28.9);assert.equal(nationalSnapshot.tax_amount_cents,0);
+ const nationalPaid=await webhook({env:nationwide,request:sign('evt_national_current_config')});assert.equal(nationalPaid.status,200,await nationalPaid.clone().text());assert.equal((await nationalPaid.json()).paymentStatus,'PAID');
+ assert.equal(sql.prepare('SELECT COUNT(*) n FROM payments').get().n,2);
+ registration=false;
+ assert.equal((await retail({env:{...env,RETAIL_NATIONWIDE_STRIPE_TAX_ENABLED:'true'},request:req('/api/retail/checkout',{...input,requestId:randomUUID()})})).status,409,'Nationwide payment cannot bypass an explicitly recorded collection obligation');
  console.log('PASS: actual SQLite order → registered tax state → fixed-address Checkout → signed taxed payment; exact tax totals, inactive/wrong-mode registration rejection and replay safety. Providers are isolated fixtures, no real permits or payments.');
 }finally{globalThis.fetch=saved;sql.close()}

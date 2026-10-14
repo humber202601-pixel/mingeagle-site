@@ -25,7 +25,9 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
  return Response.json({ok:true,retailCheckoutReady:ready,maxRetailUnits:9,minWholesaleUnits:10,
   supportedStates,deliveryStates:Object.keys(US_DELIVERY_STATES),eligibleSkus:['P1-S3','P1-S7'],maxDirectCheckoutUnits:1,
   country:'US',method:'air',
-  notice:ready?'Card checkout supports one P1-S3 or P1-S7 set in '+supportedStates.join(', ')+'. Other orders can request a confirmed quote.':
+  notice:ready?(env.RETAIL_NATIONWIDE_STRIPE_TAX_ENABLED==='true'?
+   'Secure card checkout is available across the US for one eligible P1-S3 or P1-S7 set. Final sales tax is shown before payment.':
+   'Card checkout supports one P1-S3 or P1-S7 set in '+supportedStates.join(', ')+'. Other orders can request a confirmed quote.'):
    'Direct retail payment is not yet activated. Submit an order inquiry instead.'},
   {headers:{'cache-control':'no-store','access-control-allow-origin':'*'}});
 };

@@ -1,7 +1,7 @@
 // State-specific merchant sales-tax review. Import duties under DDP do not
 // replace sales/use tax. This module NEVER grants a general US zero-tax exemption.
 import {US_DELIVERY_STATES} from './us-delivery-states';
-export interface RetailTaxEnv { RETAIL_US_TAX_POLICY_JSON?:string;RETAIL_REMOTE_STARTUP_FACTS_JSON?:string }
+export interface RetailTaxEnv { RETAIL_US_TAX_POLICY_JSON?:string;RETAIL_REMOTE_STARTUP_FACTS_JSON?:string;RETAIL_NATIONWIDE_STRIPE_TAX_ENABLED?:string }
 const validStates=new Set(('AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY DC').split(' '));
 type Policy={reviewed_on?:unknown;review_reference?:unknown;basis?:unknown;states?:Record<string,unknown>};
 // Ordinary sporting goods in these two states are covered by their official
@@ -73,13 +73,17 @@ export function reviewedStripeTaxStates(env:RetailTaxEnv,now=new Date()):Set<str
  return states;
 }
 export function retailTaxTreatment(env:RetailTaxEnv,state:string,now=new Date()){
+ if(env.RETAIL_NATIONWIDE_STRIPE_TAX_ENABLED==='true'&&validStates.has(state))return 'STRIPE_AUTOMATIC' as const;
  if(reviewedStripeTaxStates(env,now).has(state))return 'STRIPE_AUTOMATIC' as const;
  return reviewedZeroTaxStates(env,now).has(state)?'FIXED' as const:null;
 }
 export function reviewedRetailTaxStates(env:RetailTaxEnv,now=new Date()){
+ // Payment availability is not a determination that no sales tax is owed.
+ if(env.RETAIL_NATIONWIDE_STRIPE_TAX_ENABLED==='true')return new Set(validStates);
  return new Set([...reviewedZeroTaxStates(env,now),...reviewedStripeTaxStates(env,now)]);
 }
 export function remoteStartupState(env:RetailTaxEnv,state:string,now=new Date()){
+ if(env.RETAIL_NATIONWIDE_STRIPE_TAX_ENABLED==='true')return false;
  return remoteStartupFactsCurrent(env,now)&&validStates.has(state)&&!reviewedGovernmentOrMerchantStates(env,now).has(state);
 }
 export const REMOTE_STARTUP_ORDER_LIMIT=150;
