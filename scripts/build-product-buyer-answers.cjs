@@ -95,7 +95,7 @@ for(const [id,page,title,description,answers,guide] of models){
   '<div class="buyerAnswerCards">'+cards+'</div>'+
   '<p class="buyerAnswersNote"><strong>US single-item shipping:</strong> estimated air small parcel from China, 12–15 days after dispatch (not guaranteed). Below are a product plus one listed shipping fee, before applicable taxes and duties. Two-to-nine-item shipping is calculated separately; quantities of 10 or more use a written sea-freight wholesale quote.</p>'+
   '<div class="buyerSizeLinks">'+sizeLinks+'</div>'+
-  '<p class="buyerAnswersNote">For intended-use guidance, read the <a href="'+guide+'">relevant buying guide</a> or <a href="inquiry.html?type=sample">ask about a sample</a>. Card checkout is offered for one approved P1-S3 or P1-S7 set delivered to Oregon or New Hampshire when the cart confirms payment availability. Other orders use a confirmed quote.</p>'+
+  '<p class="buyerAnswersNote">For intended-use guidance, read the <a href="'+guide+'">relevant buying guide</a> or <a href="inquiry.html?type=sample">ask about a sample</a>. Card checkout is offered for one eligible P1-S3 or P1-S7 set when the cart confirms payment availability. Choose your US delivery state at checkout to confirm the final order terms. Other orders use a confirmed quote.</p>'+
   '</div></section>';
  write(page,title,description,product.hero,block,'product');
 }
@@ -114,7 +114,7 @@ const categoryBlock='<section class="buyerAnswers" id="buyer-product-answers" la
  '<div class="buyerAnswersInner"><h2 id="buyer-answers-collection">Which quiet indoor sports ball should you choose?</h2>'+
  '<p class="buyerAnswersNote">Compare confirmed first-party options rather than assuming every foam basketball has the same feel, size or hoop contents.</p>'+
  '<div class="buyerAnswerCards">'+cards+'</div>'+
- '<p class="buyerAnswersNote">For US single-item air parcels, estimated delivery is 12–15 days after dispatch, not guaranteed and subject to actual shipping arrangements. Product prices exclude shipping and US sales tax. The approved one-unit P1-S3 and P1-S7 freight includes US import clearance and duties. <a href="retail-cart.html">View the retail cart</a> or <a href="for-schools.html">request school equipment guidance</a>. Card checkout is offered for one approved P1-S3 or P1-S7 set delivered to Oregon or New Hampshire when the cart confirms payment availability. Other orders can request a quote.</p>'+
+ '<p class="buyerAnswersNote">For US single-item air parcels, estimated delivery is 12–15 days after dispatch, not guaranteed and subject to actual shipping arrangements. Product prices exclude shipping and US sales tax. The approved one-unit P1-S3 and P1-S7 freight includes US import clearance and duties. <a href="retail-cart.html">View the retail cart</a> or <a href="for-schools.html">request school equipment guidance</a>. Card checkout is offered for one eligible P1-S3 or P1-S7 set when the cart confirms payment availability. Choose your US delivery state at checkout to confirm the final order terms. Other orders can request a quote.</p>'+
  '</div></section>';
 write('products.html',catalog.title,catalog.description,master.p1.hero,categoryBlock,'website');
 console.log('PASS: five verified buyer answer and social preview sections from published MING EAGLE products, no invented ratings, acoustic metrics or stock.');
