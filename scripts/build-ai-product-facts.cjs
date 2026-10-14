@@ -7,6 +7,7 @@ const root=path.resolve(args.find(v=>v!=='--check')||'public');
 const base='https://www.mingeagle.com/';
 const master=JSON.parse(fs.readFileSync(path.join(root,'product-master.json'),'utf8'));
 const prices=JSON.parse(fs.readFileSync(path.join(root,'retail-prices.json'),'utf8'));
+const checkoutScope=JSON.parse(fs.readFileSync(path.join(root,'retail-checkout-scope.json'),'utf8'));
 const fulfillment=JSON.parse(fs.readFileSync(path.join(root,'retail-fulfillment-policy.json'),'utf8'));
 const usShipping=JSON.parse(fs.readFileSync(path.join(root,'us-single-parcel-shipping.json'),'utf8'));
 assert.equal(usShipping.destinationCountry,'US');assert.equal(usShipping.scope,'one_product_unit_per_parcel');
@@ -66,10 +67,10 @@ const facts={
  usSingleItemAirParcel:{destinationCountry:'US',shippingMethod:'air small parcel',scope:'one item per parcel only',
   estimatedDeliveryDaysAfterDispatch:{min:12,max:15},deliveryEstimateGuaranteed:false,
   includes:'one approved product with its listed air shipping charge',
-  excludes:'taxes and import duties; final stock and freight require written confirmation; multi-item and non-US rates differ'},
+  excludes:'US state/local sales tax; import-duty coverage is confirmed only for one P1-S3 or P1-S7; other sizes, multi-item and non-US rates need a quote'},
  retailPricing:{currency:'USD',scope:'Published product-only reference price by size; colors do not change the price for a given size',
   limitations:'Excludes international shipping and applicable taxes. Stock, delivery and final payable total are confirmed before payment. Do not treat prices as wholesale offers.'},
- retailFulfillment:fulfillment,
+ retailFulfillment:fulfillment,retailCheckoutScope:checkoutScope,
  products,guides,
  buyerDisclosures:[
   'Quieter indoor play is a use case, not a guarantee of silence or a verified decibel reduction.',
@@ -78,7 +79,7 @@ const facts={
   'Model suitability, child supervision, required safety documentation and training use must be evaluated for the actual setting.',
   'Standard retail products are available to order and replenished as needed. Dispatch within '+fulfillment.dispatchWithinDays+' days of ordering; this is separate from shipping transit time.',
   'Custom and wholesale order timing, branding, packaging, freight charges and delivery terms follow the confirmed quotation.',
-  'US single-item air small-parcel figures are estimates for exactly one unit; 12–15 days after dispatch is not guaranteed and excludes taxes or import duties.',
+  'US single-item air small-parcel figures are estimates for exactly one unit; 12–15 days after dispatch is not guaranteed. US sales tax is separate; only approved one-unit P1-S3/P1-S7 freight includes import duties.',
   'This file is first-party supplier information, not an independent review, platform endorsement or AI placement claim.'
  ]
 };

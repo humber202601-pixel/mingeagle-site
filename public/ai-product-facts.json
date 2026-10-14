@@ -19,7 +19,7 @@
     },
     "deliveryEstimateGuaranteed": false,
     "includes": "one approved product with its listed air shipping charge",
-    "excludes": "taxes and import duties; final stock and freight require written confirmation; multi-item and non-US rates differ"
+    "excludes": "US state/local sales tax; import-duty coverage is confirmed only for one P1-S3 or P1-S7; other sizes, multi-item and non-US rates need a quote"
   },
   "retailPricing": {
     "currency": "USD",
@@ -38,6 +38,21 @@
     "confirmedOn": "2026-10-14",
     "confirmationSource": "Merchant statement: supply can be replenished as needed; dispatch within three days of ordering.",
     "customAndWholesaleTerms": "Timing follows the confirmed quotation."
+  },
+  "retailCheckoutScope": {
+    "status": "backend_readiness_controlled",
+    "country": "US",
+    "states": [
+      "NH",
+      "OR"
+    ],
+    "eligibleSkus": [
+      "P1-S3",
+      "P1-S7"
+    ],
+    "maxUnits": 1,
+    "otherOrders": "confirmed_quote",
+    "returnsPolicyUrl": "https://www.mingeagle.com/policies.html#returns"
   },
   "products": [
     {
@@ -183,7 +198,7 @@
     "Model suitability, child supervision, required safety documentation and training use must be evaluated for the actual setting.",
     "Standard retail products are available to order and replenished as needed. Dispatch within 3 days of ordering; this is separate from shipping transit time.",
     "Custom and wholesale order timing, branding, packaging, freight charges and delivery terms follow the confirmed quotation.",
-    "US single-item air small-parcel figures are estimates for exactly one unit; 12–15 days after dispatch is not guaranteed and excludes taxes or import duties.",
+    "US single-item air small-parcel figures are estimates for exactly one unit; 12–15 days after dispatch is not guaranteed. US sales tax is separate; only approved one-unit P1-S3/P1-S7 freight includes import duties.",
     "This file is first-party supplier information, not an independent review, platform endorsement or AI placement claim."
   ]
 }

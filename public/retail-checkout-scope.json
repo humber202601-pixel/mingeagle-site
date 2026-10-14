@@ -1,0 +1,15 @@
+{
+  "status": "backend_readiness_controlled",
+  "country": "US",
+  "states": [
+    "NH",
+    "OR"
+  ],
+  "eligibleSkus": [
+    "P1-S3",
+    "P1-S7"
+  ],
+  "maxUnits": 1,
+  "otherOrders": "confirmed_quote",
+  "returnsPolicyUrl": "https://www.mingeagle.com/policies.html#returns"
+}

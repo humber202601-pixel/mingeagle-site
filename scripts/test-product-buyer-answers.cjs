@@ -27,7 +27,7 @@ try{
   assert.equal(html.split('MING EAGLE VERIFIED BUYER ANSWERS BEGIN').length,2);
   assert.equal(html.split('MING EAGLE SOCIAL PRODUCT PREVIEW BEGIN').length,2);
   assert(html.includes('<section class="buyerAnswers"'));
-  assert(html.includes('Online payment is not active')||html.includes('Payment processing is not yet active'));
+  assert(html.includes('when the cart confirms payment availability')&&html.includes('Oregon or New Hampshire'));
   assert(html.includes('not guaranteed')||html.includes('not guaranteed'));
   const canonical='https://www.mingeagle.com/'+name;
   const head=html.split('</head>')[0];

@@ -40,7 +40,7 @@ assert(!cart.includes('window.location.href=\'https://airwallex.com'), 'Never in
 const page=fs.readFileSync('public/retail-cart.html','utf8');
 assert(page.includes('id="cartSeaConsent"')&&page.includes('25–30 days'));
 assert(page.includes('id="cartRetail"')&&page.includes('id="cartWholesale"'));
-assert(page.includes('retail-cart.js?v=20261014-readiness-1'));
+assert(page.includes('retail-cart.js?v=20261014-pilot-1'));
 assert(page.includes('id="cartInquiry"')&&page.includes('#cartInquiry[hidden]{display:none}'),
  'Secondary quote button must be accessible only after checkout readiness failure');
 assert(page.includes('id="cartCustomsNote"')&&page.includes('import duties'));
