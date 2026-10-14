@@ -5,7 +5,7 @@ const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'us-pricing-site-'));
 const products={p1:'silent-basketball.html',p2:'fabric-silent-basketball.html',
  p3:'weighted-flocked-basketball.html',p4:'silent-soccer.html'};
 const files=['index.html','products.html',...Object.values(products),
- 'retail-prices.json','us-single-parcel-shipping.json','product-master.json'];
+ 'retail-prices.json','us-single-parcel-shipping.json','retail-fulfillment-policy.json','product-master.json'];
 try{
  for(const f of files)fs.copyFileSync(path.join('public',f),path.join(tmp,f));
  const prices=JSON.parse(fs.readFileSync(path.join(tmp,'retail-prices.json'),'utf8')).products;

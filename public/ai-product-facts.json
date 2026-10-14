@@ -1,0 +1,189 @@
+{
+  "schemaVersion": 1,
+  "documentType": "first-party-public-product-facts",
+  "source": "MING EAGLE website product-master.json and retail-prices.json",
+  "publisher": {
+    "brand": "MING EAGLE",
+    "legalName": "MING EAGLE COMMERCE LLC",
+    "website": "https://www.mingeagle.com/",
+    "productCatalog": "https://www.mingeagle.com/products.html",
+    "inquiry": "https://www.mingeagle.com/inquiry.html"
+  },
+  "usSingleItemAirParcel": {
+    "destinationCountry": "US",
+    "shippingMethod": "air small parcel",
+    "scope": "one item per parcel only",
+    "estimatedDeliveryDaysAfterDispatch": {
+      "min": 12,
+      "max": 15
+    },
+    "deliveryEstimateGuaranteed": false,
+    "includes": "one approved product with its listed air shipping charge",
+    "excludes": "taxes and import duties; final stock and freight require written confirmation; multi-item and non-US rates differ"
+  },
+  "retailPricing": {
+    "currency": "USD",
+    "scope": "Published product-only reference price by size; colors do not change the price for a given size",
+    "limitations": "Excludes international shipping and applicable taxes. Stock, delivery and final payable total are confirmed before payment. Do not treat prices as wholesale offers."
+  },
+  "retailFulfillment": {
+    "seller": "MING EAGLE COMMERCE LLC",
+    "scope": "standard_retail_products",
+    "availability": "available_to_order",
+    "replenishment": "merchant_can_replenish_as_needed",
+    "inventoryQuantity": null,
+    "dispatchWithinDays": 3,
+    "dispatchDayType": "calendar_days",
+    "dispatchBasis": "order_placement",
+    "confirmedOn": "2026-10-14",
+    "confirmationSource": "Merchant statement: supply can be replenished as needed; dispatch within three days of ordering.",
+    "customAndWholesaleTerms": "Timing follows the confirmed quotation."
+  },
+  "products": [
+    {
+      "id": "p1",
+      "name": "Flocked Silent Basketball Set",
+      "url": "https://www.mingeagle.com/silent-basketball.html",
+      "image": "https://www.mingeagle.com/assets/hero-flocked-silent-basketball-set.webp",
+      "sizes": [
+        "No. 3",
+        "No. 5",
+        "No. 7"
+      ],
+      "colors": "Orange / Blue / Green / Yellow",
+      "intendedUse": "Soft flocked indoor basketball and mini hoop set for controlled family play",
+      "retailReferencePricesUsdBySize": {
+        "3": 9.9,
+        "5": 11.9,
+        "7": 14.9
+      },
+      "usSingleItemAirParcelShippingUsdBySize": {
+        "3": 11.5,
+        "5": 12,
+        "7": 14
+      },
+      "usSingleItemTotalBeforeTaxUsdBySize": {
+        "3": 21.4,
+        "5": 23.9,
+        "7": 28.9
+      }
+    },
+    {
+      "id": "p2",
+      "name": "Fabric-Cover Silent Basketball Set",
+      "url": "https://www.mingeagle.com/fabric-silent-basketball.html",
+      "image": "https://www.mingeagle.com/assets/hero-fabric-cover-silent-basketball-set.webp",
+      "sizes": [
+        "No. 3",
+        "No. 5",
+        "No. 7"
+      ],
+      "colors": "Orange / Green",
+      "intendedUse": "Fabric-covered soft indoor basketball and mini hoop set for family activities",
+      "retailReferencePricesUsdBySize": {
+        "3": 10.9,
+        "5": 12.9,
+        "7": 15.9
+      },
+      "usSingleItemAirParcelShippingUsdBySize": {
+        "3": 11.5,
+        "5": 12,
+        "7": 14
+      },
+      "usSingleItemTotalBeforeTaxUsdBySize": {
+        "3": 22.4,
+        "5": 24.9,
+        "7": 29.9
+      }
+    },
+    {
+      "id": "p3",
+      "name": "Weighted Flocked Silent Basketball",
+      "url": "https://www.mingeagle.com/weighted-flocked-basketball.html",
+      "image": "https://www.mingeagle.com/assets/hero-weighted-flocked-silent-basketball.webp",
+      "sizes": [
+        "No. 3",
+        "No. 4",
+        "No. 6",
+        "No. 7"
+      ],
+      "colors": "Orange / Brown / Black / Aqua Blue",
+      "intendedUse": "Weighted-feel indoor basketball model for supervised handling and training-style drills",
+      "retailReferencePricesUsdBySize": {
+        "3": 12.9,
+        "4": 14.9,
+        "6": 18.9,
+        "7": 21.9
+      },
+      "usSingleItemAirParcelShippingUsdBySize": {
+        "3": 12,
+        "4": 13,
+        "6": 15,
+        "7": 16
+      },
+      "usSingleItemTotalBeforeTaxUsdBySize": {
+        "3": 24.9,
+        "4": 27.9,
+        "6": 33.9,
+        "7": 37.9
+      }
+    },
+    {
+      "id": "p4",
+      "name": "Flocked Silent Soccer Ball",
+      "url": "https://www.mingeagle.com/silent-soccer.html",
+      "image": "https://www.mingeagle.com/assets/hero-flocked-silent-soccer-ball.webp",
+      "sizes": [
+        "No. 5"
+      ],
+      "colors": "Black/White / Black/Green / Black/Red / Yellow/Green / Black/Gold",
+      "intendedUse": "Soft flocked size-5 indoor soccer ball for controlled footwork and family activities",
+      "retailReferencePricesUsdBySize": {
+        "5": 17.9
+      },
+      "usSingleItemAirParcelShippingUsdBySize": {
+        "5": 12
+      },
+      "usSingleItemTotalBeforeTaxUsdBySize": {
+        "5": 29.9
+      }
+    }
+  ],
+  "guides": [
+    {
+      "audience": "parents and apartment households",
+      "question": "What can children use for quieter indoor ball games?",
+      "url": "https://www.mingeagle.com/quiet-indoor-sports-for-kids.html"
+    },
+    {
+      "audience": "neighbors and apartment households",
+      "question": "How does indoor ball noise change by floor and activity?",
+      "url": "https://www.mingeagle.com/silent-basketball-for-apartments.html"
+    },
+    {
+      "audience": "schools and after-school PE",
+      "question": "What controlled indoor sports equipment should schools assess?",
+      "url": "https://www.mingeagle.com/indoor-school-sports-equipment-guide.html"
+    },
+    {
+      "audience": "basketball coaches and academies",
+      "question": "How can a coach choose an indoor ball for handling drills and samples?",
+      "url": "https://www.mingeagle.com/for-coaches.html"
+    },
+    {
+      "audience": "sporting goods wholesalers and retailers",
+      "question": "How do I request wholesale prices, branding, samples and international freight?",
+      "url": "https://www.mingeagle.com/wholesale.html"
+    }
+  ],
+  "buyerDisclosures": [
+    "Quieter indoor play is a use case, not a guarantee of silence or a verified decibel reduction.",
+    "Noise depends on ball, impact force, flooring and room acoustics; no laboratory acoustic results are supplied here.",
+    "Foam and weighted-feel balls are not identical substitutes for regulation competitive basketballs.",
+    "Model suitability, child supervision, required safety documentation and training use must be evaluated for the actual setting.",
+    "Standard retail products are available to order and replenished as needed. Dispatch within 3 days of ordering; this is separate from shipping transit time.",
+    "Custom and wholesale order timing, branding, packaging, freight charges and delivery terms follow the confirmed quotation.",
+    "US single-item air small-parcel figures are estimates for exactly one unit; 12–15 days after dispatch is not guaranteed and excludes taxes or import duties.",
+    "This file is first-party supplier information, not an independent review, platform endorsement or AI placement claim."
+  ]
+}
