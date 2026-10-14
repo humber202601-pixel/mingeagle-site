@@ -1,7 +1,7 @@
 interface Env { MINGEAGLE_DB:D1Database }
 type Line={sku:string;quantity:number};
 import {SKU_USD as prices} from '../../../lib/retail-reference';
-import {oneItemUsAirParcel} from '../../../lib/us-small-parcel';
+import {oneItemUsAirParcel,separateUnitUsAirParcels} from '../../../lib/us-small-parcel';
 const cors={'access-control-allow-origin':'*','access-control-allow-methods':'POST, OPTIONS','access-control-allow-headers':'Content-Type','vary':'Origin','cache-control':'no-store'};
 const result=(v:object,status=200)=>Response.json(v,{status,headers:cors});
 export const onRequestOptions:PagesFunction<Env>=async()=>new Response(null,{status:204,headers:cors});
@@ -18,8 +18,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  if(quantity<10&&method!=='air')
   return result({ok:false,error:'Retail orders of 1–9 items use air shipping only.'},409);
  if(method==='sea'&&quantity<10)return result({ok:false,error:'Sea shipping requires at least 10 balls'},400);
- // Exactly one US retail unit uses the owner-confirmed small-parcel price.
- // A multi-item cart intentionally uses the existing tariff/packaging engine.
+ // Single units retain their existing price/source. Eligible 2–9 unit orders
+ // use separate one-unit parcels and sum those confirmed rates.
  const one=lines.length===1&&quantity===1?
   oneItemUsAirParcel(lines[0].sku,country,String(method),1):null;
  if(one)return result({ok:true,lines:[{sku:one.sku,quantity:1,
@@ -28,6 +28,9 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   notice:one.ddpConfirmed
    ? 'One '+one.sku+' unit: the '+String.fromCharCode(36)+one.shippingUSD.toFixed(2)+' shipping includes customs clearance and US import duties; the buyer owes no additional import duty. US state/local sales tax is separate and subject to review. Delivery 12–15 days after dispatch is an estimate.'
    : 'Single-item US air parcel estimate; DDP/customs-duty coverage is not yet confirmed for this SKU. US state/local sales tax requires separate review. Delivery dates are estimates.'});
+ const parcels=separateUnitUsAirParcels(lines,country,String(method));
+ if(parcels)return result({ok:true,...parcels,volumeCBM:null,
+  notice:parcels.quantity+' items ship in '+parcels.parcelCount+' separate one-unit air parcels. Shipping is the sum of each item’s confirmed rate; customs clearance and US import duties are included, with no additional import duty owed by the buyer. Parcels may arrive separately. Final US sales tax is shown before payment. Delivery 12–15 days after dispatch is an estimate.'});
  if(!env.MINGEAGLE_DB)return result({ok:false,error:'Database unavailable'},503);
  try{
  const rate=await env.MINGEAGLE_DB.prepare('SELECT * FROM shipping_rates WHERE country=? AND method=? AND active=1').bind(country,method).first<Record<string,number>>();

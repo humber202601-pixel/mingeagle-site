@@ -1,7 +1,7 @@
 import {stripeApi, stripeCheckoutReadiness, stripeSessionMatchesMode, type StripeEnv} from '../../../_shared/stripe';
 import {retailTaxTreatment,reviewedStripeTaxStates,remoteStartupState,remoteStartupWithinLimits,type RetailTaxEnv} from '../../../../lib/retail-tax-policy';
 import {registeredStripeTaxState,fixedTaxCustomer,automaticTaxAmount,type DeliveryAddress} from '../../../_shared/retail-stripe-tax';
-import {oneItemUsAirParcel} from '../../../../lib/us-small-parcel';
+import {separateUnitUsAirParcels} from '../../../../lib/us-small-parcel';
 
 interface Env extends StripeEnv,RetailTaxEnv {
   MINGEAGLE_DB: D1Database;
@@ -65,11 +65,12 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    const orderItems=await db.prepare('SELECT description,quantity,unit_price FROM order_items WHERE order_id=?')
     .bind(String(order.id)).all<{description:string;quantity:number;unit_price:number}>();
    const items=orderItems.results||[];
-   const sku=/^([A-Z0-9-]+) \/ /.exec(String(items[0]?.description||''))?.[1]||'';
-   const confirmed=oneItemUsAirParcel(sku,'US','air',Number(items[0]?.quantity));
-   if(items.length!==1||!confirmed?.ddpConfirmed||Number(items[0].quantity)!==1||
-      Math.round(Number(items[0].unit_price)*100)!==Math.round(confirmed.productUSD*100)||
-      Math.round(Number(order.subtotal)*100)!==Math.round(confirmed.productUSD*100)||
+   const confirmed=separateUnitUsAirParcels(items.map(item=>({
+    sku:/^([A-Z0-9-]+) \/ /.exec(String(item.description||''))?.[1]||'',quantity:Number(item.quantity)
+   })),'US','air');
+   if(!confirmed?.ddpConfirmed||items.some((item,i)=>
+      Math.round(Number(item.unit_price)*100)!==Math.round(confirmed.lines[i].unitPriceUSD*100))||
+      Math.round(Number(order.subtotal)*100)!==Math.round(confirmed.productsUSD*100)||
       Math.round(Number(order.shipping)*100)!==Math.round(confirmed.shippingUSD*100)||
       Math.round(Number(order.tax)*100)!==0||Math.round(Number(order.discount)*100)!==0)
     return fail('Duty-paid delivery is not verified for the requested products.',409);
@@ -137,7 +138,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   // when the D1 order was created. Do not let Stripe collect a second, potentially
   // different delivery state after the fixed price and tax decision are recorded.
   if(isRetail)form.set('custom_text[submit][message]',
-   'Delivery will be made to the US shipping address on your MING EAGLE order. The seller covers confirmed import duties for this item; US sales tax is reviewed separately.');
+   'Delivery will be made to the US shipping address on your MING EAGLE order. Each set ships as a separate one-unit parcel with import duties included. Parcels may arrive separately. Final US sales tax is shown before payment.');
   if(!taxCustomer&&typeof order.email==='string'&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(order.email))
    form.set('customer_email',order.email);
   let index=0;
