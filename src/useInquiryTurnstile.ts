@@ -25,12 +25,13 @@ function scriptReady():Promise<TurnstileApi>{
     document.head.appendChild(script);
   });
 }
-export function useInquiryTurnstile(){
+export function useInquiryTurnstile(active=true){
   const container=useRef<HTMLDivElement>(null);
   const widgetId=useRef<WidgetId|null>(null);
   const [mode,setMode]=useState<Mode>('loading');
   const [token,setToken]=useState('');
   useEffect(()=>{
+    if(!active){setMode('loading');setToken('');return;}
     let mounted=true;
     const initialize=async()=>{
       try{
@@ -61,7 +62,7 @@ export function useInquiryTurnstile(){
       if(widgetId.current!==null){try{ts?.remove?.(widgetId.current)}catch{/* already removed */}}
       widgetId.current=null;
     };
-  },[]);
+  },[active]);
   const reset=()=>{
     setToken('');
     const ts=(window as BrowserWithTurnstile).turnstile;

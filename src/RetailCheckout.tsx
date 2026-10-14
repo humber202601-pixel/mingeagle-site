@@ -33,7 +33,7 @@ export default function RetailCheckout(){
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
  const [requestId]=useState(()=>crypto.randomUUID());
- const captcha=useInquiryTurnstile();
+ const captcha=useInquiryTurnstile(Boolean(ready?.retailCheckoutReady&&lines.length));
  useEffect(()=>{let active=true;
   fetch('/api/retail/checkout-status',{cache:'no-store'})
    .then(r=>r.json()).then(d=>{if(active)setReady(d as Ready)})
@@ -89,7 +89,7 @@ export default function RetailCheckout(){
       <label>ZIP code *<input name="postalCode" required maxLength={10} autoComplete="postal-code" pattern="[0-9]{5}(-[0-9]{4})?"/></label>
      </div>
      <div ref={captcha.container} aria-label="Checkout security verification"/>
-     <label><input name="privacyAck" type="checkbox" required/> I agree to share my details for order fulfillment and accept the shipping, return and tax terms.</label>
+     <label><input name="privacyAck" type="checkbox" required/> I agree to share my details for order fulfillment and accept the <a href="https://www.mingeagle.com/policies.html#shipping" target="_blank" rel="noreferrer">shipping</a> and <a href="https://www.mingeagle.com/policies.html#returns" target="_blank" rel="noreferrer">return terms</a>, and the taxes shown in my final order.</label>
      {error&&<div role="alert" className="form-status error">{error}</div>}
      <button className="button" disabled={busy||captcha.mode!=='required'||!captcha.token}>
       {busy?'Preparing secure order…':'Continue to secure payment →'}

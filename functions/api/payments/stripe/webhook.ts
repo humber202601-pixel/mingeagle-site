@@ -7,7 +7,7 @@ interface Env {
 }
 type CheckoutSession={
  id?:string;client_reference_id?:string;payment_status?:string;status?:string;
- amount_total?:number;currency?:string;metadata?:{order_id?:string;order_reference?:string};
+ amount_total?:number;currency?:string;metadata?:{order_id?:string;order_reference?:string;purpose?:string};
 };
 type Event={id?:string;type?:string;data?:{object?:CheckoutSession}};
 const invalid=(reason:string,status=400)=>new Response(reason,{status,headers:{'cache-control':'no-store'}});
@@ -58,6 +58,13 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   const session=event.data?.object;
   if(!session?.id||!stripeSessionMatchesMode(session.id,env.STRIPE_MODE))
    return invalid('Checkout session mode mismatch',409);
+  // The authenticated launch probe creates and expires an unpaid provider
+  // session, never a CRM order. A real signed expiry can prove live delivery
+  // without inventing payment or fulfillment records.
+  if(event.type==='checkout.session.expired'&&session.client_reference_id==='ME-LAUNCH-CHECK-NOT-AN-ORDER'
+    &&session.metadata?.purpose==='MING_EAGLE_LAUNCH_PROBE_NO_PAYMENT'&&!session.metadata.order_id){
+   await processed();return Response.json({ok:true,ignored:true,launchProbe:true});
+  }
   const matched=await db.prepare(
    "SELECT order_id,amount,currency,status FROM payment_provider_sessions "+
    "WHERE provider='STRIPE' AND provider_intent_id=? LIMIT 1"

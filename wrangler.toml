@@ -5,7 +5,7 @@ pages_build_output_dir = "./dist"
 [vars]
 RETAIL_STOCK_FULFILLMENT_APPROVED = "true"
 TURNSTILE_SITE_KEY = "0x4AAAAAAFU4fZe_EszmlRsc"
-TURNSTILE_ENABLED = "false"
+TURNSTILE_ENABLED = "true"
 
 [[d1_databases]]
 binding = "MINGEAGLE_DB"
