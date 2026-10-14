@@ -9,7 +9,7 @@ interface SandboxEnv {
  STRIPE_SANDBOX_ACCESS_TOKEN?:string;
 }
 
-const rejected=(message:string,status:number)=>Response.json({ok:false,error:message},{
+const rejected=(message:string,status:number,code?:string)=>Response.json({ok:false,error:message,...(code?{code}:{})},{
  status,headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}
 });
 
@@ -29,7 +29,7 @@ export const onRequestPost:PagesFunction<SandboxEnv>=async({request,env})=>{
     env.STRIPE_SANDBOX_ENABLED!=='true'||
     !/^[a-z0-9-]+\.mingeagle-site\.pages\.dev$/.test(hostname))
   return rejected('Stripe sandbox is not available on this environment.',404);
- const key=String(env.STRIPE_SECRET_KEY||'');
+ const key=String(env.STRIPE_SECRET_KEY||'').trim();
  const adminToken=String(env.STRIPE_SANDBOX_ACCESS_TOKEN||'');
  if(!(key.startsWith('sk_test_')||key.startsWith('rk_test_'))||
     key.length<16||adminToken.length<32)
@@ -67,6 +67,7 @@ export const onRequestPost:PagesFunction<SandboxEnv>=async({request,env})=>{
  params.set('line_items[1][quantity]','1');
  // Not a sales-tax calculation; real checkout stays explicitly disabled.
  params.set('automatic_tax[enabled]','false');
+ let phase='request';
  try{
   const provider=await fetch('https://api.stripe.com/v1/checkout/sessions',{
    method:'POST',headers:{
@@ -75,7 +76,10 @@ export const onRequestPost:PagesFunction<SandboxEnv>=async({request,env})=>{
     'idempotency-key':'mingeagle-preview-'+crypto.randomUUID()
    },body:params.toString(),redirect:'error',signal:AbortSignal.timeout(12000)
   });
-  if(!provider.ok)return rejected('Stripe test session could not be created.',502);
+  if(!provider.ok)return rejected('Stripe test session could not be created.',502,
+   provider.status===401?'STRIPE_TEST_KEY_REJECTED':
+   provider.status===403?'STRIPE_TEST_KEY_PERMISSION_DENIED':'STRIPE_TEST_PROVIDER_REJECTED');
+  phase='response';
   const session=await provider.json() as {id?:string;url?:string;amount_total?:number;currency?:string};
   let checkoutHost='';
   try{checkoutHost=new URL(String(session.url||'')).hostname}catch{/* invalid */}
@@ -86,7 +90,15 @@ export const onRequestPost:PagesFunction<SandboxEnv>=async({request,env})=>{
    goodsUSD:goods/100,shippingUSD:shipping/100,totalUSD:total/100,
    notice:'Stripe visual sandbox only. No MING EAGLE order or sales-tax decision is created.'},
    {headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}});
- }catch{
-  return rejected('Stripe sandbox temporarily unavailable.',503);
+ }catch(error){
+  // Return only bounded categories after authentication. Exception messages can
+  // contain credentials or provider payloads and must never reach the browser.
+  const message=error instanceof Error?error.message.toLowerCase():'';
+  const code=phase==='response'?'STRIPE_TEST_RESPONSE_INVALID':
+   /timeout|abort/.test(message)?'STRIPE_TEST_REQUEST_TIMEOUT':
+   /redirect/.test(message)?'STRIPE_TEST_REDIRECT_REJECTED':
+   /header/.test(message)?'STRIPE_TEST_HEADER_INVALID':
+   /abortsignal|signal/.test(message)?'STRIPE_TEST_SIGNAL_ERROR':'STRIPE_TEST_NETWORK_ERROR';
+  return rejected('Stripe sandbox temporarily unavailable.',503,code);
  }
 };

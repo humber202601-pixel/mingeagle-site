@@ -99,10 +99,21 @@ try{
  assert.equal((await onRequestPost({request:request(),env})).status,502,'Incorrect server-total must fail');
  override={url:'https://checkout.stripe.com.evil.example/c/pay/abc'};
  assert.equal((await onRequestPost({request:request(),env})).status,502,'Non-Stripe host must fail');
+ const providerMock=globalThis.fetch;
+ override=null;
+ const paddedKey=await onRequestPost({request:request(),env:{...env,STRIPE_SECRET_KEY:'  '+env.STRIPE_SECRET_KEY+'\n'}});
+ assert.equal(paddedKey.status,200,'Copied key whitespace must be trimmed before authorization');
+ globalThis.fetch=async()=>{throw new TypeError('Invalid header containing '+env.STRIPE_SECRET_KEY)};
+ const failed=await onRequestPost({request:request(),env});
+ assert.equal(failed.status,503);
+ const failure=await failed.json();
+ assert.equal(failure.code,'STRIPE_TEST_HEADER_INVALID');
+ assert(!JSON.stringify(failure).includes(env.STRIPE_SECRET_KEY),'Provider exceptions must never expose credentials');
+ globalThis.fetch=providerMock;
  const ui=readFileSync('public/stripe-sandbox.html','utf8');
  assert(ui.includes('noindex,nofollow')&&ui.includes('TEST ONLY'));
  assert(ui.includes('x-mingeagle-sandbox-token'));
  assert(ui.includes('No MING EAGLE order')||ui.includes('never creates MING EAGLE CRM orders'));
- assert.equal(network,5,'Two valid test attempts and three invalid provider outputs');
+ assert.equal(network,6,'Two valid prices, padded key and three invalid provider outputs');
  console.log('PASS: Pages middleware permits only sandbox POST; authenticated test Checkout $21.40/$28.90, production/live and unrelated preview mutations blocked.');
 }finally{globalThis.fetch=saved}
