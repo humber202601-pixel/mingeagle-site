@@ -61,11 +61,11 @@ window.MingEagleCart={
 };
 if(!document.getElementById('retailCart'))return;
 const $=id=>document.getElementById(id);
-let last=null,version=0,loading=false;
+let last=null,version=0,loading=false,checkoutAvailable=false;
 const country=()=>String($('cartCountry').value||'').trim().toUpperCase();
 const isWholesale=()=>quantity(read())>=10;
 function clearEstimate(){
- version++;last=null;$('cartEstimate').hidden=true;$('cartCheckout').disabled=true;$('cartInquiry').hidden=true;
+ version++;last=null;checkoutAvailable=false;$('cartEstimate').hidden=true;$('cartCheckout').disabled=true;$('cartInquiry').hidden=true;
  $('cartSummaryShipping').textContent='Not calculated';$('cartSummaryTotal').textContent='—';
 }
 function sourceConsent(){
@@ -186,14 +186,31 @@ $('cartEstimateForm').addEventListener('submit',async e=>{
   $('cartGoods').textContent=money(goods);$('cartFreight').textContent=money(freight);$('cartTotal').textContent=money(total);
   $('cartSummaryGoods').textContent=money(goods);$('cartSummaryShipping').textContent=money(freight);
   $('cartSummaryTotal').textContent=money(total);$('cartEstimate').hidden=false;
+  // Verify payment readiness before promising a payment route. The server
+  // remains authoritative and repeats this check during order creation.
+  checkoutAvailable=false;
+  if(!bulk&&result.ddpConfirmed===true){
+   $('cartStatus').textContent='Checking secure card checkout activation…';
+   try{
+    const gate=await fetch('https://app.mingeagle.com/api/retail/checkout-status',{cache:'no-store'});
+    const data=gate.ok?await gate.json():null;
+    if(current!==version)return;
+    checkoutAvailable=Boolean(data?.ok&&data.retailCheckoutReady===true);
+   }catch{checkoutAvailable=false}
+  }
+  if(current!==version)return;
   $('cartCheckout').disabled=false;
+  $('cartInquiry').hidden=!checkoutAvailable;
   $('cartCheckout').textContent=bulk?'Request tiered wholesale quote →':
-   result.ddpConfirmed===true?'Continue to secure checkout →':'Request confirmed delivered-price quote →';
+   result.ddpConfirmed!==true?'Request confirmed delivered-price quote →':
+   checkoutAvailable?'Continue to secure checkout →':'Request confirmed retail quote →';
   $('cartStatus').textContent=bulk?
-   'Preliminary wholesale sea freight only. Quantity discounts and final total require a written quote; delivery estimated 25–30 days after dispatch.':
-   result.ddpConfirmed===true?
-    'US one-item DDP freight verified: customs clearance and import duties included in shipping. State/local sales tax must be separately reviewed before payment.':
-    'Duty-paid freight is not confirmed for this SKU/quantity; request a delivered-price confirmation before paying. US sales tax is separate.';
+   'Preliminary wholesale sea freight only. Discounts and the final amount require a written quote; estimated sea delivery is 25–30 days after dispatch.':
+   result.ddpConfirmed!==true?
+    'Import duties have not been confirmed for this basket. Request a delivered-price quote before payment.':
+   checkoutAvailable?
+    'Import customs clearance and duties are included in this approved one-item US freight. Continue to secure checkout for address and state-specific sales-tax verification.':
+    'Import clearance and US duties are included in this one-item shipping price. Online card payment is not yet activated; no payment will be taken. You can request a confirmed retail quote instead.';
  }catch(err){$('cartStatus').textContent='Cannot calculate shipping: '+String(err?.message||err)}
  finally{loading=false}
 });
@@ -203,8 +220,8 @@ $('cartCheckout').addEventListener('click',async()=>{
   if(!sourceConsent()){$('cartStatus').textContent='Accept sea freight before requesting wholesale terms.';return}
   linkToInquiry('quote');return;
  }
- if(last.ddpConfirmed!==true){
-  // This is an explicit quotation choice, not a misleading payment redirect.
+ if(last.ddpConfirmed!==true||!checkoutAvailable){
+  // An inquiry occurs only from a button explicitly labeled as a quote request.
   linkToInquiry('retail');return;
  }
  // Only switch from inquiry fallback to real retail checkout after the
@@ -222,11 +239,15 @@ $('cartCheckout').addEventListener('click',async()=>{
     location.href=url.href;return;
    }
   }
-  $('cartStatus').textContent='Secure card checkout is not active for this order yet. No payment was taken. Use the separate request button below if you want a confirmed quote.';
+  checkoutAvailable=false;
+  $('cartCheckout').textContent='Request confirmed retail quote →';
+  $('cartStatus').textContent='Secure card checkout is not activated for this order. No payment was taken. The button now offers a confirmed retail quote instead.';
  }catch{
-  $('cartStatus').textContent='Unable to verify secure checkout availability. No payment was taken. You may request a confirmed quote using the separate button below.';
+  checkoutAvailable=false;
+  $('cartCheckout').textContent='Request confirmed retail quote →';
+  $('cartStatus').textContent='Unable to verify secure card payment. No payment was taken. The button now offers a confirmed retail quote instead.';
  }finally{button.disabled=false}
- $('cartInquiry').hidden=false;
+ $('cartInquiry').hidden=true;
 });
 $('cartInquiry').addEventListener('click',()=>{
  if(last&&!isWholesale())linkToInquiry('retail');
