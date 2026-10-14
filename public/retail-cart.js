@@ -209,7 +209,7 @@ $('cartEstimateForm').addEventListener('submit',async e=>{
    result.ddpConfirmed!==true?
     'Import duties have not been confirmed for this basket. Request a delivered-price quote before payment.':
    checkoutAvailable?
-    'Import customs clearance and duties are included in this approved one-item US freight. Continue to secure checkout for delivery to Oregon (OR) or New Hampshire (NH). Other US states can request a confirmed retail quote.':
+    'Import duties are included in this one-item delivery price. Choose your US delivery state at checkout to confirm online payment availability.':
     'Import clearance and US duties are included in this one-item shipping price. Online card payment is not yet activated; no payment will be taken. You can request a confirmed retail quote instead.';
  }catch(err){$('cartStatus').textContent='Cannot calculate shipping: '+String(err?.message||err)}
  finally{loading=false}
