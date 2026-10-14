@@ -12,6 +12,8 @@ preview_database_id = "ecd66556-ea9b-492f-99df-079c3db24221"
 TEST_ENVIRONMENT = "preview"
 OUTBOUND_EMAIL_DISABLED = "true"
 AUTO_EMAIL_ENABLED = "false"
+STRIPE_MODE = "test"
+STRIPE_SANDBOX_ENABLED = "true"
 
 [[env.preview.d1_databases]]
 binding = "MINGEAGLE_DB"

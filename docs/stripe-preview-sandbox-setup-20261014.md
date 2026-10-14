@@ -19,14 +19,13 @@
 
 ## One-time setup in Cloudflare Pages (merchant only)
 
-1. Open Cloudflare → Workers & Pages → `mingeagle-site` → Settings → Variables and Secrets → **Preview** (not Production).
-2. Add these environment variables for **Preview only**:
-   - `TEST_ENVIRONMENT` = `preview` (plaintext; also declared in Wrangler).
-   - `STRIPE_MODE` = `test` (plaintext).
-   - `STRIPE_SANDBOX_ENABLED` = `true` (plaintext).
-   - `STRIPE_SECRET_KEY` = **Stripe test key** (Secret).
-   - `STRIPE_SANDBOX_ACCESS_TOKEN` = a new **random 32+ character token** (Secret), unrelated to Stripe credentials. Generate and store it securely; do not post it to the chat or commit it.
-3. Check the key names and ensure Production entries, including existing live Stripe keys and webhook secret, remain unchanged.
+1. Open Cloudflare → Workers & Pages → **Pages** → project `mingeagle-site` → Settings → Variables and Secrets → **Preview** (NOT Production; do not confuse this Pages project with a similarly named Worker).
+2. The nonsecret Preview flags `TEST_ENVIRONMENT=preview`, `STRIPE_MODE=test`, `STRIPE_SANDBOX_ENABLED=true` are already declared in the repository `wrangler.toml` under `[env.preview.vars]`. **Do not attempt to create duplicate plaintext variables in the dashboard** because Wrangler is the source of truth and subsequent deploys can overwrite dashboard variables.
+3. In the **Preview environment only**, create these two **encrypted secrets** through the dashboard:
+   - `STRIPE_SECRET_KEY` = a brand-new `sk_test_` key from Stripe test mode (never the existing `rk_live_` / `sk_live_` key).
+   - `STRIPE_SANDBOX_ACCESS_TOKEN` = a different new random token of 32+ characters, unrelated to any Stripe/admin password. Save it privately for opening the test UI. Do not paste either secret in chats, screenshots, URLs or GitHub.
+4. If Cloudflare shows **'a variable with this name already exists'** when adding `STRIPE_SECRET_KEY`, **cancel**, then verify the page header, resource type **Pages** and environment **Preview**. The live `STRIPE_SECRET_KEY` already exists under **Production** and MUST NOT be replaced or deleted. Preview and Production bindings are separate. If an entry truly already exists in Preview, inspect its TYPE/name only; do not blindly overwrite an unknown secret.
+5. Check the key names and ensure Production entries, including existing live Stripe keys and webhook secret, remain unchanged.
 4. Redeploy a preview branch after changes if required. Open the branch-specific `https://<preview-subdomain>.mingeagle-site.pages.dev/stripe-sandbox.html` URL. Enter the independent sandbox access token **only on this page**, then select P1-S3 or P1-S7.
 5. Stripe Checkout must show **test mode** and the expected goods + shipping totals. Stripe documents the safe test card `4242 4242 4242 4242`, a future expiry date, and any 3-digit CVC; never enter a real card. https://docs.stripe.com/testing
 6. A return to `stripe-sandbox.html?result=success` means only the browser returned from a test Checkout session, **not** that the CRM order was paid, sales tax was addressed, or a signed webhook was reconciled. For full end-to-end testing, use separate synthetic orders in Preview D1 and an authenticated, test-only webhook, after additional implementation and independent tax/stock gate review.
