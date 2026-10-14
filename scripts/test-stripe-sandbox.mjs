@@ -3,10 +3,18 @@ import {build} from 'esbuild';
 import {readFileSync} from 'node:fs';
 import {webcrypto} from 'node:crypto';
 if(!globalThis.crypto)globalThis.crypto=webcrypto;
-const bundled=await build({entryPoints:['functions/api/payments/stripe/sandbox.ts'],
- bundle:true,write:false,platform:'node',format:'esm',target:'es2022',logLevel:'silent'});
-const {onRequestPost}=await import('data:text/javascript;base64,'+
- Buffer.from(bundled.outputFiles[0].text).toString('base64'));
+async function load(path){
+ const bundled=await build({entryPoints:[path],bundle:true,write:false,
+  platform:'node',format:'esm',target:'es2022',logLevel:'silent'});
+ return import('data:text/javascript;base64,'+
+  Buffer.from(bundled.outputFiles[0].text).toString('base64'));
+}
+const {onRequestPost:handler}=await load('functions/api/payments/stripe/sandbox.ts');
+const {onRequest:middleware}=await load('functions/_middleware.ts');
+// Run the actual Pages middleware and handler together: a handler-only test
+// missed the preview allowlist that prevented all real sandbox button clicks.
+const onRequestPost=({request,env})=>middleware({request,env,
+ next:()=>handler({request,env})});
 const base='https://fix-preview.mingeagle-site.pages.dev';
 const token='p'.repeat(48);
 const env={TEST_ENVIRONMENT:'preview',STRIPE_MODE:'test',
@@ -20,6 +28,18 @@ const saved=globalThis.fetch;
 let network=0;
 try{
  globalThis.fetch=async()=>{network++;throw Error('A closed sandbox must never call Stripe')};
+ for(const [path,method] of [
+  ['/api/payments/stripe/create','POST'],
+  ['/api/payments/stripe/webhook','POST'],
+  ['/api/retail/checkout','POST'],
+  ['/api/payments/stripe/sandbox','DELETE'],
+  ['/api/payments/stripe/sandbox/extra','POST'],
+ ]){
+  const blocked=await middleware({env,request:new Request(base+path,{method}),
+   next:()=>{throw Error('Unrelated preview mutation reached its handler')}});
+  assert.equal(blocked.status,403);
+  assert.equal((await blocked.json()).code,'PREVIEW_OPERATION_DISABLED');
+ }
  for(const [testEnv,reason] of [
   [{...env,TEST_ENVIRONMENT:''},'no preview marker'],
   [{...env,STRIPE_MODE:'live',STRIPE_SECRET_KEY:'rk_live_synthetic'},'live mode'],
@@ -48,9 +68,12 @@ try{
   network++;
   assert.equal(url,'https://api.stripe.com/v1/checkout/sessions');
   assert.equal(init.method,'POST');
+  assert.equal(init.redirect,'manual','Cloudflare supports manual; error throws before Stripe receives the request');
   assert.equal(init.headers.authorization,'Bearer sk_test_synthetic_for_ci_only');
+  assert.equal(init.headers['stripe-version'],'2026-09-30.endive');
   const params=new URLSearchParams(init.body);
   assert.equal(params.get('mode'),'payment');
+  assert.equal(params.get('payment_method_types[0]'),null,'Removed Endive parameter must not be sent');
   assert.equal(params.get('automatic_tax[enabled]'),'false');
   assert.equal(params.get('line_items[0][quantity]'),'1');
   assert.equal(params.get('line_items[1][quantity]'),'1');
@@ -79,10 +102,34 @@ try{
  assert.equal((await onRequestPost({request:request(),env})).status,502,'Incorrect server-total must fail');
  override={url:'https://checkout.stripe.com.evil.example/c/pay/abc'};
  assert.equal((await onRequestPost({request:request(),env})).status,502,'Non-Stripe host must fail');
+ const providerMock=globalThis.fetch;
+ override=null;
+ const paddedKey=await onRequestPost({request:request(),env:{...env,STRIPE_SECRET_KEY:'  '+env.STRIPE_SECRET_KEY+'\n'}});
+ assert.equal(paddedKey.status,200,'Copied key whitespace must be trimmed before authorization');
+ globalThis.fetch=async()=>{throw new TypeError('Invalid header containing '+env.STRIPE_SECRET_KEY)};
+ const failed=await onRequestPost({request:request(),env});
+ assert.equal(failed.status,503);
+ const failure=await failed.json();
+ assert.equal(failure.code,'STRIPE_TEST_HEADER_INVALID');
+ assert(!JSON.stringify(failure).includes(env.STRIPE_SECRET_KEY),'Provider exceptions must never expose credentials');
+ globalThis.fetch=providerMock;
+ globalThis.fetch=async()=>new Response(null,{status:302,headers:{location:'https://evil.example/credential-trap'}});
+ const redirect=await onRequestPost({request:request(),env});
+ assert.equal(redirect.status,502);
+ assert.equal((await redirect.json()).code,'STRIPE_TEST_REDIRECT_REJECTED');
+ globalThis.fetch=async()=>Response.json({error:{type:'invalid_request_error',
+  param:'line_items',message:'Synthetic provider rejected '+env.STRIPE_SECRET_KEY}}, {status:400});
+ const providerFailure=await onRequestPost({request:request(),env});
+ assert.equal(providerFailure.status,502);
+ const providerDiagnostic=await providerFailure.json();
+ assert.equal(providerDiagnostic.providerStatus,400);
+ assert.equal(providerDiagnostic.providerErrorParam,'line_items');
+ assert(!JSON.stringify(providerDiagnostic).includes(env.STRIPE_SECRET_KEY));
+ globalThis.fetch=providerMock;
  const ui=readFileSync('public/stripe-sandbox.html','utf8');
  assert(ui.includes('noindex,nofollow')&&ui.includes('TEST ONLY'));
  assert(ui.includes('x-mingeagle-sandbox-token'));
  assert(ui.includes('No MING EAGLE order')||ui.includes('never creates MING EAGLE CRM orders'));
- assert.equal(network,5,'Two valid test attempts and three invalid provider outputs');
- console.log('PASS: preview-only authenticated Stripe test Checkout, exactly $21.40/$28.90, no production/live or unapproved products, failed-provider rejection.');
+ assert.equal(network,6,'Two valid prices, padded key and three invalid provider outputs');
+ console.log('PASS: Pages middleware permits only sandbox POST; authenticated test Checkout $21.40/$28.90, production/live and unrelated preview mutations blocked.');
 }finally{globalThis.fetch=saved}

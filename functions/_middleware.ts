@@ -1,9 +1,15 @@
 interface Env {TEST_ENVIRONMENT?:string;OUTBOUND_EMAIL_DISABLED?:string}
 const previewWrites = new Set(['/api/inquiries','/api/shipping/cart','/api/admin/quotes','/api/admin/quote-edit','/api/admin/quote-retail-approval','/api/admin/wholesale-quote-draft','/api/admin/retail-quote-draft','/api/admin/quote-send','/api/admin/quote-revise']);
 export const onRequest: PagesFunction<Env> = async (context) => {
-  // Preview accepts only the isolated quote workflow; other mutations stay closed.
-  if(context.env?.TEST_ENVIRONMENT==='preview' && !['GET','HEAD','OPTIONS'].includes(context.request.method) && !previewWrites.has(new URL(context.request.url).pathname)){
-    return Response.json({ok:false,code:'PREVIEW_OPERATION_DISABLED',error:'This operation is disabled in the isolated quote preview.'},{status:403});
+  if(context.env?.TEST_ENVIRONMENT==='preview'){
+    const pathname = new URL(context.request.url).pathname;
+    // The sandbox handler independently requires a preview hostname, test-only
+    // credentials and its own access token, and never writes orders to D1.
+    const stripeSandboxPost = context.request.method === 'POST' && pathname === '/api/payments/stripe/sandbox';
+    // Preview accepts the isolated quote workflow and authenticated test sandbox.
+    if(!['GET','HEAD','OPTIONS'].includes(context.request.method) && !previewWrites.has(pathname) && !stripeSandboxPost){
+      return Response.json({ok:false,code:'PREVIEW_OPERATION_DISABLED',error:'This operation is disabled in the isolated quote preview.'},{status:403});
+    }
   }
   let response: Response;
   try { response = await context.next(); } catch (error) {
