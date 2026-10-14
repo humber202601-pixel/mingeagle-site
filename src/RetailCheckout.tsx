@@ -1,15 +1,15 @@
 import {useEffect,useState,type FormEvent} from 'react';
+import {ArrowLeft,ArrowRight,LockKeyhole,Truck,ShieldCheck,PackageCheck} from 'lucide-react';
 import {useInquiryTurnstile} from './useInquiryTurnstile';
-
+import {US_DELIVERY_STATES} from '../lib/us-delivery-states';
+import './retail-checkout.css';
 type Entry={sku:string;quantity:number;color:string};
-const colors:Record<string,string[]>={
- P1:['Orange','Blue','Green','Yellow'],P2:['Orange','Green'],
- P3:['Orange','Brown','Black','Aqua Blue'],
- P4:['Black/White','Black/Green','Black/Red','Yellow/Green','Black/Gold']
-};
-type Ready={ok?:boolean;retailCheckoutReady?:boolean;notice?:string;supportedStates?:string[];eligibleSkus?:string[];maxDirectCheckoutUnits?:number};
+type Ready={ok?:boolean;retailCheckoutReady?:boolean;supportedStates?:string[];eligibleSkus?:string[];maxDirectCheckoutUnits?:number};
+type Price={ok?:boolean;productUSD?:number;productsUSD?:number;shippingUSD?:number;totalBeforeTaxesUSD?:number;ddpConfirmed?:boolean};
+const colors:Record<string,string[]>={P1:['Orange','Blue','Green','Yellow'],P2:['Orange','Green'],P3:['Orange','Brown','Black','Aqua Blue'],P4:['Black/White','Black/Green','Black/Red','Yellow/Green','Black/Gold']};
 const valid=/^(?:P1-S[357]|P2-S[357]|P3-S[3467]|P4-S5)$/;
 const catalog:Record<string,string>={P1:'Flocked Silent Basketball Set',P2:'Fabric-Cover Silent Basketball Set',P3:'Weighted Flocked Silent Basketball',P4:'Flocked Silent Soccer Ball'};
+const money=(n:number)=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n);
 function readCart():Entry[]{
  try{
   const encoded=new URL(window.location.href).searchParams.get('cart')||'';
@@ -20,8 +20,7 @@ function readCart():Entry[]{
   const result=rows.map(row=>{
    if(!row||typeof row!=='object')throw Error('invalid line');
    const x=row as Entry;
-   if(typeof x.sku!=='string'||!valid.test(x.sku)||seen.has(x.sku+'|'+x.color)||!colors[x.sku.slice(0,2)]?.includes(x.color)||
-      !Number.isSafeInteger(x.quantity)||x.quantity<1||x.quantity>9)throw Error('invalid cart');
+   if(typeof x.sku!=='string'||!valid.test(x.sku)||seen.has(x.sku+'|'+x.color)||!colors[x.sku.slice(0,2)]?.includes(x.color)||!Number.isSafeInteger(x.quantity)||x.quantity<1||x.quantity>9)throw Error('invalid cart');
    n+=x.quantity;seen.add(x.sku+'|'+x.color);return {sku:x.sku,quantity:x.quantity,color:x.color};
   });
   return n>=1&&n<=9?result:[];
@@ -29,79 +28,64 @@ function readCart():Entry[]{
 }
 export default function RetailCheckout(){
  const [lines]=useState(readCart);
- const [ready,setReady]=useState<Ready|null>(null);
- const [busy,setBusy]=useState(false);
- const [error,setError]=useState('');
+ const [ready,setReady]=useState<Ready|null>(null),[price,setPrice]=useState<Price|null>(null);
+ const [busy,setBusy]=useState(false),[error,setError]=useState(''),[state,setState]=useState('');
  const [requestId]=useState(()=>crypto.randomUUID());
- const directCartEligible=lines.length>0&&lines.reduce((n,x)=>n+x.quantity,0)<=(ready?.maxDirectCheckoutUnits??9)
-  &&lines.every(x=>!ready?.eligibleSkus||ready.eligibleSkus.includes(x.sku));
- const captcha=useInquiryTurnstile(Boolean(ready?.retailCheckoutReady&&directCartEligible));
- useEffect(()=>{let active=true;
-  fetch('/api/retail/checkout-status',{cache:'no-store'})
-   .then(r=>r.json()).then(d=>{if(active)setReady(d as Ready)})
-   .catch(()=>{if(active)setReady({ok:false,retailCheckoutReady:false})});
+ const cartEligible=lines.length>0&&lines.reduce((n,x)=>n+x.quantity,0)<=(ready?.maxDirectCheckoutUnits??1)&&lines.every(x=>!ready?.eligibleSkus||ready.eligibleSkus.includes(x.sku));
+ const stateEligible=!state||!ready?.supportedStates||ready.supportedStates.includes(state);
+ const goods=price?.productsUSD??price?.productUSD,freight=price?.shippingUSD,total=price?.totalBeforeTaxesUSD;
+ const priceReady=price?.ok===true&&price.ddpConfirmed===true&&[goods,freight,total].every(x=>typeof x==='number'&&Number.isFinite(x)&&x>=0)&&Math.round(Number(total)*100)===Math.round(Number(goods)*100)+Math.round(Number(freight)*100);
+ const canCheckout=Boolean(ready?.retailCheckoutReady&&cartEligible&&priceReady);
+ const captcha=useInquiryTurnstile(Boolean(canCheckout&&stateEligible));
+ const quoteParams=new URLSearchParams({type:'retail',cart:lines.map(x=>`${x.sku} / ${x.color} x ${x.quantity}`).join(', '),cart_country:'US',shipping_state:state});
+ const quoteUrl='https://www.mingeagle.com/inquiry.html?'+quoteParams;
+ useEffect(()=>{
+  let active=true;
+  fetch('/api/retail/checkout-status',{cache:'no-store'}).then(r=>r.json()).then(d=>{if(active)setReady(d as Ready)}).catch(()=>{if(active)setReady({ok:false,retailCheckoutReady:false})});
+  if(lines.length)fetch('/api/shipping/cart',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({country:'US',method:'air',lines:lines.map(({sku,quantity})=>({sku,quantity}))})}).then(r=>r.json()).then(d=>{if(active)setPrice(d as Price)}).catch(()=>{if(active)setPrice({ok:false})});
   return ()=>{active=false};
- },[]);
+ },[lines]);
  async function submit(e:FormEvent<HTMLFormElement>){
-  e.preventDefault();if(busy||!ready?.retailCheckoutReady||!lines.length)return;
-  if(captcha.mode!=='required'||!captcha.token){setError('Complete the security check before checkout.');return}
-  const data=new FormData(e.currentTarget);
-  setError('');setBusy(true);
+  e.preventDefault();if(busy||!canCheckout||!stateEligible||!state)return;
+  if(captcha.mode!=='required'||!captcha.token){setError('Please complete the security check.');return}
+  const data=new FormData(e.currentTarget);setError('');setBusy(true);
   try{
-   const payload=Object.fromEntries(['name','email','phone','street1','street2','city','state','postalCode']
-    .map(k=>[k,String(data.get(k)||'')]));
-   const response=await fetch('/api/retail/checkout',{
-    method:'POST',headers:{'content-type':'application/json'},
-    body:JSON.stringify({...payload,requestId,lines,country:'US',method:'air',
-      turnstileToken:captcha.token,privacyAck:data.get('privacyAck')==='on'})
-   });
+   const payload=Object.fromEntries(['name','email','phone','street1','street2','city','state','postalCode'].map(k=>[k,String(data.get(k)||'')]));
+   const response=await fetch('/api/retail/checkout',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...payload,requestId,lines,country:'US',method:'air',turnstileToken:captcha.token,privacyAck:data.get('privacyAck')==='on'})});
    const result=await response.json() as {ok?:boolean;error?:string;paymentPage?:string};
-   if(!response.ok||!result.ok||!result.paymentPage)throw Error(result.error||'Cannot prepare checkout');
+   if(!response.ok||!result.ok||!result.paymentPage)throw Error(result.error||'We could not prepare your order. Please try again.');
    const url=new URL(result.paymentPage);
-   if(url.origin!==window.location.origin||!/^\/quote\/[0-9a-f]{64}$/.test(url.pathname))
-    throw Error('Unrecognized secure checkout destination');
+   if(url.origin!==window.location.origin||!/^\/quote\/[0-9a-f]{64}$/.test(url.pathname))throw Error('Please contact us to confirm your order.');
    window.location.assign(url.href);
   }catch(e){captcha.reset();setError(e instanceof Error?e.message:'Unable to prepare order');setBusy(false)}
  }
- return <div className="public-shell"><main className="form-page">
-  <div className="form-intro"><span className="eyebrow">SECURE RETAIL CHECKOUT</span>
-   <h1>US Retail · Secure Checkout</h1>
-   <p>Public retail prices, air parcel shipping from China. Complete your US shipping address to prepare the final payment page. No card data is collected here.</p></div>
-  {!lines.length?<div role="alert" className="form-status error">
-   This cart is empty, invalid or contains 10+ items. <a href="https://www.mingeagle.com/retail-cart.html">Return to cart</a>.
-  </div>:<section className="lead-form">
-   <h2>Your items</h2>
-   {lines.map(x=><p key={x.sku+'|'+x.color}>{catalog[x.sku.slice(0,2)]} · Size {x.sku.slice(4)} · {x.color} · {x.quantity} item(s)</p>)}
-   <p className="form-note">The server independently verifies product prices, combined air freight, stock readiness and approved tax handling. Delivery estimates are not guarantees.</p>
-   {ready===null?<p role="status">Checking secure payment availability…</p>:
-    !ready.retailCheckoutReady||!directCartEligible?<div className="form-status error" role="status">
-     <strong>Online card payment activation in progress.</strong>
-     <p>{!directCartEligible?'This basket needs a confirmed delivered-price quote.':'No payment can be made yet. You can still request an order confirmation.'}</p>
-     <a className="button" href="https://www.mingeagle.com/retail-cart.html">Return to retail cart</a>
-    </div>:
-    <form onSubmit={submit}>
-     <p className="form-note">{ready.notice}</p>
-     <div className="form-grid">
-      <label>Full name *<input name="name" required maxLength={120} autoComplete="name"/></label>
-      <label>Email *<input name="email" type="email" required maxLength={180} autoComplete="email"/></label>
-      <label>Phone *<input name="phone" type="tel" required maxLength={45} autoComplete="tel"/></label>
-      <label>US address line 1 *<input name="street1" required maxLength={200} autoComplete="address-line1"/></label>
-      <label>Apartment / suite<input name="street2" maxLength={200} autoComplete="address-line2"/></label>
-      <label>City *<input name="city" required maxLength={100} autoComplete="address-level2"/></label>
-      <label>Delivery state *{ready.supportedStates?.length?<select name="state" required autoComplete="address-level1" defaultValue="">
-       <option value="" disabled>Choose an approved delivery state</option>
-       {ready.supportedStates.map(state=><option key={state} value={state}>{state==='OR'?'Oregon':state==='NH'?'New Hampshire':state} ({state})</option>)}
-      </select>:<input name="state" required maxLength={2} minLength={2} pattern="[A-Za-z]{2}" autoComplete="address-level1" style={{textTransform:'uppercase'}}/>}</label>
-      <label>ZIP code *<input name="postalCode" required maxLength={10} autoComplete="postal-code" pattern="[0-9]{5}(-[0-9]{4})?"/></label>
-     </div>
-     <div ref={captcha.container} aria-label="Checkout security verification"/>
-     <label><input name="privacyAck" type="checkbox" required/> I agree to share my details for order fulfillment and accept the <a href="https://www.mingeagle.com/policies.html#shipping" target="_blank" rel="noreferrer">shipping</a> and <a href="https://www.mingeagle.com/policies.html#returns" target="_blank" rel="noreferrer">return terms</a>, and the taxes shown in my final order.</label>
-     {error&&<div role="alert" className="form-status error">{error}</div>}
-     <button className="button" disabled={busy||captcha.mode!=='required'||!captcha.token}>
-      {busy?'Preparing secure order…':'Continue to secure payment →'}
-     </button>
-     <p className="form-note">No payment is recorded until our payment provider confirms success through a signed server-side notification.</p>
-    </form>}
-  </section>}
- </main></div>;
+ const loading=ready===null||(lines.length>0&&price===null);
+ return <div className="retail-checkout">
+  <header className="rc-header"><a className="rc-brand" href="https://www.mingeagle.com/"><span className="rc-brand-mark">ME</span><span>MING EAGLE<small>MORE PLAY. EVERY DAY.</small></span></a><span className="rc-secure"><LockKeyhole size={15}/> Secure checkout</span></header>
+  <main className="rc-main">
+   <a className="rc-back" href="https://www.mingeagle.com/retail-cart.html"><ArrowLeft size={15}/> Back to cart</a>
+   <div className="rc-title"><div><span className="rc-eyebrow">CHECKOUT</span><h1>Delivery details</h1><p>A few details, then you're ready to play.</p></div><ol className="rc-steps" aria-label="Checkout progress"><li>Cart</li><li aria-current="step">Delivery</li><li>Payment</li></ol></div>
+   {!lines.length?<section className="rc-card rc-empty"><h2>Your cart is empty</h2><p>Add a product to prepare your order.</p><a className="rc-action" href="https://www.mingeagle.com/retail-cart.html">Return to cart <ArrowRight size={16}/></a></section>:<div className="rc-layout">
+    <section className="rc-card rc-form-card" aria-label="Delivery details">
+     {loading?<p className="rc-message" role="status">Preparing your order…</p>:!canCheckout?<div className="rc-message" role="status"><h2>Let's confirm your delivery price</h2><p>{!cartEligible||price?.ddpConfirmed!==true?'This basket needs a confirmed delivery quote.':'Card checkout is temporarily unavailable. We can confirm your order by email.'}</p><a className="rc-action" href={quoteUrl}>Request an order quote <ArrowRight size={16}/></a></div>:<form onSubmit={submit}>
+      <fieldset><legend><span>1</span> Contact information</legend><div className="rc-fields"><label>Full name<input name="name" required maxLength={120} autoComplete="name"/></label><label>Email address<input name="email" type="email" required maxLength={180} autoComplete="email"/></label><label className="rc-wide">Phone number<input name="phone" type="tel" required maxLength={45} autoComplete="tel"/><small>For delivery updates only.</small></label></div></fieldset>
+      <fieldset><legend><span>2</span> Shipping address</legend><div className="rc-country"><span>United States</span><small>Ships from China</small></div><div className="rc-fields"><label className="rc-wide">Street address<input name="street1" required maxLength={200} autoComplete="address-line1"/></label><label className="rc-wide">Apartment, suite, etc. <span className="rc-optional">(optional)</span><input name="street2" maxLength={200} autoComplete="address-line2"/></label><label>City<input name="city" required maxLength={100} autoComplete="address-level2"/></label><label>State<select name="state" required autoComplete="address-level1" value={state} onChange={e=>setState(e.target.value)}><option value="" disabled>Select your state</option>{Object.entries(US_DELIVERY_STATES).map(([code,name])=><option key={code} value={code}>{name}</option>)}</select></label><label>ZIP code<input name="postalCode" required maxLength={10} autoComplete="postal-code" inputMode="numeric" pattern="[0-9]{5}(-[0-9]{4})?"/></label></div></fieldset>
+      {!stateEligible?<div className="rc-state-note" role="status"><strong>We can help with this address.</strong><p>Your delivery state needs an order confirmation before online payment.</p><a href={quoteUrl}>Request a confirmed order <ArrowRight size={14}/></a></div>:<>
+       <div className="rc-verification" ref={captcha.container} aria-label="Checkout security verification"/>
+       <label className="rc-consent"><input name="privacyAck" type="checkbox" required/><span>I accept the <a href="https://www.mingeagle.com/policies.html#shipping" target="_blank" rel="noreferrer">shipping terms</a> and <a href="https://www.mingeagle.com/policies.html#returns" target="_blank" rel="noreferrer">return terms</a>, and agree to use my details to fulfill this order.</span></label>
+       {error&&<p role="alert" className="rc-error">{error}</p>}
+       <button className="rc-action rc-submit" disabled={busy||captcha.mode!=='required'||!captcha.token}>{busy?'Preparing your order…':'Continue to secure payment →'}</button><p className="rc-payment-note"><LockKeyhole size={13}/> Card payment is handled securely by Stripe.</p>
+      </>}
+     </form>}
+    </section>
+    <aside className="rc-card rc-summary" aria-label="Order summary"><div className="rc-summary-title"><h2>Your order</h2><span>{lines.reduce((n,x)=>n+x.quantity,0)} item(s)</span></div>
+     {lines.map(x=><div className="rc-product" key={x.sku+'|'+x.color}>{x.sku.startsWith('P1-')&&<img src="https://www.mingeagle.com/assets/hero-flocked-silent-basketball-set.webp?v=20261007-1" alt="Flocked basketball with mini hoop"/>}<div><strong>{catalog[x.sku.slice(0,2)]}</strong><span>Size {x.sku.slice(4)} · {x.color}</span><small>Quantity {x.quantity}</small></div></div>)}
+     <dl className="rc-prices"><div><dt>Products</dt><dd>{typeof goods==='number'?money(goods):'—'}</dd></div><div><dt>Air parcel delivery</dt><dd>{typeof freight==='number'?money(freight):'—'}</dd></div><div className="rc-total"><dt>Total before sales tax<small>USD</small></dt><dd>{typeof total==='number'?money(total):'—'}</dd></div></dl>
+     <p className="rc-tax-note">Any applicable sales tax is confirmed before payment.</p>
+     <ul className="rc-benefits"><li><PackageCheck size={18}/><span>Dispatch within 3 days<small>Products replenished as needed</small></span></li><li><Truck size={18}/><span>Air parcel from China<small>Estimated 12–15 days after dispatch</small></span></li>{price?.ddpConfirmed&&<li><ShieldCheck size={18}/><span>Import duties included<small>No extra import duty on this order</small></span></li>}</ul>
+     <div className="rc-help">Need a hand? <a href="https://www.mingeagle.com/inquiry.html?type=question">Contact us</a></div>
+    </aside>
+   </div>}
+  </main><footer className="rc-footer">MING EAGLE COMMERCE LLC <span>·</span> <a href="https://www.mingeagle.com/policies.html#privacy">Privacy</a> <span>·</span> <a href="https://www.mingeagle.com/policies.html#returns">Returns</a></footer>
+ </div>;
 }

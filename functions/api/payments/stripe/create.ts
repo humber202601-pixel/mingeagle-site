@@ -1,5 +1,5 @@
 import {stripeApi, stripeCheckoutReadiness, stripeSessionMatchesMode, type StripeEnv} from '../../../_shared/stripe';
-import {noSalesTaxCollectionRequired,type RetailTaxEnv} from '../../../../lib/retail-tax-policy';
+import {noSalesTaxCollectionRequired,remoteStartupState,remoteStartupWithinLimits,type RetailTaxEnv} from '../../../../lib/retail-tax-policy';
 import {oneItemUsAirParcel} from '../../../../lib/us-small-parcel';
 
 interface Env extends StripeEnv,RetailTaxEnv {
@@ -55,6 +55,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    const state=String(ship?.state||'').toUpperCase();
    if(ship?.country!=='US'||!noSalesTaxCollectionRequired(env,state))
     return fail('This delivery state has not been approved for zero sales-tax collection.',409);
+   if(remoteStartupState(env,state)&&!await remoteStartupWithinLimits(db))
+    return fail('Please contact MING EAGLE to confirm the final order terms before paying.',409);
    const orderItems=await db.prepare('SELECT description,quantity,unit_price FROM order_items WHERE order_id=?')
     .bind(String(order.id)).all<{description:string;quantity:number;unit_price:number}>();
    const items=orderItems.results||[];
