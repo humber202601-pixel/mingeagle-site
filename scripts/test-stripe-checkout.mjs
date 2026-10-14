@@ -117,6 +117,25 @@ try{
  assert.equal(stored,true);
  assert(providerCalls===1 && dbWrites>=1);
  
+ // A valid Stripe signature alone must not authorize a mismatched order or amount.
+ for(const [eventId,change] of [
+  ['evt_wrong_amount',{amount_total:2990}],
+  ['evt_wrong_currency',{currency:'eur'}],
+  ['evt_wrong_order',{client_reference_id:'ME-RO-DIFFERENT'}]
+ ]){
+  const bad={id:eventId,type:'checkout.session.completed',data:{object:{
+   id:'cs_test_synthetic',client_reference_id:'ME-RO-SYNTHETIC',
+   metadata:{order_id:'ord_synthetic',order_reference:'ME-RO-SYNTHETIC'},
+   payment_status:'paid',amount_total:2890,currency:'usd',...change
+  }}};
+  const payload=JSON.stringify(bad);
+  const sig=createHmac('sha256',ready.STRIPE_WEBHOOK_SECRET).update(now+'.'+payload).digest('hex');
+  const deniedWebhook=await webhook({env:{...ready,MINGEAGLE_DB:db},
+   request:new Request('https://app.mingeagle.com/api/payments/stripe/webhook',{
+    method:'POST',headers:{'stripe-signature':'t='+now+',v1='+sig},body:payload
+   })});
+  assert.equal(deniedWebhook.status,409,'A signed but mismatched event must be rejected: '+eventId);
+ }
  const event={id:'evt_paid_test',type:'checkout.session.completed',data:{object:{
   id:'cs_test_synthetic',client_reference_id:'ME-RO-SYNTHETIC',
   metadata:{order_id:'ord_synthetic',order_reference:'ME-RO-SYNTHETIC'},
