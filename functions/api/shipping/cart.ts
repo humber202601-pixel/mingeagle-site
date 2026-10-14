@@ -26,7 +26,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   unitPriceUSD:one.productUSD,lineTotalUSD:one.productUSD}],
   ...one,volumeCBM:null,
   notice:one.ddpConfirmed
-   ? 'One P1-S7 unit: the quoted $14 shipping includes customs clearance and import duties. US state/local sales tax is separate and subject to review. Delivery 12–15 days after dispatch is an estimate.'
+   ? `One ${one.sku} unit: the ${one.shippingUSD.toFixed(2)} shipping includes customs clearance and US import duties; the buyer owes no additional import duty. US state/local sales tax is separate and subject to review. Delivery 12–15 days after dispatch is an estimate.`
    : 'Single-item US air parcel estimate; DDP/customs-duty coverage is not yet confirmed for this SKU. US state/local sales tax requires separate review. Delivery dates are estimates.'});
  if(!env.MINGEAGLE_DB)return result({ok:false,error:'Database unavailable'},503);
  try{
