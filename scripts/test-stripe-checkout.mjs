@@ -55,6 +55,8 @@ try{
  assert(!await verifyStripeSignature(payload,'t='+now+',v1=invalid',ready.STRIPE_WEBHOOK_SECRET,now*1000));
 
  let stored=false;
+ const processedEvents=new Set();
+ let receivedInserts=0;
  const db={prepare(sql){
   const state={sql,bind(...values){this.values=values;return this},
    async first(){
@@ -68,7 +70,7 @@ try{
     };
     if(sql.includes("WHERE order_id=? AND provider='STRIPE'"))return null;
     if(sql.includes("WHERE provider='STRIPE' AND provider_intent_id=?"))return stored?{order_id:'ord_synthetic',amount:28.9,currency:'USD',status:'OPEN'}:null;
-    if(sql.includes('FROM payment_webhook_events'))return {processed_at:null};
+    if(sql.includes('FROM payment_webhook_events'))return {processed_at:processedEvents.has(this.values?.[0])?'2026-10-14 00:00:00':null};
     if(sql.includes('FROM orders WHERE id='))return {
       id:'ord_synthetic',reference:'ME-RO-SYNTHETIC',lead_id:null,company_id:null,contact_id:null,
       total:28.9,currency:'USD',payment_status:'UNPAID'
@@ -83,6 +85,8 @@ try{
    async run(){
     dbWrites++;
     if(sql.includes('INSERT OR IGNORE INTO payment_provider_sessions'))stored=true;
+    if(sql.includes('UPDATE payment_webhook_events SET processed_at='))processedEvents.add(this.values[0]);
+    if(sql.includes('INSERT OR IGNORE INTO payments '))receivedInserts++;
     return {success:true,meta:{changes:1}};
    }};
   return state;
@@ -149,6 +153,14 @@ try{
   })});
  assert.equal(res.status,200,await res.clone().text());
  assert.equal((await res.json()).paymentStatus,'PAID');
+ const paymentWritesAfterFirst=receivedInserts;
+ const duplicate=await webhook({env:{...ready,MINGEAGLE_DB:db},
+  request:new Request('https://app.mingeagle.com/api/payments/stripe/webhook',{
+   method:'POST',headers:{'stripe-signature':'t='+now+',v1='+signed},body:eventText
+  })});
+ assert.equal(duplicate.status,200,'Retrying same Stripe event should be accepted');
+ assert.equal((await duplicate.json()).duplicate,true,'Exact replay is recognized as processed');
+ assert.equal(receivedInserts,paymentWritesAfterFirst,'Replay must not create another payment');
  
  const invalid=await webhook({env:{...ready,MINGEAGLE_DB:db},
   request:new Request('https://app.mingeagle.com/api/payments/stripe/webhook',{
