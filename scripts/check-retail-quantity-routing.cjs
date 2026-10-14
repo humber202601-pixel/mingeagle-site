@@ -51,7 +51,7 @@ const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'retail-route-'));
 try{
  const files=['index.html','products.html','silent-basketball.html','fabric-silent-basketball.html',
   'weighted-flocked-basketball.html','silent-soccer.html',
-  'retail-prices.json','us-single-parcel-shipping.json','product-master.json'];
+  'retail-prices.json','us-single-parcel-shipping.json','retail-fulfillment-policy.json','product-master.json'];
  for(const file of files)fs.copyFileSync(path.join('public',file),path.join(tmp,file));
  cp.execFileSync(process.execPath,['scripts/build-us-delivered-prices.cjs',tmp]);
  for(const file of files.filter(x=>x.endsWith('.html'))){

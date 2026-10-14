@@ -51,7 +51,7 @@ assert.deepEqual(data.usSingleItemAirParcel.estimatedDeliveryDaysAfterDispatch,{
 assert(!Object.keys(data).includes('searchRanking'));
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'ai-facts-negative-'));
 try{
- const files=['product-master.json','retail-prices.json','us-single-parcel-shipping.json','sitemap.xml',...data.products.map(p=>p.url.split('/').at(-1)),...data.guides.map(g=>g.url.split('/').at(-1)),'products.html','inquiry.html'];
+ const files=['product-master.json','retail-prices.json','us-single-parcel-shipping.json','retail-fulfillment-policy.json','sitemap.xml',...data.products.map(p=>p.url.split('/').at(-1)),...data.guides.map(g=>g.url.split('/').at(-1)),'products.html','inquiry.html'];
  for(const name of new Set(files))fs.copyFileSync(path.join(root,name),path.join(tmp,name));
  fs.mkdirSync(path.join(tmp,'assets'));
  for(const x of data.products)fs.copyFileSync(path.join(root,master[x.id].hero),path.join(tmp,master[x.id].hero));
