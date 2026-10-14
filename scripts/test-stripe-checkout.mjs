@@ -60,6 +60,7 @@ try{
 
  let stored=false;
  let simulatedShippingState='NY';
+ let orderReference='ME-RO-SYNTHETIC',quoteStatus='SENT';
  let retailSku='P1-S7', retailGoods=14.9, retailShipping=14;
  const processedEvents=new Set();
  let receivedInserts=0;
@@ -68,9 +69,9 @@ try{
    async first(){
     dbReads++;
     if(sql.includes('FROM quotes q JOIN orders o'))return {
-      id:'ord_synthetic',reference:'ME-RO-SYNTHETIC',status:'PAYMENT_PENDING',
+      id:'ord_synthetic',reference:orderReference,status:'PAYMENT_PENDING',
       payment_status:'UNPAID',total:retailGoods+retailShipping,subtotal:retailGoods,discount:0,
-      shipping:retailShipping,tax:0,currency:'USD',quote_status:'SENT',
+      shipping:retailShipping,tax:0,currency:'USD',quote_status:quoteStatus,
       shipping_address:JSON.stringify({state:simulatedShippingState,country:'US'}),
       received:0,email:'buyer@example.net'
     };
@@ -105,7 +106,7 @@ try{
   assert.equal(init.method,'POST');
   assert(String(init.headers.get('authorization')).startsWith('Bearer sk_test_'));
   const params=new URLSearchParams(init.body);
-  assert.equal(params.get('client_reference_id'),'ME-RO-SYNTHETIC');
+  assert.equal(params.get('client_reference_id'),orderReference);
   assert.equal(params.get('shipping_address_collection[allowed_countries][0]'),null,'No second buyer-selected ship-to state after order tax review');
   assert.equal(params.get('line_items[0][price_data][unit_amount]'),String(Math.round(retailGoods*100)));
   assert.equal(params.get('line_items[1][price_data][unit_amount]'),String(Math.round(retailShipping*100)));
@@ -115,6 +116,21 @@ try{
    amount_total:requestAmount,currency:'usd',status:'open'
   });
  };
+ for(const retailToggle of [undefined,'false','TRUE','']){
+  const readsBefore=dbReads,writesBefore=dbWrites;
+  const blocked=await createCheckout({env:{...ready,RETAIL_CHECKOUT_ENABLED:retailToggle,MINGEAGLE_DB:db},request:request()});
+  assert.equal(blocked.status,503,'Existing unpaid retail orders must honor the retail activation switch');
+  assert.equal(providerCalls,0,'Disabled retail must not contact Stripe');
+  assert.equal(dbWrites,writesBefore,'Disabled retail must not write payment sessions');
+  assert.equal(dbReads,readsBefore+1,'Only the order lookup may run before the retail gate');
+ }
+ // Disabling retail does not disable separately accepted wholesale quotations.
+ orderReference='ME-O-SYNTHETIC';quoteStatus='ACCEPTED';
+ const wholesale=await createCheckout({env:{...ready,RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
+ assert.equal(wholesale.status,200,await wholesale.clone().text());
+ assert.equal(providerCalls,1);
+ orderReference='ME-RO-SYNTHETIC';quoteStatus='SENT';
+ providerCalls=0;dbWrites=0;stored=false;
  const denied=await createCheckout({env:{...ready,RETAIL_US_TAX_POLICY_JSON:JSON.stringify({reviewed_on:new Date().toISOString().slice(0,10),review_reference:'TEST_REVIEW_FOR_CA_ONLY',states:{CA:'NO_COLLECTION_REQUIRED'}}),MINGEAGLE_DB:db},request:request()});
  assert.equal(denied.status,409,'No Checkout for a state excluded from the verified tax review');
  assert.equal(providerCalls,0,'Tax-denied state must not call Stripe');

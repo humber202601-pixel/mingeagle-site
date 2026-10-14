@@ -3,10 +3,18 @@ import {build} from 'esbuild';
 import {readFileSync} from 'node:fs';
 import {webcrypto} from 'node:crypto';
 if(!globalThis.crypto)globalThis.crypto=webcrypto;
-const bundled=await build({entryPoints:['functions/api/payments/stripe/sandbox.ts'],
- bundle:true,write:false,platform:'node',format:'esm',target:'es2022',logLevel:'silent'});
-const {onRequestPost}=await import('data:text/javascript;base64,'+
- Buffer.from(bundled.outputFiles[0].text).toString('base64'));
+async function load(path){
+ const bundled=await build({entryPoints:[path],bundle:true,write:false,
+  platform:'node',format:'esm',target:'es2022',logLevel:'silent'});
+ return import('data:text/javascript;base64,'+
+  Buffer.from(bundled.outputFiles[0].text).toString('base64'));
+}
+const {onRequestPost:handler}=await load('functions/api/payments/stripe/sandbox.ts');
+const {onRequest:middleware}=await load('functions/_middleware.ts');
+// Run the actual Pages middleware and handler together: a handler-only test
+// missed the preview allowlist that prevented all real sandbox button clicks.
+const onRequestPost=({request,env})=>middleware({request,env,
+ next:()=>handler({request,env})});
 const base='https://fix-preview.mingeagle-site.pages.dev';
 const token='p'.repeat(48);
 const env={TEST_ENVIRONMENT:'preview',STRIPE_MODE:'test',
@@ -20,6 +28,18 @@ const saved=globalThis.fetch;
 let network=0;
 try{
  globalThis.fetch=async()=>{network++;throw Error('A closed sandbox must never call Stripe')};
+ for(const [path,method] of [
+  ['/api/payments/stripe/create','POST'],
+  ['/api/payments/stripe/webhook','POST'],
+  ['/api/retail/checkout','POST'],
+  ['/api/payments/stripe/sandbox','DELETE'],
+  ['/api/payments/stripe/sandbox/extra','POST'],
+ ]){
+  const blocked=await middleware({env,request:new Request(base+path,{method}),
+   next:()=>{throw Error('Unrelated preview mutation reached its handler')}});
+  assert.equal(blocked.status,403);
+  assert.equal((await blocked.json()).code,'PREVIEW_OPERATION_DISABLED');
+ }
  for(const [testEnv,reason] of [
   [{...env,TEST_ENVIRONMENT:''},'no preview marker'],
   [{...env,STRIPE_MODE:'live',STRIPE_SECRET_KEY:'rk_live_synthetic'},'live mode'],
@@ -84,5 +104,5 @@ try{
  assert(ui.includes('x-mingeagle-sandbox-token'));
  assert(ui.includes('No MING EAGLE order')||ui.includes('never creates MING EAGLE CRM orders'));
  assert.equal(network,5,'Two valid test attempts and three invalid provider outputs');
- console.log('PASS: preview-only authenticated Stripe test Checkout, exactly $21.40/$28.90, no production/live or unapproved products, failed-provider rejection.');
+ console.log('PASS: Pages middleware permits only sandbox POST; authenticated test Checkout $21.40/$28.90, production/live and unrelated preview mutations blocked.');
 }finally{globalThis.fetch=saved}

@@ -5,6 +5,7 @@ import {oneItemUsAirParcel} from '../../../../lib/us-small-parcel';
 interface Env extends StripeEnv,RetailTaxEnv {
   MINGEAGLE_DB: D1Database;
   STRIPE_TAX_POLICY_APPROVED?:string;
+  RETAIL_CHECKOUT_ENABLED?:string;
   RETAIL_STOCK_FULFILLMENT_APPROVED?:string;
   RETAIL_TAX_POLICY_APPROVED?:string;
 }
@@ -41,6 +42,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   if(!order)return fail('Order not found.',404);
   if(['CANCELLED','REFUNDED'].includes(String(order.status)))return fail('Order is not payable.',409);
   const isRetail=String(order.reference).startsWith('ME-RO-');
+  if(isRetail&&env.RETAIL_CHECKOUT_ENABLED!=='true')
+   return fail('Direct retail payment is not activated.',503);
   if(isRetail&&(env.RETAIL_STOCK_FULFILLMENT_APPROVED!=='true'||env.RETAIL_TAX_POLICY_APPROVED!=='true'))
    return fail('Retail stock, shipping and tax approval is required.',503);
   if(isRetail){
