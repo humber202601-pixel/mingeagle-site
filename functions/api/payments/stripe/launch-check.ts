@@ -5,6 +5,7 @@ interface Env {
  STRIPE_SECRET_KEY?:string;STRIPE_MODE?:string;TEST_ENVIRONMENT?:string;
  STRIPE_LAUNCH_CHECK_ENABLED?:string;STRIPE_LAUNCH_CHECK_EXPIRES_AT?:string;
  STRIPE_LAUNCH_CHECK_TOKEN?:string;STRIPE_LAUNCH_WEBHOOK_ID?:string;
+ STRIPE_LAUNCH_READ_ONLY?:string;
 }
 const origin='https://app.mingeagle.com',webhookUrl=origin+'/api/payments/stripe/webhook';
 const events=['checkout.session.completed','checkout.session.async_payment_succeeded',
@@ -26,6 +27,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  if(!request.headers.get('content-type')?.startsWith('application/json'))return json({ok:false,error:'JSON required.'},415);
  const raw=await request.text();if(raw.length>1000)return json({ok:false,error:'Payload too large.'},413);
  let body:{action?:string;endpointId?:string};try{body=JSON.parse(raw)}catch{return json({ok:false,error:'Invalid JSON.'},400)}
+ if(env.STRIPE_LAUNCH_READ_ONLY==='true'&&!['inspect','inspect-tax'].includes(body.action||''))
+  return json({ok:false,error:'Only configuration inspection is permitted.'},405);
  async function api(path:string,method='GET',form?:URLSearchParams,idempotency?:string){
   const headers=new Headers({'authorization':'Bearer '+String(env.STRIPE_SECRET_KEY).trim(),'stripe-version':STRIPE_API_VERSION});
   if(form)headers.set('content-type','application/x-www-form-urlencoded');
@@ -38,6 +41,21 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  const permission=(r:{ok:boolean;status:number;data:Record<string,any>})=>({ok:r.ok,httpStatus:r.status,
   errorType:r.ok?undefined:r.data.error?.type,errorCode:r.ok?undefined:r.data.error?.code});
  try{
+  if(body.action==='inspect-tax'){
+   const [settings,registrations]=await Promise.all([api('tax/settings'),api('tax/registrations?status=active&limit=100')]);
+   const s=settings.data;
+   const entries=Array.isArray(registrations.data.data)?registrations.data.data:[];
+   return json({ok:settings.ok&&registrations.ok,mode:'live',
+    settings:{...permission(settings),status:s.status,livemode:s.livemode,
+     headOfficeCountry:s.head_office?.address?.country,headOfficeState:s.head_office?.address?.state,
+     defaultTaxCode:s.defaults?.tax_code,defaultTaxBehavior:s.defaults?.tax_behavior,
+     missingFields:Array.isArray(s.status_details?.pending?.missing_fields)?s.status_details.pending.missing_fields:[]},
+    registrations:{...permission(registrations),complete:registrations.ok&&registrations.data.has_more===false,
+     active:entries.map((r:any)=>({country:r.country,status:r.status,livemode:r.livemode,
+      state:r.country==='US'?r.country_options?.us?.state:undefined,
+      type:r.country==='US'?r.country_options?.us?.type:undefined,activeFrom:r.active_from,expiresAt:r.expires_at}))}},
+    settings.ok&&registrations.ok?200:502);
+  }
   if(body.action==='inspect'){
    const [account,hooks,sessions]=await Promise.all([api('account'),api('webhook_endpoints?limit=100'),api('checkout/sessions?limit=1')]);
    return json({ok:true,mode:'live',account:{...permission(account),chargesEnabled:account.data.charges_enabled,
