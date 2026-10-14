@@ -5,7 +5,9 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     const pathname = new URL(context.request.url).pathname;
     // The sandbox handler independently requires a preview hostname, test-only
     // credentials and its own access token, and never writes orders to D1.
-    const stripeSandboxPost = context.request.method === 'POST' && pathname === '/api/payments/stripe/sandbox';
+    const stripeSandboxPost = context.request.method === 'POST' && [
+      '/api/payments/stripe/sandbox','/api/payments/stripe/acceptance','/api/payments/stripe/acceptance-webhook'
+    ].includes(pathname);
     // Preview accepts the isolated quote workflow and authenticated test sandbox.
     if(!['GET','HEAD','OPTIONS'].includes(context.request.method) && !previewWrites.has(pathname) && !stripeSandboxPost){
       return Response.json({ok:false,code:'PREVIEW_OPERATION_DISABLED',error:'This operation is disabled in the isolated quote preview.'},{status:403});
