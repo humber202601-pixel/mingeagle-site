@@ -27,6 +27,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
     stripe: {
       checkoutReady: stripe.checkoutReady && env.STRIPE_TAX_POLICY_APPROVED==='true',
       mode:stripe.mode,
+      keyMode:stripe.keyMode,
       keyConfigured:stripe.keyConfigured,
       webhookConfigured:stripe.webhookConfigured,
       checkoutRequested:stripe.checkoutRequested,

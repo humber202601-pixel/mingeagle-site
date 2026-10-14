@@ -8,6 +8,7 @@ const load=async file=>{
  return import('data:text/javascript;base64,'+Buffer.from(output.outputFiles[0].text).toString('base64'));
 };
 const {stripeCheckoutReadiness,stripeSessionMatchesMode}=await load('functions/_shared/stripe.ts');
+const {onRequestGet:paymentReadiness}=await load('functions/api/payments/status.ts');
 assert.equal(stripeSessionMatchesMode('cs_test_synthetic','test'),true);
 assert.equal(stripeSessionMatchesMode('cs_live_synthetic','live'),true);
 for(const [id,mode] of [['cs_live_synthetic','test'],['cs_test_synthetic','live'],['cs_test_synthetic',''],['cs_unknown_synthetic','test'],['not_a_session','live']])
@@ -30,6 +31,17 @@ assert.equal(stripeCheckoutReadiness({...ready,STRIPE_MODE:'live',STRIPE_SECRET_
 assert.equal(stripeCheckoutReadiness({...ready,STRIPE_MODE:'live'}).checkoutReady,false);
 assert.equal(stripeCheckoutReadiness({...ready,STRIPE_WEBHOOK_SECRET:''}).checkoutReady,false);
 assert.equal(stripeCheckoutReadiness({...ready,STRIPE_CHECKOUT_ENABLED:'false'}).checkoutReady,false);
+for(const [key,mode] of [['sk_test_synthetic','test'],['rk_test_synthetic','test'],
+ ['sk_live_synthetic','live'],['rk_live_synthetic','live'],['',null],['sk_live_',null],['malformed',null]]){
+ const result=stripeCheckoutReadiness({...ready,STRIPE_SECRET_KEY:key});
+ assert.equal(result.keyMode,mode);
+ assert.equal(result.keyConfigured,mode==='test','An advertised key mode never bypasses the configured mode');
+}
+const mismatch=await (await paymentReadiness({env:{...ready,STRIPE_SECRET_KEY:'rk_live_synthetic_private_key'}})).json();
+assert.equal(mismatch.stripe.mode,'test');assert.equal(mismatch.stripe.keyMode,'live');
+assert.equal(mismatch.stripe.keyConfigured,false);assert.equal(mismatch.stripe.checkoutReady,false);
+assert(!JSON.stringify(mismatch).includes('rk_live_synthetic_private_key'));
+assert(!JSON.stringify(mismatch).includes(ready.STRIPE_WEBHOOK_SECRET));
 const saved=globalThis.fetch;
 let providerCalls=0,dbReads=0,dbWrites=0;
 const request=()=>new Request('https://app.mingeagle.com/api/payments/stripe/create',{
