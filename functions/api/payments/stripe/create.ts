@@ -8,6 +8,7 @@ interface Env extends StripeEnv,RetailTaxEnv {
   RETAIL_CHECKOUT_ENABLED?:string;
   RETAIL_STOCK_FULFILLMENT_APPROVED?:string;
   RETAIL_TAX_POLICY_APPROVED?:string;
+  STRIPE_RETAIL_ONLY_ENABLED?:string;
 }
 type RecordRow=Record<string,unknown>;
 const fail=(message:string,status=400)=>Response.json({ok:false,error:message},{status,headers:{'cache-control':'no-store'}});
@@ -42,6 +43,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   if(!order)return fail('Order not found.',404);
   if(['CANCELLED','REFUNDED'].includes(String(order.status)))return fail('Order is not payable.',409);
   const isRetail=String(order.reference).startsWith('ME-RO-');
+  if(env.STRIPE_RETAIL_ONLY_ENABLED==='true'&&!isRetail)
+   return fail('Online payment currently supports approved retail orders only. Contact MING EAGLE for this quotation.',503);
   if(isRetail&&env.RETAIL_CHECKOUT_ENABLED!=='true')
    return fail('Direct retail payment is not activated.',503);
   if(isRetail&&(env.RETAIL_STOCK_FULFILLMENT_APPROVED!=='true'||env.RETAIL_TAX_POLICY_APPROVED!=='true'))

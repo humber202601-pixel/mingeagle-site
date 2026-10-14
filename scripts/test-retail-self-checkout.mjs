@@ -59,6 +59,8 @@ try{
  const env={...full,MINGEAGLE_DB:db};
  const cases=[
   [{...base,state:'CA'},409],
+  [{...base,state:'OR',postalCode:'10001'},400],
+  [{...base,state:'NH',postalCode:'03901'},400],
   [{...base,lines:[{sku:'P1-S3',quantity:10,color:'Orange'}]},400],
   [{...base,lines:[{sku:'P1-S3',quantity:9,color:'Orange'},{sku:'P2-S3',quantity:1,color:'Orange'}]},409],
   [{...base,method:'sea'},400],
