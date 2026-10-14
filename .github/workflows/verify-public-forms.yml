@@ -25,6 +25,8 @@ on:
       - 'scripts/check-seo-v37.cjs'
       - 'scripts/check-retail-quantity-routing.cjs'
       - 'scripts/test-product-cart-journey.cjs'
+      - 'scripts/build-free-exposure-resources.cjs'
+      - 'scripts/test-free-exposure-resources.cjs'
       - 'scripts/build-product-buyer-answers.cjs'
       - 'scripts/test-product-buyer-answers.cjs'
       - 'scripts/build-creator-to-product.cjs'
@@ -113,6 +115,8 @@ jobs:
           node --check scripts/build-us-delivered-prices.cjs
           node scripts/test-us-delivered-prices.cjs
           node scripts/test-product-buyer-answers.cjs
+          node scripts/build-free-exposure-resources.cjs
+          node scripts/test-free-exposure-resources.cjs
           node scripts/test-creator-to-product.cjs
           node scripts/check-priority-indexing-pages.cjs
           node scripts/test-search-buyer-paths.cjs

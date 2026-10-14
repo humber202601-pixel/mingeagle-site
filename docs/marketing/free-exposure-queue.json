@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "brand": "MING EAGLE",
+  "budgetUSD": 0,
+  "scope": "Original free resources, published only in authorized brand accounts or community spaces that expressly allow relevant merchant resources.",
+  "requiresConnectedAccount": true,
+  "noPaidUpgrade": true,
+  "posts": [
+    {
+      "id": "PIN-APT-001",
+      "channel": "pinterest",
+      "status": "DRAFT_ACCOUNT_NOT_CONNECTED",
+      "title": "Five indoor ball games that skip repeated floor bouncing",
+      "body": "From MING EAGLE: try seated handovers, mirror moves and short carry-and-freeze games. Read the free activity cards before choosing equipment. No signup or purchase required; soft balls do not eliminate footsteps or floor vibration.",
+      "destinationUrl": "https://www.mingeagle.com/silent-basketball-for-apartments.html?utm_source=pinterest&utm_medium=organic_social&utm_campaign=free_resources_20261015&utm_content=pin-apt-001#free-apartment-games",
+      "merchantDisclosure": "MING EAGLE is the author and seller",
+      "requiresCommunityRuleReview": false,
+      "publishedAt": null,
+      "publicPostUrl": null
+    },
+    {
+      "id": "FB-SCHOOL-001",
+      "channel": "facebook",
+      "status": "DRAFT_ACCOUNT_NOT_CONNECTED",
+      "title": "A simple no-bounce PE activity",
+      "body": "From MING EAGLE: a 10-minute, small-group ball session with controlled handovers, mirror moves and a clear stop signal. Adapt it to pupils, available space and supervision. Free checklist, no purchase required.",
+      "destinationUrl": "https://www.mingeagle.com/for-schools.html?utm_source=facebook&utm_medium=organic_social&utm_campaign=free_resources_20261015&utm_content=fb-school-001#free-school-session",
+      "merchantDisclosure": "MING EAGLE is the author and seller",
+      "requiresCommunityRuleReview": false,
+      "publishedAt": null,
+      "publicPostUrl": null
+    },
+    {
+      "id": "PIN-TEAM-001",
+      "channel": "pinterest",
+      "status": "DRAFT_ACCOUNT_NOT_CONNECTED",
+      "title": "Before you order logo basketballs",
+      "body": "From MING EAGLE: our free brief covers the model, artwork, quantity, sample approval and delivered quote. A logo preview is not a finished printed sample. Use the checklist with your chosen supplier.",
+      "destinationUrl": "https://www.mingeagle.com/custom-basketball-for-teams.html?utm_source=pinterest&utm_medium=organic_social&utm_campaign=free_resources_20261015&utm_content=pin-team-001#free-logo-brief",
+      "merchantDisclosure": "MING EAGLE is the author and seller",
+      "requiresCommunityRuleReview": false,
+      "publishedAt": null,
+      "publicPostUrl": null
+    },
+    {
+      "id": "FB-APT-001",
+      "channel": "facebook",
+      "status": "DRAFT_ACCOUNT_NOT_CONNECTED",
+      "title": "Less bouncing, more controlled play",
+      "body": "From MING EAGLE: a softer ball is only part of the setup. For apartment play, begin with agreed play hours and games that keep the ball in hand. Our five free activity cards give you a place to start.",
+      "destinationUrl": "https://www.mingeagle.com/silent-basketball-for-apartments.html?utm_source=facebook&utm_medium=organic_social&utm_campaign=free_resources_20261015&utm_content=fb-apt-001#free-apartment-games",
+      "merchantDisclosure": "MING EAGLE is the author and seller",
+      "requiresCommunityRuleReview": false,
+      "publishedAt": null,
+      "publicPostUrl": null
+    },
+    {
+      "id": "LI-TEAM-001",
+      "channel": "linkedin",
+      "status": "DRAFT_ACCOUNT_NOT_CONNECTED",
+      "title": "Make a sports equipment brief clearer",
+      "body": "From MING EAGLE: stating the exact model, permitted logo artwork, quantity, destination and sample approval helps a supplier return a usable quote. We made a free copy-ready checklist for teams and purchasing staff.",
+      "destinationUrl": "https://www.mingeagle.com/custom-basketball-for-teams.html?utm_source=linkedin&utm_medium=organic_social&utm_campaign=free_resources_20261015&utm_content=li-team-001#free-logo-brief",
+      "merchantDisclosure": "MING EAGLE is the author and seller",
+      "requiresCommunityRuleReview": false,
+      "publishedAt": null,
+      "publicPostUrl": null
+    },
+    {
+      "id": "FB-TEAMS-001",
+      "channel": "facebook",
+      "status": "DRAFT_ACCOUNT_NOT_CONNECTED",
+      "title": "Planning basketballs with your team logo?",
+      "body": "From MING EAGLE: use this free checklist to prepare the artwork and the questions to ask about customization, samples, freight and delivery. Product and customization choices need a confirmed quote.",
+      "destinationUrl": "https://www.mingeagle.com/custom-basketball-for-teams.html?utm_source=facebook&utm_medium=organic_social&utm_campaign=free_resources_20261015&utm_content=fb-teams-001#free-logo-brief",
+      "merchantDisclosure": "MING EAGLE is the author and seller",
+      "requiresCommunityRuleReview": false,
+      "publishedAt": null,
+      "publicPostUrl": null
+    },
+    {
+      "id": "COMMUNITY-APT-001",
+      "channel": "reddit",
+      "status": "DRAFT_ACCOUNT_NOT_CONNECTED",
+      "title": "Activity resource for apartment families",
+      "body": "I work with MING EAGLE, a seller of soft indoor sports balls. We wrote a free list of five games that avoid repeated floor bouncing. It is usable without buying our products. If this community permits relevant resources, here is the guide; the soft-ball idea does not remove footsteps or structural vibration.",
+      "destinationUrl": "https://www.mingeagle.com/silent-basketball-for-apartments.html?utm_source=reddit&utm_medium=organic_social&utm_campaign=free_resources_20261015&utm_content=community-apt-001#free-apartment-games",
+      "merchantDisclosure": "MING EAGLE is the author and seller",
+      "requiresCommunityRuleReview": true,
+      "publishedAt": null,
+      "publicPostUrl": null
+    },
+    {
+      "id": "COMMUNITY-SCHOOL-001",
+      "channel": "facebook",
+      "status": "DRAFT_ACCOUNT_NOT_CONNECTED",
+      "title": "A free small-group PE resource",
+      "body": "I work with MING EAGLE. We prepared a short no-bounce indoor ball session that teachers can adapt with appropriate equipment. It does not require buying our products. Share only if free supplier-created resources fit this group’s rules.",
+      "destinationUrl": "https://www.mingeagle.com/for-schools.html?utm_source=facebook&utm_medium=organic_social&utm_campaign=free_resources_20261015&utm_content=community-school-001#free-school-session",
+      "merchantDisclosure": "MING EAGLE is the author and seller",
+      "requiresCommunityRuleReview": true,
+      "publishedAt": null,
+      "publicPostUrl": null
+    }
+  ]
+}
