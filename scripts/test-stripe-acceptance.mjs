@@ -8,6 +8,7 @@ const {onRequestPost:acceptance}=await load('functions/api/payments/stripe/accep
 const {onRequestPost:webhook}=await load('functions/api/payments/stripe/acceptance-webhook.ts');
 const {onRequestGet:status}=await load('functions/api/payments/stripe/status.ts');
 const {onRequestGet:quotePage}=await load('functions/quote/[token].ts');
+const {onRequestPost:createCheckout}=await load('functions/api/payments/stripe/create.ts');
 const {testCheckoutEnv}=await load('functions/_shared/stripe-acceptance.ts');
 const sqlite=new DatabaseSync(':memory:');
 for(const file of readdirSync('migrations').filter(f=>f.endsWith('.sql')).sort())sqlite.exec(readFileSync('migrations/'+file,'utf8'));
@@ -55,6 +56,14 @@ try{
  const runId=randomUUID(),created=await acceptance({request:request({action:'create',sku:'P1-S3',runId}),env});
  assert.equal(created.status,200,await created.clone().text());const checkout=await created.json();
  assert.equal(checkout.totalUSD,21.4);assert(checkout.orderReference.startsWith('ME-RO-TEST-'));
+ const quoteToken=new URL(checkout.orderPage).pathname.split('/').at(-1);
+ const old=sessions.get('cs_test_1'),writesBeforePending=writes;
+ old.status='complete';
+ const pending=await createCheckout({env:testCheckoutEnv(env),request:new Request(base+'/api/payments/stripe/create',
+  {method:'POST',headers:{origin:base,'content-type':'application/json'},body:JSON.stringify({token:quoteToken})})});
+ assert.equal(pending.status,409,'A completed but unpaid asynchronous session must not create another payment');
+ assert.equal(sessions.size,1);assert.equal(writes,writesBeforePending);
+ old.status='open';
  const session=sessions.get('cs_test_1'),event={id:'evt_synthetic_acceptance',type:'checkout.session.completed',livemode:false,data:{object:{...session,status:'complete',payment_status:'paid'}}};
  const writesBefore=writes,readsBefore=reads;
  assert.equal((await webhook({request:signed(event,true),env})).status,401);
@@ -69,7 +78,7 @@ try{
  const replay=await webhook({request:signed(event),env});assert.equal((await replay.json()).duplicate,true);
  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM payments').get().n,1);
  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM tasks WHERE type='FULFILLMENT'").get().n,1);
- const quoteToken=new URL(checkout.orderPage).pathname.split('/').at(-1),writesBeforeStatus=writes;
+ const writesBeforeStatus=writes;
  const orderStatus=await status({request:new Request(base+'/api/payments/stripe/status?token='+quoteToken),env});
  const data=await orderStatus.json();assert.equal(data.paymentStatus,'PAID');assert.equal(data.providerStatus,'SUCCEEDED');assert.equal(data.outstanding,0);assert.equal(writes,writesBeforeStatus,'Polling Stripe status must be read-only');
  assert.equal((await status({request:new Request(base+'/api/payments/stripe/status?token='+'f'.repeat(64)),env})).status,404);
