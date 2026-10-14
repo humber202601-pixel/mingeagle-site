@@ -20,14 +20,16 @@ for(const [id,sizes] of Object.entries(retail)){
   assert.equal(quote.deliveryEstimateDaysMin,12);
   assert.equal(quote.deliveryEstimateDaysMax,15);
   assert.equal(quote.paymentEnabled,false);
-  assert.equal(quote.ddpConfirmed,sku==='P1-S7');
-  assert.equal(quote.importDutiesIncluded,sku==='P1-S7');
+  assert.equal(quote.ddpConfirmed,['P1-S3','P1-S7'].includes(sku));
+  assert.equal(quote.importDutiesIncluded,['P1-S3','P1-S7'].includes(sku));
   assert.equal(quote.usSalesTaxNotIncluded,true);
   assert.equal(quote.taxesNotIncluded,true);
   total++;
  }
 }
 assert.equal(total,11);
+assert.deepEqual(approved.confirmedDdpSingleItems.map(x=>[x.sku,x.shippingUSD]).sort(),
+ [['P1-S3',11.5],['P1-S7',14]].sort(),'Only confirmed single-item rates permit DDP');
 for(const args of [
  ['P1-S3','CA','air',1],['P1-S3','US','sea',10],
  ['P1-S3','US','air',2],['P4-S7','US','air',1],
@@ -62,7 +64,7 @@ for(const [sku,fee] of Object.entries(US_SMALL_PARCEL_RATES)){
  assert.equal(c.totalBeforeTaxesUSD,body.totalBeforeTaxesUSD,sku);
  assert.equal(c.shippingUSD,body.shippingUSD,sku);
  assert.equal(c.paymentEnabled,false);
- assert.equal(c.ddpConfirmed,sku==='P1-S7');
+ assert.equal(c.ddpConfirmed,['P1-S3','P1-S7'].includes(sku));
 }
 // No silent per-item multiplication for larger carts or non-US destinations.
 for(const test of [
