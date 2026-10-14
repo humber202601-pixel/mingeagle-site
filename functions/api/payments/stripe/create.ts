@@ -1,5 +1,6 @@
 import {stripeApi, stripeCheckoutReadiness, stripeSessionMatchesMode, type StripeEnv} from '../../../_shared/stripe';
-import {noSalesTaxCollectionRequired,remoteStartupState,remoteStartupWithinLimits,type RetailTaxEnv} from '../../../../lib/retail-tax-policy';
+import {retailTaxTreatment,remoteStartupState,remoteStartupWithinLimits,type RetailTaxEnv} from '../../../../lib/retail-tax-policy';
+import {registeredStripeTaxState,fixedTaxCustomer,automaticTaxAmount,type DeliveryAddress} from '../../../_shared/retail-stripe-tax';
 import {oneItemUsAirParcel} from '../../../../lib/us-small-parcel';
 
 interface Env extends StripeEnv,RetailTaxEnv {
@@ -49,12 +50,16 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    return fail('Direct retail payment is not activated.',503);
   if(isRetail&&(env.RETAIL_STOCK_FULFILLMENT_APPROVED!=='true'||env.RETAIL_TAX_POLICY_APPROVED!=='true'))
    return fail('Retail stock, shipping and tax approval is required.',503);
+  let taxMode:'FIXED'|'STRIPE_AUTOMATIC'='FIXED';
+  let shippingAddress:DeliveryAddress={};
   if(isRetail){
-   let ship:{state?:string;country?:string};
+   let ship:DeliveryAddress;
    try{ship=JSON.parse(String(order.shipping_address||'null'))}catch{return fail('Retail shipping address requires review.',409)}
    const state=String(ship?.state||'').toUpperCase();
-   if(ship?.country!=='US'||!noSalesTaxCollectionRequired(env,state))
-    return fail('This delivery state has not been approved for zero sales-tax collection.',409);
+   const treatment=retailTaxTreatment(env,state);
+   if(ship?.country!=='US'||!treatment)
+    return fail('Secure payment for this delivery state is awaiting tax configuration.',409);
+   taxMode=treatment;shippingAddress={...ship,state};
    if(remoteStartupState(env,state)&&!await remoteStartupWithinLimits(db))
     return fail('Please contact MING EAGLE to confirm the final order terms before paying.',409);
    const orderItems=await db.prepare('SELECT description,quantity,unit_price FROM order_items WHERE order_id=?')
@@ -80,23 +85,34 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   const components=[cents(Number(order.subtotal)-Number(order.discount)),cents(order.shipping),cents(order.tax)];
   if(components.some(x=>!Number.isSafeInteger(x)||x<0)||components.reduce((a,b)=>a+b,0)!==due)
    return fail('Order total does not reconcile.',409);
+  if(taxMode==='STRIPE_AUTOMATIC'&&!await registeredStripeTaxState(env,shippingAddress.state!))
+   return fail('Secure payment for this delivery state is awaiting tax configuration.',409);
 
   // Stripe idempotency protects concurrent browser clicks for this order/amount.
   // Retrieve a previous session if still open; never trust a return URL from the browser.
-  const old=await db.prepare(
+  const old=await db.prepare(taxMode==='STRIPE_AUTOMATIC'?
+   "SELECT provider_intent_id,tax_amount_cents,tax_customer_id FROM payment_provider_sessions WHERE order_id=? AND provider='STRIPE' "+
+   "AND base_amount_cents=? AND tax_mode='STRIPE_AUTOMATIC' AND currency='USD' "+
+   "AND status IN ('OPEN','PENDING') ORDER BY created_at DESC LIMIT 1":
    "SELECT provider_intent_id FROM payment_provider_sessions "+
    "WHERE order_id=? AND provider='STRIPE' AND amount=? AND currency='USD' "+
    "AND status IN ('OPEN','PENDING') ORDER BY created_at DESC LIMIT 1"
-  ).bind(String(order.id),due/100).first<{provider_intent_id:string}>();
+  ).bind(String(order.id),taxMode==='STRIPE_AUTOMATIC'?due:due/100).first<{provider_intent_id:string;tax_amount_cents?:number;tax_customer_id?:string}>();
   if(old?.provider_intent_id){
    if(!stripeSessionMatchesMode(old.provider_intent_id,env.STRIPE_MODE))
     return fail('Existing checkout session does not match the configured Stripe mode.',409);
    const previous=await stripeApi(env,'checkout/sessions/'+encodeURIComponent(old.provider_intent_id));
    if(previous.ok){
-    const last=await previous.json() as {status?:string;payment_status?:string;url?:string};
+    const last=await previous.json() as {status?:string;payment_status?:string;url?:string;amount_total?:number;
+     currency?:string;customer?:string;client_reference_id?:string;automatic_tax?:{enabled?:boolean;status?:string};total_details?:{amount_tax?:number};metadata?:{tax_state?:string;tax_mode?:string;order_id?:string;order_reference?:string}};
     if(last.payment_status==='paid')return fail('Payment is processing confirmation. Do not pay twice.',409);
     if(last.status==='complete')return fail('Payment has been submitted and is awaiting provider confirmation. Do not pay twice.',409);
-    if(last.status==='open'&&typeof last.url==='string'&&new URL(last.url).hostname==='checkout.stripe.com')
+    if(taxMode==='STRIPE_AUTOMATIC'&&(automaticTaxAmount(last,due)!==old.tax_amount_cents||
+     last.customer!==old.tax_customer_id||last.metadata?.tax_state!==shippingAddress.state||
+     last.metadata?.tax_mode!==taxMode||last.metadata?.order_id!==String(order.id)||
+     last.metadata?.order_reference!==String(order.reference)||last.client_reference_id!==String(order.reference)))
+     return fail('Previous payment session requires tax review.',409);
+    if(last.status==='open'&&typeof last.url==='string'&&new URL(last.url).hostname==='checkout.stripe.com'&&new URL(last.url).protocol==='https:')
      return Response.json({ok:true,url:last.url,reused:true},{headers:{'cache-control':'no-store'}});
    }
   }
@@ -110,12 +126,18 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   form.set('metadata[order_reference]',String(order.reference));
   form.set('metadata[source]','MING_EAGLE_STRIPE_CHECKOUT');
   form.set('billing_address_collection','required');
+  let taxCustomer:string|undefined;
+  if(taxMode==='STRIPE_AUTOMATIC'){
+   taxCustomer=await fixedTaxCustomer(env,String(order.id),shippingAddress);
+   form.set('customer',taxCustomer);form.set('automatic_tax[enabled]','true');
+   form.set('metadata[tax_mode]',taxMode);form.set('metadata[tax_state]',shippingAddress.state!);
+  }
   // Customer shipping address was confirmed and checked against a state tax policy
   // when the D1 order was created. Do not let Stripe collect a second, potentially
   // different delivery state after the fixed price and tax decision are recorded.
   if(isRetail)form.set('custom_text[submit][message]',
    'Delivery will be made to the US shipping address on your MING EAGLE order. The seller covers confirmed import duties for this item; US sales tax is reviewed separately.');
-  if(typeof order.email==='string'&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(order.email))
+  if(!taxCustomer&&typeof order.email==='string'&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(order.email))
    form.set('customer_email',order.email);
   let index=0;
   for(const [name,amount] of [
@@ -127,23 +149,36 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    form.set('line_items['+index+'][price_data][currency]','usd');
    form.set('line_items['+index+'][price_data][unit_amount]',String(amount));
    form.set('line_items['+index+'][price_data][product_data][name]',name);
+   if(taxMode==='STRIPE_AUTOMATIC'){
+    form.set('line_items['+index+'][price_data][tax_behavior]','exclusive');
+    form.set('line_items['+index+'][price_data][product_data][tax_code]',index===0?'txcd_99999999':'txcd_92010001');
+   }
    form.set('line_items['+index+'][quantity]','1');
    index++;
   }
   // Stable for concurrent requests; rotated daily so expired sessions can be replaced.
   const day=Math.floor(Date.now()/86400000);
-  const requestKey='mingeagle-'+String(order.id)+'-'+String(due)+'-'+String(day);
+  const requestKey='mingeagle-'+String(order.id)+'-'+String(due)+'-'+String(day)+(taxMode==='STRIPE_AUTOMATIC'?'-tax-v1':'');
   const response=await stripeApi(env,'checkout/sessions',{
    method:'POST',headers:{'content-type':'application/x-www-form-urlencoded','idempotency-key':requestKey},
    body:form.toString()
   });
   if(!response.ok){console.error('stripe_checkout_create_failed',{status:response.status});return fail('Checkout could not be started.',502)}
-  const session=await response.json() as {id?:string;url?:string;amount_total?:number;currency?:string;status?:string};
+  const session=await response.json() as {id?:string;url?:string;amount_total?:number;currency?:string;status?:string;
+   customer?:string;automatic_tax?:{enabled?:boolean;status?:string};total_details?:{amount_tax?:number}};
+  const salesTax=taxMode==='STRIPE_AUTOMATIC'?automaticTaxAmount(session,due):0;
   if(!stripeSessionMatchesMode(session.id,env.STRIPE_MODE)||!session.url||
-     session.amount_total!==due||session.currency!=='usd'||
-     new URL(session.url).hostname!=='checkout.stripe.com')
+     salesTax===null||session.amount_total!==due+Number(salesTax)||session.currency!=='usd'||
+     (taxMode==='STRIPE_AUTOMATIC'&&session.customer!==taxCustomer)||
+     (new URL(session.url).hostname!=='checkout.stripe.com'||new URL(session.url).protocol!=='https:'))
    return fail('Provider returned an invalid checkout session.',502);
-  await db.prepare(
+  if(taxMode==='STRIPE_AUTOMATIC')await db.prepare(
+   "INSERT OR IGNORE INTO payment_provider_sessions "+
+   "(id,order_id,provider,provider_intent_id,request_id,amount,currency,status,tax_mode,base_amount_cents,tax_amount_cents,tax_state,tax_customer_id) "+
+   "VALUES (?,?,'STRIPE',?,?,?,'USD','OPEN','STRIPE_AUTOMATIC',?,?,?,?)"
+  ).bind(crypto.randomUUID(),String(order.id),session.id,requestKey,(due+Number(salesTax))/100,
+   due,salesTax,shippingAddress.state!,taxCustomer!).run();
+  else await db.prepare(
    "INSERT OR IGNORE INTO payment_provider_sessions "+
    "(id,order_id,provider,provider_intent_id,request_id,amount,currency,status) "+
    "VALUES (?,?,'STRIPE',?,?,?,'USD','OPEN')"

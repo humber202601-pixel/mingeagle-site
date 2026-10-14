@@ -1,5 +1,5 @@
 import {stripeCheckoutReadiness,type StripeEnv} from '../../_shared/stripe';
-import {reviewedZeroTaxStates,remoteStartupState,remoteStartupFactsCurrent,remoteStartupWithinLimits,type RetailTaxEnv} from '../../../lib/retail-tax-policy';
+import {reviewedRetailTaxStates,remoteStartupState,remoteStartupFactsCurrent,remoteStartupWithinLimits,type RetailTaxEnv} from '../../../lib/retail-tax-policy';
 import {turnstileConfiguration,type TurnstileEnv} from '../../../lib/turnstile-inquiry';
 import {US_DELIVERY_STATES} from '../../../lib/us-delivery-states';
 interface Env extends StripeEnv,TurnstileEnv,RetailTaxEnv {
@@ -14,11 +14,11 @@ export function retailCheckoutReady(env:Env){
   &&env.RETAIL_CHECKOUT_ENABLED==='true'
   &&env.RETAIL_STOCK_FULFILLMENT_APPROVED==='true'
   &&env.RETAIL_TAX_POLICY_APPROVED==='true'
-  &&reviewedZeroTaxStates(env).size>0
+  &&reviewedRetailTaxStates(env).size>0
   &&turnstileConfiguration(env).enabled;
 }
 export const onRequestGet:PagesFunction<Env>=async({env})=>{
- let supportedStates=[...reviewedZeroTaxStates(env)].sort();
+ let supportedStates=[...reviewedRetailTaxStates(env)].sort();
  if(remoteStartupFactsCurrent(env)&&(!env.MINGEAGLE_DB||!await remoteStartupWithinLimits(env.MINGEAGLE_DB,2140,1)))
   supportedStates=supportedStates.filter(state=>!remoteStartupState(env,state));
  const ready=retailCheckoutReady(env)&&supportedStates.length>0;

@@ -1,7 +1,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import {useParams,useSearchParams} from 'react-router-dom';
 type Quote={reference:string;status:string;currency:string;subtotal:number;
- shipping:number;tax:number;discount:number;total:number;shipping_terms?:string;payment_terms?:string;is_expired?:number};
+ shipping:number;tax:number;discount:number;total:number;shipping_terms?:string;payment_terms?:string;notes?:string;is_expired?:number};
 type Item={description:string;quantity:number;unit_price:number;line_total:number};
 type Order={reference:string;status:string;payment_status:string};
 type Info={ok:boolean;error?:string;quote?:Quote;items?:Item[];order?:Order};
@@ -101,6 +101,7 @@ export default function CustomerQuote(){
   finally{setBusy(false)}
  }
  const q=data?.quote,order=data?.order;
+ const taxPending=q?.notes?.startsWith('STRIPE_AUTOMATIC_TAX_PENDING:')&&order?.payment_status!=='PAID';
  return <div className="public-shell"><main className="form-page">
   <div className="form-intro"><span className="eyebrow">PRIVATE COMMERCIAL ORDER</span>
    <h1>MING EAGLE Secure Order</h1>
@@ -116,8 +117,9 @@ export default function CustomerQuote(){
       <tbody>{(data.items||[]).map((x,i)=><tr key={i}><td>{x.description}</td>
        <td>{x.quantity}</td><td>{money(x.unit_price)}</td><td>{money(x.line_total)}</td></tr>)}</tbody>
      </table></div>
-     <p>Products: {money(q.subtotal)} · Shipping: {money(q.shipping)} · Taxes: {money(q.tax)} · Discount: {money(q.discount)}</p>
-     <h2>Total: {money(q.total)}</h2>
+     <p>Products: {money(q.subtotal)} · Shipping: {money(q.shipping)} · Taxes: {taxPending?'Confirmed at secure payment':money(q.tax)} · Discount: {money(q.discount)}</p>
+     <h2>{taxPending?'Total before sales tax':'Total'}: {money(q.total)}</h2>
+     {taxPending&&<p className="form-note">Your final sales tax and total will be shown before you pay, using the delivery address on this order.</p>}
      <p className="form-note">{q.shipping_terms||'Delivery terms are stated in the quotation.'}</p>
      {order?<div role="status">
       <strong>Order {order.reference}</strong>
