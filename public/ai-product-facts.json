@@ -19,7 +19,7 @@
     },
     "deliveryEstimateGuaranteed": false,
     "includes": "one approved product with its listed air shipping charge",
-    "excludes": "US state/local sales tax; import-duty coverage is confirmed only for one P1-S3 or P1-S7; other sizes, multi-item and non-US rates need a quote"
+    "excludes": "US state/local sales tax; import-duty coverage applies per one-unit P1-S3 or P1-S7 parcel. Orders of 1–9 eligible units use separate parcels and sum per-unit freight; other sizes, consolidated shipments and non-US rates need a quote"
   },
   "retailPricing": {
     "currency": "USD",
@@ -99,14 +99,17 @@
       "P1-S3",
       "P1-S7"
     ],
-    "maxUnits": 1,
+    "maxUnits": 9,
     "otherOrders": "confirmed_quote",
     "returnsPolicyUrl": "https://www.mingeagle.com/policies.html#returns",
     "deliveryStates": "50 US states and District of Columbia",
     "paymentAvailabilitySource": "https://app.mingeagle.com/api/retail/checkout-status",
     "statesPurpose": "Current card-eligible states; the live payment availability source is authoritative.",
     "taxCalculation": "Stripe automatic tax at secure payment",
-    "paymentAvailabilityIsNotTaxExemption": true
+    "paymentAvailabilityIsNotTaxExemption": true,
+    "shippingPlan": "ONE_UNIT_PER_PARCEL",
+    "shippingCharge": "sum_of_single_unit_rates",
+    "combinedParcelRateConfirmed": false
   },
   "products": [
     {
