@@ -12,7 +12,9 @@ The API checks an active, same-mode Stripe `state_sales_tax` registration both
 before creating the retail order and before starting payment. A missing or
 unreadable registration never becomes a zero-tax decision.
 
-The delivery address is saved to a dedicated Stripe Customer. Checkout uses its
+The delivery address is saved to a dedicated Stripe Customer, validated
+immediately, and its Stripe-resolved tax country/state must match the order.
+Checkout uses its
 saved shipping address; neither shipping address collection nor customer address
 updates are enabled in Checkout. Products and delivery have explicit physical
 goods and shipping tax codes, with exclusive tax behavior. Stripe must return a

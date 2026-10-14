@@ -9,7 +9,7 @@ type Policy={reviewed_on?:unknown;review_reference?:unknown;basis?:unknown;state
 const noGeneralSalesUseTaxStates=new Set(['OR','NH']);
 function reviewedGovernmentOrMerchantStates(env:RetailTaxEnv,now=new Date()):Set<string>{
  const approved=new Set<string>(),raw=String(env.RETAIL_US_TAX_POLICY_JSON||'');
- if(!raw||raw.length>6000)return approved;
+ if(!raw||raw.length>20000)return approved;
  try{
   const p=JSON.parse(raw) as Policy;
   if(!p||typeof p!=='object'||typeof p.review_reference!=='string'||
@@ -55,7 +55,9 @@ export function reviewedZeroTaxStates(env:RetailTaxEnv,now=new Date()):Set<strin
 export function reviewedStripeTaxStates(env:RetailTaxEnv,now=new Date()):Set<string>{
  const states=new Set<string>();
  try{
-  const p=JSON.parse(env.RETAIL_US_TAX_POLICY_JSON||'');
+  const raw=env.RETAIL_US_TAX_POLICY_JSON||'';
+  if(!raw||raw.length>20000)return states;
+  const p=JSON.parse(raw);
   const day=String(p.reviewed_on||''),date=new Date(day+'T00:00:00Z');
   if(p.basis==='NO_GENERAL_SALES_USE_TAX'||!/^\d{4}-\d{2}-\d{2}$/.test(day)||
    !Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==day||

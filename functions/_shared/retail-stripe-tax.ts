@@ -18,6 +18,7 @@ export async function fixedTaxCustomer(env:StripeEnv,orderId:string,address:Deli
  const form=new URLSearchParams();
  form.set('name',address.name);form.set('shipping[name]',address.name);
  form.set('metadata[order_id]',orderId);form.set('tax_exempt','none');
+ form.set('tax[validate_location]','immediately');form.set('expand[0]','tax');
  if(address.email)form.set('email',address.email);
  const fields={line1:address.street1,line2:address.street2||'',city:address.city,
   state:address.state!,postal_code:address.postalCode!,country:'US'};
@@ -28,9 +29,10 @@ export async function fixedTaxCustomer(env:StripeEnv,orderId:string,address:Deli
   'content-type':'application/x-www-form-urlencoded','idempotency-key':'mingeagle-tax-customer-'+orderId
  },body:form.toString()});
  if(!response.ok)throw Error('Tax customer could not be prepared.');
- const customer=await response.json() as {id?:string;livemode?:boolean};
- if(!/^cus_[A-Za-z0-9]+$/.test(customer.id||'')||customer.livemode!==(env.STRIPE_MODE==='live'))
-  throw Error('Tax customer mode mismatch.');
+ const customer=await response.json() as {id?:string;livemode?:boolean;tax?:{location?:{country?:string;state?:string}}};
+ if(!/^cus_[A-Za-z0-9]+$/.test(customer.id||'')||customer.livemode!==(env.STRIPE_MODE==='live')||
+  customer.tax?.location?.country!=='US'||customer.tax.location.state!==address.state)
+  throw Error('Tax customer mode or destination mismatch.');
  return customer.id!;
 }
 export function automaticTaxAmount(session:{automatic_tax?:{enabled?:boolean;status?:string};
