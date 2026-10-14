@@ -1,6 +1,9 @@
+import {stripeSessionMatchesMode} from '../../../_shared/stripe';
+
 interface Env {
  MINGEAGLE_DB:D1Database;
  STRIPE_WEBHOOK_SECRET?:string;
+ STRIPE_MODE?:string;
 }
 type CheckoutSession={
  id?:string;client_reference_id?:string;payment_status?:string;status?:string;
@@ -53,7 +56,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   }
   if(!handled.has(event.type)){await processed();return Response.json({ok:true,ignored:true})}
   const session=event.data?.object;
-  if(!session?.id?.startsWith('cs_'))return invalid('Missing checkout session',409);
+  if(!session?.id||!stripeSessionMatchesMode(session.id,env.STRIPE_MODE))
+   return invalid('Checkout session mode mismatch',409);
   const matched=await db.prepare(
    "SELECT order_id,amount,currency,status FROM payment_provider_sessions "+
    "WHERE provider='STRIPE' AND provider_intent_id=? LIMIT 1"

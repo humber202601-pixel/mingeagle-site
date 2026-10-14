@@ -1,4 +1,4 @@
-import {stripeApi, stripeCheckoutReadiness, type StripeEnv} from '../../../_shared/stripe';
+import {stripeApi, stripeCheckoutReadiness, stripeSessionMatchesMode, type StripeEnv} from '../../../_shared/stripe';
 import {noSalesTaxCollectionRequired,type RetailTaxEnv} from '../../../../lib/retail-tax-policy';
 import {oneItemUsAirParcel} from '../../../../lib/us-small-parcel';
 
@@ -81,6 +81,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    "AND status IN ('OPEN','PENDING') ORDER BY created_at DESC LIMIT 1"
   ).bind(String(order.id),due/100).first<{provider_intent_id:string}>();
   if(old?.provider_intent_id){
+   if(!stripeSessionMatchesMode(old.provider_intent_id,env.STRIPE_MODE))
+    return fail('Existing checkout session does not match the configured Stripe mode.',409);
    const previous=await stripeApi(env,'checkout/sessions/'+encodeURIComponent(old.provider_intent_id));
    if(previous.ok){
     const last=await previous.json() as {status?:string;payment_status?:string;url?:string};
@@ -128,7 +130,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   });
   if(!response.ok){console.error('stripe_checkout_create_failed',{status:response.status});return fail('Checkout could not be started.',502)}
   const session=await response.json() as {id?:string;url?:string;amount_total?:number;currency?:string;status?:string};
-  if(!session.id?.startsWith('cs_')||!session.url||
+  if(!stripeSessionMatchesMode(session.id,env.STRIPE_MODE)||!session.url||
      session.amount_total!==due||session.currency!=='usd'||
      new URL(session.url).hostname!=='checkout.stripe.com')
    return fail('Provider returned an invalid checkout session.',502);

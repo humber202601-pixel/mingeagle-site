@@ -7,7 +7,11 @@ const load=async file=>{
    format:'esm',write:false,target:'es2022',logLevel:'silent'});
  return import('data:text/javascript;base64,'+Buffer.from(output.outputFiles[0].text).toString('base64'));
 };
-const {stripeCheckoutReadiness}=await load('functions/_shared/stripe.ts');
+const {stripeCheckoutReadiness,stripeSessionMatchesMode}=await load('functions/_shared/stripe.ts');
+assert.equal(stripeSessionMatchesMode('cs_test_synthetic','test'),true);
+assert.equal(stripeSessionMatchesMode('cs_live_synthetic','live'),true);
+for(const [id,mode] of [['cs_live_synthetic','test'],['cs_test_synthetic','live'],['cs_test_synthetic',''],['cs_unknown_synthetic','test'],['not_a_session','live']])
+ assert.equal(stripeSessionMatchesMode(id,mode),false,'Provider session IDs must match environment');
 const {onRequestPost:createCheckout}=await load('functions/api/payments/stripe/create.ts');
 const {onRequestPost:webhook,verifyStripeSignature}=await load('functions/api/payments/stripe/webhook.ts');
 const ready={
@@ -94,6 +98,7 @@ try{
   return state;
  }};
  let requestAmount=0;
+ let providerSessionIdOverride=null;
  globalThis.fetch=async(url,init)=>{
   providerCalls++;
   assert.equal(url,'https://api.stripe.com/v1/checkout/sessions');
@@ -106,7 +111,7 @@ try{
   assert.equal(params.get('line_items[1][price_data][unit_amount]'),String(Math.round(retailShipping*100)));
   requestAmount=Math.round((retailGoods+retailShipping)*100);
   return Response.json({
-   id:retailSku==='P1-S3'?'cs_test_synthetic_small':'cs_test_synthetic',url:'https://checkout.stripe.com/c/pay/cs_test_synthetic',
+   id:providerSessionIdOverride||(retailSku==='P1-S3'?'cs_test_syntheticsmall':'cs_test_synthetic'),url:'https://checkout.stripe.com/c/pay/cs_test_synthetic',
    amount_total:requestAmount,currency:'usd',status:'open'
   });
  };
@@ -188,5 +193,21 @@ try{
  assert.equal(smallCheckout.status,200,await smallCheckout.clone().text());
  assert.equal((await smallCheckout.json()).ok,true);
  assert.equal(requestAmount,2140,'Stripe must receive $21.40 for P1-S3 duty-paid delivery');
+ const writesBeforeWrongMode=dbWrites;
+ providerSessionIdOverride='cs_live_synthetic';
+ const wrongMode=await createCheckout({env:{...ready,MINGEAGLE_DB:db},request:request()});
+ assert.equal(wrongMode.status,502,'Test mode must reject Stripe live Checkout Session IDs');
+ assert.equal(dbWrites,writesBeforeWrongMode,'Rejected live session must not be stored');
+ providerSessionIdOverride=null;
+ const otherModeEvent={...event,id:'evt_wrong_stripe_mode',
+  data:{object:{...event.data.object,id:'cs_live_synthetic'}}};
+ const otherModeText=JSON.stringify(otherModeEvent);
+ const otherModeSig=createHmac('sha256',ready.STRIPE_WEBHOOK_SECRET).update(now+'.'+otherModeText).digest('hex');
+ const wrongModeWebhook=await webhook({env:{...ready,MINGEAGLE_DB:db},
+  request:new Request('https://app.mingeagle.com/api/payments/stripe/webhook',{
+   method:'POST',headers:{'stripe-signature':'t='+now+',v1='+otherModeSig},body:otherModeText
+  })});
+ assert.equal(wrongModeWebhook.status,409,'Signed live session must be rejected by a test-mode webhook');
+ assert.equal(receivedInserts,paymentWritesAfterFirst,'Cross-mode event must not record payment');
  console.log('PASS: Stripe fail-closed gate, owner-approved tax, signature verification, server price, hosted URL and signed payment reconciliation.');
 }finally{globalThis.fetch=saved}
