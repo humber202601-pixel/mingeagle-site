@@ -34,7 +34,7 @@ try{
   assert.match(s,/P1-S3 \(\$11\.50 delivery\)/,f);
   assert.match(s,/P1-S7 \(\$14 delivery\)/,f);
   assert.match(s,/import duties/i,f);
-  assert.match(s,/For 2–9 items, combined shipping is calculated separately/i,f);
+  assert.match(s,/each set ships in its own parcel/i,f);
   assert(!/free shipping|guaranteed delivery|in stock now/i.test(s),'No unverified fulfillment claim');
  }
  for(const [id,f] of Object.entries(products)){

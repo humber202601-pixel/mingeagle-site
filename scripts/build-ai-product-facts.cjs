@@ -67,7 +67,7 @@ const facts={
  usSingleItemAirParcel:{destinationCountry:'US',shippingMethod:'air small parcel',scope:'one item per parcel only',
   estimatedDeliveryDaysAfterDispatch:{min:12,max:15},deliveryEstimateGuaranteed:false,
   includes:'one approved product with its listed air shipping charge',
-  excludes:'US state/local sales tax; import-duty coverage is confirmed only for one P1-S3 or P1-S7; other sizes, multi-item and non-US rates need a quote'},
+  excludes:'US state/local sales tax; import-duty coverage applies per one-unit P1-S3 or P1-S7 parcel. Orders of 1–9 eligible units use separate parcels and sum per-unit freight; other sizes, consolidated shipments and non-US rates need a quote'},
  retailPricing:{currency:'USD',scope:'Published product-only reference price by size; colors do not change the price for a given size',
   limitations:'Excludes international shipping and applicable taxes. Stock, delivery and final payable total are confirmed before payment. Do not treat prices as wholesale offers.'},
  retailFulfillment:fulfillment,retailCheckoutScope:checkoutScope,

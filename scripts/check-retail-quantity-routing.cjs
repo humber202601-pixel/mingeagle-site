@@ -30,22 +30,22 @@ assert(!availabilityPath.includes("linkToInquiry('retail')"),
  'Failed secure checkout readiness must relabel the button, not automatically redirect');
 assert(cart.includes("if(last.ddpConfirmed!==true||!checkoutAvailable)"),
  'Quote handoff occurs only from explicit quote-labeled CTA');
-assert(cart.includes("checkoutAvailable=Boolean(data?.ok&&data.retailCheckoutReady===true)"),
+assert(cart.includes("checkoutAvailable=Boolean(data?.ok&&data.retailCheckoutReady===true&&n<=(data.maxDirectCheckoutUnits??1)"),
  'Payment readiness is checked while building order estimate');
 assert(cart.includes("checkoutAvailable=false;"),'Readiness must default to fail-closed');
-assert(cart.includes("read().every(x=>allowed(x.sku,x.color))"),
+assert(cart.includes("read().every(x=>allowed(x.sku,x.color)&&data.eligibleSkus?.includes(x.sku))"),
  'Valid different-color cart lines must not be rejected merely for sharing a SKU');
 assert(cart.includes("linkToInquiry('quote')")&&cart.includes("linkToInquiry('retail')"));
 assert(!cart.includes('window.location.href=\'https://airwallex.com'), 'Never invent an unverified checkout payment link');
 const page=fs.readFileSync('public/retail-cart.html','utf8');
 assert(page.includes('id="cartSeaConsent"')&&page.includes('25–30 days'));
 assert(page.includes('id="cartRetail"')&&page.includes('id="cartWholesale"'));
-assert(page.includes('retail-cart.js?v=20261014-us-layout-1'));
+assert(page.includes('retail-cart.js?v=20261015-multi-parcel-1'));
 assert(page.includes('id="cartInquiry"')&&page.includes('#cartInquiry[hidden]{display:none}'),
  'Secondary quote button must be accessible only after checkout readiness failure');
 assert(page.includes('id="cartCustomsNote"')&&page.includes('import duties'));
 assert(cart.includes('last.ddpConfirmed!==true'), 'Unconfirmed duty-paid routes must use an inquiry');
-assert(cart.includes("['P1-S3','P1-S7'].includes(lines[0].sku)"),'Only merchant-confirmed single-item P1-S3/P1-S7 show DDP');
+assert(cart.includes("lines.every(x=>['P1-S3','P1-S7'].includes(x.sku))"),'Only confirmed eligible SKUs use separate duty-paid parcels');
 assert(cart.includes('$11.50 shipping')&&cart.includes('$14.00 shipping'),'Customer sees exact duty-paid shipping rates');
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'retail-route-'));
 try{

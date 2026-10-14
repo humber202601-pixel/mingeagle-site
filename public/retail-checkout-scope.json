@@ -58,12 +58,15 @@
     "P1-S3",
     "P1-S7"
   ],
-  "maxUnits": 1,
+  "maxUnits": 9,
   "otherOrders": "confirmed_quote",
   "returnsPolicyUrl": "https://www.mingeagle.com/policies.html#returns",
   "deliveryStates": "50 US states and District of Columbia",
   "paymentAvailabilitySource": "https://app.mingeagle.com/api/retail/checkout-status",
   "statesPurpose": "Current card-eligible states; the live payment availability source is authoritative.",
   "taxCalculation": "Stripe automatic tax at secure payment",
-  "paymentAvailabilityIsNotTaxExemption": true
+  "paymentAvailabilityIsNotTaxExemption": true,
+  "shippingPlan": "ONE_UNIT_PER_PARCEL",
+  "shippingCharge": "sum_of_single_unit_rates",
+  "combinedParcelRateConfirmed": false
 }

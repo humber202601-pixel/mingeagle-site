@@ -131,7 +131,7 @@ function render(){
  $('cartSea').disabled=!bulk;
  $('cartAir').disabled=bulk;
  $('cartMethod').value=bulk?'sea':'air';
- $('cartAir').textContent=country()==='US'?'Air parcel · estimated 12–15 days (US one item)':'Air parcel · confirm destination timing';
+ $('cartAir').textContent=country()==='US'?'Air parcel · estimated 12–15 days after dispatch':'Air parcel · confirm destination timing';
  $('cartSea').textContent='Wholesale sea freight · estimated 25–30 days after dispatch';
  $('cartWholesale').hidden=!bulk;
  $('cartRetail').hidden=bulk;
@@ -140,12 +140,10 @@ function render(){
   'Wholesale · '+n+' items. Quantity-based discounts; sea freight required (estimated 25–30 days after dispatch, not guaranteed).':
   'Retail · '+n+' of 9 maximum items. Public USD unit prices; air parcel shipping.';
  $('cartCheckout').textContent=bulk?'Request tiered wholesale quote →':'Calculate shipping before checkout →';
- const oneConfirmedDDP = n===1 && lines.length===1 && country()==='US' &&
-  ['P1-S3','P1-S7'].includes(lines[0].sku);
- const ddpNote=lines[0]?.sku==='P1-S3'?
-  'China → US, one P1-S3 item: $9.90 product plus $11.50 shipping. The shipping includes customs clearance and US import duties, with no additional import duty charged to the buyer. US state/local sales tax is separate.':
-  'China → US, one P1-S7 item: $14.90 product plus $14.00 shipping. The shipping includes customs clearance and US import duties, with no additional import duty charged to the buyer. US state/local sales tax is separate.';
- $('cartCustomsNote').textContent=oneConfirmedDDP?ddpNote:
+ const confirmedParcels = n>=1 && n<=9 && country()==='US' &&
+  lines.every(x=>['P1-S3','P1-S7'].includes(x.sku));
+ $('cartCustomsNote').textContent=confirmedParcels?
+  'China → US: each P1-S3 set has $11.50 shipping and each P1-S7 set has $14.00 shipping. Each set ships in its own parcel; charges are added per set and parcels may arrive separately. Customs clearance and US import duties are included, with no additional import duty charged to the buyer. Final US sales tax is shown before payment.':
   'China-direct delivery: customs clearance and import-duty coverage is not yet confirmed for this size or quantity. US sales tax is separate. Request a confirmed delivered-price quote before payment.';
  $('cartStatus').textContent=!lines.length?'Your cart is empty.':
   bulk?'Agree to sea freight terms before calculating the wholesale freight estimate.':
@@ -195,7 +193,7 @@ $('cartEstimateForm').addEventListener('submit',async e=>{
     const gate=await fetch('https://app.mingeagle.com/api/retail/checkout-status',{cache:'no-store'});
     const data=gate.ok?await gate.json():null;
     if(current!==version)return;
-    checkoutAvailable=Boolean(data?.ok&&data.retailCheckoutReady===true);
+    checkoutAvailable=Boolean(data?.ok&&data.retailCheckoutReady===true&&n<=(data.maxDirectCheckoutUnits??1)&&lines.every(x=>data.eligibleSkus?.includes(x.sku)));
    }catch{checkoutAvailable=false}
   }
   if(current!==version)return;
@@ -209,8 +207,8 @@ $('cartEstimateForm').addEventListener('submit',async e=>{
    result.ddpConfirmed!==true?
     'Import duties have not been confirmed for this basket. Request a delivered-price quote before payment.':
    checkoutAvailable?
-    'Import duties are included in this one-item delivery price. Choose your US delivery state at checkout to confirm online payment availability.':
-    'Import clearance and US duties are included in this one-item shipping price. Online card payment is not yet activated; no payment will be taken. You can request a confirmed retail quote instead.';
+    'Import duties are included. Each set ships in its own parcel, with shipping charged per set; parcels may arrive separately. Continue to checkout for final sales tax before payment.':
+    'Import clearance and US duties are included in each separate parcel’s shipping price. Online card payment is not yet activated; no payment will be taken. You can request a confirmed retail quote instead.';
  }catch(err){$('cartStatus').textContent='Cannot calculate shipping: '+String(err?.message||err)}
  finally{loading=false}
 });
@@ -232,7 +230,7 @@ $('cartCheckout').addEventListener('click',async()=>{
   const response=await fetch('https://app.mingeagle.com/api/retail/checkout-status',{cache:'no-store'});
   if(response.ok){
    const data=await response.json();
-   if(data.ok&&data.retailCheckoutReady===true&&quantity(read())<=9&&read().every(x=>allowed(x.sku,x.color))){
+   if(data.ok&&data.retailCheckoutReady===true&&quantity(read())<=(data.maxDirectCheckoutUnits??1)&&read().every(x=>allowed(x.sku,x.color)&&data.eligibleSkus?.includes(x.sku))){
     const url=new URL('https://app.mingeagle.com/retail/checkout');
     url.searchParams.set('cart',JSON.stringify(read()));
     url.searchParams.set('country',country());

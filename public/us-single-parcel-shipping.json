@@ -34,8 +34,8 @@
     "For exactly one P1-S3 unit China-to-USA: $9.90 merchandise + $11.50 shipping ($21.40 before US sales tax); merchant-arranged customs clearance and US import duties are included in shipping. Buyer owes no additional import duties.",
     "For exactly one P1-S7 unit China-to-USA: $14.90 merchandise + $14.00 shipping ($28.90 before US sales tax); merchant-arranged customs clearance and US import duties are included in shipping. Buyer owes no additional import duties.",
     "US state/local sales or use tax remains separate and depends on state-specific merchant registration, nexus and tax review; no zero-tax claim is implied.",
-    "DDP coverage is not confirmed for other sizes, SKUs or multi-item shipments, which require a final delivered-price quote.",
-    "Delivery approximately 12–15 days after dispatch is an estimate, not a guarantee; customs, remote areas and carriers may delay delivery."
+    "US retail checkout for 1\u20139 P1-S3/P1-S7 sets uses one unit per parcel, with confirmed single-unit shipping charges added per unit. Parcels may arrive separately. This is not a combined-parcel shipping quote. Other sizes, SKUs and consolidated shipments require a final delivered-price quote.",
+    "Delivery approximately 12\u201315 days after dispatch is an estimate, not a guarantee; customs, remote areas and carriers may delay delivery."
   ],
   "confirmedDdpSingleItems": [
     {
@@ -68,5 +68,16 @@
       ],
       "verifiedBy": "Merchant confirmation on 2026-10-13"
     }
-  ]
+  ],
+  "retailCheckoutParcels": {
+    "eligibleSkus": [
+      "P1-S3",
+      "P1-S7"
+    ],
+    "minUnits": 1,
+    "maxUnits": 9,
+    "unitsPerParcel": 1,
+    "shippingCharge": "sum_of_single_unit_rates",
+    "combinedParcelRateConfirmed": false
+  }
 }
