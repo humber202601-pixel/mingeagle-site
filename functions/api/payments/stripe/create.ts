@@ -90,6 +90,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    if(previous.ok){
     const last=await previous.json() as {status?:string;payment_status?:string;url?:string};
     if(last.payment_status==='paid')return fail('Payment is processing confirmation. Do not pay twice.',409);
+    if(last.status==='complete')return fail('Payment has been submitted and is awaiting provider confirmation. Do not pay twice.',409);
     if(last.status==='open'&&typeof last.url==='string'&&new URL(last.url).hostname==='checkout.stripe.com')
      return Response.json({ok:true,url:last.url,reused:true},{headers:{'cache-control':'no-store'}});
    }

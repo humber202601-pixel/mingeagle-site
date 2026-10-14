@@ -13,6 +13,7 @@ interface Env {
   STRIPE_CHECKOUT_ENABLED?:string;
   STRIPE_MODE?:string;
   STRIPE_TAX_POLICY_APPROVED?:string;
+  RETAIL_CHECKOUT_ENABLED?:string;
   RETAIL_STOCK_FULFILLMENT_APPROVED?:string;
   RETAIL_TAX_POLICY_APPROVED?:string;
 }
@@ -87,7 +88,7 @@ async function getQuote(db: D1Database, token: string) {
 async function getOrder(db: D1Database, quoteId: string) {
   return db.prepare(`SELECT o.id, o.reference, o.status, o.payment_status, o.total, o.currency,
       (SELECT COALESCE(SUM(p.amount),0) FROM payments p WHERE p.order_id=o.id AND p.status='RECEIVED') AS amount_received,
-      (SELECT pps.status FROM payment_provider_sessions pps WHERE pps.order_id=o.id AND pps.provider='AIRWALLEX' ORDER BY datetime(pps.updated_at) DESC, datetime(pps.created_at) DESC LIMIT 1) AS provider_status,
+      (SELECT pps.status FROM payment_provider_sessions pps WHERE pps.order_id=o.id AND pps.provider IN ('STRIPE','AIRWALLEX') ORDER BY datetime(pps.updated_at) DESC, datetime(pps.created_at) DESC LIMIT 1) AS provider_status,
       (SELECT carrier FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS carrier,
       (SELECT tracking_number FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS tracking_number,
       (SELECT tracking_url FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS tracking_url,
@@ -108,7 +109,7 @@ function paymentStateNotice(providerStatus: unknown) {
   if (status === 'REQUIRES_CUSTOMER_ACTION') {
     return `<div class="notice info"><strong>Payment needs your attention.</strong> Please continue secure checkout to complete authentication or the required payment step.</div>`;
   }
-  if (status === 'CANCELLED' || status === 'PAYMENT_FAILED') {
+  if (['CANCELLED','PAYMENT_FAILED','FAILED','EXPIRED'].includes(status)) {
     return `<div class="notice error"><strong>The previous payment was not completed.</strong> You can safely try again or choose another payment method.</div>`;
   }
   return '';
@@ -182,7 +183,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
       const airwallexReady = airwallexCheckoutReadiness(env).checkoutReady;
       const stripeReady = stripeCheckoutReadiness(env).checkoutReady && env.STRIPE_TAX_POLICY_APPROVED==='true'
         && (!String(order.reference).startsWith('ME-RO-') ||
-          (env.RETAIL_STOCK_FULFILLMENT_APPROVED==='true' && env.RETAIL_TAX_POLICY_APPROVED==='true'));
+          (env.RETAIL_CHECKOUT_ENABLED==='true' && env.RETAIL_STOCK_FULFILLMENT_APPROVED==='true' && env.RETAIL_TAX_POLICY_APPROVED==='true'));
       const recommendBank = outstanding >= 1500;
       const providerNotice = paymentStateNotice(order.provider_status);
       const providerPending = ['PENDING','PENDING_REVIEW'].includes(String(order.provider_status || '').toUpperCase());
@@ -190,7 +191,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
         ? `<div class="payment-choice ${recommendBank ? '' : 'recommended'}"><div class="payment-choice-head"><strong>Secure online checkout</strong>${recommendBank ? '' : '<span>RECOMMENDED</span>'}</div><p>Cards, Apple Pay, Google Pay and other eligible Airwallex payment methods will be shown based on your device and merchant activation.</p><button type="button" class="pay-button" id="airwallexPayBtn" ${providerPending ? 'disabled' : ''}>${providerPending ? 'Payment processing…' : `Pay ${esc(money(outstanding, orderCurrency))} securely`}</button><small>Payment is processed by Airwallex. MING EAGLE does not store your card number.</small><div id="airwallexPayMessage"></div></div>`
         : `<div class="payment-choice"><div class="payment-choice-head"><strong>Secure online checkout</strong></div><p>Online payment is awaiting merchant activation. Please use bank transfer or contact MING EAGLE.</p></div>`;
       const stripePay = stripeReady
-        ? '<div class="payment-choice recommended"><div class="payment-choice-head"><strong>Pay securely with Stripe</strong><span>CARD PAYMENT</span></div><p>Credit and debit card checkout is hosted by Stripe. Your payment is confirmed by a signed notification, never by browser navigation alone.</p><button type="button" class="pay-button" id="stripePayBtn">Pay '+esc(money(outstanding,orderCurrency))+' with card →</button><small>MING EAGLE never stores card numbers.</small><div id="stripePayMessage"></div></div>'
+        ? '<div class="payment-choice recommended"><div class="payment-choice-head"><strong>Pay securely with Stripe</strong><span>CARD PAYMENT</span></div><p>Credit and debit card checkout is hosted by Stripe. Your payment is confirmed by a signed notification, never by browser navigation alone.</p><button type="button" class="pay-button" id="stripePayBtn" ' + (providerPending?'disabled':'') + '>' + (providerPending?'Payment processing…':'Pay '+esc(money(outstanding,orderCurrency))+' with card →')+'</button><small>MING EAGLE never stores card numbers.</small><div id="stripePayMessage"></div></div>'
         : '';
       const bankPay = `<div class="payment-choice ${recommendBank ? 'recommended' : ''}"><div class="payment-choice-head"><strong>US Bank Transfer / ACH</strong>${recommendBank ? '<span>RECOMMENDED</span>' : ''}</div><p>${recommendBank ? 'Recommended for larger wholesale orders to reduce processing costs.' : 'Available for customers who prefer to pay directly from a business bank account.'}</p><small>Payment reference: <strong>${esc(paymentReference)}</strong><br>If bank transfer is enabled in secure checkout, select it there. Otherwise request transfer instructions from MING EAGLE and include this reference.</small></div>`;
       const paymentOptions = recommendBank ? `${bankPay}${stripePay}${instantPay}` : `${stripePay}${instantPay}${bankPay}`;
@@ -227,7 +228,7 @@ const stripeBtn=document.getElementById('stripePayBtn');
 if(stripeBtn){stripeBtn.addEventListener('click',async()=>{const message=document.getElementById('stripePayMessage');stripeBtn.disabled=true;const original=stripeBtn.textContent;stripeBtn.textContent='Opening Stripe checkout…';try{const response=await fetch('/api/payments/stripe/create',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token})});const body=await response.json();if(!response.ok||!body.ok)throw Error(body.error||'Unable to start Stripe checkout');const url=new URL(String(body.url||''));if(url.protocol!=='https:'||url.hostname!=='checkout.stripe.com')throw Error('Invalid payment destination');window.location.assign(url.href)}catch(e){if(message){message.textContent=String(e&&e.message?e.message:e);}stripeBtn.disabled=false;stripeBtn.textContent=original}})}
 const awxBtn=document.getElementById('airwallexPayBtn');
 if(awxBtn){awxBtn.addEventListener('click',async()=>{const message=document.getElementById('airwallexPayMessage');awxBtn.disabled=true;const original=awxBtn.textContent;awxBtn.textContent='Opening secure checkout…';if(message)message.innerHTML='';try{const r=await fetch('/api/payments/airwallex/create',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token})});const b=await r.json();if(!r.ok||!b.ok)throw new Error(b.error||'Unable to start payment.');if(b.pending){if(message)message.innerHTML='<div class="notice info"><strong>Payment is already processing.</strong> Please wait for confirmation before trying again.</div>';awxBtn.textContent='Payment processing…';return}if(!window.AirwallexComponentsSDK)throw new Error('Secure payment library did not load. Please refresh and try again.');const initResult=await window.AirwallexComponentsSDK.init({env:b.sdkEnv,enabledElements:['payments']});await initResult.payments.redirectToCheckout({env:b.sdkEnv,mode:'payment',intent_id:b.intentId,client_secret:b.clientSecret,currency:b.currency,country_code:b.countryCode||'US',successUrl:b.successUrl,shopper_email:b.shopperEmail,shopper_name:b.shopperName,withBilling:true,showTermLink:true,submitType:'pay',locale:'en'})}catch(e){if(message){message.textContent='';const notice=document.createElement('div');notice.className='notice error';notice.textContent=String(e&&e.message?e.message:e);message.appendChild(notice);}awxBtn.disabled=false;awxBtn.textContent=original}})}
-if(new URLSearchParams(window.location.search).get('payment_return')==='1'){let attempts=0;const notice=document.getElementById('paymentReturnNotice');const timer=setInterval(async()=>{attempts+=1;try{const r=await fetch('/api/payments/airwallex/status?token='+encodeURIComponent(token),{cache:'no-store'});const b=await r.json();if(b&&b.ok&&b.paymentStatus==='PAID'){clearInterval(timer);window.location.replace(window.location.pathname);return}if(b&&b.ok&&['CANCELLED','PAYMENT_FAILED'].includes(String(b.providerStatus||'').toUpperCase())){clearInterval(timer);window.location.replace(window.location.pathname);return}if(attempts>=30&&notice){notice.innerHTML='<strong>Payment is still processing.</strong> You may close this page and return later; your order will update automatically when Airwallex confirms the payment.'}}catch{}if(attempts>=30)clearInterval(timer)},2000)}
+if(new URLSearchParams(window.location.search).get('payment_return')==='1'){let attempts=0;const notice=document.getElementById('paymentReturnNotice');const timer=setInterval(async()=>{attempts+=1;try{const r=await fetch('/api/payments/'+(new URLSearchParams(window.location.search).has('session_id')?'stripe':'airwallex')+'/status?token='+encodeURIComponent(token),{cache:'no-store'});const b=await r.json();if(b&&b.ok&&b.paymentStatus==='PAID'){clearInterval(timer);window.location.replace(window.location.pathname);return}if(b&&b.ok&&['CANCELLED','PAYMENT_FAILED','FAILED','EXPIRED'].includes(String(b.providerStatus||'').toUpperCase())){clearInterval(timer);window.location.replace(window.location.pathname);return}if(attempts>=30&&notice){notice.innerHTML='<strong>Payment is still processing.</strong> You may close this page and return later; your order will update automatically when the payment provider confirms it.'}}catch{}if(attempts>=30)clearInterval(timer)},2000)}
 </script></body></html>`;
 
     return new Response(html, { headers: { 'content-type': 'text/html; charset=UTF-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow' } });

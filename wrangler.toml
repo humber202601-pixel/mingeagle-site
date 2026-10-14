@@ -2,6 +2,10 @@ name = "mingeagle-v2"
 compatibility_date = "2026-10-04"
 pages_build_output_dir = "./dist"
 
+[vars]
+TURNSTILE_SITE_KEY = "0x4AAAAAAFU4fZe_EszmlRsc"
+TURNSTILE_ENABLED = "false"
+
 [[d1_databases]]
 binding = "MINGEAGLE_DB"
 database_name = "mingeagle-v2"
@@ -14,6 +18,7 @@ OUTBOUND_EMAIL_DISABLED = "true"
 AUTO_EMAIL_ENABLED = "false"
 STRIPE_MODE = "test"
 STRIPE_SANDBOX_ENABLED = "true"
+STRIPE_ACCEPTANCE_ENABLED = "false"
 
 [[env.preview.d1_databases]]
 binding = "MINGEAGLE_DB"
