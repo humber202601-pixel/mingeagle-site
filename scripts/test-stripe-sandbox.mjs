@@ -115,6 +115,14 @@ try{
  const redirect=await onRequestPost({request:request(),env});
  assert.equal(redirect.status,502);
  assert.equal((await redirect.json()).code,'STRIPE_TEST_REDIRECT_REJECTED');
+ globalThis.fetch=async()=>Response.json({error:{type:'invalid_request_error',
+  param:'line_items',message:'Synthetic provider rejected '+env.STRIPE_SECRET_KEY}}, {status:400});
+ const providerFailure=await onRequestPost({request:request(),env});
+ assert.equal(providerFailure.status,502);
+ const providerDiagnostic=await providerFailure.json();
+ assert.equal(providerDiagnostic.providerStatus,400);
+ assert.equal(providerDiagnostic.providerErrorParam,'line_items');
+ assert(!JSON.stringify(providerDiagnostic).includes(env.STRIPE_SECRET_KEY));
  globalThis.fetch=providerMock;
  const ui=readFileSync('public/stripe-sandbox.html','utf8');
  assert(ui.includes('noindex,nofollow')&&ui.includes('TEST ONLY'));

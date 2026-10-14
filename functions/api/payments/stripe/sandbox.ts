@@ -9,7 +9,7 @@ interface SandboxEnv {
  STRIPE_SANDBOX_ACCESS_TOKEN?:string;
 }
 
-const rejected=(message:string,status:number,code?:string)=>Response.json({ok:false,error:message,...(code?{code}:{})},{
+const rejected=(message:string,status:number,code?:string,details?:Record<string,string|number>)=>Response.json({ok:false,error:message,...(code?{code}:{}),...details},{
  status,headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}
 });
 
@@ -78,9 +78,17 @@ export const onRequestPost:PagesFunction<SandboxEnv>=async({request,env})=>{
   });
   if(provider.status>=300&&provider.status<400)
    return rejected('Stripe test API redirects are not allowed.',502,'STRIPE_TEST_REDIRECT_REJECTED');
-  if(!provider.ok)return rejected('Stripe test session could not be created.',502,
-   provider.status===401?'STRIPE_TEST_KEY_REJECTED':
-   provider.status===403?'STRIPE_TEST_KEY_PERMISSION_DENIED':'STRIPE_TEST_PROVIDER_REJECTED');
+  if(!provider.ok){
+   const failure=await provider.json().catch(()=>null) as {error?:{type?:string;code?:string;param?:string;message?:string}}|null;
+   const safe=(value:unknown)=>typeof value==='string'?value.replaceAll(key,'[redacted]')
+    .replace(/(?:sk|rk|pk)_(?:test|live)_[A-Za-z0-9_]+/g,'[redacted]').slice(0,240):'';
+   return rejected('Stripe test session could not be created.',502,
+    provider.status===401?'STRIPE_TEST_KEY_REJECTED':
+    provider.status===403?'STRIPE_TEST_KEY_PERMISSION_DENIED':'STRIPE_TEST_PROVIDER_REJECTED',
+    {providerStatus:provider.status,providerErrorType:safe(failure?.error?.type),
+     providerErrorCode:safe(failure?.error?.code),providerErrorParam:safe(failure?.error?.param),
+     providerMessage:safe(failure?.error?.message)});
+  }
   phase='response';
   const session=await provider.json() as {id?:string;url?:string;amount_total?:number;currency?:string};
   let checkoutHost='';
