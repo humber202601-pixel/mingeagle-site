@@ -17,13 +17,23 @@ assert(cart.includes('seaFreightAccepted:sourceConsent()'));
 assert(cart.includes('/api/retail/checkout-status'));
 assert(cart.includes('data.retailCheckoutReady===true'));
 assert(cart.includes("new URL('https://app.mingeagle.com/retail/checkout')"));
-assert(cart.includes("linkToInquiry('retail')"),'Keep fallback while payment is not ready');
+assert(cart.includes("linkToInquiry('retail')"),'Keep an explicit quote request for unconfirmed retail delivery');
+assert(cart.includes("result.ddpConfirmed===true?'Continue to secure checkout →':'Request confirmed delivered-price quote →'"),
+ 'Unconfirmed delivery cannot misleadingly promise checkout');
+assert(cart.includes("$('cartInquiry').hidden=false;"),'Failed readiness must offer an optional, separate quote request');
+assert(cart.includes("$('cartInquiry').addEventListener('click'"),'Quote is a customer action, not an automatic redirect');
+const availabilityPath=cart.slice(cart.indexOf("const button=$('cartCheckout');"),cart.indexOf("$('cartInquiry').addEventListener('click'"));
+assert(!availabilityPath.includes("linkToInquiry('retail')"),'Checkout readiness failure must not silently redirect to inquiry');
+assert(cart.includes("read().every(x=>allowed(x.sku,x.color))"),
+ 'Valid different-color cart lines must not be rejected merely for sharing a SKU');
 assert(cart.includes("linkToInquiry('quote')")&&cart.includes("linkToInquiry('retail')"));
 assert(!cart.includes('window.location.href=\'https://airwallex.com'), 'Never invent an unverified checkout payment link');
 const page=fs.readFileSync('public/retail-cart.html','utf8');
 assert(page.includes('id="cartSeaConsent"')&&page.includes('25–30 days'));
 assert(page.includes('id="cartRetail"')&&page.includes('id="cartWholesale"'));
-assert(page.includes('retail-cart.js?v=20261014-ddp-1'));
+assert(page.includes('retail-cart.js?v=20261014-checkout-choice-2'));
+assert(page.includes('id="cartInquiry"')&&page.includes('#cartInquiry[hidden]{display:none}'),
+ 'Secondary quote button must be accessible only after checkout readiness failure');
 assert(page.includes('id="cartCustomsNote"')&&page.includes('import duties'));
 assert(cart.includes('last.ddpConfirmed!==true'), 'Unconfirmed duty-paid routes must use an inquiry');
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'retail-route-'));
