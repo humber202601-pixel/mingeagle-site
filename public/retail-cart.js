@@ -65,7 +65,7 @@ let last=null,version=0,loading=false;
 const country=()=>String($('cartCountry').value||'').trim().toUpperCase();
 const isWholesale=()=>quantity(read())>=10;
 function clearEstimate(){
- version++;last=null;$('cartEstimate').hidden=true;$('cartCheckout').disabled=true;
+ version++;last=null;$('cartEstimate').hidden=true;$('cartCheckout').disabled=true;$('cartInquiry').hidden=true;
  $('cartSummaryShipping').textContent='Not calculated';$('cartSummaryTotal').textContent='—';
 }
 function sourceConsent(){
@@ -139,7 +139,7 @@ function render(){
  $('cartRoute').textContent=bulk?
   'Wholesale · '+n+' items. Quantity-based discounts; sea freight required (estimated 25–30 days after dispatch, not guaranteed).':
   'Retail · '+n+' of 9 maximum items. Public USD unit prices; air parcel shipping.';
- $('cartCheckout').textContent=bulk?'Request tiered wholesale quote →':'Check retail checkout availability →';
+ $('cartCheckout').textContent=bulk?'Request tiered wholesale quote →':'Calculate shipping before checkout →';
  const oneConfirmedDDP = n===1 && lines.length===1 && lines[0].sku==='P1-S7' && country()==='US';
  $('cartCustomsNote').textContent=oneConfirmedDDP?
   'China → US, one P1-S7 item: the $14 shipping rate includes customs clearance and import duties paid by MING EAGLE. US state/local sales tax is separate and depends on your delivery state.':
@@ -184,6 +184,8 @@ $('cartEstimateForm').addEventListener('submit',async e=>{
   $('cartSummaryGoods').textContent=money(goods);$('cartSummaryShipping').textContent=money(freight);
   $('cartSummaryTotal').textContent=money(total);$('cartEstimate').hidden=false;
   $('cartCheckout').disabled=false;
+  $('cartCheckout').textContent=bulk?'Request tiered wholesale quote →':
+   result.ddpConfirmed===true?'Continue to secure checkout →':'Request confirmed delivered-price quote →';
   $('cartStatus').textContent=bulk?
    'Preliminary wholesale sea freight only. Quantity discounts and final total require a written quote; delivery estimated 25–30 days after dispatch.':
    result.ddpConfirmed===true?
@@ -199,7 +201,7 @@ $('cartCheckout').addEventListener('click',async()=>{
   linkToInquiry('quote');return;
  }
  if(last.ddpConfirmed!==true){
-  $('cartStatus').textContent='Import-duty-paid delivery for this item or quantity needs confirmation. Please submit a retail order inquiry.';
+  // This is an explicit quotation choice, not a misleading payment redirect.
   linkToInquiry('retail');return;
  }
  // Only switch from inquiry fallback to real retail checkout after the
@@ -210,18 +212,21 @@ $('cartCheckout').addEventListener('click',async()=>{
   const response=await fetch('https://app.mingeagle.com/api/retail/checkout-status',{cache:'no-store'});
   if(response.ok){
    const data=await response.json();
-   if(data.ok&&data.retailCheckoutReady===true&&quantity(read())<=9&&aggregate(read()).length===read().length){
+   if(data.ok&&data.retailCheckoutReady===true&&quantity(read())<=9&&read().every(x=>allowed(x.sku,x.color))){
     const url=new URL('https://app.mingeagle.com/retail/checkout');
     url.searchParams.set('cart',JSON.stringify(read()));
     url.searchParams.set('country',country());
     location.href=url.href;return;
    }
   }
-  $('cartStatus').textContent='Online retail payment is not yet active. Request a retail order now; payment will be arranged after confirmation.';
+  $('cartStatus').textContent='Secure card checkout is not active for this order yet. No payment was taken. Use the separate request button below if you want a confirmed quote.';
  }catch{
-  $('cartStatus').textContent='Unable to check online payment availability. You can submit a retail order request instead.';
+  $('cartStatus').textContent='Unable to verify secure checkout availability. No payment was taken. You may request a confirmed quote using the separate button below.';
  }finally{button.disabled=false}
- linkToInquiry('retail');
+ $('cartInquiry').hidden=false;
+});
+$('cartInquiry').addEventListener('click',()=>{
+ if(last&&!isWholesale())linkToInquiry('retail');
 });
 render();
 })();
