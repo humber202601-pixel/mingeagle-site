@@ -91,6 +91,20 @@ try{
  assert.equal(again.status,409,'idempotent checkout prevents repeat order creation');
  assert.equal(network,2,'Challenge verification required even on replay');
  assert(!JSON.stringify(result).includes('synthetic-secret'));
+ // Merchant-approved P1-S3 also has a verified one-unit US duty-paid rate.
+ db.seen=false;
+ const small=await onRequestPost({env,request:make({...base,
+  requestId:'cb44e012-00da-469b-9000-b50406b1fb70',
+  lines:[{sku:'P1-S3',quantity:1,color:'Orange'}]})});
+ assert.equal(small.status,200,await small.clone().text());
+ const smallOrder=await small.json();
+ assert.equal(smallOrder.totalBeforeTaxesUSD,21.4,'P1-S3: $9.90 product + $11.50 DDP delivery');
+ assert.equal(smallOrder.paymentStatus,'UNPAID');
+ db.seen=false;
+ const unconfirmed=await onRequestPost({env,request:make({...base,
+  requestId:'db44e012-00da-469b-9000-b50406b1fb70',
+  lines:[{sku:'P1-S5',quantity:1,color:'Orange'}]})});
+ assert.equal(unconfirmed.status,409,'Unconfirmed other SKU must not create a retail payment order');
  const sql=readFileSync('migrations/0013_retail_checkout_requests.sql','utf8');
  assert(sql.includes('PRIMARY KEY')&&sql.includes('order_id TEXT NOT NULL UNIQUE'));
  assert(!/card_number|cvv|pan_number/i.test(sql));

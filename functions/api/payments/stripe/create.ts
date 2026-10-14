@@ -1,5 +1,6 @@
 import {stripeApi, stripeCheckoutReadiness, type StripeEnv} from '../../../_shared/stripe';
 import {noSalesTaxCollectionRequired,type RetailTaxEnv} from '../../../../lib/retail-tax-policy';
+import {oneItemUsAirParcel} from '../../../../lib/us-small-parcel';
 
 interface Env extends StripeEnv,RetailTaxEnv {
   MINGEAGLE_DB: D1Database;
@@ -48,15 +49,16 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    const state=String(ship?.state||'').toUpperCase();
    if(ship?.country!=='US'||!noSalesTaxCollectionRequired(env,state))
     return fail('This delivery state has not been approved for zero sales-tax collection.',409);
-   if(Math.round(Number(order.shipping)*100)!==1400||
-      Math.round(Number(order.subtotal)*100)!==1490||
-      Math.round(Number(order.tax)*100)!==0)
-    return fail('Import-duty-paid shipping is not approved for this basket.',409);
    const orderItems=await db.prepare('SELECT description,quantity,unit_price FROM order_items WHERE order_id=?')
     .bind(String(order.id)).all<{description:string;quantity:number;unit_price:number}>();
    const items=orderItems.results||[];
-   if(items.length!==1||!/^P1-S7 \/ /.test(String(items[0].description))||
-      Number(items[0].quantity)!==1||Math.round(Number(items[0].unit_price)*100)!==1490)
+   const sku=/^([A-Z0-9-]+) \/ /.exec(String(items[0]?.description||''))?.[1]||'';
+   const confirmed=oneItemUsAirParcel(sku,'US','air',Number(items[0]?.quantity));
+   if(items.length!==1||!confirmed?.ddpConfirmed||Number(items[0].quantity)!==1||
+      Math.round(Number(items[0].unit_price)*100)!==Math.round(confirmed.productUSD*100)||
+      Math.round(Number(order.subtotal)*100)!==Math.round(confirmed.productUSD*100)||
+      Math.round(Number(order.shipping)*100)!==Math.round(confirmed.shippingUSD*100)||
+      Math.round(Number(order.tax)*100)!==0||Math.round(Number(order.discount)*100)!==0)
     return fail('Duty-paid delivery is not verified for the requested products.',409);
   }
   if(!isRetail&&!['ACCEPTED','CONVERTED'].includes(String(order.quote_status)))

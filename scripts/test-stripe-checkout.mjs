@@ -55,6 +55,7 @@ try{
  assert(!await verifyStripeSignature(payload,'t='+now+',v1=invalid',ready.STRIPE_WEBHOOK_SECRET,now*1000));
 
  let stored=false;
+ let retailSku='P1-S7', retailGoods=14.9, retailShipping=14;
  const processedEvents=new Set();
  let receivedInserts=0;
  const db={prepare(sql){
@@ -63,8 +64,8 @@ try{
     dbReads++;
     if(sql.includes('FROM quotes q JOIN orders o'))return {
       id:'ord_synthetic',reference:'ME-RO-SYNTHETIC',status:'PAYMENT_PENDING',
-      payment_status:'UNPAID',total:28.9,subtotal:14.9,discount:0,
-      shipping:14,tax:0,currency:'USD',quote_status:'SENT',
+      payment_status:'UNPAID',total:retailGoods+retailShipping,subtotal:retailGoods,discount:0,
+      shipping:retailShipping,tax:0,currency:'USD',quote_status:'SENT',
       shipping_address:JSON.stringify({state:'NY',country:'US'}),
       received:0,email:'buyer@example.net'
     };
@@ -79,7 +80,7 @@ try{
     throw Error('Unexpected SQL read '+sql);
    },
    async all(){
-    if(sql.includes('FROM order_items WHERE order_id='))return {results:[{description:'P1-S7 / Orange Retail silent ball',quantity:1,unit_price:14.9}]};
+    if(sql.includes('FROM order_items WHERE order_id='))return {results:[{description:retailSku+' / Orange Retail silent ball',quantity:1,unit_price:retailGoods}]};
     throw Error('Unexpected SQL list '+sql);
    },
    async run(){
@@ -100,11 +101,11 @@ try{
   const params=new URLSearchParams(init.body);
   assert.equal(params.get('client_reference_id'),'ME-RO-SYNTHETIC');
   assert.equal(params.get('shipping_address_collection[allowed_countries][0]'),null,'No second buyer-selected ship-to state after order tax review');
-  assert.equal(params.get('line_items[0][price_data][unit_amount]'),'1490');
-  assert.equal(params.get('line_items[1][price_data][unit_amount]'),'1400');
-  requestAmount=2890;
+  assert.equal(params.get('line_items[0][price_data][unit_amount]'),String(Math.round(retailGoods*100)));
+  assert.equal(params.get('line_items[1][price_data][unit_amount]'),String(Math.round(retailShipping*100)));
+  requestAmount=Math.round((retailGoods+retailShipping)*100);
   return Response.json({
-   id:'cs_test_synthetic',url:'https://checkout.stripe.com/c/pay/cs_test_synthetic',
+   id:retailSku==='P1-S3'?'cs_test_synthetic_small':'cs_test_synthetic',url:'https://checkout.stripe.com/c/pay/cs_test_synthetic',
    amount_total:requestAmount,currency:'usd',status:'open'
   });
  };
@@ -167,5 +168,11 @@ try{
    method:'POST',headers:{'stripe-signature':'t='+now+',v1=wrong'},body:eventText
   })});
  assert.equal(invalid.status,401);
+ // The newly merchant-confirmed P1-S3 must use the same provider-side validations.
+ retailSku='P1-S3';retailGoods=9.9;retailShipping=11.5;
+ const smallCheckout=await createCheckout({env:{...ready,MINGEAGLE_DB:db},request:request()});
+ assert.equal(smallCheckout.status,200,await smallCheckout.clone().text());
+ assert.equal((await smallCheckout.json()).ok,true);
+ assert.equal(requestAmount,2140,'Stripe must receive $21.40 for P1-S3 duty-paid delivery');
  console.log('PASS: Stripe fail-closed gate, owner-approved tax, signature verification, server price, hosted URL and signed payment reconciliation.');
 }finally{globalThis.fetch=saved}
