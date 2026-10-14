@@ -17,6 +17,9 @@ try{
   p4:{5:12}
  };
  assert.deepEqual(shipping.productSizeShippingUSD,official);
+ assert.deepEqual(shipping.confirmedDdpSingleItems.map(x=>x.sku).sort(),['P1-S3','P1-S7']);
+ assert(shipping.disclosures.some(x=>x.includes('$21.40')&&x.includes('import duties')));
+ assert(shipping.disclosures.some(x=>x.includes('$28.90')&&x.includes('import duties')));
  const run=()=>execFileSync(process.execPath,['scripts/build-us-delivered-prices.cjs',tmp],{stdio:'pipe'});
  run();
  const actual={};
@@ -27,7 +30,10 @@ try{
   assert.equal((s.match(/MING EAGLE US DELIVERED PRICES END/g)||[]).length,1,f);
   assert.match(s,/estimated delivery 12–15 days after dispatch/i,f);
   assert.match(s,/not guaranteed/i,f);
-  assert.match(s,/excluding taxes and import duties/i,f);
+  assert.match(s,/US state\/local sales tax is separate/i,f);
+  assert.match(s,/P1-S3 \(\$11\.50 delivery\)/,f);
+  assert.match(s,/P1-S7 \(\$14 delivery\)/,f);
+  assert.match(s,/import duties/i,f);
   assert.match(s,/For 2–9 items, combined shipping is calculated separately/i,f);
   assert(!/free shipping|guaranteed delivery|in stock now/i.test(s),'No unverified fulfillment claim');
  }
