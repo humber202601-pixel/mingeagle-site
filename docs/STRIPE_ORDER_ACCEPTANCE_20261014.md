@@ -47,9 +47,13 @@ in this document or Git.
 
 ## Remaining live launch inputs
 
-Technical test evidence does not provide real stock or a tax review. Live checkout
-remains closed until the owner supplies available quantities, dispatch commitment,
-returns arrangements and a supported destination-state tax collection policy.
+On 2026-10-14 the owner confirmed replenishable product supply and dispatch within
+three days of ordering. This merchant confirmation is recorded in
+`public/retail-fulfillment-policy.json`; no infinite numerical stock count is
+created. The stock/fulfillment flag is supported by this confirmation.
+
+Live checkout remains closed pending concrete returns arrangements, a supported
+destination-state tax collection policy and final live-environment acceptance.
 The Preview synthetic NY policy is explicitly test-only and is never a production
 tax approval. Live Stripe keys and the production endpoint's signing secret must
 also be verified in their own mode before accepting customer charges.
