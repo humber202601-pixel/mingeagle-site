@@ -18,12 +18,21 @@ assert(cart.includes('/api/retail/checkout-status'));
 assert(cart.includes('data.retailCheckoutReady===true'));
 assert(cart.includes("new URL('https://app.mingeagle.com/retail/checkout')"));
 assert(cart.includes("linkToInquiry('retail')"),'Keep an explicit quote request for unconfirmed retail delivery');
-assert(cart.includes("result.ddpConfirmed===true?'Continue to secure checkout →':'Request confirmed delivered-price quote →'"),
- 'Unconfirmed delivery cannot misleadingly promise checkout');
-assert(cart.includes("$('cartInquiry').hidden=false;"),'Failed readiness must offer an optional, separate quote request');
+assert(cart.includes("checkoutAvailable?'Continue to secure checkout →':'Request confirmed retail quote →'"),
+ 'Secure checkout wording may appear only after server readiness confirmation');
+assert(cart.includes("result.ddpConfirmed!==true?'Request confirmed delivered-price quote →'"),
+ 'Unconfirmed DDP route must be explicitly labeled as a quote');
+assert(cart.includes("$('cartInquiry').hidden=!checkoutAvailable;"),
+ 'Quote alternative is offered when online payment is ready');
 assert(cart.includes("$('cartInquiry').addEventListener('click'"),'Quote is a customer action, not an automatic redirect');
 const availabilityPath=cart.slice(cart.indexOf("const button=$('cartCheckout');"),cart.indexOf("$('cartInquiry').addEventListener('click'"));
-assert(!availabilityPath.includes("linkToInquiry('retail')"),'Checkout readiness failure must not silently redirect to inquiry');
+assert(!availabilityPath.includes("linkToInquiry('retail')"),
+ 'Failed secure checkout readiness must relabel the button, not automatically redirect');
+assert(cart.includes("if(last.ddpConfirmed!==true||!checkoutAvailable)"),
+ 'Quote handoff occurs only from explicit quote-labeled CTA');
+assert(cart.includes("checkoutAvailable=Boolean(data?.ok&&data.retailCheckoutReady===true)"),
+ 'Payment readiness is checked while building order estimate');
+assert(cart.includes("checkoutAvailable=false;"),'Readiness must default to fail-closed');
 assert(cart.includes("read().every(x=>allowed(x.sku,x.color))"),
  'Valid different-color cart lines must not be rejected merely for sharing a SKU');
 assert(cart.includes("linkToInquiry('quote')")&&cart.includes("linkToInquiry('retail')"));
@@ -31,7 +40,7 @@ assert(!cart.includes('window.location.href=\'https://airwallex.com'), 'Never in
 const page=fs.readFileSync('public/retail-cart.html','utf8');
 assert(page.includes('id="cartSeaConsent"')&&page.includes('25–30 days'));
 assert(page.includes('id="cartRetail"')&&page.includes('id="cartWholesale"'));
-assert(page.includes('retail-cart.js?v=20261014-p1s3-ddp-1'));
+assert(page.includes('retail-cart.js?v=20261014-readiness-1'));
 assert(page.includes('id="cartInquiry"')&&page.includes('#cartInquiry[hidden]{display:none}'),
  'Secondary quote button must be accessible only after checkout readiness failure');
 assert(page.includes('id="cartCustomsNote"')&&page.includes('import duties'));
