@@ -56,7 +56,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   }
   if(!handled.has(event.type)){await processed();return Response.json({ok:true,ignored:true})}
   const session=event.data?.object;
-  if(!stripeSessionMatchesMode(session?.id,env.STRIPE_MODE))
+  if(!session?.id||!stripeSessionMatchesMode(session.id,env.STRIPE_MODE))
    return invalid('Checkout session mode mismatch',409);
   const matched=await db.prepare(
    "SELECT order_id,amount,currency,status FROM payment_provider_sessions "+
