@@ -70,41 +70,6 @@ for(const [sku,fee] of Object.entries(US_SMALL_PARCEL_RATES)){
   assert(c.notice.includes(String.fromCharCode(36)+fee.toFixed(2)),'DDP notice must state exact shipping amount');
   assert(c.notice.includes('no additional import duty'));
  }else assert(c.notice.includes('not yet confirmed'),'Unconfirmed SKU must not claim DDP');
-// No silent per-item multiplication for larger carts or non-US destinations.
-for(const test of [
- {country:'US',method:'air',lines:[{sku:'P1-S3',quantity:2}]},
- {country:'US',method:'air',lines:[{sku:'P1-S3',quantity:1},{sku:'P2-S3',quantity:1}]},
- {country:'CA',method:'air',lines:[{sku:'P1-S3',quantity:1}]}
-]){
- const res=await cart.onRequestPost({request:new Request('https://app.mingeagle.com/api/shipping/cart',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(test)}),env:{}});
- assert.equal(res.status,503,'Other shipping scenarios must use D1 tariff and cannot be guessed');
-}
-// Strict quantity boundary: retail air through 9, 10+ wholesale sea only.
-// No quantity discount percentage or payable wholesale invoice is fabricated.
-for(const spec of [
- {n:9,method:'sea',consent:true,status:409},
- {n:10,method:'air',consent:true,status:409},
- {n:10,method:'sea',consent:false,status:409},
- {n:10,method:'sea',consent:true,status:503}
-]){
- const response=await cart.onRequestPost({request:new Request('https://app.mingeagle.com/api/shipping/cart',{
-  method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
-   country:'US',method:spec.method,seaFreightAccepted:spec.consent,
-   lines:[{sku:'P1-S3',quantity:spec.n}]
-  })}),env:{}});
- assert.equal(response.status,spec.status,JSON.stringify(spec));
- const data=await response.json();
- if(spec.n===10&&spec.method==='sea'&&!spec.consent)
-  assert.equal(data.shippingConsentRequired,true);
- if(spec.n===10&&spec.method==='sea'&&spec.consent)
-  assert.equal(data.error,'Database unavailable');
-}
-const other=await single.onRequestGet({request:new Request('https://app.mingeagle.com/api/shipping/estimate?sku=P1-S3&country=CA&method=air&quantity=1'),env:{}});
-assert.equal(other.status,503,'Other countries still depend on existing D1 rates');
-console.log('PASS: 11 USA one-item air shipping prices, 12–15 day estimate, exact website/CRM source match, cart and single SKU endpoints, no extrapolation to bulk or foreign countries.');
-+fee.toFixed(2)),'DDP notice must include exact shipping amount');
-  assert(c.notice.includes('no additional import duty'));
- }else assert(c.notice.includes('not yet confirmed'),'Unconfirmed SKU must not claim DDP');
 }
 // No silent per-item multiplication for larger carts or non-US destinations.
 for(const test of [
