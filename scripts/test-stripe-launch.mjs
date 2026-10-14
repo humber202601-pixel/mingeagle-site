@@ -19,11 +19,19 @@ try{
  assert.equal((await check({request:request('inspect',base,'bad'),env})).status,404);
  assert.equal((await check({request:request('inspect','https://example.invalid'),env})).status,404);
  assert.equal(calls,0);
+ for(const action of ['probe-checkout','setup-webhook','disable-previous-webhook'])
+  assert.equal((await check({request:request(action),env:{...env,STRIPE_LAUNCH_READ_ONLY:'true'}})).status,405);
+ assert.equal(calls,0,'Read-only tax inspection must not permit provider writes');
  let created=0,expired=0;
  globalThis.fetch=async(url,init)=>{
   calls++;assert.equal(init.redirect,'manual');assert.equal(new Headers(init.headers).get('stripe-version'),'2026-09-30.endive');
   if(url.endsWith('/account'))return Response.json({charges_enabled:true,payouts_enabled:true,country:'US',
    email:'private@example.invalid',id:'acct_private_synthetic',requirements:{currently_due:[]}});
+  if(url.endsWith('/tax/settings'))return Response.json({status:'active',livemode:true,
+   head_office:{address:{country:'US',state:'CA',line1:'PRIVATE_ADDRESS_NOT_FOR_OUTPUT',postal_code:'90012'}},
+   defaults:{tax_code:'txcd_synthetic',tax_behavior:'exclusive'}});
+  if(url.endsWith('/tax/registrations?status=active&limit=100'))return Response.json({has_more:false,data:[{
+   id:'taxreg_PRIVATE_NOT_FOR_OUTPUT',country:'US',status:'active',livemode:true,country_options:{us:{state:'CA',type:'state_sales_tax'}},active_from:1,expires_at:null}]});
   if(url.endsWith('/webhook_endpoints?limit=100'))return Response.json({data:[{id:'we_fixture',status:'enabled',livemode:true,
    url:base+'/api/payments/stripe/webhook',enabled_events:['checkout.session.expired'],secret:'whsec_private_not_for_output'},
    {id:'we_unrelated',url:'https://another-business.invalid/private'}]});
@@ -42,6 +50,11 @@ try{
  assert.equal(inspected.account.chargesEnabled,true);assert.equal(inspected.matchingWebhooks.length,1);
  for(const secret of ['private@example.invalid','acct_private_synthetic','whsec_private_not_for_output',env.STRIPE_SECRET_KEY])
   assert(!JSON.stringify(inspected).includes(secret));
+ const tax=await (await check({request:request('inspect-tax'),env:{...env,STRIPE_LAUNCH_READ_ONLY:'true'}})).json();
+ assert.equal(tax.settings.status,'active');assert.equal(tax.registrations.complete,true);
+ assert.equal(tax.registrations.active[0].state,'CA');
+ assert(!JSON.stringify(tax).includes('PRIVATE_ADDRESS_NOT_FOR_OUTPUT'));
+ assert(!JSON.stringify(tax).includes('taxreg_PRIVATE_NOT_FOR_OUTPUT'));
  const probe=await (await check({request:request('probe-checkout'),env})).json();
  assert.equal(probe.ok,true);assert.equal(probe.sessionStatus,'expired');assert.equal(probe.providerEventId,'evt_live_probe');
  assert.equal(created,1);assert.equal(expired,1);assert(!JSON.stringify(probe).includes('checkout.stripe.com'));
