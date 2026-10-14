@@ -1,0 +1,8 @@
+{
+  "name": "mingeagle-public-site",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build": "node scripts/build-cloudflare-static-preview.cjs"
+  }
+}
