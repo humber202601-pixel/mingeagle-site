@@ -45,5 +45,9 @@ sql.exec("INSERT INTO payments VALUES ('n0','REFUNDED');UPDATE orders SET paymen
 assert.equal(await remoteStartupWithinLimits(db,2140,1),true);
 sql.exec("UPDATE orders SET currency='EUR' WHERE id='n0';");
 assert.equal(await remoteStartupWithinLimits(db,2140,1),false,'Unknown currency cannot hide outside payment volume');
+sql.exec("UPDATE orders SET currency='USD' WHERE id='n0';");
+assert.equal(await remoteStartupWithinLimits(db,2140,1),true);
+sql.exec('DROP TRIGGER remote_startup_collection_guard');
+assert.equal(await remoteStartupWithinLimits(db,2140,1),false,'Missing deployed atomic guard blocks national checkout');
 sql.close();
 console.log('PASS: nationwide startup requires explicit current owner facts; real SQLite reserves pending totals atomically and rejects gross/count overruns, stale facts and missing records.');

@@ -67,6 +67,8 @@ export const REMOTE_STARTUP_USAGE_SQL=`SELECT COUNT(*) AS orders,
 export async function remoteStartupWithinLimits(db:D1Database,additionalCents=0,additionalOrders=0){
  if(!Number.isSafeInteger(additionalCents)||additionalCents<0||!Number.isSafeInteger(additionalOrders)||additionalOrders<0)return false;
  try{
+  const guard=await db.prepare("SELECT name FROM sqlite_master WHERE type='trigger' AND name='remote_startup_collection_guard'").first<{name:string}>();
+  if(!guard)return false;
   const row=await db.prepare(REMOTE_STARTUP_USAGE_SQL).first<{orders:number;gross_cents:number;unsupported_currency:number}>();
   return !!row&&Number.isSafeInteger(row.orders)&&Number.isSafeInteger(row.gross_cents)&&row.orders>=0&&row.gross_cents>=0&&row.unsupported_currency===0&&row.orders+additionalOrders<=REMOTE_STARTUP_ORDER_LIMIT&&row.gross_cents+additionalCents<=REMOTE_STARTUP_GROSS_LIMIT_CENTS;
  }catch{return false}
