@@ -1,6 +1,6 @@
 # MING EAGLE — US Retail Stripe Tax Launch Gate (2026-10-14)
 
-Status: **BLOCKED for live charges**. The merchant's Kentucky Sales and Use Tax permit status is **UNKNOWN** (a third-party formation agent registered MING EAGLE COMMERCE LLC). Do not infer tax registration from LLC formation, KY registered-agent mailing address, or the presence of an EIN.
+Status: **BLOCKED for live charges pending state-by-state nexus assessment and remaining checkout/fulfillment approvals**. On 2026-10-14 the merchant relayed written confirmation from the Kentucky formation/registered-agent provider: **the agent did NOT file Kentucky Sales and Use Tax registration**. Their filing history shows only registered agent and Kentucky renewal services, with no tax registrations. This confirms the **agent did not file**; it is not government account verification that the company holds no permit from any other source, nor a determination that registration is legally required or not required. Do not infer tax nexus, collection authorization or exemption merely from LLC formation, KY registered-agent mailing address, or EIN.
 
 ## A. Verify seller identity and permit before changing tax or payment switches
 
@@ -15,6 +15,11 @@ Official references:
 - https://revenue.ky.gov/Business/Pages/Additional-Tax-Registration-Information.aspx
 - https://revenue.ky.gov/Business/Sales-Use-Tax/Pages/default.aspx
 - https://taxanswers.ky.gov/Sales-and-Excise-Taxes/Pages/Remote-Retailers-Marketplace-Providers-FAQs.aspx
+
+
+**Next decision — do not order the agent to file yet:** verify whether the agent is only a statutory service-of-process address, whether any office/employees/inventory/orders/return handling exists in Kentucky or other US states, and current/previous calendar-year direct and marketplace transactions and revenues **by destination state**. Ask a licensed US sales-tax specialist for a written physical/economic nexus and sales/use-tax-registration opinion, including KY KRS 139.340. The ordinary Kentucky remote-seller threshold is at least **200 transactions OR USD 100,000** into Kentucky in a current or prior calendar year, but this does not rule out physical/agency nexus. Official: https://apps.legislature.ky.gov/law/statutes/statute.aspx?id=53491 and https://revenue.ky.gov/Business/Sales-Use-Tax/Pages/default.aspx. Tax adviser conclusions determine whether to register in KY or any other state.
+
+An absent KY permit does **not by itself** prohibit all US card transactions; what blocks this implementation today is the absence of verified state-specific tax decisions and several separate safety/fulfillment/activation gates. Do not activate a nationwide zero-tax exemption or collect KY 6% without lawful registration when applicable. Store only status and documented tax opinions, not the agent's private correspondence, personal credentials or tax ID.
 
 ## B. Stripe Tax configuration after registration/nexus decisions are documented
 
