@@ -6,6 +6,7 @@ interface Env {
  STRIPE_LAUNCH_CHECK_ENABLED?:string;STRIPE_LAUNCH_CHECK_EXPIRES_AT?:string;
  STRIPE_LAUNCH_CHECK_TOKEN?:string;STRIPE_LAUNCH_WEBHOOK_ID?:string;
  STRIPE_LAUNCH_READ_ONLY?:string;
+ STRIPE_LAUNCH_TAX_ONLY?:string;
 }
 const origin='https://app.mingeagle.com',webhookUrl=origin+'/api/payments/stripe/webhook';
 const events=['checkout.session.completed','checkout.session.async_payment_succeeded',
@@ -27,6 +28,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  if(!request.headers.get('content-type')?.startsWith('application/json'))return json({ok:false,error:'JSON required.'},415);
  const raw=await request.text();if(raw.length>1000)return json({ok:false,error:'Payload too large.'},413);
  let body:{action?:string;endpointId?:string};try{body=JSON.parse(raw)}catch{return json({ok:false,error:'Invalid JSON.'},400)}
+ if(env.STRIPE_LAUNCH_TAX_ONLY==='true'&&!['inspect-tax','configure-tax-defaults'].includes(body.action||''))
+  return json({ok:false,error:'Only tax configuration actions are permitted.'},405);
  if(env.STRIPE_LAUNCH_READ_ONLY==='true'&&!['inspect','inspect-tax'].includes(body.action||''))
   return json({ok:false,error:'Only configuration inspection is permitted.'},405);
  async function api(path:string,method='GET',form?:URLSearchParams,idempotency?:string){
@@ -41,6 +44,28 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  const permission=(r:{ok:boolean;status:number;data:Record<string,any>})=>({ok:r.ok,httpStatus:r.status,
   errorType:r.ok?undefined:r.data.error?.type,errorCode:r.ok?undefined:r.data.error?.code});
  try{
+  if(body.action==='configure-tax-defaults'){
+   if(env.STRIPE_LAUNCH_TAX_ONLY!=='true')return json({ok:false,error:'Tax configuration scope required.'},405);
+   const before=await api('tax/settings');
+   if(!before.ok)return json({...permission(before),stage:'read_tax_defaults'},502);
+   if(before.data.livemode!==true||before.data.status!=='active'||
+    !['txcd_10000000','txcd_99999999'].includes(before.data.defaults?.tax_code))
+    return json({ok:false,error:'Existing tax configuration requires review.'},409);
+   const already=before.data.defaults.tax_code==='txcd_99999999'&&before.data.defaults.tax_behavior==='exclusive';
+   if(!already){
+    // Fixed physical-goods defaults only. Do not alter head office, register a
+    // jurisdiction, enable automatic collection or submit a financial order.
+    const updated=await api('tax/settings','POST',new URLSearchParams({
+     'defaults[tax_code]':'txcd_99999999','defaults[tax_behavior]':'exclusive'
+    }),'mingeagle-physical-tax-defaults-20261014');
+    if(!updated.ok)return json({...permission(updated),stage:'update_tax_defaults'},502);
+   }
+   const verified=await api('tax/settings');
+   const correct=verified.ok&&verified.data.livemode===true&&verified.data.status==='active'&&
+    verified.data.defaults?.tax_code==='txcd_99999999'&&verified.data.defaults?.tax_behavior==='exclusive';
+   return json({ok:correct,mode:'live',changed:!already,verified:permission(verified),
+    taxCode:verified.data.defaults?.tax_code,taxBehavior:verified.data.defaults?.tax_behavior},correct?200:502);
+  }
   if(body.action==='inspect-tax'){
    const [settings,registrations]=await Promise.all([api('tax/settings'),api('tax/registrations?status=active&limit=100')]);
    const s=settings.data;

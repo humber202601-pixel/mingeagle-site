@@ -19,17 +19,29 @@ try{
  assert.equal((await check({request:request('inspect',base,'bad'),env})).status,404);
  assert.equal((await check({request:request('inspect','https://example.invalid'),env})).status,404);
  assert.equal(calls,0);
- for(const action of ['probe-checkout','setup-webhook','disable-previous-webhook'])
+ for(const action of ['probe-checkout','setup-webhook','disable-previous-webhook','configure-tax-defaults'])
   assert.equal((await check({request:request(action),env:{...env,STRIPE_LAUNCH_READ_ONLY:'true'}})).status,405);
  assert.equal(calls,0,'Read-only tax inspection must not permit provider writes');
- let created=0,expired=0;
+ for(const action of ['probe-checkout','setup-webhook','disable-previous-webhook'])
+  assert.equal((await check({request:request(action),env:{...env,STRIPE_LAUNCH_TAX_ONLY:'true'}})).status,405);
+ assert.equal(calls,0,'Tax-only scope must never permit a checkout or webhook write');
+ let created=0,expired=0,taxDefaultWrites=0,taxCode='txcd_10000000',taxBehavior='inferred_by_currency';
  globalThis.fetch=async(url,init)=>{
   calls++;assert.equal(init.redirect,'manual');assert.equal(new Headers(init.headers).get('stripe-version'),'2026-09-30.endive');
   if(url.endsWith('/account'))return Response.json({charges_enabled:true,payouts_enabled:true,country:'US',
    email:'private@example.invalid',id:'acct_private_synthetic',requirements:{currently_due:[]}});
-  if(url.endsWith('/tax/settings'))return Response.json({status:'active',livemode:true,
+  if(url.endsWith('/tax/settings')){
+   if(init.method==='POST'){
+    const form=new URLSearchParams(init.body);
+    assert.deepEqual([...form.keys()].sort(),['defaults[tax_behavior]','defaults[tax_code]']);
+    assert.equal(form.get('defaults[tax_code]'),'txcd_99999999');
+    assert.equal(form.get('defaults[tax_behavior]'),'exclusive');
+    taxCode=form.get('defaults[tax_code]');taxBehavior=form.get('defaults[tax_behavior]');taxDefaultWrites++;
+   }
+   return Response.json({status:'active',livemode:true,
    head_office:{address:{country:'US',state:'CA',line1:'PRIVATE_ADDRESS_NOT_FOR_OUTPUT',postal_code:'90012'}},
-   defaults:{tax_code:'txcd_synthetic',tax_behavior:'exclusive'}});
+   defaults:{tax_code:taxCode,tax_behavior:taxBehavior}});
+  }
   if(url.endsWith('/tax/registrations?status=active&limit=100'))return Response.json({has_more:false,data:[{
    id:'taxreg_PRIVATE_NOT_FOR_OUTPUT',country:'US',status:'active',livemode:true,country_options:{us:{state:'CA',type:'state_sales_tax'}},active_from:1,expires_at:null}]});
   if(url.endsWith('/webhook_endpoints?limit=100'))return Response.json({data:[{id:'we_fixture',status:'enabled',livemode:true,
@@ -55,6 +67,11 @@ try{
  assert.equal(tax.registrations.active[0].state,'CA');
  assert(!JSON.stringify(tax).includes('PRIVATE_ADDRESS_NOT_FOR_OUTPUT'));
  assert(!JSON.stringify(tax).includes('taxreg_PRIVATE_NOT_FOR_OUTPUT'));
+ const corrected=await (await check({request:request('configure-tax-defaults'),env:{...env,STRIPE_LAUNCH_TAX_ONLY:'true'}})).json();
+ assert.equal(corrected.ok,true);assert.equal(corrected.taxCode,'txcd_99999999');assert.equal(corrected.taxBehavior,'exclusive');
+ assert.equal(taxDefaultWrites,1,'Only one fixed settings update is allowed');
+ const repeat=await (await check({request:request('configure-tax-defaults'),env:{...env,STRIPE_LAUNCH_TAX_ONLY:'true'}})).json();
+ assert.equal(repeat.changed,false);assert.equal(taxDefaultWrites,1,'Repeated configuration must not write again');
  const probe=await (await check({request:request('probe-checkout'),env})).json();
  assert.equal(probe.ok,true);assert.equal(probe.sessionStatus,'expired');assert.equal(probe.providerEventId,'evt_live_probe');
  assert.equal(created,1);assert.equal(expired,1);assert(!JSON.stringify(probe).includes('checkout.stripe.com'));
