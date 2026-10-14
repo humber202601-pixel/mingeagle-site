@@ -28,6 +28,8 @@ try{
   assert.equal(html.split('MING EAGLE SOCIAL PRODUCT PREVIEW BEGIN').length,2);
   assert(html.includes('<section class="buyerAnswers"'));
   assert(html.includes('when the cart confirms payment availability')&&html.includes('Choose your US delivery state at checkout'));
+  assert(html.includes('1–9 eligible P1-S3/P1-S7 sets'));
+  assert(!html.includes('Card checkout is offered for one eligible'),'Do not reintroduce the retired one-unit checkout limit');
   assert(html.includes('not guaranteed')||html.includes('not guaranteed'));
   const canonical='https://www.mingeagle.com/'+name;
   const head=html.split('</head>')[0];

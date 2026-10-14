@@ -1,0 +1,36 @@
+# MING EAGLE 免费曝光长期执行规则
+
+用户已授权长期、零广告预算推进官网与公开推广。官网正文发布仍执行分支、PR、CI、合并及实际部署核验。
+
+- 每日任务：MING EAGLE 免费曝光推进（Asia/Shanghai，每日上午约8点，允许平台灵活调度）。沿用已有 Google 搜索统计与网站真实流量同步。
+- 优先级：已有搜索信号的学校与定制篮球页面，其次为公寓、儿童室内运动和带篮筐静音篮球的有用内容。不得用大量重复页面、刷评或无关评论链接制造曝光。
+- 信息源：product-master.json、retail-prices.json、us-single-parcel-shipping.json、retail-checkout-scope.json。确认全国1–9件的规则时以实际 checkout-status 为准；不改付款、税务或退款政策。
+- 所有原创内容说明 MING EAGLE 商家身份。没有独立实验数据，不写声学百分比、分贝指标、绝对静音、认证或顾客评价。
+
+## 当前公开资源
+
+1. https://www.mingeagle.com/for-schools.html#free-school-session
+2. https://www.mingeagle.com/silent-basketball-for-apartments.html#free-apartment-games
+3. https://www.mingeagle.com/custom-basketball-for-teams.html#free-logo-brief
+
+各页有匹配的免费下载文本与用户主动分享入口。不收取资料费，不索取邮箱。仓库 README 也链接这些实际资源。
+
+## 站外发布队列
+
+free-exposure-queue.json 包含8条原创、有商家身份披露的英文文案及按渠道区分的UTM链接。当前全部是草稿；没有社交账号连接或实际公开发布回执，不得标记为已发布。先使用 Metricool 的免费额度；额度用完等待重置，不升级付费。品牌账号需一次连接，个人账号不默认当作品牌账号使用。
+
+优先渠道为自己的 Pinterest/Instagram/Facebook/YouTube 品牌内容。群组或 Reddit 仅在具体社区规则明确允许该类型商家资源时选择性贡献，不自动跨群灌广告、不私信群发，不创建假账号或绕过限制。Metricool 当前不能替代群组规则审查。
+
+官方规则与接口资料（使用前重新核实）：
+- Google AI 搜索：https://developers.google.com/search/docs/appearance/ai-features
+- Google 搜索反垃圾：https://developers.google.com/search/docs/essentials/spam-policies
+- OpenAI 搜索抓取：https://developers.openai.com/api/docs/bots
+- Reddit：https://support.reddithelp.com/hc/en-us/articles/360043504051-Spam
+- Pinterest：https://help.pinterest.com/en/business/article/before-you-get-started-with-catalogs
+- Metricool 免费MCP与限制：https://help.metricool.com/mcp-limits-and-plan-requirements-h72jg
+
+## 记录与复盘
+
+每次推进记录实际修改、PR/提交、CI、生产部署及验证网址。站外发布后必须读取回执，登记 publicPostUrl、publishedAt、平台账号和实际结果。没有回执时保留失败或草稿状态，避免重复发布。只报告实际Google收录、搜索展示/点击、可验证AI引用及匿名引流指标；IndexNow收到提交不等于收录。零数据、数据延迟或无访问权限均保留真实含义。
+
+Google Merchant Center 尚未授予接口权限，Bing Webmaster API 尚未接通，社交发布账号尚未连接；这些渠道不列为已启动。允许在已有官网、GitHub和搜索数据访问范围内继续独立执行。

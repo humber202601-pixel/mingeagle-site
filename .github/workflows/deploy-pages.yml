@@ -66,6 +66,11 @@ jobs:
           node scripts/build-search-buyer-paths.cjs
           node scripts/test-search-buyer-paths.cjs
 
+      - name: Build useful free resources for schools, families and teams
+        run: |
+          node scripts/build-free-exposure-resources.cjs
+          node scripts/test-free-exposure-resources.cjs
+
       - name: Align canonical host and sitemap with live www redirect
         run: python scripts/normalize-canonical-host.py
 
