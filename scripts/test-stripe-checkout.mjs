@@ -111,7 +111,7 @@ try{
   assert.equal(params.get('line_items[1][price_data][unit_amount]'),String(Math.round(retailShipping*100)));
   requestAmount=Math.round((retailGoods+retailShipping)*100);
   return Response.json({
-   id:providerSessionIdOverride||(retailSku==='P1-S3'?'cs_test_synthetic_small':'cs_test_synthetic'),url:'https://checkout.stripe.com/c/pay/cs_test_synthetic',
+   id:providerSessionIdOverride||(retailSku==='P1-S3'?'cs_test_syntheticsmall':'cs_test_synthetic'),url:'https://checkout.stripe.com/c/pay/cs_test_synthetic',
    amount_total:requestAmount,currency:'usd',status:'open'
   });
  };
