@@ -11,6 +11,9 @@ STRIPE_TAX_POLICY_APPROVED = "true"
 RETAIL_TAX_POLICY_APPROVED = "true"
 RETAIL_US_TAX_POLICY_JSON = '{"reviewed_on":"2026-10-14","review_reference":"OFFICIAL_OR_NH_GENERAL_SALES_USE_TAX_20261014","basis":"NO_GENERAL_SALES_USE_TAX","states":{"OR":"NO_COLLECTION_REQUIRED","NH":"NO_COLLECTION_REQUIRED"}}'
 RETAIL_CHECKOUT_ENABLED = "true"
+# Nationwide remote-seller startup activation requires the owner's missing
+# factual declaration. Never insert an inferred no-US-presence statement here.
+RETAIL_REMOTE_STARTUP_FACTS_JSON = ""
 
 [[d1_databases]]
 binding = "MINGEAGLE_DB"

@@ -2,7 +2,7 @@ import {type AirwallexEnv} from '../../_shared/airwallex';
 import {type StripeEnv} from '../../_shared/stripe';
 import {verifyInquiryTurnstile,turnstileConfiguration,type TurnstileEnv} from '../../../lib/turnstile-inquiry';
 import {SKU_USD} from '../../../lib/retail-reference';
-import {noSalesTaxCollectionRequired,type RetailTaxEnv} from '../../../lib/retail-tax-policy';
+import {noSalesTaxCollectionRequired,remoteStartupState,remoteStartupWithinLimits,type RetailTaxEnv} from '../../../lib/retail-tax-policy';
 import {onRequestPost as calculateShipping} from '../shipping/cart';
 import {retailCheckoutReady} from './checkout-status';
 
@@ -104,6 +104,9 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
      goods<100||total!==goods+freight||total>100000)return bad('Checkout total failed validation',409);
   const expected=lines.reduce((n,line)=>n+Math.round(SKU_USD[line.sku]*100)*line.quantity,0);
   if(expected!==goods)return bad('Product prices changed; refresh your basket',409);
+  const startupReview=remoteStartupState(env,state);
+  if(startupReview&&!await remoteStartupWithinLimits(db,total,1))
+   return bad('Please contact MING EAGLE to confirm the final order terms for this delivery address.',409);
   const found=await db.prepare('SELECT id FROM contacts WHERE lower(email)=? LIMIT 1')
    .bind(email).first<{id:string}>();
   const contact=found?.id||crypto.randomUUID();
@@ -126,6 +129,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    db.prepare("INSERT INTO orders(id,reference,quote_id,lead_id,contact_id,status,currency,subtotal,discount,shipping,tax,total,payment_status,shipping_address,customer_notes) VALUES (?,?,?,?,?,'PAYMENT_PENDING','USD',?,0,?,0,?,'UNPAID',?,?)")
     .bind(order,orderRef,quote,lead,contact,goods/100,freight/100,total/100,address,'Retail self-service checkout awaiting provider-confirmed payment')
   );
+  if(startupReview)statements.push(db.prepare("UPDATE quotes SET notes='REMOTE_STARTUP: China-direct merchant factual declaration; bounded no-collection launch; duties prepaid; sales tax is not a product exemption' WHERE id=?").bind(quote));
   for(let i=0;i<lines.length;i++){
    const line=lines[i],unit=SKU_USD[line.sku],sum=Math.round(unit*100)*line.quantity/100;
    statements.push(

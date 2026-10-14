@@ -45,7 +45,8 @@ export function useInquiryTurnstile(active=true){
         const turnstile=await scriptReady();
         if(!mounted||!container.current)return;
         widgetId.current=turnstile.render(container.current,{
-          sitekey:data.siteKey,action:data.action,appearance:'interaction-only',
+          sitekey:data.siteKey,action:data.action,appearance:'interaction-only',theme:'light',
+          size:container.current.clientWidth<300?'compact':'flexible',
           callback:(value:unknown)=>{if(mounted)setToken(typeof value==='string'?value:'')},
           'expired-callback':()=>{if(mounted)setToken('')},
           'error-callback':()=>{if(mounted)setToken('')},
