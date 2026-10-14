@@ -13,15 +13,16 @@ export function stripeCheckoutReadiness(env: StripeEnv) {
   const mode = String(env.STRIPE_MODE || '').trim().toLowerCase();
   const key = String(env.STRIPE_SECRET_KEY || '').trim();
   const signature = String(env.STRIPE_WEBHOOK_SECRET || '').trim();
-  const keyValid = mode === 'test'
-    ? (key.startsWith('sk_test_') || key.startsWith('rk_test_')) && key.length > 10
-    : mode === 'live'
-      ? (key.startsWith('sk_live_') || key.startsWith('rk_live_')) && key.length > 10
-      : false;
+  // Report only the prefix's mode, never key material. This distinguishes a
+  // mismatched encrypted binding from a missing key without making an API call.
+  const keyMode = key.length > 10 && /^(sk|rk)_test_/.test(key) ? 'test'
+    : key.length > 10 && /^(sk|rk)_live_/.test(key) ? 'live' : null;
+  const keyValid = keyMode !== null && mode === keyMode;
   const webhookConfigured = signature.startsWith('whsec_') && signature.length > 12;
   const checkoutRequested = env.STRIPE_CHECKOUT_ENABLED === 'true';
   return {
     mode: mode === 'test' || mode === 'live' ? mode : null,
+    keyMode,
     keyConfigured: keyValid,
     webhookConfigured,
     checkoutRequested,
