@@ -178,6 +178,7 @@ function LeadSections({ leads }: { leads: Row[] }) {
 }
 
 function Dashboard({ data }: { data: AdminData }) {
+  const failedNotices=data.inquiries.filter(row=>row.notification_status==='FAILED').length;
   const metrics = [
     ['新增潜客', data.metrics.newLeads, '最近 7 天新建'],
     ['待处理询盘', data.metrics.openInquiries, '需要审核或回复'],
@@ -188,6 +189,7 @@ function Dashboard({ data }: { data: AdminData }) {
   return <>
     <Top title="仪表盘" description="实时查看销售漏斗、跟进任务、报价、订单和客户动态。"/>
     <section className="metric-grid">{metrics.map(([label, value, note]) => <div className="metric" key={String(label)}><span>{label}</span><strong>{value}</strong><small>{note}</small></div>)}</section>
+    {failedNotices>0 && <section className="panel" role="status"><strong>⚠️ {failedNotices} 条询盘的邮件通知未获服务商确认</strong><p>客户需求已经保存到CRM，但邮件通知可能未送达。请立即核实并人工处理。</p><Link to="/app/inquiries">查看相关询盘</Link></section>}
     <section className="admin-grid two-col">
       <div className="panel"><div className="panel-head"><h2>下一步行动</h2><span>自动化 + 人工跟进</span></div>
         {data.tasks.length === 0 && <div className="empty-row">当前没有待处理任务。</div>}
