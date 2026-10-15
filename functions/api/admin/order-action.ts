@@ -14,6 +14,7 @@ type ActionInput = {
   paymentMethod?: string;
   paymentReference?: string;
   amount?: number | string;
+  fundsReceivedConfirmed?: boolean;
   carrier?: string;
   service?: string;
   trackingNumber?: string;
@@ -193,13 +194,29 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const receivedBefore = Number(previous?.value || 0);
       const outstanding = Math.max(0, total - receivedBefore);
       const amount = Math.max(0, num(input.amount, outstanding || total));
-      const method = clean(input.paymentMethod, 120) || 'BANK_TRANSFER';
-      const providerReference = clean(input.paymentReference, 240) || null;
+      const method = clean(input.paymentMethod, 120).toUpperCase();
+      const providerReference = clean(input.paymentReference, 240);
+      // Admin-only action, but still require proof of settlement. A
+      // dashboard "PAID" marker is an accounting action, not a payment
+      // processor event. Reject missing evidence before any database writes.
+      if (input.fundsReceivedConfirmed !== true) {
+        return Response.json({ ok: false, error: 'Confirm actual funds receipt from the bank or payment platform before recording.' }, { status: 400 });
+      }
+      if (!['BANK_TRANSFER','WISE','PAYONEER','ACH','WIRE','OTHER'].includes(method)) {
+        return Response.json({ ok: false, error: 'Choose a supported offline receipt method. Online payments must be reconciled from the provider.' }, { status: 400 });
+      }
+      if (!providerReference) {
+        return Response.json({ ok: false, error: 'A real payment receipt or bank reference is required.' }, { status: 400 });
+      }
       if (amount <= 0) return Response.json({ ok: false, error: 'Payment amount must be greater than zero.' }, { status: 400 });
       if (outstanding <= 0) return Response.json({ ok: false, error: 'This order has no outstanding balance.' }, { status: 409 });
       if (amount > outstanding + 0.005) {
         return Response.json({ ok: false, error: `Payment amount cannot exceed the outstanding balance ${currency} ${outstanding.toFixed(2)}.` }, { status: 409 });
       }
+      const duplicateReceipt = await db.prepare(`SELECT id FROM payments
+        WHERE order_id=? AND provider_reference=? AND status='RECEIVED' LIMIT 1`)
+        .bind(orderId, providerReference).first<{id:string}>();
+      if (duplicateReceipt) return Response.json({ ok: false, error: 'This receipt reference has already been recorded for this order.' }, { status: 409 });
 
       await db.prepare(`INSERT INTO payments (id, order_id, method, provider_reference, amount, currency, status, received_at, notes)
         VALUES (?, ?, ?, ?, ?, ?, 'RECEIVED', CURRENT_TIMESTAMP, ?)`)
