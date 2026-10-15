@@ -89,8 +89,12 @@ try{
  assert.match(result.paymentPage,/^https:\/\/app\.mingeagle\.com\/quote\/[0-9a-f]{64}$/);
  assert(writes>=7,'Quote+order+items+customer request must persist atomically');
  assert.equal(network,1,'One signed human validation only; no payment capture call');
+ const writesBeforeReplay=writes;
  const again=await onRequestPost({env,request:make()});
  assert.equal(again.status,409,'idempotent checkout prevents repeat order creation');
+ const existingOrder=await again.json();
+ assert.match(existingOrder.error,/Checkout request already received/,'Client must receive explicit manual recovery guidance instead of a nonexistent previous payment link');
+ assert.equal(writesBeforeReplay,writes,'Duplicate checkout must not create a second order or payment attempt');
  assert.equal(network,2,'Challenge verification required even on replay');
  assert(!JSON.stringify(result).includes('synthetic-secret'));
  // Merchant-approved P1-S3 also has a verified one-unit US duty-paid rate.
