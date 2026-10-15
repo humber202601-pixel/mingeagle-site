@@ -82,3 +82,7 @@ Verified the native Metricool List view using its built-in Previous, current and
 The apartment board Indoor Play Ideas & Quiet Games was created through the authorized native connection; actual ID `1149192098607199500`. The two earlier public Pins must not be duplicated. With the three saved schedules there are five distinct Pinterest campaign items, of which only two are currently published. The Free plan showed 20 monthly posts, with 0 yet published through its planner at setup; do not interpret that as a promise of unlimited scheduling.
 
 Instagram public email/name/handle are still populated and the chosen handle is valid in its signup UI, but password and real birthday remain unfilled. The owner must enter new credentials and complete signup verification. No password or OTP is stored in this repository. Facebook, LinkedIn and TikTok remain pending their actual owner login or registration.
+
+### Keep campaign-only graphics outside the website payload
+
+PR174 initially put its three new social-only PNGs under public/assets, which exceeded the existing first-party image budget. These graphics are used by Metricool/Pinterest and are not referenced by website pages, so move the three PNGs and editable SVGs to docs/marketing/assets. Native uploaded media and saved schedules are unchanged; reusable queue media URLs reference the public GitHub source files. Do not increase or disable the website performance budget for off-site marketing assets.

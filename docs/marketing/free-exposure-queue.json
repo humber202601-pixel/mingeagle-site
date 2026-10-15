@@ -164,7 +164,7 @@
       "destinationUrl": "https://www.mingeagle.com/wholesale.html?utm_source=pinterest&utm_medium=organic_social&utm_campaign=wholesale_samples_20261015&utm_content=pin-bulk-002",
       "merchantDisclosure": "MING EAGLE is the author and seller",
       "requiresCommunityRuleReview": false,
-      "mediaUrl": "https://www.mingeagle.com/assets/pinterest-bulk-order-brief.png",
+      "mediaUrl": "https://raw.githubusercontent.com/humber202601-pixel/mingeagle-site/main/docs/marketing/assets/pinterest-bulk-order-brief.png",
       "requiresVerifiedBoard": true,
       "boardName": "Team Logo Basketball & Bulk Buying",
       "scheduledAt": "2026-10-16T08:00:00+08:00",
@@ -177,7 +177,8 @@
       "doNotRepublish": true,
       "boardId": "1149192098607199403",
       "schedulingVerifiedAt": "2026-10-15T05:27:59.713400+00:00",
-      "nativeStatus": "Pending"
+      "nativeStatus": "Pending",
+      "mediaRepositoryPath": "docs/marketing/assets/pinterest-bulk-order-brief.png"
     },
     {
       "id": "PIN-CATALOG-003",
@@ -189,7 +190,7 @@
       "destinationUrl": "https://www.mingeagle.com/wholesale-product-catalog.html?utm_source=pinterest&utm_medium=organic_social&utm_campaign=wholesale_samples_20261015&utm_content=pin-catalog-003",
       "merchantDisclosure": "MING EAGLE is the author and seller",
       "requiresCommunityRuleReview": false,
-      "mediaUrl": "https://www.mingeagle.com/assets/pinterest-product-family-guide.png",
+      "mediaUrl": "https://raw.githubusercontent.com/humber202601-pixel/mingeagle-site/main/docs/marketing/assets/pinterest-product-family-guide.png",
       "requiresVerifiedBoard": true,
       "boardName": "Team Logo Basketball & Bulk Buying",
       "scheduledAt": "2026-10-19T08:00:00+08:00",
@@ -202,7 +203,8 @@
       "doNotRepublish": true,
       "boardId": "1149192098607199403",
       "schedulingVerifiedAt": "2026-10-15T05:27:59.713400+00:00",
-      "nativeStatus": "Pending"
+      "nativeStatus": "Pending",
+      "mediaRepositoryPath": "docs/marketing/assets/pinterest-product-family-guide.png"
     },
     {
       "id": "PIN-APARTMENT-004",
@@ -214,7 +216,7 @@
       "destinationUrl": "https://www.mingeagle.com/silent-basketball-for-apartments.html?utm_source=pinterest&utm_medium=organic_social&utm_campaign=wholesale_samples_20261015&utm_content=pin-apartment-004#free-apartment-games",
       "merchantDisclosure": "MING EAGLE is the author and seller",
       "requiresCommunityRuleReview": false,
-      "mediaUrl": "https://www.mingeagle.com/assets/pinterest-apartment-ball-games.png",
+      "mediaUrl": "https://raw.githubusercontent.com/humber202601-pixel/mingeagle-site/main/docs/marketing/assets/pinterest-apartment-ball-games.png",
       "requiresVerifiedBoard": true,
       "boardName": "Indoor Play Ideas & Quiet Games",
       "scheduledAt": "2026-10-22T08:00:00+08:00",
@@ -227,7 +229,8 @@
       "doNotRepublish": true,
       "boardId": "1149192098607199500",
       "schedulingVerifiedAt": "2026-10-15T05:27:59.713400+00:00",
-      "nativeStatus": "Pending"
+      "nativeStatus": "Pending",
+      "mediaRepositoryPath": "docs/marketing/assets/pinterest-apartment-ball-games.png"
     }
   ],
   "strategy": "Wholesale-first website; retail retained for air-shipped samples and small trial purchases",
