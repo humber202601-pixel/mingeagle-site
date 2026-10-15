@@ -41,7 +41,6 @@ const endpoints=[
  'functions/api/quote/[token].ts',
  'functions/api/payments/stripe/create.ts',
  'functions/api/payments/stripe/status.ts',
- 'functions/api/payments/airwallex/create.ts',
  'functions/api/payments/airwallex/status.ts'
 ];
 for(const filename of endpoints){
@@ -53,4 +52,4 @@ for(const filename of endpoints){
  else
    assert(content.includes('WHERE ${QUOTE_PUBLIC_TOKEN_PREDICATE}'),'Missing SQL predicate: '+filename);
 }
-console.log('PASS: all six quote, accept and payment endpoints honor revocation; legacy and active tokens remain functional.');
+console.log('PASS: all active quote, acceptance and Stripe/payment-status endpoints honor revocation; retired Airwallex checkout is separately denied.');
