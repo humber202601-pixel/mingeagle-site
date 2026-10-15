@@ -65,9 +65,15 @@ function safeReference(value: unknown) {
   return /^[A-Z0-9][A-Z0-9-]{3,79}$/.test(candidate) ? candidate : '';
 }
 
+function isInstitutionalCustomerType(value: unknown) {
+  const type = clean(value, 120).toLowerCase();
+  return /(school|education|government|public.?agency|public.?sector|municipal|university|college|district|corporate|business|nonprofit|non.?profit|institution|recreation.?department)/.test(type);
+}
+
 function isCommercialCustomerType(value: unknown) {
   const type = clean(value, 120).toLowerCase();
-  return /(academy|coach|trainer|retailer|sporting.?goods|camp|program|distributor|wholesale|club|school|organization)/.test(type);
+  return isInstitutionalCustomerType(type) ||
+    /(academy|coach|trainer|retailer|sporting.?goods|camp|program|distributor|wholesale|club|organization|procurement)/.test(type);
 }
 
 function quantityFloor(value: unknown, fallback = 0) {
@@ -88,6 +94,10 @@ function scoreLead(input: InquiryInput) {
   if (clean(input.company)) score += 5;
   if (clean(input.phone) || clean(input.whatsapp)) score += 3;
   if (isCommercialCustomerType(input.customerType)) score += 6;
+  // Verified purchasing intent from a named institution merits a small
+  // prioritization boost, not an assumption of public-vendor eligibility.
+  if (input.requestType === 'WHOLESALE' && isInstitutionalCustomerType(input.customerType)
+      && clean(input.company) && quantity >= 10) score += 4;
   return Math.min(100, score);
 }
 
@@ -372,7 +382,9 @@ async function processInquiryPost(context:Parameters<PagesFunction<Env>>[0],noti
     const nextAction = requestType === 'SAMPLE' ? 'Review sample request and confirm sample path'
       : requestType === 'ORDER_SUPPORT' ? 'Review customer order support request and check order reference'
       : requestType === 'GENERAL' ? 'Answer public product question and confirm next step'
-      : 'Review inquiry and prepare response / quote path';
+      : requestType === 'WHOLESALE' && isInstitutionalCustomerType(customerType)
+        ? 'Review institutional RFQ; confirm buyer organization, product specifications, supplier documentation, purchasing terms and freight before quoting'
+        : 'Review inquiry and prepare response / quote path';
 
     await db.prepare(`INSERT INTO leads (
       id, company_id, primary_contact_id, source, source_detail, status, product_interest,
@@ -427,7 +439,10 @@ async function processInquiryPost(context:Parameters<PagesFunction<Env>>[0],noti
     }
 
     const taskId = crypto.randomUUID();
-    const taskPriority = requestType === 'SAMPLE' || leadScore >= 80 ? 'HIGH' : 'MEDIUM';
+    const institutionalBulkRfq = requestType === 'WHOLESALE'
+      && isInstitutionalCustomerType(customerType) && Boolean(companyName)
+      && quantityFloor(input.estimatedQuantity, 0) >= 10;
+    const taskPriority = requestType === 'SAMPLE' || institutionalBulkRfq || leadScore >= 80 ? 'HIGH' : 'MEDIUM';
     await db.prepare(`INSERT INTO tasks (
       id, lead_id, company_id, contact_id, type, title, description, status, priority, due_at
     ) VALUES (?, ?, ?, ?, 'FOLLOW_UP', ?, ?, 'OPEN', ?, datetime('now', '+1 day'))`)
