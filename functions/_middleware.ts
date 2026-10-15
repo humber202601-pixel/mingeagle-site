@@ -37,8 +37,9 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   // Public product, school, wholesale and procurement SEO pages keep their
   // existing caching and strict-origin referral policies.
   const urlPath=new URL(context.request.url).pathname;
-  const confidentialBuyerPath=
-    /^\\/(?:quote\\/[a-f0-9]{60,80}|api\\/quote\\/[a-f0-9]{60,80}|api\\/payments\\/(?:stripe|airwallex)\\/(?:create|status))$/i.test(urlPath);
+  const confidentialBuyerPath=new RegExp(
+    '^/(?:quote/[a-f0-9]{60,80}|api/quote/[a-f0-9]{60,80}|api/payments/(?:stripe|airwallex)/(?:create|status))$','i'
+  ).test(urlPath);
   if(confidentialBuyerPath){
     headers.set('cache-control','private, no-store, max-age=0');
     headers.set('pragma','no-cache');
