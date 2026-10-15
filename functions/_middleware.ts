@@ -36,7 +36,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   // not leak the token URL as a Referer to third-party checkout resources.
   // Public product, school, wholesale and procurement SEO pages keep their
   // existing caching and strict-origin referral policies.
-  const urlPath=new URL(context.request.url).pathname;
+  const urlPath=context.request?.url?new URL(context.request.url).pathname:'';
   const confidentialBuyerPath=new RegExp(
     '^/(?:quote/[a-f0-9]{60,80}|api/quote/[a-f0-9]{60,80}|api/payments/(?:stripe|airwallex)/(?:create|status))$','i'
   ).test(urlPath);
