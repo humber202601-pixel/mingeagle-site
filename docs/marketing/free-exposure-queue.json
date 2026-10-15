@@ -155,5 +155,7 @@
   ],
   "strategy": "Wholesale-first website; retail retained for air-shipped samples and small trial purchases",
   "brandId": "7430045",
-  "channelVerification": "Pinterest business profile mingeaglecommerce verified in UI; two Pins published directly. Metricool still reports no connected network; no automatic scheduling enabled."
+  "channelVerification": "Pinterest profile and both public Pins verified; website claim www.mingeagle.com confirmed in Pinterest. Metricool connector still targets 7430045, while the signed-in web account shows 7436627. Pinterest OAuth grant is prepared but not approved. No automatic publishing enabled.",
+  "browserMetricoolBrandId": "7436627",
+  "requiresMetricoolAccountReconciliation": true
 }

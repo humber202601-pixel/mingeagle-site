@@ -15,7 +15,10 @@
       "publishedPostIds": [
         "1149192029968368240",
         "1149192029968368476"
-      ]
+      ],
+      "websiteClaimed": "www.mingeagle.com",
+      "websiteClaimConfirmedOn": "2026-10-15",
+      "avatar": "https://www.mingeagle.com/assets/mingeagle-social-wordmark.png"
     },
     {
       "network": "youtube",
@@ -48,5 +51,12 @@
       "created": false,
       "note": "Check existing ACCU retail identity before creating a duplicate brand account."
     }
-  ]
+  ],
+  "metricool": {
+    "connectorBrandId": "7430045",
+    "browserBrandId": "7436627",
+    "browserBrandName": "MING EAGLE",
+    "status": "AWAITING_PINTEREST_OAUTH_AND_ACCOUNT_RECONCILIATION",
+    "automatedPublishingEnabled": false
+  }
 }
