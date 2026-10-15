@@ -10,7 +10,7 @@ const isUnconfirmed=(value:unknown)=> {
   const term=normalized(value);
   if (!term) return true;
   if (/^(?:tbd|tbc|n\/?a|pending|unknown|not specified|to be confirmed|not confirmed)$/i.test(term))return true;
-  if (/\b(to be confirmed|pending confirmation|terms? not (?:yet )?confirmed|will be confirmed|confirm before sending|quote pending)\b/i.test(term))return true;
+  if (/\b(to be confirmed|pending confirmation|terms? not (?:yet )?confirmed|will be confirmed|require(?:s)? staff confirmation|confirm before sending|quote pending)\b/i.test(term))return true;
   return false;
 };
 function parseValidity(value:unknown):number|null {
