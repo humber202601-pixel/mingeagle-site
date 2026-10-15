@@ -20,7 +20,7 @@ const extracted=names.map(name=>{
  const re=new RegExp('\\((SELECT pps\\.'+fields[name]+' FROM payment_provider_sessions pps WHERE pps\\.order_id=o\\.id[\\s\\S]*?LIMIT 1)\\) AS '+name);
  const match=adminSql.match(re);
  assert(match,'Missing scalar query: '+name);
- return match[1]+' AS '+name;
+ return '('+match[1]+') AS '+name;
 });
 const entries=db.prepare('SELECT o.id,'+extracted.join(',')+' FROM orders o ORDER BY o.id').all();
 assert.deepEqual(entries.map(row=>[row.online_payment_provider,row.online_payment_status]),[
