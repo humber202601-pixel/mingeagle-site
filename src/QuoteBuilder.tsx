@@ -328,8 +328,15 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       if(!preflightResponse.ok||!preflight.ok||!preflight.review)
         throw Error(preflight.error||'报价采购成本预审失败，尚未发布或发送。');
       const review=preflight.review;
-      if(!review.safeForManualRelease)
-        throw Error('报价暂不能发布：'+(review.issues.join('、')||'报价状态不允许发布')+'。请先修订草稿或重新确认供应商依据。');
+      if(!review.safeForManualRelease){
+        const labels:Record<string,string>={
+          PAYMENT_TERMS_UNCONFIRMED:'付款方式及付款时间尚未确认',
+          SHIPPING_TERMS_UNCONFIRMED:'运费、运输方式及交付责任尚未确认',
+          QUOTE_VALIDITY_MISSING:'报价有效期未填写',
+          QUOTE_EXPIRED:'报价已过期，需要重新核价'
+        };
+        throw Error('报价暂不能发布：'+(review.issues.map(issue=>labels[issue]||issue).join('、')||'报价状态不允许发布')+'。请先补全采购商业条款并重新预审。');
+      }
       const counts='匹配已审核 SKU/尺寸采购成本：'+review.approvedSkuBaselines+' 行；仍待供应商核实：'+review.unverifiedSkuBaselines+' 行。';
       const warning=review.supplierConfirmationRequired
         ?'注意：存在未核验的采购成本，系统不能据此证明利润。必须人工确认供应商报价、颜色、包装、MOQ、整箱数量、实际运费和税费。'
