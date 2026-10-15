@@ -42,6 +42,22 @@ assert(inquiryScript.summary(complete,ctx).includes('supplier onboarding request
 const formScript=fs.readFileSync('public/inquiry.js','utf8');
 assert(formScript.includes("inst.hidden=!enabled;inst.querySelectorAll('input,select,textarea')"),'Procurement controls must disable outside wholesale request type');
 assert(formScript.includes("procurementDetails(fd,v('request_type'))"),'The actual form must append procurement details to the request');
+// B2B leads use the actual units that an institution typed, not the lower
+// bound from the 3–49 bracket. Preserve the bracket in buyer-facing notes.
+const q=core.inquiryQuantity;
+assert.equal(q('3–49 units','25','Wholesale quote'),'25','25-unit school order must qualify above 10 units');
+assert.equal(q('100–499 units','200','Wholesale quote'),'200');
+assert.equal(q('1,000+ units','','Wholesale quote'),'1,000+ units','Keep bracket if buyer has not entered exact quantity');
+assert.equal(q('3–49 units','0','Wholesale quote'),'3–49 units');
+assert.equal(q('3–49 units','25.5','Wholesale quote'),'3–49 units');
+assert.equal(q('3–49 units','1000000','Wholesale quote'),'3–49 units','Do not accept an out-of-range exact quantity');
+assert.equal(q('1–2 samples','25','Sample request'),'1–2 samples','Do not change samples into bulk purchases');
+assert.equal(q('','25','General product question'),'','Nonpurchase requests carry no implied quantity');
+const exactWholesale={...common,customerType:'School district / education authority',quantity:q('3–49 units','25','Wholesale quote')};
+assert.equal(core.crmPayload(exactWholesale,ctx).estimatedQuantity,'25','Backend must get the actual quantity for institutional priority');
+const publicForm=fs.readFileSync('public/inquiry.js','utf8');
+assert(publicForm.includes("core.inquiryQuantity(v('estimated_quantity'),$('quoteUnits')?.value,v('request_type'))"),'Form must use normalized units during real submission');
+assert(publicForm.includes('Selected quantity range: '),'Preserve coarse quantity tier in the request notes');
 const submit=async(responseData,responseStatus=200)=>{
  let calls=0;let payload;
  const fetcher=async(url,options)=>{
