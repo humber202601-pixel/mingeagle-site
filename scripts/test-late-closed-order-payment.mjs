@@ -35,9 +35,9 @@ const scenarios=[
 for(const [i,o] of scenarios.entries()){
  sqlite.prepare('INSERT INTO orders(id,reference,status,payment_status,total,currency) VALUES (?,?,?,?,?,?)').run(o.orderId,o.ref,o.state,o.payment,28.9,'USD');
  sqlite.prepare('INSERT INTO payment_provider_sessions(id,order_id,provider,provider_intent_id,request_id,amount,currency,status) VALUES (?,?,\'STRIPE\',?,?,?,\'USD\',\'PENDING\')')
-  .run('ses-'+i,o.orderId,'cs_test_late_'+i,'req-'+i,28.9);
+  .run('ses-'+i,o.orderId,'cs_test_late'+i,'req-'+i,28.9);
  const event={id:'evt-late-'+i,type:'checkout.session.completed',data:{object:{
-  id:'cs_test_late_'+i,client_reference_id:o.ref,
+  id:'cs_test_late'+i,client_reference_id:o.ref,
   payment_status:'paid',currency:'usd',amount_total:2890,
   metadata:{order_id:o.orderId,order_reference:o.ref}
  }}};
