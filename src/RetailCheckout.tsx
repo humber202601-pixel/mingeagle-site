@@ -3,6 +3,7 @@ import {ArrowLeft,ArrowRight,LockKeyhole,Truck,ShieldCheck,PackageCheck} from 'l
 import {useInquiryTurnstile} from './useInquiryTurnstile';
 import {US_DELIVERY_STATES} from '../lib/us-delivery-states';
 import './retail-checkout.css';
+import {checkoutIntentId,checkoutSupportUrl} from './retailCheckoutIntent';
 type Entry={sku:string;quantity:number;color:string};
 type Ready={ok?:boolean;retailCheckoutReady?:boolean;supportedStates?:string[];eligibleSkus?:string[];maxDirectCheckoutUnits?:number};
 type Price={ok?:boolean;productUSD?:number;productsUSD?:number;shippingUSD?:number;totalBeforeTaxesUSD?:number;ddpConfirmed?:boolean;shippingPlan?:string;parcelCount?:number};
@@ -30,7 +31,8 @@ export default function RetailCheckout(){
  const [lines]=useState(readCart);
  const [ready,setReady]=useState<Ready|null>(null),[price,setPrice]=useState<Price|null>(null);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[state,setState]=useState('');
- const [requestId]=useState(()=>crypto.randomUUID());
+ const [needsOrderReview,setNeedsOrderReview]=useState(false);
+ const [requestId]=useState(()=>checkoutIntentId(lines,typeof sessionStorage!=='undefined'?sessionStorage:null,()=>crypto.randomUUID()));
  const quantity=lines.reduce((n,x)=>n+x.quantity,0);
  const cartEligible=lines.length>0&&lines.reduce((n,x)=>n+x.quantity,0)<=(ready?.maxDirectCheckoutUnits??1)&&lines.every(x=>!ready?.eligibleSkus||ready.eligibleSkus.includes(x.sku));
  const stateEligible=!state||!ready?.supportedStates||ready.supportedStates.includes(state);
@@ -49,14 +51,20 @@ export default function RetailCheckout(){
   return ()=>{active=false};
  },[lines]);
  async function submit(e:FormEvent<HTMLFormElement>){
-  e.preventDefault();if(busy||!canCheckout||!stateEligible||!state)return;
+  e.preventDefault();if(busy||needsOrderReview||!canCheckout||!stateEligible||!state)return;
   if(captcha.mode!=='required'||!captcha.token){setError('Please complete the security check.');return}
   const data=new FormData(e.currentTarget);setError('');setBusy(true);
   try{
    const payload=Object.fromEntries(['name','email','phone','street1','street2','city','state','postalCode'].map(k=>[k,String(data.get(k)||'')]));
    const response=await fetch('/api/retail/checkout',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...payload,requestId,lines,country:'US',method:'air',turnstileToken:captcha.token,privacyAck:data.get('privacyAck')==='on'})});
    const result=await response.json() as {ok?:boolean;error?:string;paymentPage?:string};
-   if(!response.ok||!result.ok||!result.paymentPage)throw Error(result.error||'We could not prepare your order. Please try again.');
+   if(!response.ok||!result.ok||!result.paymentPage){
+    if(response.status===409&&/^Checkout request already received/.test(result.error||'')){
+     setNeedsOrderReview(true);
+     throw Error('This checkout request may already have created an order. Do not create another order until the first is checked.');
+    }
+    throw Error(result.error||'We could not confirm whether your checkout request was saved. Please use the same request reference when contacting us.');
+   }
    const url=new URL(result.paymentPage);
    if(url.origin!==window.location.origin||!/^\/quote\/[0-9a-f]{64}$/.test(url.pathname))throw Error('Please contact us to confirm your order.');
    window.location.assign(url.href);
@@ -76,8 +84,8 @@ export default function RetailCheckout(){
       {!stateEligible?<div className="rc-state-note" role="status"><strong>We can help with this address.</strong><p>Your delivery state needs an order confirmation before online payment.</p><a href={quoteUrl}>Request a confirmed order <ArrowRight size={14}/></a></div>:<>
        <div className="rc-verification" ref={captcha.container} aria-label="Checkout security verification"/>
        <label className="rc-consent"><input name="privacyAck" type="checkbox" required/><span>I accept the <a href="https://www.mingeagle.com/policies.html#shipping" target="_blank" rel="noreferrer">shipping terms</a> and <a href="https://www.mingeagle.com/policies.html#returns" target="_blank" rel="noreferrer">return terms</a>, and agree to use my details to fulfill this order.</span></label>
-       {error&&<p role="alert" className="rc-error">{error}</p>}
-       <button className="rc-action rc-submit" disabled={busy||captcha.mode!=='required'||!captcha.token}>{busy?'Preparing your order…':'Continue to secure payment →'}</button><p className="rc-payment-note"><LockKeyhole size={13}/> Card payment is handled securely by Stripe.</p>
+       {error&&<div role="alert" className="rc-error"><p>{error}</p><p>Checkout request reference: <code>{requestId}</code>. This reference is not an order number or proof of payment.</p><a href={checkoutSupportUrl(requestId)}>Ask MING EAGLE to locate this request by email</a><p>Please confirm the existing request before starting a new one. A failed network response does not prove that no order was created.</p></div>}
+       <button className="rc-action rc-submit" disabled={busy||needsOrderReview||captcha.mode!=='required'||!captcha.token}>{busy?'Preparing your order…':needsOrderReview?'Contact support to locate existing request':'Continue to secure payment →'}</button><p className="rc-payment-note"><LockKeyhole size={13}/> Card payment is handled securely by Stripe.</p>
       </>}
      </form>}
     </section>
