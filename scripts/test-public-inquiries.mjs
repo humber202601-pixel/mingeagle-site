@@ -73,6 +73,39 @@ try{
   assert.equal(spam.status,400,'honeypot excludes bots from D1 writes');
   assert.equal(count('inquiries'),3);
   assert.equal(count('messages'),0,'web inquiry never starts outreach');
+  // Website buyer-type selections must remain first-class B2B opportunities.
+  // In-memory fixtures only; never insert these buyers into production CRM.
+  const institutionalTypes=[
+    'Government / public agency',
+    'School district / education authority',
+    'Business / corporate procurement',
+    'Nonprofit / community organization',
+  ];
+  for(const [index,customerType] of institutionalTypes.entries()){
+    const originalReference='ME-20261015-B2B00'+String(index+1).padStart(3,'0');
+    const institutional={
+      ...general,originalReference,firstName:'Fixture',
+      email:'institution'+(index+1)+'@example.test',country:'US',
+      company:'Fixture Purchasing Office '+(index+1),
+      customerType,estimatedQuantity:'25',requestType:'WHOLESALE',
+      requestLabel:'Wholesale quote',message:'Requesting product details and written bulk quote.',
+      products:['Flocked Silent Basketball Set']
+    };
+    const result=await request(institutional);
+    assert.equal(result.status,200,'Accept institutional buyer '+customerType);
+    const saved=sqlite.prepare(`SELECT i.customer_type AS customer_type,
+      l.status AS lead_status,l.lead_score AS lead_score,t.priority AS priority,
+      t.description AS task_description
+      FROM inquiries i JOIN leads l ON l.id=i.lead_id
+      JOIN tasks t ON t.lead_id=l.id WHERE i.reference=?`).get(originalReference);
+    assert.equal(saved.customer_type,customerType,'Preserve original buyer type');
+    assert.equal(saved.lead_status,'QUALIFIED','Institutional RFQ should not be misrouted to low-intent pool');
+    assert(saved.lead_score>=80,'Named institutional 25-unit RFQ merits purchasing priority');
+    assert.equal(saved.priority,'HIGH','Route institutional RFQ to high-priority follow-up');
+    assert(saved.task_description.includes('confirm buyer organization'),'Follow-up must verify requirements before quoting');
+  }
+  assert.equal(count('inquiries'),7,'Four commercial sectors are accepted and tracked');
+
   // A failed D1 write must not leak raw driver/SQL diagnostics in the public response.
   const brokenDb={prepare(){throw Error('PRIVATE_D1_SQL_ERROR customer_secret_table')}};
   const failed=await api.receiveRecoveredInquiry({MINGEAGLE_DB:brokenDb},{
@@ -87,7 +120,7 @@ try{
   assert(!JSON.stringify(failedBody).includes('customer_secret_table'),'Internal table names cannot reach buyers');
   assert.equal(failed.headers.get('cache-control'),'no-store');
 
-  assert.equal(forwards,3,'inquiry emails only forward for accepted new records, not retries');
+  assert.equal(forwards,7,'inquiry emails only forward for accepted new records, not retries');
   // The same Cloudflare-facing IP may submit up to 12 requests within a
   // 15-minute window; the 13th is rejected without creating a new record.
   for(let i=0;i<13;i++){
@@ -95,6 +128,6 @@ try{
     assert.equal(reply.status,i===12?429:200,'IP cap must stop excessive public form requests');
     if(i===12)assert(Number(reply.headers.get('retry-after'))>0);
   }
-  assert.equal(count('inquiries'),3,'rate limited requests cannot create leads');
+  assert.equal(count('inquiries'),7,'rate limited requests cannot create leads');
   console.log('PASS: public form CORS, privacy, minimal legitimate inputs, inquiry types, sample validation, idempotent references, no outreach and safe mail notification.');
 }finally{globalThis.fetch=previousFetch;rmSync(dir,{recursive:true,force:true})}
