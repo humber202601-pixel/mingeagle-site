@@ -145,6 +145,16 @@ try{
   assert.equal(forwards,7,'inquiry emails only forward for accepted new records, not retries');
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM activities WHERE activity_type='INQUIRY_NOTIFICATION_ACCEPTED'").get().n,6,'Provider-accepted requests are audited but not treated as inbox delivery');
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM activities WHERE activity_type='INQUIRY_NOTIFICATION_FAILED'").get().n,1);
+  // Run the actual production read-side expression against the same
+  // in-memory D1-compatible SQLite fixture (not a duplicated SQL example).
+  const adminRead=readFileSync('functions/api/admin/data.ts','utf8');
+  const statusExpr=adminRead.match(/COALESCE\(\(\s*SELECT CASE a\.activity_type[\s\S]*?\), 'UNKNOWN'\) AS notification_status/)?.[0];
+  assert(statusExpr,'Admin inquiry list must expose a provider audit status');
+  const statusRows=sqlite.prepare(`SELECT i.reference, ${statusExpr} FROM inquiries i`).all();
+  assert.equal(statusRows.find(row=>row.reference==='ME-20261010-C1B2C3D4')?.notification_status,'FAILED');
+  assert.equal(statusRows.find(row=>row.reference===general.originalReference)?.notification_status,'ACCEPTED');
+  const adminUi=readFileSync('src/AdminApp.tsx','utf8');
+  assert(adminUi.includes('邮件通知未确认')&&adminUi.includes('非送达确认'),'Never mistake provider acceptance for inbox delivery in the admin');
   // The same Cloudflare-facing IP may submit up to 12 requests within a
   // 15-minute window; the 13th is rejected without creating a new record.
   for(let i=0;i<13;i++){
