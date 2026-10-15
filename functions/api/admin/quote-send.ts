@@ -1,4 +1,5 @@
 import {verifyQuoteProcurement} from '../../../lib/quote-procurement-review';
+import {quoteTermsIssues,quoteTermsIssueDescriptions} from '../../../lib/b2b-quote-terms';
 interface Env {
   MINGEAGLE_DB: D1Database;
   GMAIL_CLIENT_ID?: string;
@@ -18,6 +19,8 @@ type QuoteRow = {
   company_id: string | null;
   contact_id: string | null;
   valid_until: string | null;
+  payment_terms: string | null;
+  shipping_terms: string | null;
   total: number;
   subtotal:number;
   discount:number;
@@ -151,7 +154,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const db = env.MINGEAGLE_DB;
 
     const quote = await db.prepare(`SELECT
-      q.id, q.reference, q.status, q.lead_id, q.company_id, q.contact_id, q.valid_until, q.total, q.subtotal, q.discount, q.currency, q.public_token_hash,
+      q.id, q.reference, q.status, q.lead_id, q.company_id, q.contact_id, q.valid_until, q.payment_terms, q.shipping_terms, q.total, q.subtotal, q.discount, q.currency, q.public_token_hash,
       ct.email AS contact_email, ct.full_name AS contact_name, COALESCE(c.name,'') AS company_name,
       COALESCE(ct.do_not_contact,0) AS do_not_contact, l.status AS lead_status
       FROM quotes q
@@ -164,6 +167,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (quote.status === 'DRAFT' && approved !== true) return Response.json({ok:false,error:'Staff approval of quantities, prices, freight and terms is required before releasing a draft.'},{status:409});
     if (['ACCEPTED','CONVERTED','DECLINED','EXPIRED'].includes(quote.status)) {
       return Response.json({ ok: false, error: `Quote cannot be sent from status ${quote.status}.` }, { status: 409 });
+    }
+
+    const commercialIssues=quoteTermsIssues(quote);
+    if(commercialIssues.length){
+      return Response.json({
+        ok:false,
+        code:'QUOTE_TERMS_NOT_READY',
+        issues:commercialIssues,
+        error:'Quotation not released: '+commercialIssues.map(x=>quoteTermsIssueDescriptions[x]||x).join(' ')
+      },{status:409});
     }
 
     const pricedItems = await db.prepare(`SELECT COUNT(*) AS value

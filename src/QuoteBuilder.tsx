@@ -328,8 +328,15 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       if(!preflightResponse.ok||!preflight.ok||!preflight.review)
         throw Error(preflight.error||'报价采购成本预审失败，尚未发布或发送。');
       const review=preflight.review;
-      if(!review.safeForManualRelease)
-        throw Error('报价暂不能发布：'+(review.issues.join('、')||'报价状态不允许发布')+'。请先修订草稿或重新确认供应商依据。');
+      if(!review.safeForManualRelease){
+        const labels:Record<string,string>={
+          PAYMENT_TERMS_UNCONFIRMED:'付款方式及付款时间尚未确认',
+          SHIPPING_TERMS_UNCONFIRMED:'运费、运输方式及交付责任尚未确认',
+          QUOTE_VALIDITY_MISSING:'报价有效期未填写',
+          QUOTE_EXPIRED:'报价已过期，需要重新核价'
+        };
+        throw Error('报价暂不能发布：'+(review.issues.map(issue=>labels[issue]||issue).join('、')||'报价状态不允许发布')+'。请先补全采购商业条款并重新预审。');
+      }
       const counts='匹配已审核 SKU/尺寸采购成本：'+review.approvedSkuBaselines+' 行；仍待供应商核实：'+review.unverifiedSkuBaselines+' 行。';
       const warning=review.supplierConfirmationRequired
         ?'注意：存在未核验的采购成本，系统不能据此证明利润。必须人工确认供应商报价、颜色、包装、MOQ、整箱数量、实际运费和税费。'
@@ -444,7 +451,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           <label>客户 ZIP（内部参考）
             <input value={text(selected?.shipping_postal_code, '待确认')} readOnly />
           </label>
-          <details className="span-2"><summary>更多商业条款、有效期与额外折扣</summary><div className="quote-form-grid">
+          <details className="span-2" open><summary>商业条款（发布前须填写）· 有效期与折扣</summary><div className="quote-form-grid">
           <label>额外折扣（USD，不是上方零售价差额）
             <input name="discount" type="number" min="0" step="0.01" defaultValue="0" />
           </label>
@@ -452,10 +459,10 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
             <input name="validDays" type="number" min="1" max="90" defaultValue="14" />
           </label>
           <label className="span-2">付款条款（客户可见）
-            <input name="paymentTerms" defaultValue="Payment method and instructions require staff confirmation before fulfillment." />
+            <input name="paymentTerms" defaultValue="" placeholder="e.g. Bank transfer 100% before production, or agreed deposit/balance terms" />
           </label>
           <label className="span-2">运输条款（客户可见）
-            <input name="shippingTerms" defaultValue={text(selected?.shipping_postal_code) ? `Shipping cost is based on ZIP ${text(selected?.shipping_postal_code)}. Final carrier and delivery schedule will be confirmed before shipment.` : 'Final carrier, shipping cost and delivery schedule will be confirmed before shipment.'} key={`shippingTerms-${selectedReference}`} />
+            <input name="shippingTerms" defaultValue="" placeholder={text(selected?.shipping_postal_code) ? `e.g. DDP freight to ZIP ${text(selected?.shipping_postal_code)}; specify estimated lead time, customs and duties` : "e.g. Ocean freight DDP to named destination; specify lead time and duty responsibility"} key={`shippingTerms-${selectedReference}`} />
           </label>
           <label className="span-2">报价备注（客户可见）
             <textarea name="notes" rows={3} placeholder="可填写报价补充说明…" />

@@ -9,7 +9,7 @@ try{
  const output=join(tmp,'preflight.mjs');
  await build({entryPoints:['functions/api/admin/quote-procurement-preflight.ts'],outfile:output,bundle:true,platform:'node',format:'esm',logLevel:'silent'});
  const {onRequestGet}=await import(pathToFileURL(output));
- const quote={id:'quote-preflight-test',reference:'ME-Q-SYNTHETIC',status:'DRAFT',currency:'USD',discount:0};
+ const quote={id:'quote-preflight-test',reference:'ME-Q-SYNTHETIC',status:'DRAFT',currency:'USD',discount:0,payment_terms:'Bank transfer before production',shipping_terms:'Ocean freight DDP to US receiving site within agreed delivery estimate',valid_until:'2099-12-31 00:00:00'};
  const lines=[{description:'Flocked Silent Basketball Set | No. 5 | Blue',quantity:100,unit_price:8.03}];
  let vendor=[],failCatalog=false,reads=0,writes=0;
  const db={prepare(sql){
@@ -35,6 +35,25 @@ try{
  assert.equal(r.data.review.unverifiedSkuBaselines,1);
  assert.equal(r.data.review.supplierConfirmationRequired,true);
  assert(r.cache.includes('no-store'));
+ quote.payment_terms='Payment terms to be confirmed before sending.';
+ r=await invoke();assert.equal(r.status,200);
+ assert.equal(r.data.review.safeForManualRelease,false);
+ assert(r.data.review.issues.includes('PAYMENT_TERMS_UNCONFIRMED'));
+ quote.payment_terms='Payment method and instructions require staff confirmation before fulfillment.';
+ r=await invoke();assert.equal(r.data.review.safeForManualRelease,false,'Default template payment terms are not a real confirmation');
+ assert(r.data.review.issues.includes('PAYMENT_TERMS_UNCONFIRMED'));
+ quote.payment_terms='Bank transfer before production';
+ quote.shipping_terms='Final carrier and delivery schedule will be confirmed before shipment.';
+ r=await invoke();assert.equal(r.data.review.safeForManualRelease,false,'Default freight text is not a confirmed delivery term');
+ assert(r.data.review.issues.includes('SHIPPING_TERMS_UNCONFIRMED'));
+ quote.shipping_terms='Shipping terms to be confirmed before sending.';
+ r=await invoke();assert.equal(r.data.review.safeForManualRelease,false);
+ assert(r.data.review.issues.includes('SHIPPING_TERMS_UNCONFIRMED'));
+ quote.shipping_terms='Ocean freight DDP to US receiving site within agreed delivery estimate';
+ quote.valid_until='2020-01-01 00:00:00';
+ r=await invoke();assert.equal(r.data.review.safeForManualRelease,false);
+ assert(r.data.review.issues.includes('QUOTE_EXPIRED'));
+ quote.valid_until='2099-12-31 00:00:00';
  const source={sku:'P1-S5',status:'APPROVED',currency:'USD',moq:20,case_pack:20,effective_on:'2020-01-01',expires_on:'2099-12-31',version:1,tiers_json:JSON.stringify([{minimumQuantity:20,purchaseCents:700}])};
  vendor=[source];
  r=await invoke();assert.equal(r.status,200);
