@@ -1,3 +1,4 @@
+import {QUOTE_PUBLIC_TOKEN_PREDICATE} from '../../../../lib/quote-public-token';
 interface Env {MINGEAGLE_DB:D1Database}
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'cache-control':'no-store','referrer-policy':'no-referrer'}});
 export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
@@ -11,7 +12,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
    (SELECT COALESCE(SUM(p.amount),0) FROM payments p WHERE p.order_id=o.id AND p.status='RECEIVED') AS received,
    (SELECT p.status FROM payment_provider_sessions p WHERE p.order_id=o.id AND p.provider='STRIPE' ORDER BY p.updated_at DESC,p.created_at DESC LIMIT 1) AS provider_status
    FROM quotes q JOIN orders o ON o.quote_id=q.id
-   WHERE q.public_token_hash=? OR EXISTS (SELECT 1 FROM quote_public_links l WHERE l.quote_id=q.id AND l.token_hash=? AND l.revoked_at IS NULL)
+   WHERE ${QUOTE_PUBLIC_TOKEN_PREDICATE}
    ORDER BY o.created_at DESC LIMIT 1`).bind(hash,hash).first<Record<string,unknown>>();
   if(!order)return json({ok:false,error:'Order not found.'},404);
   const total=Number(order.total),received=Number(order.received);

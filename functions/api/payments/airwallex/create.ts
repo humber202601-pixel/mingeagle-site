@@ -1,3 +1,4 @@
+import {QUOTE_PUBLIC_TOKEN_PREDICATE} from '../../../../lib/quote-public-token';
 import { airwallexApiBase, airwallexSdkEnv, getAirwallexAccessToken, airwallexCheckoutReadiness, type AirwallexEnv } from '../../../_shared/airwallex';
 
 interface Env extends AirwallexEnv {
@@ -60,11 +61,7 @@ async function findOrderFromQuoteToken(db: D1Database, token: string) {
     FROM quotes q
     JOIN orders o ON o.quote_id=q.id
     LEFT JOIN contacts ct ON ct.id=o.contact_id
-    WHERE q.public_token_hash=?
-       OR EXISTS (
-         SELECT 1 FROM quote_public_links qpl
-         WHERE qpl.quote_id=q.id AND qpl.token_hash=? AND qpl.revoked_at IS NULL
-       )
+    WHERE ${QUOTE_PUBLIC_TOKEN_PREDICATE}
     ORDER BY o.created_at DESC
     LIMIT 1`).bind(hash, hash).first<Row>();
 }

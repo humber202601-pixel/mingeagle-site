@@ -1,3 +1,4 @@
+import {QUOTE_PUBLIC_TOKEN_PREDICATE} from '../../../../lib/quote-public-token';
 interface Env {
   MINGEAGLE_DB: D1Database;
 }
@@ -47,11 +48,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         (SELECT pps.updated_at FROM payment_provider_sessions pps WHERE pps.order_id=o.id AND pps.provider='AIRWALLEX' ORDER BY datetime(pps.updated_at) DESC, datetime(pps.created_at) DESC LIMIT 1) AS provider_updated_at
       FROM quotes q
       JOIN orders o ON o.quote_id=q.id
-      WHERE q.public_token_hash=?
-         OR EXISTS (
-           SELECT 1 FROM quote_public_links qpl
-           WHERE qpl.quote_id=q.id AND qpl.token_hash=? AND qpl.revoked_at IS NULL
-         )
+      WHERE ${QUOTE_PUBLIC_TOKEN_PREDICATE}
       ORDER BY datetime(o.created_at) DESC
       LIMIT 1`).bind(hash, hash).first<Record<string, unknown>>();
 

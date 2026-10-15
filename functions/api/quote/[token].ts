@@ -1,3 +1,4 @@
+import {QUOTE_PUBLIC_TOKEN_PREDICATE} from '../../../lib/quote-public-token';
 interface Env {
   MINGEAGLE_DB: D1Database;
 }
@@ -34,11 +35,7 @@ async function getQuote(db: D1Database, token: string) {
     FROM quotes q
     LEFT JOIN companies c ON c.id=q.company_id
     LEFT JOIN contacts ct ON ct.id=q.contact_id
-    WHERE q.public_token_hash=?
-       OR EXISTS (
-         SELECT 1 FROM quote_public_links qpl
-         WHERE qpl.quote_id=q.id AND qpl.token_hash=? AND qpl.revoked_at IS NULL
-       )
+    WHERE ${QUOTE_PUBLIC_TOKEN_PREDICATE}
     LIMIT 1`).bind(hash, hash).first<Row>();
 }
 
