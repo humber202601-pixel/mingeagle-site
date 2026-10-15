@@ -33,7 +33,7 @@ const makeFetch=(override={},counter={})=>async(url,options)=>{
  assert.equal(result.b2bPagesVerified,6);
  await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[base+'deployment-version.json']:{revision:'old',workflow:'github-pages'}}),attempts:1}),/version does not match/);
  await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[base+'procurement.html']:'<html><h1>Sorry, this page is not available</h1></html>'}),attempts:1}),/Missing B2B procurement content on procurement.html/);
- await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[base+'inquiry.html']:mapping[base+'inquiry.html'].replace('Government \/ public agency','General visitor')}),attempts:1}),/Missing B2B procurement content on inquiry.html/);
+ await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[base+'inquiry.html']:mapping[base+'inquiry.html'].replace('<option value="Government / public agency">','<option value="General visitor">')}),attempts:1}),/Missing B2B procurement content on inquiry.html/);
  await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[crm+'api/health']:{ok:true,service:'MING EAGLE V2 API',databaseBinding:false}}),attempts:1}),/binding is absent/);
  const goodHealth=mapping[crm+'api/health'];
  await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[crm+'api/health']:{...goodHealth,databaseReadOk:false}}),attempts:1}),/D1 read query failed/);
