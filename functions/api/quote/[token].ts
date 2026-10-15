@@ -11,19 +11,8 @@ async function sha256(value: string) {
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function ensureQuoteLinks(db: D1Database) {
-  await db.prepare(`CREATE TABLE IF NOT EXISTS quote_public_links (
-    id TEXT PRIMARY KEY,
-    quote_id TEXT NOT NULL,
-    token_hash TEXT NOT NULL UNIQUE,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    revoked_at TEXT
-  )`).run();
-  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_quote_public_links_quote ON quote_public_links(quote_id, created_at DESC)`).run();
-}
 
 async function getQuote(db: D1Database, token: string) {
-  await ensureQuoteLinks(db);
   const hash = await sha256(token);
   return db.prepare(`SELECT
       q.id, q.reference, q.status, q.currency, q.subtotal, q.discount, q.shipping, q.tax, q.total,

@@ -42,32 +42,8 @@ async function sha256(value: string) {
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function ensureTables(db: D1Database) {
-  await db.prepare(`CREATE TABLE IF NOT EXISTS quote_public_links (
-    id TEXT PRIMARY KEY,
-    quote_id TEXT NOT NULL,
-    token_hash TEXT NOT NULL UNIQUE,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    revoked_at TEXT
-  )`).run();
-  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_quote_public_links_quote ON quote_public_links(quote_id, created_at DESC)`).run();
-  await db.prepare(`CREATE TABLE IF NOT EXISTS payment_provider_sessions (
-    id TEXT PRIMARY KEY,
-    order_id TEXT NOT NULL,
-    provider TEXT NOT NULL DEFAULT 'AIRWALLEX',
-    provider_intent_id TEXT NOT NULL UNIQUE,
-    request_id TEXT NOT NULL UNIQUE,
-    amount REAL NOT NULL,
-    currency TEXT NOT NULL DEFAULT 'USD',
-    status TEXT NOT NULL DEFAULT 'REQUIRES_PAYMENT_METHOD',
-    client_secret TEXT,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  )`).run();
-}
 
 async function getQuote(db: D1Database, token: string) {
-  await ensureTables(db);
   const hash = await sha256(token);
   return db.prepare(`SELECT
       q.id, q.reference, q.status, q.currency, q.subtotal, q.discount, q.shipping, q.tax, q.total,
@@ -147,12 +123,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
     // The internal retail comparison checkbox is not stored on the quote; do not
     // expose automatic savings until that review workflow is implemented.
     // A public saving claim must match a saved, source-backed staff approval.
-    await db.prepare(`CREATE TABLE IF NOT EXISTS quote_retail_approvals (
-      quote_id TEXT NOT NULL,item_id TEXT NOT NULL,retail_usd REAL NOT NULL,
-      source_url TEXT NOT NULL,approved_description TEXT NOT NULL,
-      approved_unit_price REAL NOT NULL,approved_quantity INTEGER NOT NULL,
-      approved_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY(quote_id,item_id))`).run();
+
     const approved=(await db.prepare('SELECT item_id,retail_usd,source_url,approved_description,approved_unit_price,approved_quantity FROM quote_retail_approvals WHERE quote_id=?').bind(quoteId).all<Row>()).results||[];
     const approvedById=new Map(approved.map(a=>[String(a.item_id),a]));
     const itemRows = items.map(item => {

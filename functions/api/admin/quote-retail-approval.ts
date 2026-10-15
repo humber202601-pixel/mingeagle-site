@@ -14,7 +14,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
  const db=env.MINGEAGLE_DB;if(!db)return fail('Database unavailable',503);
  const quoteId=new URL(request.url).searchParams.get('quoteId')||'';
  if(!quoteId)return fail('quoteId is required');
- try{await ensureRetailApprovals(db);const rows=await db.prepare('SELECT item_id,retail_usd,source_url,approved_description,approved_unit_price,approved_quantity,approved_at FROM quote_retail_approvals WHERE quote_id=?').bind(quoteId).all();
+ try{const rows=await db.prepare('SELECT item_id,retail_usd,source_url,approved_description,approved_unit_price,approved_quantity,approved_at FROM quote_retail_approvals WHERE quote_id=?').bind(quoteId).all();
  return Response.json({ok:true,approvals:rows.results||[]});}catch{return fail('Unable to load retail reviews',500)}
 };
 export const onRequestPost:PagesFunction<Env>=async({request,env})=>{

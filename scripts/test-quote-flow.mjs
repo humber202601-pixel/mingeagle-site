@@ -14,7 +14,7 @@ const routes={
 const auth=(await load('functions/api/admin/_middleware.ts')).onRequest;
 const root=(await load('functions/_middleware.ts')).onRequest;
 const sqlite=new DatabaseSync(':memory:');
-for(const file of ['0001_core.sql','0002_quote_public_links.sql','0003_airwallex_payment_sessions.sql','0004_shipping_rates.sql','0005_supplier_purchase_terms.sql'])sqlite.exec(readFileSync('migrations/'+file,'utf8'));
+for(const file of ['0001_core.sql','0002_quote_public_links.sql','0003_airwallex_payment_sessions.sql','0004_shipping_rates.sql','0005_supplier_purchase_terms.sql','0006_quote_retail_approvals.sql'])sqlite.exec(readFileSync('migrations/'+file,'utf8'));
 const database={
  prepare(sql){const statement={sql,args:[],bind(...args){statement.args=args;return statement;},async first(){return sqlite.prepare(sql).get(...statement.args)||null;},async all(){return {success:true,results:sqlite.prepare(sql).all(...statement.args)};},async run(){const result=sqlite.prepare(sql).run(...statement.args);return {success:true,meta:{changes:Number(result.changes)}};}};return statement;},
  async batch(statements){sqlite.exec('BEGIN');try{const results=[];for(const s of statements)results.push(await s.run());sqlite.exec('COMMIT');return results;}catch(error){sqlite.exec('ROLLBACK');throw error;}}
