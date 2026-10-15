@@ -58,3 +58,9 @@ Both public Pins and their destination links were inspected. Actual publish time
 YouTube company channel name/handle are prepared but final creation accepts YouTube Terms and needs action-time confirmation. Instagram public signup fields are prepared; new password, real birthday and final registration require user completion. Facebook and LinkedIn need owner sign-in. TikTok needs registration or the existing brand login. Do not modify unrelated personal profiles or the existing YouTube channel.
 
 The editable infographic SVGs, rendered PNGs and plain MING EAGLE social wordmark are stored in public/assets. Use only verified brand accounts, no paid upgrade, no bulk unsolicited outreach.
+
+### Website claim and Metricool login follow-up
+
+Pinterest confirmed website ownership of `www.mingeagle.com` on 2026-10-15. The public verification tag and three marketing PNG assets are live with HTTP 200; deployment and public-form CI succeeded for PR172 (`9af23f08f1016caf15b921b951ce8a801cc84edb`). The social wordmark is visible on the Pinterest profile.
+
+The user completed Metricool login manually. Its current web brand is `7436627` (renamed MING EAGLE), whereas the installed connector still reports no network for `7430045`. Do not guess that the connector can manage the new brand or send queued posts until the account mismatch is reconciled by an actual successful read. Pinterest OAuth is open for the MING EAGLE account. It requests public/private board and Pin read/write/delete, account/follower read and ad-data read permissions. The final grant has not been clicked and needs user action-time confirmation. No paid plan or ads were started.
