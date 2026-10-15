@@ -68,6 +68,46 @@ for(const [i,o] of scenarios.entries()){
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM payments WHERE order_id=?').get(o.orderId).n,1);
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM tasks WHERE order_id=? AND type=\'PAYMENT\'').get(o.orderId).n,review.n);
 }
+const airwallexBundle=await build({entryPoints:['functions/api/payments/airwallex/webhook.ts'],bundle:true,platform:'node',format:'esm',write:false,logLevel:'silent'});
+const {onRequestPost:airwallexWebhook}=await import('data:text/javascript;base64,'+Buffer.from(airwallexBundle.outputFiles[0].text).toString('base64'));
+const airwallexSecret='synthetic_airwallex_secret_only';
+for(const [i,o] of scenarios.entries()){
+ const orderId='aw-'+o.orderId,ref='AW-'+o.ref,intent='pi_synthetic_'+i;
+ sqlite.prepare('INSERT INTO orders(id,reference,status,payment_status,total,currency) VALUES(?,?,?,?,?,?)')
+  .run(orderId,ref,o.state,o.payment,28.9,'USD');
+ sqlite.prepare("INSERT INTO payment_provider_sessions(id,order_id,provider,provider_intent_id,request_id,amount,currency,status) VALUES(?,?,'AIRWALLEX',?, ?,?,'USD','PENDING')")
+  .run('aw-ses-'+i,orderId,intent,'aw-req-'+i,28.9);
+ const event={id:'aw-event-'+i,name:'payment_intent.succeeded',data:{object:{
+  id:intent,merchant_order_id:ref,currency:'USD',captured_amount:28.9,amount:28.9,status:'SUCCEEDED'
+ }}};
+ const raw=JSON.stringify(event),timestamp=String(Date.now());
+ const signature=createHmac('sha256',airwallexSecret).update(timestamp+raw).digest('hex');
+ const call=()=>airwallexWebhook({env:{MINGEAGLE_DB:db,AIRWALLEX_WEBHOOK_SECRET:airwallexSecret},
+  request:new Request('https://app.mingeagle.com/api/payments/airwallex/webhook',{
+   method:'POST',headers:{'x-timestamp':timestamp,'x-signature':signature},body:raw
+  })});
+ const result=await call(),resultBody=await result.json();
+ assert.equal(result.status,200,JSON.stringify(resultBody));
+ const order=sqlite.prepare('SELECT status,payment_status FROM orders WHERE id=?').get(orderId);
+ const receipt=sqlite.prepare("SELECT COUNT(*) n FROM payments WHERE order_id=? AND status='RECEIVED'").get(orderId);
+ const fulfillment=sqlite.prepare("SELECT COUNT(*) n FROM tasks WHERE order_id=? AND type='FULFILLMENT'").get(orderId);
+ const pendingReview=sqlite.prepare("SELECT COUNT(*) n FROM tasks WHERE order_id=? AND type='PAYMENT' AND title LIKE 'Review payment on closed order%'").get(orderId);
+ assert.equal(receipt.n,1,'Airwallex signed receipt must be preserved');
+ if(o.state==='CANCELLED'||o.payment==='REFUNDED'){
+  assert.equal(resultBody.fulfillmentBlocked,true);
+  assert.equal(order.status,o.state,'Airwallex cannot reopen closed order');
+  assert.equal(order.payment_status,o.payment,'Airwallex cannot overwrite refund');
+  assert.equal(fulfillment.n,0,'No fulfillment on cancelled/refunded Airwallex order');
+  assert.equal(pendingReview.n,1,'Urgent Airwallex reconciliation task');
+ }else{
+  assert.equal(order.payment_status,'PAID');
+  assert.equal(fulfillment.n,1,'Normal paid Airwallex orders fulfill');
+ }
+ const retry=await call();
+ assert.equal(retry.status,200);
+ assert.equal((await retry.json()).duplicate,true,'Duplicate Airwallex event is idempotent');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM payments WHERE order_id=?').get(orderId).n,1);
+}
 const aw=readFileSync('functions/api/payments/airwallex/webhook.ts','utf8');
 const stripe=readFileSync('functions/api/payments/stripe/webhook.ts','utf8');
 assert(aw.includes('if (requiresClosedOrderPaymentReview(order))'));
@@ -77,4 +117,4 @@ assert(aw.indexOf('if (requiresClosedOrderPaymentReview(order))')<aw.indexOf('if
 assert(stripe.indexOf('if(requiresClosedOrderPaymentReview(order)){')<stripe.indexOf('if(fullyPaid){'),'Stripe guard must happen before fulfillment');
 assert(!aw.includes('await sendEmailToCustomer'),'Review must not automatically contact buyers');
 sqlite.close();
-console.log('PASS: signed late Stripe receipts preserved without reopening cancelled/refunded orders; normal paid order still fulfills; Airwallex guard present before fulfillment.');
+console.log('PASS: real signed Stripe and Airwallex webhook handlers preserve late receipts without reopening cancelled/refunded orders; duplicate events are idempotent; ordinary payments still fulfill.');
