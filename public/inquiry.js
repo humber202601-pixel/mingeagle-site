@@ -136,7 +136,7 @@ try {
   }
  }
 }catch(e){wholesaleRfqLines=[];wholesalePrefillUnits=0}
-const customers={school:'School / club',coach:'Coach / trainer',academy:'Training academy',retailer:'Retail store',distributor:'Distributor / wholesaler',ecommerce:'E-commerce seller'};if(customers[q.get('customer')])$('customer_type').value=customers[q.get('customer')];
+const customers={school:'School / club',district:'School district / education authority',government:'Government / public agency',public:'Government / public agency',business:'Business / corporate procurement',nonprofit:'Nonprofit / community organization',coach:'Coach / trainer',academy:'Training academy',retailer:'Retail store',distributor:'Distributor / wholesaler',ecommerce:'E-commerce seller'};if(customers[q.get('customer')])$('customer_type').value=customers[q.get('customer')];
 // Retail orders never offer logo printing. Customized logos are wholesale only.
 const logoPolicyAvailable=typeof document.createElement==='function';
 let customField,customPolicy,logoKind,logoCount;
