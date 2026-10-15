@@ -92,7 +92,7 @@ async function checkProduction({expectedRevision, fetcher=globalThis.fetch, atte
     ['wholesale.html', ['SUPPLY OPTIONS FOR INSTITUTIONAL BUYERS.', 'href="procurement.html"', 'href="inquiry.html?type=quote"']],
     ['for-schools.html', ['School district and procurement office resources', 'customer=district']],
     ['products.html', ['PRODUCTS FOR WHOLESALE BUYERS AND SAMPLES.', 'Request wholesale quote']],
-    ['inquiry.html', ['REQUEST A BULK QUOTE OR SAMPLE.', 'Government / public agency', 'School district / education authority', 'id="quoteForm"','src="inquiry.js']]
+    ['inquiry.html', ['REQUEST A BULK QUOTE OR SAMPLE.', '<option value="Government / public agency">', '<option value="School district / education authority">', 'id="quoteForm"','src="inquiry.js']]
   ];
   for (const [path,needles] of buyerPages) {
     const html=await getHtml(BASE+path,fetcher);
