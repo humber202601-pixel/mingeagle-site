@@ -1,3 +1,4 @@
+import {QUOTE_PUBLIC_TOKEN_PREDICATE} from '../../../../lib/quote-public-token';
 import {stripeApi, stripeCheckoutReadiness, stripeSessionMatchesMode, type StripeEnv} from '../../../_shared/stripe';
 import {retailTaxTreatment,reviewedStripeTaxStates,remoteStartupState,remoteStartupWithinLimits,type RetailTaxEnv} from '../../../../lib/retail-tax-policy';
 import {registeredStripeTaxState,fixedTaxCustomer,automaticTaxAmount,type DeliveryAddress} from '../../../_shared/retail-stripe-tax';
@@ -37,8 +38,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    "q.status AS quote_status,q.valid_until,q.reference AS quote_reference,ct.email AS email,"+
    "(SELECT COALESCE(SUM(amount),0) FROM payments WHERE order_id=o.id AND status='RECEIVED') AS received "+
    "FROM quotes q JOIN orders o ON o.quote_id=q.id LEFT JOIN contacts ct ON ct.id=o.contact_id "+
-   "WHERE q.public_token_hash=? OR EXISTS (SELECT 1 FROM quote_public_links l "+
-   "WHERE l.quote_id=q.id AND l.token_hash=? AND l.revoked_at IS NULL) "+
+   "WHERE "+QUOTE_PUBLIC_TOKEN_PREDICATE+" "+
    "ORDER BY o.created_at DESC LIMIT 1"
   ).bind(hash,hash).first<RecordRow>();
   if(!order)return fail('Order not found.',404);
