@@ -1,3 +1,4 @@
+import {requiresClosedOrderPaymentReview} from '../../../lib/closed-order-payment';
 interface Env {
   MINGEAGLE_DB: D1Database;
   AIRWALLEX_WEBHOOK_SECRET?: string;
@@ -221,6 +222,27 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const leadId = order.lead_id ? String(order.lead_id) : null;
       const companyId = order.company_id ? String(order.company_id) : null;
       const contactId = order.contact_id ? String(order.contact_id) : null;
+
+      // A successful provider receipt cannot authorize fulfillment of an
+      // order already cancelled or marked refunded. Preserve both the
+      // historical order state and the incoming payment evidence.
+      if (requiresClosedOrderPaymentReview(order)) {
+        await db.prepare(`INSERT INTO tasks (id,lead_id,company_id,contact_id,order_id,type,title,description,status,priority,due_at)
+          SELECT ?,?,?,?,?,'PAYMENT',?,?,'OPEN','URGENT',CURRENT_TIMESTAMP
+          WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE order_id=? AND type='PAYMENT'
+            AND title LIKE 'Review payment on closed order%' AND status IN ('OPEN','IN_PROGRESS'))`)
+          .bind(crypto.randomUUID(),leadId,companyId,contactId,orderId,
+            `Review payment on closed order ${orderReference}`,
+            'Airwallex reports settled funds for a cancelled or refunded order. Verify settlement, refund and fulfillment hold. Do not ship.',
+            orderId).run();
+        if (Number(inserted.meta?.changes||0)>0) {
+          await addActivity(db,orderId,'PAYMENT_CLOSED_ORDER_REVIEW','Payment on cancelled/refunded order needs review',
+            `Verified Airwallex receipt recorded; automatic fulfillment blocked for ${orderReference}`,
+            {eventId,providerReference,providerStatus,amount,currency});
+        }
+        await markEventProcessed(db,eventId);
+        return Response.json({ok:true,orderReference,requiresManualReview:true,fulfillmentBlocked:true});
+      }
 
       if (fullyPaid) {
         await db.prepare(`UPDATE orders
