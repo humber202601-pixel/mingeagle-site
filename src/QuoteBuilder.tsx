@@ -459,10 +459,10 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
             <input name="validDays" type="number" min="1" max="90" defaultValue="14" />
           </label>
           <label className="span-2">付款条款（客户可见）
-            <input name="paymentTerms" defaultValue="Payment method and instructions require staff confirmation before fulfillment." />
+            <input name="paymentTerms" defaultValue="" placeholder="e.g. Bank transfer 100% before production, or agreed deposit/balance terms" />
           </label>
           <label className="span-2">运输条款（客户可见）
-            <input name="shippingTerms" defaultValue={text(selected?.shipping_postal_code) ? `Shipping cost is based on ZIP ${text(selected?.shipping_postal_code)}. Final carrier and delivery schedule will be confirmed before shipment.` : 'Final carrier, shipping cost and delivery schedule will be confirmed before shipment.'} key={`shippingTerms-${selectedReference}`} />
+            <input name="shippingTerms" defaultValue="" placeholder={text(selected?.shipping_postal_code) ? `e.g. DDP freight to ZIP ${text(selected?.shipping_postal_code)}; specify estimated lead time, customs and duties` : "e.g. Ocean freight DDP to named destination; specify lead time and duty responsibility"} key={`shippingTerms-${selectedReference}`} />
           </label>
           <label className="span-2">报价备注（客户可见）
             <textarea name="notes" rows={3} placeholder="可填写报价补充说明…" />
