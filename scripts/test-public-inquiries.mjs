@@ -25,7 +25,7 @@ try{
     if(String(url).includes('formsubmit.co/ajax/')){
       forwards++;
       // A transport-level 200 can still be a rejected notification.
-      return Response.json({success:providerAccept?'true':false});
+      return Response.json({success:providerAccept?'true':'false'});
     }
     throw Error('Unexpected external URL '+url);
   };
@@ -155,6 +155,7 @@ try{
   assert.equal(statusRows.find(row=>row.reference===general.originalReference)?.notification_status,'ACCEPTED');
   const adminUi=readFileSync('src/AdminApp.tsx','utf8');
   assert(adminUi.includes('邮件通知未确认')&&adminUi.includes('非送达确认'),'Never mistake provider acceptance for inbox delivery in the admin');
+  assert(adminUi.includes('failedNotices>0')&&adminUi.includes('查看相关询盘'),'The dashboard must surface failed inquiry notifications without sending mail');
   // The same Cloudflare-facing IP may submit up to 12 requests within a
   // 15-minute window; the 13th is rejected without creating a new record.
   for(let i=0;i<13;i++){
