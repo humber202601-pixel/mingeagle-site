@@ -270,8 +270,18 @@ form.addEventListener('submit',async e=>{
    busy=false;$('submitInquiry').disabled=false;return;
   }
   challenge?.reset();
-  // Cloudflare/D1 may be temporarily unavailable or over its free quota.
-  // Keep HubSpot as the known working fallback rather than lose a buyer inquiry.
+  // Do not bypass a definitive CRM rejection (429/rate limit, validation or
+  // authorization failure) by writing to HubSpot directly. Manual contact is
+  // available even when automatic submission is declined.
+  if(!core.shouldUseBackupForCrmError(crmError)){
+   const rateLimited=crmError?.message==='CRM_RATE_LIMIT';
+   const hint=rateLimited?'Our inquiry service is receiving too many requests. Please contact sales directly by email or WhatsApp with this reference.':'The request was not accepted by our inquiry system. Please review the details or contact sales by email or WhatsApp.';
+   $('formStatus').textContent=hint;
+   review(d,hint+' Press Send in your email or WhatsApp app to contact us.');
+   return;
+  }
+  // Cloudflare/D1 may be unavailable. Only then keep HubSpot as a backup
+  // channel. We cannot claim the primary CRM accepted this request.
   try{
    await sendPayload(c,buildPayload(d,c,context));
    clearCreatorContext();
