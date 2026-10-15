@@ -150,6 +150,33 @@ function DataTable({ columns, rows, filterKey }: {
   </section>;
 }
 
+function LeadSections({ leads }: { leads: Row[] }) {
+  const websiteLeads=leads.filter(row=>String(row.source||'').toUpperCase()==='WEBSITE');
+  const sourcedLeads=leads.filter(row=>String(row.source||'').toUpperCase()!=='WEBSITE');
+  const columns=[
+    {key:'company',label:'公司 / 机构'},
+    {key:'contact',label:'联系人'},
+    {key:'lead_score',label:'潜客评分'},
+    {key:'status',label:'阶段',format:(r:Row)=>statusLabel(r.status)},
+    {key:'next_best_action',label:'下一步行动',format:(r:Row)=>systemText(r.next_best_action)},
+    {key:'created_at',label:'创建时间',format:(r:Row)=>zhDate(r.created_at)},
+    {key:'detail',label:'操作',format:(r:Row)=><div className="lead-actions"><Link to={`/app/leads/${text(r.id)}`}>查看详情</Link><Link to={`/app/communications?leadId=${encodeURIComponent(text(r.id))}`}>开始沟通</Link></div>}
+  ];
+  return <>
+    <section className="panel" aria-label="官网主动询盘优先处理">
+      <div className="panel-head"><h2>① 官网主动询盘 · 优先跟进</h2><span>当前列表 {websiteLeads.length} 条</span></div>
+      <p>学校、政府机构、企业及其他客户主动提交的网站线索优先核实。来源标记为 WEBSITE 不代表身份、订单或采购意向已经验证。</p>
+    </section>
+    <DataTable rows={websiteLeads} filterKey="status" columns={columns}/>
+    <section className="panel" aria-label="公开来源待开发客户">
+      <div className="panel-head"><h2>② 公开来源与其他潜在客户</h2><span>当前列表 {sourcedLeads.length} 条</span></div>
+      <p>这组线索与主动询盘分开管理。开发信必须人工审阅，不能因系统自动发现线索就认定客户有采购意向。</p>
+    </section>
+    <ProspectActionQueue leads={sourcedLeads}/>
+    <DataTable rows={sourcedLeads} filterKey="status" columns={columns}/>
+  </>;
+}
+
 function Dashboard({ data }: { data: AdminData }) {
   const metrics = [
     ['新增潜客', data.metrics.newLeads, '最近 7 天新建'],
@@ -256,9 +283,7 @@ export default function AdminApp() {
   else if (page === 'leads' && detailId) content = <AdminDetail type="lead" id={detailId} accessKey={key}/>;
   else if (page === 'inquiries' && detailId) content = <AdminDetail type="inquiry" id={detailId} accessKey={key}/>;
   else if (page === 'companies' && detailId) content = <AdminDetail type="company" id={detailId} accessKey={key}/>;
-  else if (page === 'leads') content = <><Top title="潜在客户" description="优先核实真实网站询盘及待联系的公开来源候选；所有开发信必须人工审阅。"/><ProspectActionQueue leads={data.leads}/><DataTable filterKey="status" rows={data.leads} columns={[
-    {key:'company',label:'公司 / 机构'},{key:'contact',label:'联系人'},{key:'lead_score',label:'潜客评分'},{key:'status',label:'阶段',format:r=>statusLabel(r.status)},{key:'next_best_action',label:'下一步行动',format:r=>systemText(r.next_best_action)},{key:'created_at',label:'创建时间',format:r=>zhDate(r.created_at)},{key:'detail',label:'操作',format:r=><div className="lead-actions"><Link to={`/app/leads/${text(r.id)}`}>查看详情</Link><Link to={`/app/communications?leadId=${encodeURIComponent(text(r.id))}`}>开始沟通</Link></div>}
-  ]}/></>;
+  else if (page === 'leads') content = <><Top title="潜在客户" description="先处理官网真实主动询盘，再核实公开来源待开发客户。所有外联邮件须人工审阅。"/><LeadSections leads={data.leads}/></>;
   else if (page === 'inquiries') content = <><Top title="询盘" description="网站提交的每条询盘都会自动进入销售流程并形成结构化记录。"/><DataTable filterKey="status" rows={data.inquiries} columns={[
     {key:'reference',label:'询盘编号'},{key:'customer',label:'客户'},{key:'request_type',label:'询盘类型',format:r=>requestTypeLabel(r.request_type)},{key:'estimated_quantity',label:'预计数量'},{key:'status',label:'状态',format:r=>statusLabel(r.status)},{key:'created_at',label:'创建时间',format:r=>zhDate(r.created_at)},{key:'detail',label:'操作',format:r=><Link to={`/app/inquiries/${text(r.id)}`}>查看详情</Link>}
   ]}/></>;
