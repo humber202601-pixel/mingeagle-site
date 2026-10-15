@@ -1,3 +1,4 @@
+import {requiresClosedOrderPaymentReview} from '../../../lib/closed-order-payment';
 import {stripeSessionMatchesMode} from '../../../_shared/stripe';
 import {automaticTaxAmount} from '../../../_shared/retail-stripe-tax';
 
@@ -95,11 +96,12 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     const base=Math.round((Number(order.subtotal)-Number(order.discount)+Number(order.shipping))*100);
     let address:{state?:string;country?:string};
     try{address=JSON.parse(String(order.shipping_address||'null'))}catch{return invalid('Tax address missing',409)}
-    if(['CANCELLED','REFUNDED'].includes(String(order.status))||!Number.isSafeInteger(base)||
+    if(!Number.isSafeInteger(base)||
      matched.base_amount_cents!==base||automaticTaxAmount(session,base)!==matched.tax_amount_cents||
      session.metadata?.tax_mode!=='STRIPE_AUTOMATIC'||session.metadata.tax_state!==matched.tax_state||
      address?.state!==matched.tax_state||address?.country!=='US'||session.customer!==matched.tax_customer_id)
      return invalid('Automatic tax confirmation mismatch',409);
+    if(!requiresClosedOrderPaymentReview(order)){
     const totals=await db.batch([
      db.prepare('UPDATE orders SET tax=?,total=?,updated_at=CURRENT_TIMESTAMP WHERE id=?')
       .bind(Number(matched.tax_amount_cents)/100,expected/100,matched.order_id),
@@ -109,6 +111,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     if(totals.length!==2||totals.some(r=>!r.success)||totals.some(r=>Number(r.meta?.changes)!==1))
      return invalid('Tax totals could not be recorded',503);
     order.total=expected/100;
+    }
    }else if(session.metadata?.tax_mode==='STRIPE_AUTOMATIC'||session.automatic_tax?.enabled===true)
     return invalid('Unexpected automatic tax session',409);
   }
@@ -134,6 +137,26 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   ).bind(matched.order_id).first<{received:number}>();
   const received=Math.round(Number(totals?.received||0)*100);
   const orderTotal=Math.round(Number(order.total||0)*100);
+  // Record a verified late payment, but NEVER reopen a cancelled/refunded
+  // order or schedule fulfillment. A human must reconcile/refund it.
+  if(requiresClosedOrderPaymentReview(order)){
+   await db.prepare(
+    "INSERT INTO tasks(id,lead_id,company_id,contact_id,order_id,type,title,description,status,priority,due_at) "+
+    "SELECT ?,?,?,?,?,'PAYMENT',?,?,'OPEN','URGENT',CURRENT_TIMESTAMP "+
+    "WHERE NOT EXISTS(SELECT 1 FROM tasks WHERE order_id=? AND type='PAYMENT' "+
+    "AND title LIKE 'Review payment on closed order%' AND status IN ('OPEN','IN_PROGRESS'))"
+   ).bind(crypto.randomUUID(),order.lead_id||null,order.company_id||null,order.contact_id||null,
+    matched.order_id,'Review payment on closed order '+String(order.reference),
+    'Stripe reports settled funds for a cancelled or refunded order. Verify processor settlement, refund and fulfillment hold. Do not ship.',matched.order_id).run();
+   if(Number(inserted.meta?.changes||0)>0)await db.prepare(
+    "INSERT INTO activities(id,entity_type,entity_id,activity_type,title,description,metadata_json) "+
+    "VALUES(?,'ORDER',?,'PAYMENT_CLOSED_ORDER_REVIEW',?,?,?)"
+   ).bind(crypto.randomUUID(),matched.order_id,'Payment on cancelled/refunded order needs review',
+    'Verified Stripe receipt recorded; automatic fulfillment blocked.',
+    JSON.stringify({provider:'STRIPE',sessionId:session.id,eventId:event.id})).run();
+   await processed();
+   return Response.json({ok:true,requiresManualReview:true,fulfillmentBlocked:true});
+  }
   const fullyPaid=received>=orderTotal;
   const overpaid=received>orderTotal;
   if(fullyPaid){
