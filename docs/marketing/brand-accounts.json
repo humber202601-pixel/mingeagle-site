@@ -4,28 +4,54 @@
   "website": "https://www.mingeagle.com",
   "publicEmail": "mingeaglecommerce@gmail.com",
   "strategy": "Wholesale-first; retail for samples and small trials",
-  "verifiedAt": "2026-10-15T04:27:26.763385+00:00",
+  "verifiedAt": "2026-10-15T05:27:59.713400+00:00",
   "accounts": [
     {
       "network": "pinterest",
       "status": "BUSINESS_PROFILE_LIVE",
       "publicUrl": "https://de.pinterest.com/mingeaglecommerce/",
       "handle": "mingeaglecommerce",
-      "metricoolConnected": false,
+      "metricoolConnected": true,
       "publishedPostIds": [
         "1149192029968368240",
         "1149192029968368476"
       ],
       "websiteClaimed": "www.mingeagle.com",
       "websiteClaimConfirmedOn": "2026-10-15",
-      "avatar": "https://www.mingeagle.com/assets/mingeagle-social-wordmark.png"
+      "avatar": "https://www.mingeagle.com/assets/mingeagle-social-wordmark.png",
+      "metricoolBrandId": "7436627",
+      "boards": [
+        {
+          "id": "1149192098607199389",
+          "name": "Indoor PE Activities & School Sports"
+        },
+        {
+          "id": "1149192098607199403",
+          "name": "Team Logo Basketball & Bulk Buying"
+        },
+        {
+          "id": "1149192098607199500",
+          "name": "Indoor Play Ideas & Quiet Games"
+        }
+      ],
+      "scheduledQueueIds": [
+        "PIN-BULK-002",
+        "PIN-CATALOG-003",
+        "PIN-APARTMENT-004"
+      ]
     },
     {
       "network": "youtube",
-      "status": "PREPARED_AWAITING_TERMS_CONFIRMATION",
+      "status": "BRAND_CHANNEL_CREATED",
       "displayName": "MING EAGLE",
       "proposedHandle": "mingeaglecommerce",
-      "created": false
+      "created": true,
+      "handle": "mingeaglecommerce",
+      "channelId": "UCMyIMO2mCzAGcJ9GqRF4dNQ",
+      "publicUrl": "https://www.youtube.com/channel/UCMyIMO2mCzAGcJ9GqRF4dNQ",
+      "profileDetailsSavedInStudio": true,
+      "publicProfileRecheckBlocked": true,
+      "metricoolConnected": false
     },
     {
       "network": "instagram",
@@ -56,7 +82,11 @@
     "connectorBrandId": "7430045",
     "browserBrandId": "7436627",
     "browserBrandName": "MING EAGLE",
-    "status": "AWAITING_PINTEREST_OAUTH_AND_ACCOUNT_RECONCILIATION",
-    "automatedPublishingEnabled": false
+    "status": "PINTEREST_CONNECTED_NATIVE_PLANNER_READY_CONNECTOR_REAUTH_REQUIRED",
+    "automatedPublishingEnabled": true,
+    "automatedPublishingMode": "Native Metricool calendar for verified schedules only",
+    "connectorAutomationEnabled": false,
+    "nativeScheduledPostCount": 3,
+    "nativeScheduleVerifiedAt": "2026-10-15T05:27:59.713400+00:00"
   }
 }

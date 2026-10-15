@@ -64,3 +64,25 @@ The editable infographic SVGs, rendered PNGs and plain MING EAGLE social wordmar
 Pinterest confirmed website ownership of `www.mingeagle.com` on 2026-10-15. The public verification tag and three marketing PNG assets are live with HTTP 200; deployment and public-form CI succeeded for PR172 (`9af23f08f1016caf15b921b951ce8a801cc84edb`). The social wordmark is visible on the Pinterest profile.
 
 The user completed Metricool login manually. Its current web brand is `7436627` (renamed MING EAGLE), whereas the installed connector still reports no network for `7430045`. Do not guess that the connector can manage the new brand or send queued posts until the account mismatch is reconciled by an actual successful read. Pinterest OAuth is open for the MING EAGLE account. It requests public/private board and Pin read/write/delete, account/follower read and ad-data read permissions. The final grant has not been clicked and needs user action-time confirmation. No paid plan or ads were started.
+
+## Native Pinterest scheduling and YouTube setup — 2026-10-15
+
+Following the user’s action-time confirmation, Pinterest granted Metricool access and its Connections panel showed business account `mingeaglecommerce` connected to brand `7436627`. The native planner is on the Free plan (0/20 posts published this month at setup) and uses Asia/Shanghai. No paid upgrade was started.
+
+A new MING EAGLE YouTube brand channel was created: https://www.youtube.com/channel/UCMyIMO2mCzAGcJ9GqRF4dNQ (`@mingeaglecommerce`). Switched into that new brand and saved its wholesale-first description, public business email and official website link in Studio. The existing Rubber Flooring Expert channel was not edited. Public profile recheck was subsequently blocked by browser automatic approval review after a usage-limit rejection; no alternate route was used to bypass that block.
+
+The installed Metricool connector still refers to `7430045`; an actual scheduled-post read for the observed new brand `7436627` returned Access denied (403). It must be reauthenticated to the same Metricool account before connector-based autonomous scheduling can be enabled. Native web scheduling remains authorized and separate. Do not retry the denied connector read without a connection change, and do not claim that all future autonomous social operations are enabled.
+
+Three additional original 1000×1500 infographics and editable SVGs are prepared: bulk purchasing brief, four product families, and no-bounce apartment activity ideas. The first native scheduled item is already visible on the calendar for 2026-10-16 08:00 Asia/Shanghai. Other submissions require final list verification before their queue entries are marked verified.
+
+### Final native list verification
+
+Verified the native Metricool List view using its built-in Previous, current and next month range (2026-09-01 through 2026-11-30). Exactly three rows show Pending: bulk brief on Oct 16, product-family guide on Oct 19, and apartment activities on Oct 22, all 08:00 Asia/Shanghai. All three include uploaded original media, a real selected board, titles and UTM-tagged destination URLs. These are saved schedules, not public post receipts. Native internal post IDs and eventual public URLs are not available yet and are deliberately left null.
+
+The apartment board Indoor Play Ideas & Quiet Games was created through the authorized native connection; actual ID `1149192098607199500`. The two earlier public Pins must not be duplicated. With the three saved schedules there are five distinct Pinterest campaign items, of which only two are currently published. The Free plan showed 20 monthly posts, with 0 yet published through its planner at setup; do not interpret that as a promise of unlimited scheduling.
+
+Instagram public email/name/handle are still populated and the chosen handle is valid in its signup UI, but password and real birthday remain unfilled. The owner must enter new credentials and complete signup verification. No password or OTP is stored in this repository. Facebook, LinkedIn and TikTok remain pending their actual owner login or registration.
+
+### Keep campaign-only graphics outside the website payload
+
+PR174 initially put its three new social-only PNGs under public/assets, which exceeded the existing first-party image budget. These graphics are used by Metricool/Pinterest and are not referenced by website pages, so move the three PNGs and editable SVGs to docs/marketing/assets. Native uploaded media and saved schedules are unchanged; reusable queue media URLs reference the public GitHub source files. Do not increase or disable the website performance budget for off-site marketing assets.
