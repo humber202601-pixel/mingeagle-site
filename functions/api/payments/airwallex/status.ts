@@ -9,28 +9,6 @@ async function sha256(value: string) {
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function ensureTables(db: D1Database) {
-  await db.prepare(`CREATE TABLE IF NOT EXISTS quote_public_links (
-    id TEXT PRIMARY KEY,
-    quote_id TEXT NOT NULL,
-    token_hash TEXT NOT NULL UNIQUE,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    revoked_at TEXT
-  )`).run();
-  await db.prepare(`CREATE TABLE IF NOT EXISTS payment_provider_sessions (
-    id TEXT PRIMARY KEY,
-    order_id TEXT NOT NULL,
-    provider TEXT NOT NULL DEFAULT 'AIRWALLEX',
-    provider_intent_id TEXT NOT NULL UNIQUE,
-    request_id TEXT NOT NULL UNIQUE,
-    amount REAL NOT NULL,
-    currency TEXT NOT NULL DEFAULT 'USD',
-    status TEXT NOT NULL DEFAULT 'REQUIRES_PAYMENT_METHOD',
-    client_secret TEXT,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  )`).run();
-}
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.MINGEAGLE_DB) return Response.json({ ok: false, error: 'Database is not configured.' }, { status: 503 });
@@ -39,7 +17,6 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     const db = env.MINGEAGLE_DB;
-    await ensureTables(db);
     const hash = await sha256(token);
     const order = await db.prepare(`SELECT
         o.id, o.reference, o.status, o.payment_status, o.total, o.currency,
