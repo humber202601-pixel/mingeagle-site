@@ -15,8 +15,9 @@ INSERT INTO orders VALUES ('order-1'),('order-2'),('order-3');
 INSERT INTO payment_provider_sessions VALUES ('order-1','AIRWALLEX','PENDING','aw-id','2026-10-12 10:00:00','2026-10-12 10:00:00');
 INSERT INTO payment_provider_sessions VALUES ('order-1','STRIPE','SUCCEEDED','str-id','2026-10-15 10:00:00','2026-10-15 10:00:00');
 INSERT INTO payment_provider_sessions VALUES ('order-2','AIRWALLEX','PENDING_REVIEW','aw-only','2026-10-14 10:00:00','2026-10-14 10:00:00');`);
+const fields={online_payment_provider:'provider',online_payment_status:'status',online_payment_intent_id:'provider_intent_id',online_payment_updated_at:'updated_at'};
 const extracted=names.map(name=>{
- const re=new RegExp('\\((SELECT pps\\.[\\s\\S]*?FROM payment_provider_sessions pps WHERE pps\\.order_id=o\\.id[\\s\\S]*?LIMIT 1)\\) AS '+name);
+ const re=new RegExp('\\((SELECT pps\\.'+fields[name]+' FROM payment_provider_sessions pps WHERE pps\\.order_id=o\\.id[\\s\\S]*?LIMIT 1)\\) AS '+name);
  const match=adminSql.match(re);
  assert(match,'Missing scalar query: '+name);
  return match[1]+' AS '+name;
