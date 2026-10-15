@@ -43,7 +43,7 @@ try{
     method:'POST',headers:{'content-type':'application/json'},
     body:JSON.stringify({token:'a'.repeat(64)})
    })});
-  assert.equal(response.status,503,'Do not contact payment provider when a prerequisite is missing');
+  assert.equal(response.status,410,'Airwallex online gateway is retired for all configurations');
   assert.equal((await response.json()).ok,false);
   assert.equal(response.headers.get('cache-control'),'no-store');
   const publicStatus=await onRequestGet({env});
@@ -54,7 +54,7 @@ try{
  }
  const forcedDisabled=await onRequestPost({env:{...complete,MINGEAGLE_DB:db},
   request:new Request('https://app.mingeagle.com/api/payments/airwallex/create',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token:'a'.repeat(64)})})});
- assert.equal(forcedDisabled.status,503,'Even complete old Airwallex payment credentials cannot create an online checkout');
+ assert.equal(forcedDisabled.status,410,'Even complete old Airwallex credentials cannot create an online checkout');
  assert.equal((await forcedDisabled.json()).ok,false);
  const enabled=await onRequestGet({env:complete});
  const ready=(await enabled.json()).airwallex;
