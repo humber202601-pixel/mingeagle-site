@@ -88,7 +88,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   // Reject duplicated checkout actions before doing any CRM writes.
   const previous=await db.prepare('SELECT request_id FROM retail_checkout_requests WHERE request_id=?')
    .bind(requestId).first<R>();
-  if(previous)return bad('This checkout request was already submitted. Check your previous order link.',409);
+  if(previous)return bad('Checkout request already received. Contact support with the checkout request reference before starting again.',409);
   // Server-side retail and freight repricing: ignore any client-provided totals.
   const q=await calculateShipping({
     env,request:new Request(allowedOrigin+'/api/shipping/cart',{
