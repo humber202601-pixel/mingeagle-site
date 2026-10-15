@@ -86,3 +86,21 @@ Instagram public email/name/handle are still populated and the chosen handle is 
 ### Keep campaign-only graphics outside the website payload
 
 PR174 initially put its three new social-only PNGs under public/assets, which exceeded the existing first-party image budget. These graphics are used by Metricool/Pinterest and are not referenced by website pages, so move the three PNGs and editable SVGs to docs/marketing/assets. Native uploaded media and saved schedules are unchanged; reusable queue media URLs reference the public GitHub source files. Do not increase or disable the website performance budget for off-site marketing assets.
+
+
+## Facebook Page creation and first native publication — 2026-10-15
+
+The owner completed Facebook registration manually. After the user explicitly confirmed creation and acceptance of the displayed Page policies, the native wizard reported MING EAGLE created. The completed Page is https://www.facebook.com/profile.php?id=61594156866139 . The numeric public profile identifier is recorded separately from any unverified Graph API Page ID; no custom username has been set yet.
+
+Saved the wholesale-first English bio, sports-goods-store category, official website, public business email and +86 business phone. Uploaded the existing brand wordmark and a new editable vector cover. The visible Contact Us button links to the wholesale page with Facebook UTM parameters. No storefront address or unsupported business hours were entered. WhatsApp linking remains incomplete because it requires owner verification.
+
+Published queue entry FB-BULK-001 through the native Page composer under the MING EAGLE identity, with a public audience, the original bulk-purchasing infographic, custom alt text and the campaign URL. The UI explicitly reported the post published, and its standalone permalink showed the actual body, image and UTM destination:
+https://www.facebook.com/permalink.php?story_fbid=pfbid02jPQc7yccPGR1ZYcvVGTfbxsvKdTXgnKtCghCy19nVWdp2oY6wiwoCKxtUWgZP6zil&id=61594156866139
+
+Do not republish FB-BULK-001. Exact publication time is unavailable; the queue stores verification time separately. No reach, leads or AI recommendation are claimed. No paid boost or unsolicited group sharing was used.
+
+Started connecting the new Page to native Metricool brand 7436627. Basic login shared the already-public business email and owner profile; the final Page-management permission grant has NOT been submitted. Narrowed the pending grant to read_insights, pages_manage_posts, pages_manage_engagement, pages_read_engagement, pages_manage_metadata, pages_read_user_content and pages_show_list, with only MING EAGLE selected. Disabled catalog, advertising, business-management, private messaging and all Instagram permissions in this pending grant. The final Continue also references applicable terms and requires action-time confirmation. Facebook must remain metricoolConnected=false until both grant and native connection are visibly confirmed.
+
+The ChatGPT Metricool connector still has the previously verified account mismatch and 403; native Page OAuth does not fix that connector identity. Three existing Pinterest schedules are unchanged. Instagram, LinkedIn and TikTok are still pending actual completed owner registration/login.
+
+Cover SVG/PNG are in docs/marketing/assets and intentionally excluded from the public website payload. No credentials, one-time codes or OAuth callback URLs are stored.

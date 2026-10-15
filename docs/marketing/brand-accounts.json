@@ -4,7 +4,7 @@
   "website": "https://www.mingeagle.com",
   "publicEmail": "mingeaglecommerce@gmail.com",
   "strategy": "Wholesale-first; retail for samples and small trials",
-  "verifiedAt": "2026-10-15T05:27:59.713400+00:00",
+  "verifiedAt": "2026-10-15T06:25:08.638489+00:00",
   "accounts": [
     {
       "network": "pinterest",
@@ -62,12 +62,40 @@
     },
     {
       "network": "facebook",
-      "status": "OWNER_SIGN_IN_REQUIRED",
-      "created": false
+      "status": "PAGE_LIVE_NATIVE_POST_PUBLISHED_METRICOOL_AUTH_PENDING",
+      "created": true,
+      "displayName": "MING EAGLE",
+      "publicProfileId": "61594156866139",
+      "publicUrl": "https://www.facebook.com/profile.php?id=61594156866139",
+      "proposedHandle": "mingeaglecommerce",
+      "handle": null,
+      "category": "体育用品店",
+      "website": "https://www.mingeagle.com",
+      "publicEmail": "mingeaglecommerce@gmail.com",
+      "publicPhone": "+8613851585237",
+      "avatar": "https://www.mingeagle.com/assets/mingeagle-social-wordmark.png",
+      "coverAsset": "docs/marketing/assets/facebook-wholesale-cover.png",
+      "contactButtonUrl": "https://www.mingeagle.com/wholesale.html?utm_source=facebook&utm_medium=organic_social&utm_campaign=wholesale_samples_20261015&utm_content=page_cta",
+      "metricoolConnected": false,
+      "metricoolStatus": "PAGE_PERMISSION_GRANT_AWAITING_ACTION_TIME_CONFIRMATION",
+      "metricoolPendingScopes": [
+        "read_insights",
+        "pages_manage_posts",
+        "pages_manage_engagement",
+        "pages_read_engagement",
+        "pages_manage_metadata",
+        "pages_read_user_content",
+        "pages_show_list"
+      ],
+      "whatsappLinked": false,
+      "publishedQueueIds": [
+        "FB-BULK-001"
+      ],
+      "verifiedAt": "2026-10-15T06:25:08.638489+00:00"
     },
     {
       "network": "linkedin",
-      "status": "OWNER_SIGN_IN_REQUIRED",
+      "status": "PUBLIC_EMAIL_PREPARED_OWNER_SIGNUP_OR_LOGIN_REQUIRED",
       "created": false,
       "publishingMode": "Native platform unless an existing paid plan is verified; no paid upgrade authorized"
     },
