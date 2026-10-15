@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1640" height="624" viewBox="0 0 1640 624">
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#122339"/><stop offset="1" stop-color="#1d3c53"/></linearGradient>
+    <clipPath id="ball"><circle cx="1404" cy="298" r="208"/></clipPath>
+  </defs>
+  <rect width="1640" height="624" fill="url(#bg)"/>
+  <circle cx="1570" cy="50" r="300" fill="#fff" opacity=".025"/>
+  <circle cx="1450" cy="582" r="320" fill="#ff8d4e" opacity=".035"/>
+  <path d="M0 585H1640" stroke="#ff8d4e" stroke-width="5"/>
+  <g font-family="DejaVu Sans,sans-serif">
+    <rect x="80" y="116" width="80" height="8" rx="4" fill="#ff8d4e"/>
+    <text x="80" y="210" fill="#fff" font-size="78" font-weight="800" letter-spacing="1">MING EAGLE</text>
+    <text x="84" y="273" fill="#ff9b65" font-size="34" font-weight="700">More play. Every day.</text>
+    <text x="84" y="350" fill="#fff" font-size="29">Soft indoor sports balls</text>
+    <text x="84" y="397" fill="#d3dee7" font-size="25">Schools · Academies · Clubs · Resellers</text>
+    <text x="84" y="465" fill="#d3dee7" font-size="23">Wholesale inquiries · Sample trials · Custom-logo options</text>
+    <text x="84" y="525" fill="#ff9b65" font-size="28" font-weight="700">mingeagle.com</text>
+  </g>
+  <circle cx="1404" cy="298" r="208" fill="#ff8d4e"/>
+  <g clip-path="url(#ball)" fill="none" stroke="#122339" stroke-width="12" opacity=".85">
+    <path d="M1180 298h450M1404 70v450M1210 106c234 40 234 344 0 384M1598 106c-234 40-234 344 0 384"/>
+    <path d="M1246 136l316 324" stroke-width="5" opacity=".3"/>
+  </g>
+  <circle cx="1404" cy="298" r="208" fill="none" stroke="#ffb082" stroke-width="3"/>
+</svg>

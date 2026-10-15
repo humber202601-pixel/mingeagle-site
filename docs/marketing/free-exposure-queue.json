@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "brand": "MING EAGLE",
   "budgetUSD": 0,
   "scope": "Original B2B promotion on verified brand-owned accounts; no paid advertising or unsolicited mass messaging.",
@@ -9,19 +9,25 @@
     {
       "id": "FB-BULK-001",
       "channel": "facebook",
-      "status": "DRAFT_CHANNEL_NOT_CONNECTED",
+      "status": "PUBLISHED_VERIFIED",
       "audience": "B2B procurement and sample evaluation",
       "title": "Buying indoor sports balls in bulk?",
       "body": "From MING EAGLE: schools, clubs, training programs and retailers can compare our soft indoor ball models and request a quantity-based quote. For 10+ units, review the sea-freight terms; estimated transit is 25–30 days after dispatch, not guaranteed. Send the product, quantity and destination for a delivered quote.",
       "destinationUrl": "https://www.mingeagle.com/wholesale.html?utm_source=facebook&utm_medium=organic_social&utm_campaign=wholesale_samples_20261015&utm_content=fb-bulk-001",
       "merchantDisclosure": "MING EAGLE is the author and seller",
       "requiresCommunityRuleReview": false,
-      "mediaUrl": null,
+      "mediaUrl": "https://raw.githubusercontent.com/humber202601-pixel/mingeagle-site/main/docs/marketing/assets/pinterest-bulk-order-brief.png",
       "requiresVerifiedBoard": false,
       "scheduledAt": null,
-      "providerPostId": null,
+      "providerPostId": "pfbid02jPQc7yccPGR1ZYcvVGTfbxsvKdTXgnKtCghCy19nVWdp2oY6wiwoCKxtUWgZP6zil",
       "publishedAt": null,
-      "publicPostUrl": null
+      "publicPostUrl": "https://www.facebook.com/permalink.php?story_fbid=pfbid02jPQc7yccPGR1ZYcvVGTfbxsvKdTXgnKtCghCy19nVWdp2oY6wiwoCKxtUWgZP6zil&id=61594156866139",
+      "nativeStatus": "Published",
+      "publishedVia": "Facebook native Page composer",
+      "accountPublicUrl": "https://www.facebook.com/profile.php?id=61594156866139",
+      "verifiedAt": "2026-10-15T06:25:08.638489+00:00",
+      "doNotRepublish": true,
+      "imageAltText": "MING EAGLE bulk sports ball buying brief. Prepare the product model and size, quantity, destination, sample evaluation, authorized logo artwork, freight and duty terms, and dispatch estimate before requesting a written quote."
     },
     {
       "id": "LI-SCHOOL-001",
