@@ -10,7 +10,8 @@ function procurementDetails(formData,requestType){
   ['Purchasing process',value('procurement_process').slice(0,100)],
   ['Documents / vendor onboarding requirements',value('procurement_documents').slice(0,400)],
  ].filter(([,entry])=>entry);
- return parts.length?'\\nInstitutional procurement requirements (buyer supplied; subject to confirmation):\\n'+parts.map(([label,entry])=>label+': '+entry).join('\\n'):'';
+ const newline=String.fromCharCode(10);
+ return parts.length?newline+'Institutional procurement requirements (buyer supplied; subject to confirmation):'+newline+parts.map(([label,entry])=>label+': '+entry).join(newline):'';
 }
 function summary(d,ctx){const lines=['MING EAGLE inquiry','Reference: '+d.reference,'Request: '+d.requestType,'Name: '+d.firstname,'Email: '+d.email];[['Products',d.products],['Quantity',d.quantity],['Destination',d.country],['Order / quote reference',d.orderReference],['Company',d.company],['Phone / WhatsApp',d.phone],['Customer type',d.customerType],['Postal code',d.zip],['Customization',d.customization],['Timing',d.timing],['Message',d.message]].forEach(([k,v])=>{if(v&&v!=='Not specified')lines.push(k+': '+v)});lines.push('Privacy: agreed to use these details to respond to this request.');if(ctx)lines.push(core.sourceLines(ctx));return lines.join('\n')}
 const core=typeof module!=='undefined'&&module.exports?require('./forms-core.js'):root.MingEagleForms;
