@@ -28,7 +28,8 @@ const sitemap=fs.readFileSync('public/sitemap.xml','utf8');
 const localized=fs.readFileSync('public/sitemap-localized.xml','utf8');
 const primaryUrls=[...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m=>m[1]);
 const localizedUrls=[...localized.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m=>m[1]);
-assert.equal(primaryUrls.length,25,'Existing inspected core site sitemap must remain stable');
+assert.equal(primaryUrls.length,26,'Existing inspected core site sitemap must remain stable');
+assert(primaryUrls.includes('https://www.mingeagle.com/procurement.html'),'Institutional procurement page belongs in sitemap');
 assert.equal(localizedUrls.length,4,'All four real translated guides need a separate sitemap');
 assert(robots.includes('Sitemap: https://www.mingeagle.com/sitemap-localized.xml'));
 const urls=primaryUrls.concat(localizedUrls);
@@ -40,4 +41,4 @@ for(const name of fs.readdirSync('public').filter(x=>x.endsWith('.html')&&x!=='4
  assert(html.indexOf('src="forms-core.js')<html.indexOf('src="direct-contact.js'),name+' dependency order');
  if(name==='thank-you.html' || name==='retail-cart.html'){assert(/name="robots" content="noindex/.test(html));assert(!urls.includes(canonical[0]))}else assert(urls.includes(canonical[0]),name+' listed in sitemap');
 }
-console.log('PASS: four-channel email/WhatsApp attribution, reference preservation, sample defaults, single headings, both canonical sitemaps, 29 distinct indexable public URLs and readable receipt noindex. No external messages or submissions sent.');
+console.log('PASS: four-channel email/WhatsApp attribution, reference preservation, sample defaults, single headings, both canonical sitemaps, 30 distinct indexable public URLs and readable receipt noindex. No external messages or submissions sent.');
