@@ -33,7 +33,11 @@ async function sendCrmInquiry(c,d,ctx,fetcher=fetch,turnstileToken=''){
  const payload={...crmPayload(d,ctx),turnstileToken},controller=new AbortController(),timer=setTimeout(()=>controller.abort(),18000);
  try{
   const res=await fetcher(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:controller.signal});
-  let answer;try{answer=await res.json()}catch{throw new Error('CRM_UNCERTAIN')}
+  let answer;try{answer=await res.json()}catch{
+   // An explicit 4xx response is never a transient transport failure,
+   // even when the upstream returns HTML instead of JSON.
+   throw new Error(res.status===429?'CRM_RATE_LIMIT':res.status>=400&&res.status<500?'CRM_REJECTED':res.status>=500?'CRM_UNAVAILABLE':'CRM_UNCERTAIN');
+  }
   if(answer&&typeof answer.code==='string'&&answer.code.startsWith('TURNSTILE_')){
    throw new Error(answer.code==='TURNSTILE_UNAVAILABLE'||answer.code==='TURNSTILE_MISCONFIGURED'?'CRM_VERIFICATION_UNAVAILABLE':'CRM_CHALLENGE');
   }
