@@ -1,5 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
 const {checkProduction}=require('./check-production-endpoints.cjs');
 const sha='ceb05bf42cf827e799153d2cf8230497f8a1ec99';
 const base='https://www.mingeagle.com/';
@@ -13,10 +15,11 @@ const mapping={
  [base+'robots.txt']:'User-agent: *\nSitemap: https://www.mingeagle.com/sitemap.xml',
  [base+'sitemap.xml']:'<?xml version="1.0"?><urlset></urlset>',
  [base+'llms.txt']:'# MING EAGLE\nOfficial product information',
+ ...Object.fromEntries(['index.html','procurement.html','wholesale.html','for-schools.html','products.html','inquiry.html'].map(name=>[base+(name==='index.html'?'':name),fs.readFileSync(path.join(__dirname,'../public',name),'utf8')])),
 };
 const makeFetch=(override={},counter={})=>async(url,options)=>{
  assert.equal(options.method,'GET','Monitoring must only make read-only GET requests');
- assert(['application/json','text/plain, application/xml, text/xml'].includes(options.headers['accept']));
+ assert(['application/json','text/plain, application/xml, text/xml','text/html'].includes(options.headers['accept']));
  assert(!('authorization' in options.headers),'Monitoring must not use credentials');
  counter[url]=(counter[url]||0)+1;
  const data=Object.prototype.hasOwnProperty.call(override,url)?override[url]:mapping[url];
@@ -27,7 +30,10 @@ const makeFetch=(override={},counter={})=>async(url,options)=>{
  const result=await checkProduction({expectedRevision:sha,fetcher:makeFetch(),attempts:1});
  assert.equal(result.priceProducts,4);
  assert.equal(result.discoveryAssets,3);
+ assert.equal(result.b2bPagesVerified,6);
  await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[base+'deployment-version.json']:{revision:'old',workflow:'github-pages'}}),attempts:1}),/version does not match/);
+ await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[base+'procurement.html']:'<html><h1>Sorry, this page is not available</h1></html>'}),attempts:1}),/Missing B2B procurement content on procurement.html/);
+ await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[base+'inquiry.html']:mapping[base+'inquiry.html'].replace('Government \/ public agency','General visitor')}),attempts:1}),/Missing B2B procurement content on inquiry.html/);
  await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[crm+'api/health']:{ok:true,service:'MING EAGLE V2 API',databaseBinding:false}}),attempts:1}),/binding is absent/);
  const goodHealth=mapping[crm+'api/health'];
  await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[crm+'api/health']:{...goodHealth,databaseReadOk:false}}),attempts:1}),/D1 read query failed/);
