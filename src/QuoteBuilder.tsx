@@ -4,6 +4,7 @@ import {RETAIL_USD,retailReference,RETAIL_SOURCE_URL} from '../lib/retail-refere
 import {calculate, type Comparison} from '../lib/quote-math-core.mjs';
 import {quoteTotals} from '../lib/quote-totals';
 import {quoteInquiryDefaults} from './quoteInquiry';
+import { pendingQuoteAttention, quoteAttention } from './b2bQuoteAttention';
 
 type Row = Record<string, unknown>;
 
@@ -76,6 +77,8 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   const [error, setError] = useState('');
   const [result, setResult] = useState<QuoteResult | null>(null);
   const [quotes, setQuotes] = useState<Row[]>([]);
+  const [followupClock,setFollowupClock] = useState(() => Date.now());
+  const followupItems=useMemo(()=>pendingQuoteAttention(quotes,followupClock),[quotes,followupClock]);
   const [quotesLoading,setQuotesLoading]=useState(true),[quotesError,setQuotesError]=useState('');
   const [customerLink, setCustomerLink] = useState<{ reference: string; url: string; emailed?: boolean; to?: string } | null>(null);
   const [quoteDeliveryMessage, setQuoteDeliveryMessage] = useState('');
@@ -120,6 +123,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       const body = await response.json() as { ok?: boolean; quotes?: Row[];error?:string };
       if(!response.ok||!body.ok)throw new Error(body.error||'无法加载报价列表。');
       setQuotes(body.quotes || []);
+      setFollowupClock(Date.now());
     } catch(err) {
       setQuotesError(err instanceof Error?err.message:'无法加载报价列表。');
     }finally{setQuotesLoading(false);}
@@ -539,6 +543,17 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
 
     {quoteDeliveryMessage && <div className="form-status success"><strong>报价交付完成</strong><p>{quoteDeliveryMessage}</p></div>}
 
+    <section className="panel" aria-label="批发报价待跟进提醒">
+      <div className="panel-head"><h2>批发报价待跟进</h2><span>{quotesLoading?'正在核查…':`${followupItems.length} 项需人工核实`}</span></div>
+      <p>按真实报价状态和有效期提示，不自动联系客户、修改价格或延长报价。到期报价必须重新确认成本、运费和采购条款。</p>
+      {quotesError&&<p role="alert">报价列表未能读取；请刷新后再判断跟进事项。</p>}
+      {!quotesLoading&&!quotesError&&followupItems.length===0&&<p>当前没有超过提示门槛的报价事项，继续按计划处理待发送草稿。</p>}
+      {!quotesLoading&&!quotesError&&followupItems.slice(0,8).map(({quote,label,note},index)=><div className="list-row" key={String(quote.id||quote.reference||index)}>
+        <div><strong>{String(quote.reference||'报价')} · {label}</strong><p>{note}</p><small>{String(quote.customer||'客户待核对')} · {String(quote.valid_until||'有效期待核对')}</small></div>
+        <span className="priority high">人工核实</span>
+      </div>)}
+      {followupItems.length>8&&<p>还有 {followupItems.length-8} 项，请查看下方全部报价单。</p>}
+    </section>
     <section className="panel table-panel">
       {quotesError&&<div className="form-status error" role="alert"><p>{quotesError}</p></div>}
       <div className="table-tools"><strong>{quotesLoading?'正在加载报价单…':`共 ${quotes.length} 张报价单`}</strong><button type="button" className="button secondary small" disabled={quotesLoading} onClick={()=>void loadQuotes()}>刷新报价列表</button><span>草稿 → 审核修改 → Gmail / 安全链接 → 客户查看 → 修订 → 接受 → 自动生成订单</span></div>
@@ -550,7 +565,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           const canSend = ['DRAFT','SENT','VIEWED'].includes(status);
           const canRevise = ['SENT','VIEWED','EXPIRED','DECLINED'].includes(status);
           return <tr key={id}>
-            <td>{text(quote.reference)}</td><td>{text(quote.customer)}</td><td>{money(quote.total, quote.currency)}</td><td>{statusLabel(status)}</td><td>{text(quote.valid_until)}</td>
+            <td>{text(quote.reference)}</td><td>{text(quote.customer)}</td><td>{money(quote.total, quote.currency)}</td><td>{statusLabel(status)}<small style={{display:'block'}}>{quoteAttention(quote,followupClock).label}</small></td><td>{text(quote.valid_until)}</td>
             <td><div className="secure-link-actions">
               {status === 'DRAFT' && <button type="button" className="table-action" disabled={busyQuoteId === id} onClick={() => void openEdit(quote)}>{busyQuoteId === id ? '加载中…' : '编辑草稿'}</button>}
               {canSend && <button type="button" className="table-action primary" disabled={busyQuoteId === id} onClick={() => void deliverQuote(quote, true)}>{busyQuoteId === id ? '处理中…' : status === 'DRAFT' ? 'Gmail发送报价' : '重新邮件发送'}</button>}
