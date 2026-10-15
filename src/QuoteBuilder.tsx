@@ -451,7 +451,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           <label>客户 ZIP（内部参考）
             <input value={text(selected?.shipping_postal_code, '待确认')} readOnly />
           </label>
-          <details className="span-2"><summary>更多商业条款、有效期与额外折扣</summary><div className="quote-form-grid">
+          <details className="span-2" open><summary>商业条款（发布前须填写）· 有效期与折扣</summary><div className="quote-form-grid">
           <label>额外折扣（USD，不是上方零售价差额）
             <input name="discount" type="number" min="0" step="0.01" defaultValue="0" />
           </label>
