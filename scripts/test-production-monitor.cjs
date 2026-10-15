@@ -24,7 +24,8 @@ const makeFetch=(override={},counter={})=>async(url,options)=>{
  counter[url]=(counter[url]||0)+1;
  const data=Object.prototype.hasOwnProperty.call(override,url)?override[url]:mapping[url];
  if (!data) throw Error('Unexpected URL: '+url);
- return {ok:true,status:200,json:async()=>data,text:async()=>String(data)};
+ const status=data && typeof data==='object' && data.__status ? data.__status : 200;
+ return {ok:status>=200&&status<300,status,json:async()=>data,text:async()=>String(data)};
 };
 (async()=>{
  const result=await checkProduction({expectedRevision:sha,fetcher:makeFetch(),attempts:1});
@@ -33,6 +34,7 @@ const makeFetch=(override={},counter={})=>async(url,options)=>{
  assert.equal(result.b2bPagesVerified,6);
  await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[base+'deployment-version.json']:{revision:'old',workflow:'github-pages'}}),attempts:1}),/version does not match/);
  await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[base+'procurement.html']:'<html><h1>Sorry, this page is not available</h1></html>'}),attempts:1}),/Missing B2B procurement content on procurement.html/);
+ await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[base+'procurement.html']:{__status:404}}),attempts:1}),/returned HTTP 404/);
  await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[base+'inquiry.html']:mapping[base+'inquiry.html'].replace('<option value="Government / public agency">','<option value="General visitor">')}),attempts:1}),/Missing B2B procurement content on inquiry.html/);
  await assert.rejects(checkProduction({expectedRevision:sha,fetcher:makeFetch({[crm+'api/health']:{ok:true,service:'MING EAGLE V2 API',databaseBinding:false}}),attempts:1}),/binding is absent/);
  const goodHealth=mapping[crm+'api/health'];
