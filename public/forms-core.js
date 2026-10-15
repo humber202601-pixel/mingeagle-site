@@ -37,13 +37,18 @@ async function sendCrmInquiry(c,d,ctx,fetcher=fetch,turnstileToken=''){
   if(answer&&typeof answer.code==='string'&&answer.code.startsWith('TURNSTILE_')){
    throw new Error(answer.code==='TURNSTILE_UNAVAILABLE'||answer.code==='TURNSTILE_MISCONFIGURED'?'CRM_VERIFICATION_UNAVAILABLE':'CRM_CHALLENGE');
   }
-  if(!res.ok||!answer||answer.ok!==true||answer.reference!==d.reference||!answer.inquiryId||!answer.leadId)throw new Error(res.status>=500?'CRM_UNAVAILABLE':'CRM_REJECTED');
+  if(!res.ok||!answer||answer.ok!==true||answer.reference!==d.reference||!answer.inquiryId||!answer.leadId)
+   throw new Error(res.status===429?'CRM_RATE_LIMIT':res.status>=500?'CRM_UNAVAILABLE':'CRM_REJECTED');
   return {accepted:true,reference:answer.reference,inquiryId:answer.inquiryId,idempotent:!!answer.idempotent};
  }catch(error){if(error.name==='AbortError'||error instanceof TypeError)throw new Error('CRM_UNCERTAIN');throw error}
  finally{clearTimeout(timer)}
 }
+// A backup lead is appropriate only when CRM delivery is unavailable or uncertain.
+// A definitive 4xx rejection, security challenge, or rate limit must not be
+// silently bypassed by direct submission to the mirror system.
+function shouldUseBackupForCrmError(error){return ['CRM_UNAVAILABLE','CRM_UNCERTAIN'].includes(error&&error.message)}
 function saveReceipt(d,kind){try{sessionStorage.setItem('mingeagle_receipt',JSON.stringify({reference:d.reference,acceptedAt:Date.now(),kind:kind||'inquiry',requestType:d.requestType}));return true}catch(e){return false}}
 function validReceipt(r,ref,now=Date.now()){return !!(r&&/^ME-\d{8}-[A-F0-9]{8}$/.test(r.reference||'')&&ref===r.reference&&Number.isFinite(r.acceptedAt)&&now>=r.acceptedAt&&now-r.acceptedAt<=86400000)}
-const api={reference,context,sourceLines,buildPayload,sendPayload,crmPayload,sendCrmInquiry,saveReceipt,validReceipt};
+const api={reference,context,sourceLines,buildPayload,sendPayload,crmPayload,sendCrmInquiry,shouldUseBackupForCrmError,saveReceipt,validReceipt};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.MingEagleForms=Object.freeze(api);
 })(typeof window==='undefined'?globalThis:window);
