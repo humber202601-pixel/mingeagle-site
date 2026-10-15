@@ -56,10 +56,20 @@ const settings={
 };
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 const begin='<!-- MING EAGLE V37 SEO BEGIN -->',end='<!-- MING EAGLE V37 SEO END -->';
+// Reuse the reviewed homepage navigation without replacing page-specific quote links.
+const officialNav=fs.readFileSync(path.join(root,'index.html'),'utf8').match(/<nav\b[^>]*id="official-social-profiles"[^>]*>[\s\S]*?<\/nav>/)?.[0];
+if(!officialNav)throw new Error('Missing reviewed official social navigation');
+const brandFooter='<p class="small">Wholesale sporting goods · International orders</p>';
+
 for(const [filename,config] of Object.entries(settings)){
  const file=path.join(root,filename);
  if(!fs.existsSync(file))throw new Error('Missing approved site page: '+filename);
  let html=fs.readFileSync(file,'utf8');
+ if(html.split(brandFooter).length!==2)throw new Error('Missing or ambiguous brand footer: '+filename);
+ html=html.replace(/<nav\b[^>]*id="official-social-profiles"[^>]*>[\s\S]*?<\/nav>/g,'');
+ html=html.replace(brandFooter,brandFooter+officialNav);
+ html=html.replace(/styles\.css\?v=[^"\s>]+/g,'styles.css?v=20261015-social2');
+
  html=html.replace(/<!-- MING EAGLE V37 SEO BEGIN -->[\s\S]*?<!-- MING EAGLE V37 SEO END -->\s*/g,'');
  if(!/<head(?:\s[^>]*)?>/i.test(html)||!/<\/head>/i.test(html))throw new Error('Malformed head: '+filename);
  html=html.replace(/<title(?:\s[^>]*)?>[\s\S]*?<\/title>/i,'<title>'+esc(config.title)+'</title>');

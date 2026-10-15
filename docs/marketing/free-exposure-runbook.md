@@ -134,3 +134,10 @@ Instagram now shows an SMS verification checkpoint; the brand identity and compl
 Added visible Facebook, Pinterest and YouTube links to the homepage footer and the matching Organization sameAs profile list. Only the three previously verified public brand URLs are included; pending Instagram, LinkedIn and TikTok identities are excluded. The learning-page builder inherits the homepage footer during production builds. Plain links add no third-party embed or tracking script, and the homepage stylesheet version changes so existing visitors can receive the compact button layout. The SEO builder preserves the profile references on later deployments.
 
 Added a regression check that compares schema and visible links with the recorded official account URLs, requires safe external-link attributes and continues to reject an invented US physical address. This creates a genuine follow path from website visits; it does not establish new followers, search indexing or independent AI recommendation. Existing social schedules are unchanged.
+
+
+## Follow links on wholesale and product entry pages — 2026-10-15
+
+Extended the existing reviewed footer navigation to the product catalog, wholesale, schools, coaches and all four product pages. The nine-page V37 builder reuses the homepage navigation and preserves each page's quote/sample links. Source HTML contains the same links for preview and deployment; no social embed or new external script is added. The stylesheet version is refreshed consistently.
+
+The regression checks now require exactly one matching official navigation on each of the nine pages, repeat-build stability and preservation of the weighted product's quote attribution. Pending social accounts remain excluded. This adds a follow path for search visitors landing directly on procurement/product pages; it is not evidence of new followers or AI recommendations.
