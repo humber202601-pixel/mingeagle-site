@@ -234,3 +234,6 @@
 
 /* Keep consent text aligned beside the checkbox. */
 .communityForm .check{display:grid;grid-template-columns:16px minmax(0,1fr);align-items:start;gap:10px;font-size:13px;line-height:1.6}.communityForm .check span{min-width:0}.communityForm>.field{margin-top:18px}.communityForm .check input{margin:3px 0 0;padding:0}
+
+/* Official brand profiles: compact follow links without third-party embeds. */
+.socialProfiles{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.footer .socialProfiles a{display:inline-flex;align-items:center;gap:4px;margin:0;padding:8px 11px;border:1px solid #334155;border-radius:8px;font-weight:700;font-size:12px;min-height:36px;text-decoration:none}.footer .socialProfiles a:hover,.footer .socialProfiles a:focus-visible{background:#1e293b;border-color:#fb923c;outline:2px solid #fb923c;outline-offset:2px}

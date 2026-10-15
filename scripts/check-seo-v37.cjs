@@ -38,6 +38,15 @@ try{
  assert.equal(organization['@type'],'Organization');
  assert.equal(organization.name,'MING EAGLE COMMERCE LLC');
  assert(!organization.address,'registered-agent address is not an invented customer-facing premises');
+ const accounts=JSON.parse(fs.readFileSync('docs/marketing/brand-accounts.json','utf8')).accounts;
+ const profiles=['facebook','pinterest','youtube'].map(network=>accounts.find(a=>a.network===network)?.publicUrl);
+ assert(profiles.every(Boolean),'all linked brand profiles must have a recorded public URL');
+ assert.deepEqual(organization.sameAs,profiles,'brand schema must use only the three verified official profiles');
+ const socialNav=homepage.match(/<nav\b[^>]*id="official-social-profiles"[^>]*>[\s\S]*?<\/nav>/)?.[0];
+ assert(socialNav,'homepage needs a visible official-profile follow entry');
+ const socialLinks=[...socialNav.matchAll(/<a\b([^>]+)>/g)];
+ assert.deepEqual(socialLinks.map(m=>m[1].match(/href="([^"]+)"/)?.[1]),profiles);
+ for(const [,attrs] of socialLinks){assert(/target="_blank"/.test(attrs));assert(/rel="noopener noreferrer"/.test(attrs));}
  assert(/Wholesale/.test(first['wholesale.html'])&&/Training Academies/.test(first['for-coaches.html']));
  const sitemap=fs.readFileSync('public/sitemap.xml','utf8');
  const robots=fs.readFileSync('public/robots.txt','utf8');
