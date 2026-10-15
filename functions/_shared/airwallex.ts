@@ -14,8 +14,11 @@ export function airwallexCheckoutReadiness(env:AirwallexEnv){
  const checkoutRequested=env.AIRWALLEX_CHECKOUT_ENABLED==='true';
  const providerCredentialsConfigured=Boolean(env.AIRWALLEX_CLIENT_ID?.trim()&&env.AIRWALLEX_API_KEY?.trim());
  const webhookConfigured=Boolean(env.AIRWALLEX_WEBHOOK_SECRET?.trim());
- return {checkoutRequested,environment,providerCredentialsConfigured,webhookConfigured,
-  checkoutReady:checkoutRequested&&Boolean(environment)&&providerCredentialsConfigured&&webhookConfigured};
+ // Merchant policy: Stripe is the only website payment gateway.
+ // Legacy Airwallex banking credentials must never reactivate card checkout,
+ // even if old AIRWALLEX_CHECKOUT_ENABLED=true secrets remain configured.
+ return {checkoutRequested:false,environment,providerCredentialsConfigured,webhookConfigured,
+  checkoutReady:false};
 }
 
 type CachedToken = {
