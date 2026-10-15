@@ -104,3 +104,53 @@ Exact text only:
 "Free activity ideas at mingeagle.com"
 Phone-legible text, excellent spacing, no extra words, no decibel data, no complete-silence or safety guarantees, no watermarks. Deliver finished artwork.
 
+
+## Useful-content extension — 2026-10-15
+
+Mode: built-in ImageGen, with the existing homepage weighted flocked basketball image as the local reference. The following are the final prompts used. Retain the generated PNGs; JPEG production copies only change encoding.
+
+New production assets:
+
+- `docs/marketing/assets/school-no-bounce-session-v2.jpg`
+- `docs/marketing/assets/team-artwork-checklist-v2.jpg`
+
+### school-session-v2
+
+Create an exceptional finished portrait 2:3 MING EAGLE social graphic, in the premium art direction of the supplied reference: photorealistic soft flocked basketball, sunlit indoor gym, warm ivory, midnight navy and restrained orange, confident refined editorial typography. Reference the real black velvet flocked basketball with muted gold channels accurately. Do not copy the reference's athlete, clothing mark, product specifications or dense layout. This is AI-assisted marketing art, no customer endorsement.
+
+Composition: upper third is a beautiful warm sunlit gym still life, black-and-gold soft flocked basketball resting on a timber bench with a softly blurred court behind. No people and no hoop required. Lower two thirds is a striking ivory editorial poster with superb phone-readable typography, ample breathing room, orange minute markers, neat five-line sequence. Avoid generic rounded cards. Make it feel like a premium sports brand's useful activity guide.
+
+Exact text only:
+"MING EAGLE"
+"Less bounce."
+"More teamwork."
+"A 10-minute indoor session"
+"02 min  Set the space"
+"02 min  Mirror the leader"
+"02 min  Careful handovers"
+"02 min  Step and freeze"
+"02 min  Review"
+"Adapt to your group. Supervise the session."
+"Free activity sheet at mingeagle.com"
+
+Use exact spelling and minutes, strong type hierarchy and alignment. No claim of complete silence, no test results, no certification, no price or testimonials. No added brand logo or eagle symbol; simple MING EAGLE type only. Final artwork itself, not a webpage or device mockup.
+
+### team-artwork-v2
+
+Create an exceptional finished portrait 2:3 MING EAGLE social graphic in the premium editorial sports art direction of the supplied reference: tactile black velvet flocked basketball with muted gold channels, realistic warm sunlit gym/studio atmosphere, navy/ivory/orange visual language and exquisitely readable typography. The image is about preparing authorized team artwork before requesting a quote. Do not imply finished customization or actual customer endorsement.
+
+Upper half: close beautifully photographed black-and-gold flocked basketball on a hardwood table beside a warm ivory unbranded sheet with a completely blank navy rectangular artwork swatch. No real school/team logo, no imitation badge, no invented printed logo on the ball, no device screenshot. Realistic materials, soft natural window light, grounded shadows. Lower half: clean confident editorial typography, large expressive two-line headline, four short numbered inputs with fine orange rules and generous whitespace. Refined magazine layout, not a generic checklist screenshot.
+
+Exact text only:
+"MING EAGLE"
+"Your team."
+"Your starting brief."
+"Before a custom-logo quote"
+"01  Choose model, size & color"
+"02  Bring authorized artwork"
+"03  Confirm quantity & destination"
+"04  Agree on sample approval"
+"A preview is not a final print proof."
+"Free checklist at mingeagle.com"
+
+The blank swatch is only a planning prop. Preserve the reference ball's appearance; no new product, no fake endorsement, no price, no MOQ promise, no guarantees, no watermarks, no extra text. Deliver the finished artwork.
