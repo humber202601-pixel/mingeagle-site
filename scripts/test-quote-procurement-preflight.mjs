@@ -39,7 +39,13 @@ try{
  r=await invoke();assert.equal(r.status,200);
  assert.equal(r.data.review.safeForManualRelease,false);
  assert(r.data.review.issues.includes('PAYMENT_TERMS_UNCONFIRMED'));
+ quote.payment_terms='Payment method and instructions require staff confirmation before fulfillment.';
+ r=await invoke();assert.equal(r.data.review.safeForManualRelease,false,'Default template payment terms are not a real confirmation');
+ assert(r.data.review.issues.includes('PAYMENT_TERMS_UNCONFIRMED'));
  quote.payment_terms='Bank transfer before production';
+ quote.shipping_terms='Final carrier and delivery schedule will be confirmed before shipment.';
+ r=await invoke();assert.equal(r.data.review.safeForManualRelease,false,'Default freight text is not a confirmed delivery term');
+ assert(r.data.review.issues.includes('SHIPPING_TERMS_UNCONFIRMED'));
  quote.shipping_terms='Shipping terms to be confirmed before sending.';
  r=await invoke();assert.equal(r.data.review.safeForManualRelease,false);
  assert(r.data.review.issues.includes('SHIPPING_TERMS_UNCONFIRMED'));
