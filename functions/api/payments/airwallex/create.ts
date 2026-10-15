@@ -84,6 +84,12 @@ async function latestReusableSession(db: D1Database, orderId: string, amount: nu
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+  // Merchant decision: Stripe is the exclusive website payment gateway.
+  // Kept as an explicit deny route for stale bookmarks/clients. No bank or
+  // Airwallex credentials can reactivate checkout or trigger writes.
+  return Response.json({ok:false,code:'STRIPE_ONLY',error:'Online checkout uses Stripe only.'},
+    {status:410,headers:{'cache-control':'no-store'}});
+
   if (!env.MINGEAGLE_DB) return Response.json({ ok: false, error: 'Database is not configured.' }, { status: 503 });
   const readiness=airwallexCheckoutReadiness(env);
   if (!readiness.checkoutReady) {
