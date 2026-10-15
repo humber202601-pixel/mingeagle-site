@@ -30,4 +30,16 @@ assert(ui.includes('不自动联系客户'));
 assert(ui.includes('quoteAttention(quote,followupClock).label'));
 assert(ui.includes('deliverQuote(quote, true)'),'Existing explicit manual quote delivery remains available');
 assert(!source.includes('fetch('),'Pure triage must never send requests');
+const admin=readFileSync('src/AdminApp.tsx','utf8');
+assert(admin.includes('pendingQuoteAttention(data.quotes)'), 'CRM dashboard must use the same audited quote-followup logic');
+assert(admin.includes('批发报价待处理'), 'Wholesale action list must be present on dashboard');
+assert(admin.includes('quoteAttentionItems.slice(0,6)'), 'Dashboard highlights actionable subset');
+assert(admin.includes('to="/app/quotes"'), 'Items link to manual quote management');
+assert(admin.includes('不要自动催单'), 'No claim of permission to follow up or that viewed equals paid');
+assert(!admin.includes('sendQuoteReminder('), 'Dashboard must never trigger email outreach');
+const attention=pendingQuoteAttention(rows,now);
+assert.equal(attention.length,5);
+assert(attention.every(q=>q.needsAction));
+assert(attention.every(q=>!['CONVERTED','ACCEPTED'].includes(String(q.quote.status))));
+
 console.log('PASS: B2B quote triage ranks expired, viewed, sent and draft quote records without mutation or automatic email.');

@@ -21,6 +21,7 @@ import QuoteBuilder from './QuoteBuilder';
 import OrderManager from './OrderManager';
 import TaskManager from './TaskManager';
 import { prioritizeB2BTasks } from './b2bTaskSort';
+import { pendingQuoteAttention } from './b2bQuoteAttention';
 import AdminDetail from './AdminDetail';
 import CommunicationCenter from './CommunicationCenter';
 import ContactManager from './ContactManager';
@@ -180,6 +181,7 @@ function LeadSections({ leads }: { leads: Row[] }) {
 
 function Dashboard({ data }: { data: AdminData }) {
   const failedNotices=data.inquiries.filter(row=>row.notification_status==='FAILED').length;
+  const quoteAttentionItems=pendingQuoteAttention(data.quotes);
   const urgentTasks=prioritizeB2BTasks(data.tasks).slice(0,8);
   const metrics = [
     ['新增潜客', data.metrics.newLeads, '最近 7 天新建'],
@@ -192,6 +194,16 @@ function Dashboard({ data }: { data: AdminData }) {
     <Top title="仪表盘" description="实时查看销售漏斗、跟进任务、报价、订单和客户动态。"/>
     <section className="metric-grid">{metrics.map(([label, value, note]) => <div className="metric" key={String(label)}><span>{label}</span><strong>{value}</strong><small>{note}</small></div>)}</section>
     {failedNotices>0 && <section className="panel" role="status"><strong>⚠️ {failedNotices} 条询盘的邮件通知未获服务商确认</strong><p>客户需求已经保存到CRM，但邮件通知可能未送达。请立即核实并人工处理。</p><Link to="/app/inquiries">查看相关询盘</Link></section>}
+    {quoteAttentionItems.length>0 && <section className="panel" aria-label="批发报价待处理">
+      <div className="panel-head"><h2>批发报价待处理</h2><span>{quoteAttentionItems.length} 项需人工检查</span></div>
+      <p>依次核实报价过期、客户已查看未反馈、已发送未确认及久未审核的草稿。不要自动催单，也不要把已查看或已转化误认为已付款。</p>
+      {quoteAttentionItems.slice(0,6).map(item=><div className="list-row" key={String(item.quote.id||item.quote.reference)}>
+        <div><strong>{text(item.quote.reference)} · {item.label}</strong><small>{item.note}</small></div>
+        <Link className="table-action" to="/app/quotes">查看报价</Link>
+      </div>)}
+      {quoteAttentionItems.length>6&&<p>另有 {quoteAttentionItems.length-6} 项需在报价管理中处理。</p>}
+      <Link to="/app/quotes">打开报价管理 · 人工审核</Link>
+    </section>}
     <section className="admin-grid two-col">
       <div className="panel"><div className="panel-head"><h2>下一步行动</h2><span>自动化 + 人工跟进</span></div>
         {data.tasks.length === 0 && <div className="empty-row">当前没有待处理任务。</div>}
