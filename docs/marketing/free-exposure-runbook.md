@@ -45,3 +45,16 @@ free-exposure-queue.json 已按批发优先策略改写8条英文文案，包含
 - 本轮实施：将学校页标题、描述、主标题和可见问答与已出现的学校采购搜索意图对齐；新增 WebPage、BreadcrumbList、FAQPage 结构化数据；明确“更低冲击噪声不等于完全静音”；更新站点地图 lastmod。
 - GSC 的 Sitemaps 汇总暂显示 25+4 个 URL、0 indexed，而 URL Inspection 与搜索展示已证明部分页面已收录；因此保留两类指标，不把 Sitemap 汇总的 0 误读为整站未收录。
 - 站外队列仍全部为草稿：没有连接品牌社交账号，也没有公开发布回执或独立 AI 引用证据，因此未登记任何“已发布”或“AI 推荐”。
+
+## Verified brand-channel setup — 2026-10-15
+
+Pinterest business account `mingeaglecommerce` is live as MING EAGLE, with wholesale-first description, official website and public business contact details. Two original 1000×1500 planning infographics were published, with AI-assisted content disclosure, alt text and UTM-tagged links:
+
+- School activity: https://de.pinterest.com/pin/1149192029968368240/
+- Team quote checklist: https://de.pinterest.com/pin/1149192029968368476/
+
+Both public Pins and their destination links were inspected. Actual publish timestamps are unavailable; queue records verification time separately. Do not republish these queue entries. No reach, clicks, inquiries or independent AI recommendation are claimed. Metricool is still unconnected and its web session requires login. Native publication does not imply automatic scheduling is active.
+
+YouTube company channel name/handle are prepared but final creation accepts YouTube Terms and needs action-time confirmation. Instagram public signup fields are prepared; new password, real birthday and final registration require user completion. Facebook and LinkedIn need owner sign-in. TikTok needs registration or the existing brand login. Do not modify unrelated personal profiles or the existing YouTube channel.
+
+The editable infographic SVGs, rendered PNGs and plain MING EAGLE social wordmark are stored in public/assets. Use only verified brand accounts, no paid upgrade, no bulk unsolicited outreach.

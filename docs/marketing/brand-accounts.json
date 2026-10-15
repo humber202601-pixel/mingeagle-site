@@ -1,0 +1,52 @@
+{
+  "brand": "MING EAGLE",
+  "preferredHandle": "mingeaglecommerce",
+  "website": "https://www.mingeagle.com",
+  "publicEmail": "mingeaglecommerce@gmail.com",
+  "strategy": "Wholesale-first; retail for samples and small trials",
+  "verifiedAt": "2026-10-15T04:27:26.763385+00:00",
+  "accounts": [
+    {
+      "network": "pinterest",
+      "status": "BUSINESS_PROFILE_LIVE",
+      "publicUrl": "https://de.pinterest.com/mingeaglecommerce/",
+      "handle": "mingeaglecommerce",
+      "metricoolConnected": false,
+      "publishedPostIds": [
+        "1149192029968368240",
+        "1149192029968368476"
+      ]
+    },
+    {
+      "network": "youtube",
+      "status": "PREPARED_AWAITING_TERMS_CONFIRMATION",
+      "displayName": "MING EAGLE",
+      "proposedHandle": "mingeaglecommerce",
+      "created": false
+    },
+    {
+      "network": "instagram",
+      "status": "PUBLIC_FIELDS_PREPARED_USER_SIGNUP_REQUIRED",
+      "displayName": "MING EAGLE",
+      "proposedHandle": "mingeaglecommerce",
+      "created": false
+    },
+    {
+      "network": "facebook",
+      "status": "OWNER_SIGN_IN_REQUIRED",
+      "created": false
+    },
+    {
+      "network": "linkedin",
+      "status": "OWNER_SIGN_IN_REQUIRED",
+      "created": false,
+      "publishingMode": "Native platform unless an existing paid plan is verified; no paid upgrade authorized"
+    },
+    {
+      "network": "tiktok",
+      "status": "REGISTRATION_OR_EXISTING_BRAND_LOGIN_REQUIRED",
+      "created": false,
+      "note": "Check existing ACCU retail identity before creating a duplicate brand account."
+    }
+  ]
+}
