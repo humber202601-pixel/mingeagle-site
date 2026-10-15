@@ -5,7 +5,7 @@ const root=path.resolve(process.argv[2]||'public');
 const host='https://www.mingeagle.com/';
 const sitemap=fs.readFileSync(path.join(root,'sitemap.xml'),'utf8');
 const urls=[...sitemap.matchAll(/<loc>\s*(https:\/\/www\.mingeagle\.com\/[^<\s]*)\s*<\/loc>/g)].map(m=>m[1]);
-assert.equal(urls.length,25,'Public sitemap expected 25 approved URLs; update benchmarks if pages change');
+assert.equal(urls.length,26,'Public sitemap expected 25 approved URLs; update benchmarks if pages change');
 const byUrl=new Map();
 const paths=new Set();
 function route(href,base){
@@ -35,6 +35,7 @@ for(const url of urls){
  byUrl.set(routePath,outgoing);
 }
 assert(paths.has('/'));
+assert(paths.has('/procurement.html'),'Institutional procurement page must be indexed');
 const inlinks=new Map([...paths].map(p=>[p,new Set()]));
 for(const [source,targets] of byUrl){
  for(const dest of targets)if(paths.has(dest))inlinks.get(dest).add(source);
