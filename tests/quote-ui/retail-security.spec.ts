@@ -86,7 +86,9 @@ test('2–9 eligible sets retain colors, group freight and continue to payment',
   await page.getByRole('textbox',{name:'ZIP code',exact:true}).fill('10001');
   await page.getByRole('checkbox').check();
   await page.getByRole('button',{name:'Continue to secure payment →'}).click();
-  await expect(page.getByRole('alert')).toHaveText('Synthetic submission verified');
+  await expect(page.getByRole('alert')).toContainText('Synthetic submission verified');
+  await expect(page.getByRole('alert')).toContainText('Checkout request reference:');
+  await expect(page.getByRole('link',{name:'Ask MING EAGLE to locate this request by email'})).toBeVisible();
   expect(submitted).toBe(true);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth)).toBe(false);
  }
