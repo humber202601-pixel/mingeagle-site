@@ -16,7 +16,7 @@ const original=fs.readFileSync(path.join(root,'sitemap.xml'),'utf8');
 const localized=fs.readFileSync(path.join(root,'sitemap-localized.xml'),'utf8');
 const originalUrls=[...original.matchAll(/<loc>([^<]+)<\/loc>/g)].map(x=>x[1]);
 const localizedUrls=[...localized.matchAll(/<loc>([^<]+)<\/loc>/g)].map(x=>x[1]);
-assert.equal(originalUrls.length,25,'Original public URL inspection baseline must stay on its own sitemap');
+assert.equal(originalUrls.length,26,'Original public URL inspection baseline must stay on its own sitemap');
 assert.equal(localizedUrls.length,4,'New sitemap contains exactly four actual translated buyer guides');
 assert.deepEqual(localizedUrls,files.slice(1).map(x=>base+x),'Localized sitemap order and URLs must match all four pages');
 for(const url of localizedUrls){
