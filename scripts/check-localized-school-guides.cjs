@@ -79,7 +79,7 @@ for(const [lang,filename] of Object.entries(map)){
  data.push({lang,words:text.split(/\s+/).length,sections});
 }
 const seen=new Set(originalUrls.concat(localizedUrls));
-assert.equal(seen.size,29,'25 original + 4 new translated URLs require 29 distinct public URLs');
+assert.equal(seen.size,30,'26 original + 4 translated URLs require 30 distinct public URLs');
 const english=fs.readFileSync(path.join(root,map.en),'utf8');
 assert(!english.includes('<meta http-equiv="refresh"'),'Never auto redirect language alternatives');
 console.log('PASS: 29 distinct public URLs across 2 sitemaps; four substantial multilingual pages with 6 reciprocal hreflangs each, self-canonicals, native-language content, first-party product/quote links and honest disclaimers.');
