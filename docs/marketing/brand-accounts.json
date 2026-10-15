@@ -4,7 +4,7 @@
   "website": "https://www.mingeagle.com",
   "publicEmail": "mingeaglecommerce@gmail.com",
   "strategy": "Wholesale-first; retail for samples and small trials",
-  "verifiedAt": "2026-10-15T07:08:08.676689+00:00",
+  "verifiedAt": "2026-10-15T11:53:11.214Z",
   "accounts": [
     {
       "network": "pinterest",
@@ -37,8 +37,11 @@
       "scheduledQueueIds": [
         "PIN-BULK-002",
         "PIN-CATALOG-003",
-        "PIN-APARTMENT-004"
-      ]
+        "PIN-APARTMENT-004",
+        "PIN-SCHOOL-005",
+        "PIN-TEAM-006"
+      ],
+      "scheduleVerifiedAt": "2026-10-15T11:53:11.214Z"
     },
     {
       "network": "youtube",
@@ -55,10 +58,13 @@
     },
     {
       "network": "instagram",
-      "status": "PUBLIC_FIELDS_PREPARED_USER_SIGNUP_REQUIRED",
+      "status": "SMS_VERIFICATION_REQUIRED_BRAND_CREATION_UNCONFIRMED",
       "displayName": "MING EAGLE",
       "proposedHandle": "mingeaglecommerce",
-      "created": false
+      "created": null,
+      "brandIdentityVerified": false,
+      "checkpoint": "SMS verification shown; owner must confirm identity and complete the pending flow",
+      "verifiedAt": "2026-10-15T11:53:11.214Z"
     },
     {
       "network": "facebook",
@@ -97,19 +103,29 @@
         "pages_manage_metadata",
         "pages_read_user_content",
         "pages_show_list"
-      ]
+      ],
+      "scheduledQueueIds": [
+        "FB-CATALOG-002",
+        "FB-APARTMENT-002",
+        "FB-SCHOOL-002",
+        "FB-TEAM-002"
+      ],
+      "scheduleVerifiedAt": "2026-10-15T11:53:11.214Z"
     },
     {
       "network": "linkedin",
       "status": "PUBLIC_EMAIL_PREPARED_OWNER_SIGNUP_OR_LOGIN_REQUIRED",
       "created": false,
-      "publishingMode": "Native platform unless an existing paid plan is verified; no paid upgrade authorized"
+      "publishingMode": "Native platform unless an existing paid plan is verified; no paid upgrade authorized",
+      "publicEmailPrepared": true,
+      "verifiedAt": "2026-10-15T11:53:11.214Z"
     },
     {
       "network": "tiktok",
       "status": "REGISTRATION_OR_EXISTING_BRAND_LOGIN_REQUIRED",
       "created": false,
-      "note": "Check existing ACCU retail identity before creating a duplicate brand account."
+      "note": "Check existing ACCU retail identity before creating a duplicate brand account.",
+      "verifiedAt": "2026-10-15T11:53:11.214Z"
     }
   ],
   "metricool": {
@@ -120,13 +136,17 @@
     "automatedPublishingEnabled": true,
     "automatedPublishingMode": "Native Metricool calendar for verified schedules only",
     "connectorAutomationEnabled": false,
-    "nativeScheduledPostCount": 3,
-    "nativeScheduleVerifiedAt": "2026-10-15T07:08:08.676689+00:00",
+    "nativeScheduledPostCount": 9,
+    "nativeScheduleVerifiedAt": "2026-10-15T11:53:11.214Z",
     "nativeConnectionVerifiedAt": "2026-10-15T07:08:08.676689+00:00",
     "connectedNetworks": [
       "facebook",
       "pinterest"
-    ]
+    ],
+    "nativeScheduledByNetwork": {
+      "facebook": 4,
+      "pinterest": 5
+    }
   },
   "socialVisualDirection": "docs/marketing/social-visual-direction-20261015.md",
   "socialVisualReference": "public/assets/hero-weighted-flocked-silent-basketball.webp"
