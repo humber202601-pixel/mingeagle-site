@@ -9,7 +9,9 @@ const settings={
   title:'Silent Basketball & Quiet Indoor Sports Balls | MING EAGLE',
   description:'Explore MING EAGLE silent basketball sets and indoor soccer balls for families, coaches, schools and wholesale buyers. Compare models or request a bulk quote.',
   schema:{'@context':'https://schema.org','@type':'Organization',name:'MING EAGLE COMMERCE LLC',alternateName:'MING EAGLE',url:base,
-   email:'mingeaglecommerce@gmail.com',contactPoint:[{'@type':'ContactPoint',contactType:'sales inquiries',email:'mingeaglecommerce@gmail.com',availableLanguage:'English'}]}
+   email:'mingeaglecommerce@gmail.com',
+   sameAs:['https://www.facebook.com/profile.php?id=61594156866139','https://de.pinterest.com/mingeaglecommerce/','https://www.youtube.com/channel/UCMyIMO2mCzAGcJ9GqRF4dNQ'],
+   contactPoint:[{'@type':'ContactPoint',contactType:'sales inquiries',email:'mingeaglecommerce@gmail.com',availableLanguage:'English'}]}
  },
  'products.html':{
   title:'Compare Quiet Indoor Basketball Sets & Soccer Balls | MING EAGLE',
