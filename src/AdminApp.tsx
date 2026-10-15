@@ -20,6 +20,7 @@ import {
 import QuoteBuilder from './QuoteBuilder';
 import OrderManager from './OrderManager';
 import TaskManager from './TaskManager';
+import { prioritizeB2BTasks } from './b2bTaskSort';
 import AdminDetail from './AdminDetail';
 import CommunicationCenter from './CommunicationCenter';
 import ContactManager from './ContactManager';
@@ -179,6 +180,7 @@ function LeadSections({ leads }: { leads: Row[] }) {
 
 function Dashboard({ data }: { data: AdminData }) {
   const failedNotices=data.inquiries.filter(row=>row.notification_status==='FAILED').length;
+  const urgentTasks=prioritizeB2BTasks(data.tasks).slice(0,8);
   const metrics = [
     ['新增潜客', data.metrics.newLeads, '最近 7 天新建'],
     ['待处理询盘', data.metrics.openInquiries, '需要审核或回复'],
@@ -193,7 +195,7 @@ function Dashboard({ data }: { data: AdminData }) {
     <section className="admin-grid two-col">
       <div className="panel"><div className="panel-head"><h2>下一步行动</h2><span>自动化 + 人工跟进</span></div>
         {data.tasks.length === 0 && <div className="empty-row">当前没有待处理任务。</div>}
-        {data.tasks.slice(0, 8).map((task, i) => <div className="list-row" key={text(task.id, String(i))}><div><strong>{systemText(task.title)}</strong><small>{text(task.related_to)} · 截止 {zhDate(task.due_at)}</small></div><span className={`priority ${text(task.priority).toLowerCase()}`}>{priorityLabel(task.priority)}</span></div>)}
+        {urgentTasks.map((task, i) => <div className="list-row" key={text(task.id, String(i))}><div><strong>{systemText(task.title)}</strong><small>{text(task.related_to)} · 截止 {zhDate(task.due_at)}</small></div><span className={`priority ${text(task.priority).toLowerCase()}`}>{priorityLabel(task.priority)}</span></div>)}
       </div>
       <div className="panel"><div className="panel-head"><h2>潜客销售漏斗</h2><BarChart3 size={18}/></div><div className="pipeline">
         {data.pipeline.length === 0 && <div><span>暂无潜客</span><strong>0</strong></div>}
