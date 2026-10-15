@@ -16,6 +16,32 @@ for(const [label,expected]of [['Wholesale quote','WHOLESALE'],['Sample request',
  assert.equal(payload.marketingConsent,false);
  assert.ok(!Object.keys(payload).some(key=>/admin|secret|password|apikey|accesskey/i.test(key)),'never expose admin credentials');
 }
+// Institutional purchasing fields are optional; only wholesale enquiries
+// include them. Keep the buyer's requirements visible in CRM, mirror and
+// fallback contact summary without assuming vendor eligibility.
+const inquiryPage=fs.readFileSync('public/inquiry.html','utf8');
+const inquiryScript=require('../public/inquiry.js');
+for(const name of ['buyer_rfq_reference','procurement_process','procurement_documents']){
+ assert(inquiryPage.includes('name="'+name+'"'),'Missing procurement field: '+name);
+}
+assert(inquiryPage.includes('id="institutionalFields" hidden'));
+assert(inquiryPage.includes('Listing a requirement does not mean MING EAGLE currently holds'));
+const procurement=new FormData();
+procurement.set('buyer_rfq_reference','DISTRICT-RFQ-123');
+procurement.set('procurement_process','Formal tender / RFP');
+procurement.set('procurement_documents','Product testing evidence and supplier onboarding requested');
+const detail=inquiryScript.procurementDetails(procurement,'Wholesale quote');
+assert(detail.includes('DISTRICT-RFQ-123')&&detail.includes('Formal tender / RFP'));
+assert(detail.includes('supplier onboarding requested'));
+assert(detail.includes(String.fromCharCode(10)),'Procurement requirements must display on separate lines');
+assert.equal(inquiryScript.procurementDetails(procurement,'Sample request'),'','Samples cannot silently transmit wholesale procurement fields');
+assert.equal(inquiryScript.procurementDetails(procurement,'General product question'),'');
+const complete={...common,message:'Please quote 100 units.'+detail};
+assert(core.crmPayload(complete,ctx).message.includes('DISTRICT-RFQ-123'),'CRM must retain buyer procurement reference');
+assert(inquiryScript.summary(complete,ctx).includes('supplier onboarding requested'),'Manual fallback must retain buyer document requirements');
+const formScript=fs.readFileSync('public/inquiry.js','utf8');
+assert(formScript.includes("inst.hidden=!enabled;inst.querySelectorAll('input,select,textarea')"),'Procurement controls must disable outside wholesale request type');
+assert(formScript.includes("procurementDetails(fd,v('request_type'))"),'The actual form must append procurement details to the request');
 const submit=async(responseData,responseStatus=200)=>{
  let calls=0;let payload;
  const fetcher=async(url,options)=>{
