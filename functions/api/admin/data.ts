@@ -10,19 +10,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
   const db = env.MINGEAGLE_DB;
 
   try {
-    await db.prepare(`CREATE TABLE IF NOT EXISTS payment_provider_sessions (
-      id TEXT PRIMARY KEY,
-      order_id TEXT NOT NULL,
-      provider TEXT NOT NULL DEFAULT 'AIRWALLEX',
-      provider_intent_id TEXT NOT NULL UNIQUE,
-      request_id TEXT NOT NULL UNIQUE,
-      amount REAL NOT NULL,
-      currency TEXT NOT NULL DEFAULT 'USD',
-      status TEXT NOT NULL DEFAULT 'REQUIRES_PAYMENT_METHOD',
-      client_secret TEXT,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )`).run();
+    // Read-only dashboard: payment_provider_sessions is managed by
+    // migrations/0003_airwallex_payment_sessions.sql. Never run DDL on GET.
 
     const [
       leadCount,
