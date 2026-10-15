@@ -130,14 +130,22 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
         LEFT JOIN companies c ON c.id = o.company_id
         LEFT JOIN contacts ct ON ct.id = o.contact_id
         ORDER BY o.created_at DESC LIMIT 100`).all(),
-      db.prepare(`SELECT t.id, t.title, t.description, t.priority, t.due_at, t.status,
+      db.prepare(`SELECT t.id, t.lead_id, t.type, t.title, t.description, t.priority, t.due_at, t.status,
+        COALESCE(l.source, 'NONE') AS lead_source,
         COALESCE(c.name, ct.full_name, 'General') AS related_to, t.created_at
         FROM tasks t
+        LEFT JOIN leads l ON l.id = t.lead_id
         LEFT JOIN companies c ON c.id = t.company_id
         LEFT JOIN contacts ct ON ct.id = t.contact_id
         WHERE t.status IN ('OPEN','IN_PROGRESS')
-        ORDER BY CASE t.priority WHEN 'URGENT' THEN 1 WHEN 'HIGH' THEN 2 WHEN 'MEDIUM' THEN 3 ELSE 4 END,
-                 COALESCE(t.due_at, '9999-12-31') ASC
+        ORDER BY CASE
+          WHEN l.source='WEBSITE' AND t.type!='OUTREACH_FOLLOW_UP' THEN 0
+          WHEN t.type IN ('REPLY_ACTION','QUOTE_FOLLOW_UP','SALES_FOLLOW_UP') THEN 1
+          WHEN l.source='WEBSITE' THEN 2
+          WHEN t.type!='OUTREACH_FOLLOW_UP' THEN 3
+          ELSE 4 END,
+          CASE t.priority WHEN 'URGENT' THEN 1 WHEN 'HIGH' THEN 2 WHEN 'MEDIUM' THEN 3 ELSE 4 END,
+          COALESCE(t.due_at, '9999-12-31') ASC
         LIMIT 50`).all(),
       db.prepare(`SELECT activity_type, title, description, created_at
         FROM activities ORDER BY created_at DESC LIMIT 20`).all(),
