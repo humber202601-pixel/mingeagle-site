@@ -114,6 +114,7 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
     void runAction(reference, 'MARK_PAID', {
       paymentMethod: data.get('paymentMethod'),
       paymentReference: data.get('paymentReference'),
+      fundsReceivedConfirmed: data.get('fundsReceivedConfirmed')==='true',
       amount,
     });
   }
@@ -179,7 +180,8 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
           <div className="order-form-grid">
             <label>线下 / 银行到账方式<select name="paymentMethod" defaultValue="BANK_TRANSFER"><option value="BANK_TRANSFER">银行转账</option><option value="WISE">Wise</option><option value="PAYONEER">Payoneer</option><option value="ACH">ACH</option><option value="WIRE">国际电汇</option><option value="OTHER">其他</option></select></label>
             <label>本次到账金额<input name="amount" type="number" min="0.01" max={(outstanding || total).toFixed(2)} step="0.01" defaultValue={(outstanding || total).toFixed(2)} required /></label>
-            <label className="span-2">付款凭证 / 流水号<input name="paymentReference" placeholder={`转账流水号或备注（客户付款备注号：${paymentReference}）`} /></label>
+            <label className="span-2">付款凭证 / 流水号<input name="paymentReference" required placeholder={`请填写已核实的银行/收款平台流水号（客户付款备注号：${paymentReference}）`} /></label>
+            <label className="span-2"><input type="checkbox" name="fundsReceivedConfirmed" value="true" required /> 我已独立核对银行或收款平台账单，确认这笔款项确实到账且没有重复登记。</label>
           </div>
           <small>仅用于人工记录并已核对银行/收款服务商到账凭证的线下收款。通过 Stripe、Airwallex 等平台处理的线上付款可能由 Webhook 入账；请先核对支付记录，避免重复登记。</small>
           {paymentStatus === 'PARTIAL' && <div className="payment-progress">已到账 {money(received, order.currency)} · 待收 {money(outstanding, order.currency)}</div>}
