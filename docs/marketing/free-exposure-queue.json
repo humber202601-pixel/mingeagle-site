@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "brand": "MING EAGLE",
   "budgetUSD": 0,
   "scope": "Original B2B promotion on verified brand-owned accounts; no paid advertising or unsolicited mass messaging.",
@@ -60,36 +60,46 @@
     {
       "id": "PIN-SCHOOL-001",
       "channel": "pinterest",
-      "status": "DRAFT_CHANNEL_NOT_CONNECTED",
+      "status": "PUBLISHED_VERIFIED",
       "audience": "B2B procurement and sample evaluation",
-      "title": "A no-bounce indoor ball session for PE groups",
+      "title": "10-Minute No-Bounce Indoor Ball Session for PE Groups",
       "body": "From MING EAGLE: a free 10-minute activity sheet for a small supervised group. Use suitable equipment and adapt it to the available space. No signup or purchase is required. Schools planning a bulk equipment order can also request samples and a quote.",
       "destinationUrl": "https://www.mingeagle.com/for-schools.html?utm_source=pinterest&utm_medium=organic_social&utm_campaign=wholesale_samples_20261015&utm_content=pin-school-001#free-school-session",
       "merchantDisclosure": "MING EAGLE is the author and seller",
       "requiresCommunityRuleReview": false,
-      "mediaUrl": "https://www.mingeagle.com/assets/hero-flocked-silent-basketball-set.webp",
+      "mediaUrl": "https://www.mingeagle.com/assets/pinterest-school-session.png",
       "requiresVerifiedBoard": true,
       "scheduledAt": null,
-      "providerPostId": null,
+      "providerPostId": "1149192029968368240",
       "publishedAt": null,
-      "publicPostUrl": null
+      "publicPostUrl": "https://de.pinterest.com/pin/1149192029968368240/",
+      "publishedVia": "Pinterest business web composer",
+      "publicationVerifiedAt": "2026-10-15T04:27:26.763385+00:00",
+      "boardName": "Indoor PE Activities & School Sports",
+      "aiAssistedDisclosure": true,
+      "doNotRepublish": true
     },
     {
       "id": "PIN-TEAM-001",
       "channel": "pinterest",
-      "status": "DRAFT_CHANNEL_NOT_CONNECTED",
+      "status": "PUBLISHED_VERIFIED",
       "audience": "B2B procurement and sample evaluation",
-      "title": "A checklist for your team logo basketball quote",
-      "body": "From MING EAGLE: prepare the exact model, authorized artwork, quantity, destination and sample approval requirements before requesting a customization quote. A visual logo preview is a planning aid, not a finished printed sample.",
+      "title": "Team Logo Basketball Quote Checklist for Clubs & Schools",
+      "body": "From MING EAGLE: prepare the exact model, authorized artwork, quantity, destination and sample approval requirements before requesting a customization quote. A visual logo preview is a planning aid, not a finished printed sample. Use our free copy-ready checklist for clubs, academies, schools and resellers.",
       "destinationUrl": "https://www.mingeagle.com/custom-basketball-for-teams.html?utm_source=pinterest&utm_medium=organic_social&utm_campaign=wholesale_samples_20261015&utm_content=pin-team-001#free-logo-brief",
       "merchantDisclosure": "MING EAGLE is the author and seller",
       "requiresCommunityRuleReview": false,
-      "mediaUrl": "https://www.mingeagle.com/assets/hero-flocked-silent-basketball-set.webp",
+      "mediaUrl": "https://www.mingeagle.com/assets/pinterest-team-logo-brief.png",
       "requiresVerifiedBoard": true,
       "scheduledAt": null,
-      "providerPostId": null,
+      "providerPostId": "1149192029968368476",
       "publishedAt": null,
-      "publicPostUrl": null
+      "publicPostUrl": "https://de.pinterest.com/pin/1149192029968368476/",
+      "publishedVia": "Pinterest business web composer",
+      "publicationVerifiedAt": "2026-10-15T04:27:26.763385+00:00",
+      "boardName": "Team Logo Basketball & Bulk Buying",
+      "aiAssistedDisclosure": true,
+      "doNotRepublish": true
     },
     {
       "id": "LI-TEAM-001",
@@ -145,5 +155,5 @@
   ],
   "strategy": "Wholesale-first website; retail retained for air-shipped samples and small trial purchases",
   "brandId": "7430045",
-  "channelVerification": "Metricool API reports no social network connected; do not publish or fabricate channel IDs"
+  "channelVerification": "Pinterest business profile mingeaglecommerce verified in UI; two Pins published directly. Metricool still reports no connected network; no automatic scheduling enabled."
 }
