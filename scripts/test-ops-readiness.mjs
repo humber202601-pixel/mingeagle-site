@@ -18,7 +18,7 @@ try{
  assert.equal(r.body.security.turnstileEnabled,false);assert.equal(writes,0);
  sqlite.exec('CREATE TABLE web_analytics_daily(date_utc TEXT,fetched_at TEXT);CREATE TABLE gsc_search_daily(date_pacific TEXT,fetched_at TEXT);CREATE TABLE supplier_purchase_terms(status TEXT);CREATE TABLE shipping_rates(active INTEGER);CREATE TABLE shipping_packaging(sku TEXT);');
  sqlite.exec("INSERT INTO supplier_purchase_terms VALUES('APPROVED');INSERT INTO supplier_purchase_terms VALUES('PENDING');INSERT INTO shipping_rates VALUES(1);INSERT INTO shipping_packaging VALUES('P1-S3');");
- r=await read({TURNSTILE_ENABLED:'true',AIRWALLEX_CHECKOUT_ENABLED:'true',AIRWALLEX_ENV:'prod'});
+ r=await read({TURNSTILE_ENABLED:'true',STRIPE_CHECKOUT_ENABLED:'true',STRIPE_MODE:'test'});
  assert.equal(r.body.analytics.cloudflare.observedDates,0);
  assert.equal(r.body.analytics.cloudflare.observedDateCoverage.status,'NO_VERIFIED_DATA');
  const utcYesterday=new Date(Date.now()-86400000).toISOString().slice(0,10);
@@ -46,8 +46,9 @@ try{
  assert.equal(r.body.procurement.supplierSources,2);
  assert.equal(r.body.security.turnstileMisconfigured,true);
  assert.equal(r.body.payments.checkoutConfigurationReady,false);
- r=await read({TURNSTILE_ENABLED:'true',TURNSTILE_SITE_KEY:'test-only',TURNSTILE_SECRET_KEY:'test-only',AIRWALLEX_CHECKOUT_ENABLED:'true',AIRWALLEX_ENV:'prod',AIRWALLEX_CLIENT_ID:'test-only',AIRWALLEX_API_KEY:'test-only',AIRWALLEX_WEBHOOK_SECRET:'test-only'});
+ r=await read({TURNSTILE_ENABLED:'true',TURNSTILE_SITE_KEY:'test-only',TURNSTILE_SECRET_KEY:'test-only',STRIPE_CHECKOUT_ENABLED:'true',STRIPE_MODE:'test',STRIPE_SECRET_KEY:'sk_test_synthetic_key_for_readiness',STRIPE_WEBHOOK_SECRET:'whsec_synthetic_signature_secret_for_readiness'});
  assert.equal(r.body.security.turnstileEnabled,true);assert.equal(r.body.payments.webhookConfigured,true);assert.equal(r.body.payments.checkoutConfigurationReady,true);
+  assert.equal(r.body.payments.environment,'test');assert.equal(r.body.payments.providerCredentialsConfigured,true);
  assert(!JSON.stringify(r.body).includes('test-only'),'never leak credential values');assert.equal(writes,0);
  sqlite.close();console.log('PASS: read-only readiness uses real aggregate counts, unknown vs zero, no secrets or business record mutation.');
 }finally{rmSync(temp,{recursive:true,force:true})}

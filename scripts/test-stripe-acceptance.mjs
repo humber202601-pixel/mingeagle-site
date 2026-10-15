@@ -86,7 +86,8 @@ try{
  assert.equal((await status({request:new Request(base+'/api/payments/stripe/status?token='+'f'.repeat(64)),env})).status,404);
  const page=await quotePage({request:new Request(checkout.orderPage+'?payment_return=1&session_id=cs_test_1'),env:testCheckoutEnv(env),params:{token:quoteToken}});
  assert.equal(page.status,200);const html=await page.text();assert(html.includes('Payment received in full.'));
- assert(html.includes("has('session_id')?'stripe':'airwallex'"));assert(!html.includes('when Airwallex confirms the payment'));
+ assert(html.includes("'/api/payments/stripe/status?token='"),'Only Stripe checkout status may be polled');
+  assert(!html.includes('airwallexPayBtn')&&!html.includes('static.airwallex.com'),'No Airwallex online checkout is displayed');assert(!html.includes('when Airwallex confirms the payment'));
  // National startup uses real order SQL and the same exact provider/callback
  // reconciliation, under synthetic facts and mocked providers only.
  const providerFixture=globalThis.fetch;
