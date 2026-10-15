@@ -14,10 +14,10 @@ assert(src.includes("CASE WHEN status='SUCCEEDED' THEN status ELSE ? END"),'late
 const fs=await import('node:fs/promises');
 const checkout=await fs.readFile(new URL('../functions/api/payments/airwallex/create.ts',import.meta.url),'utf8');
 const quotePage=await fs.readFile(new URL('../functions/quote/[token].ts',import.meta.url),'utf8');
-assert(checkout.includes('airwallexCheckoutReadiness(env)'),'checkout API must use shared readiness');
+assert(checkout.includes("code:'STRIPE_ONLY'")&&checkout.includes('status:410'),'Retired Airwallex checkout cannot create payment sessions');
 assert(!quotePage.includes('airwallexPayBtn')&&!quotePage.includes('static.airwallex.com'),'Customers must never see or load the Airwallex online checkout');
 assert(quotePage.includes('stripePayBtn'),'Stripe checkout remains the only online gateway');
-assert(checkout.includes('if (!readiness.checkoutReady)'),'create API must fail closed without signed webhook');
+assert(!checkout.includes('getAirwallexAccessToken')&&!checkout.includes('MINGEAGLE_DB'),'Retired route cannot call Airwallex or mutate CRM');
 assert(quotePage.includes('message.textContent=String(e&&e.message?e.message:e)'), 'Stripe payment errors must use inert DOM textContent');
 assert(!quotePage.includes("message.innerHTML='<div class=\"notice error"), 'Dynamic customer order/payment errors must never be inserted as HTML');
 assert(!checkout.includes('error: reason'), 'Do not reflect raw payment-provider errors to customers');
