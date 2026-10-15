@@ -30,6 +30,24 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=(self)');
   headers.set('x-permitted-cross-domain-policies', 'none');
 
+  // A customer quotation contains a bearer-style URL token and may disclose
+  // negotiated prices, buyer information or the current payment state.
+  // Keep these specific responses out of browser/intermediary caches and do
+  // not leak the token URL as a Referer to third-party checkout resources.
+  // Public product, school, wholesale and procurement SEO pages keep their
+  // existing caching and strict-origin referral policies.
+  const urlPath=context.request?.url?new URL(context.request.url).pathname:'';
+  const confidentialBuyerPath=new RegExp(
+    '^/(?:quote/[a-f0-9]{60,80}|api/quote/[a-f0-9]{60,80}|api/payments/(?:stripe|airwallex)/(?:create|status))$','i'
+  ).test(urlPath);
+  if(confidentialBuyerPath){
+    headers.set('cache-control','private, no-store, max-age=0');
+    headers.set('pragma','no-cache');
+    headers.set('referrer-policy','no-referrer');
+    headers.set('x-robots-tag','noindex, nofollow, noarchive');
+    headers.set('cross-origin-resource-policy','same-origin');
+  }
+
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
