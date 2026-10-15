@@ -66,7 +66,18 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
         i.request_type, i.customer_type, i.product_interest, i.estimated_quantity,
         i.size_preference, i.color_preference, i.customization, i.order_timing,
         i.shipping_country, i.shipping_city, i.shipping_postal_code, i.message,
-        i.status, i.created_at, i.updated_at
+        i.status, i.created_at, i.updated_at,
+        COALESCE((
+          SELECT CASE a.activity_type
+            WHEN 'INQUIRY_NOTIFICATION_ACCEPTED' THEN 'ACCEPTED'
+            WHEN 'INQUIRY_NOTIFICATION_FAILED' THEN 'FAILED'
+            ELSE 'UNKNOWN'
+          END
+          FROM activities a
+          WHERE a.entity_type='LEAD' AND a.entity_id=i.lead_id
+            AND a.activity_type IN ('INQUIRY_NOTIFICATION_ACCEPTED','INQUIRY_NOTIFICATION_FAILED')
+          ORDER BY a.created_at DESC LIMIT 1
+        ), 'UNKNOWN') AS notification_status
         FROM inquiries i
         LEFT JOIN companies c ON c.id = i.company_id
         LEFT JOIN contacts ct ON ct.id = i.contact_id
