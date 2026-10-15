@@ -194,6 +194,7 @@ async function forwardInquiryEmail(input: InquiryInput, reference: string) {
   try {
     const response = await fetch(FORM_EMAIL_ENDPOINT, {
       method: 'POST',
+      signal: AbortSignal.timeout(10000),
       headers: { 'content-type': 'application/json', accept: 'application/json' },
       body: JSON.stringify({
         _subject: `MING EAGLE inquiry ${reference}`,
@@ -228,7 +229,11 @@ async function forwardInquiryEmail(input: InquiryInput, reference: string) {
         'UTM content': clean(input.utmContent, 200),
       }),
     });
-    return response.ok;
+    // FormSubmit may return HTTP 200 with a failed submission result.
+    // A provider acceptance is not proof that the recipient received an email.
+    if (!response.ok) return false;
+    const receipt = await response.json().catch(() => null) as {success?:unknown}|null;
+    return receipt?.success === true || receipt?.success === 'true';
   } catch (error) {
     console.error('inquiry_email_forward_failed', error);
     return false;
@@ -502,6 +507,29 @@ async function processInquiryPost(context:Parameters<PagesFunction<Env>>[0],noti
       ).run();
 
     const emailForwarded = notify ? await forwardInquiryEmail(input, reference) : false;
+    if (notify) {
+      try {
+        // Audit only provider acceptance, never claim inbox delivery. The CRM
+        // submission has already been persisted regardless of mail outcome.
+        await db.prepare(`INSERT INTO activities
+          (id, entity_type, entity_id, activity_type, title, description, metadata_json)
+          VALUES (?, 'LEAD', ?, ?, ?, ?, ?)`)
+          .bind(
+            crypto.randomUUID(),
+            leadId,
+            emailForwarded ? 'INQUIRY_NOTIFICATION_ACCEPTED' : 'INQUIRY_NOTIFICATION_FAILED',
+            emailForwarded ? 'Inquiry notification request accepted' : 'Inquiry notification needs review',
+            emailForwarded
+              ? 'The notification provider accepted the request; actual inbox delivery is not confirmed.'
+              : 'The inquiry is saved in CRM. Review this lead and notify the owner manually.',
+            JSON.stringify({reference}),
+          ).run();
+      } catch (auditError) {
+        // An audit-write error must not falsely tell the buyer the inquiry failed
+        // and trigger unnecessary duplicate submissions.
+        console.error('inquiry_notification_audit_failed', auditError);
+      }
+    }
 
     return successResponse(nativeForm, reference, {
       inquiryId,
