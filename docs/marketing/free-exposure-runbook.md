@@ -34,3 +34,14 @@ free-exposure-queue.json 包含8条原创、有商家身份披露的英文文案
 每次推进记录实际修改、PR/提交、CI、生产部署及验证网址。站外发布后必须读取回执，登记 publicPostUrl、publishedAt、平台账号和实际结果。没有回执时保留失败或草稿状态，避免重复发布。只报告实际Google收录、搜索展示/点击、可验证AI引用及匿名引流指标；IndexNow收到提交不等于收录。零数据、数据延迟或无访问权限均保留真实含义。
 
 Google Merchant Center 尚未授予接口权限，Bing Webmaster API 尚未接通，社交发布账号尚未连接；这些渠道不列为已启动。允许在已有官网、GitHub和搜索数据访问范围内继续独立执行。
+
+
+## 2026-10-15：学校页面搜索意图对齐
+
+- GSC 正式属性：`sc-domain:mingeagle.com`；本轮数据已结算至 2026-10-12（America/Los_Angeles）。
+- 最近 28 天：6 次展示、0 点击；2026-10-12 当日 3 次展示、平均排名 12.67。此前 2026-10-11 为 3 次展示、平均排名 55.67。
+- 已确认查询与落地页：`basketballs for schools` → `/for-schools.html`（1 次展示、平均排名 26）；`basketball with logo` 与 `logo basketballs` → `/custom-basketball-for-teams.html`。
+- URL Inspection：`/for-schools.html`、`/custom-basketball-for-teams.html`、`/custom-logo.html`、`/silent-basketball-for-apartments.html` 均为 `PASS / Submitted and indexed`，抓取允许，用户声明 canonical 与 Google canonical 一致。
+- 本轮实施：将学校页标题、描述、主标题和可见问答与已出现的学校采购搜索意图对齐；新增 WebPage、BreadcrumbList、FAQPage 结构化数据；明确“更低冲击噪声不等于完全静音”；更新站点地图 lastmod。
+- GSC 的 Sitemaps 汇总暂显示 25+4 个 URL、0 indexed，而 URL Inspection 与搜索展示已证明部分页面已收录；因此保留两类指标，不把 Sitemap 汇总的 0 误读为整站未收录。
+- 站外队列仍全部为草稿：没有连接品牌社交账号，也没有公开发布回执或独立 AI 引用证据，因此未登记任何“已发布”或“AI 推荐”。
