@@ -59,6 +59,24 @@ try{
  assert.equal(created.status,200,await created.clone().text());const checkout=await created.json();
  assert.equal(checkout.totalUSD,21.4);assert(checkout.orderReference.startsWith('ME-RO-TEST-'));
  const quoteToken=new URL(checkout.orderPage).pathname.split('/').at(-1);
+ const unpaidPage=await quotePage({request:new Request(checkout.orderPage),env:testCheckoutEnv(env),params:{token:quoteToken}});
+ assert.equal(unpaidPage.status,200);
+ const unpaidHtml=await unpaidPage.text();
+ assert(unpaidHtml.includes('Pay securely with Stripe'),'Payable quote offers Stripe checkout');
+ assert(unpaidHtml.includes('Secure Stripe payment'),'Payable quote explains sole gateway');
+ for(const forbidden of ['US Bank Transfer / ACH','bankPay','Choose how you would like to pay','another payment method','static.airwallex.com'])
+  assert(!unpaidHtml.includes(forbidden),'No retired payment choice in quote page: '+forbidden);
+ const priorOrder=sqlite.prepare('SELECT status,payment_status FROM orders WHERE reference=?').get(checkout.orderReference);
+ for(const closed of [{status:'CANCELLED',payment_status:priorOrder.payment_status},{status:priorOrder.status,payment_status:'REFUNDED'}]){
+  sqlite.prepare('UPDATE orders SET status=?,payment_status=? WHERE reference=?').run(closed.status,closed.payment_status,checkout.orderReference);
+  const closedPage=await quotePage({request:new Request(checkout.orderPage),env:testCheckoutEnv(env),params:{token:quoteToken}});
+  assert.equal(closedPage.status,200);
+  const closedHtml=await closedPage.text();
+  assert(closedHtml.includes('Order closed — payment disabled.'));
+  assert(!closedHtml.includes('id="stripePayBtn"'),'Closed orders cannot offer Stripe checkout');
+  assert(!closedHtml.includes('Your order is now moving into processing.'),'Closed orders cannot claim fulfillment');
+ }
+ sqlite.prepare('UPDATE orders SET status=?,payment_status=? WHERE reference=?').run(priorOrder.status,priorOrder.payment_status,checkout.orderReference);
  const old=sessions.get('cs_test_1'),writesBeforePending=writes;
  old.status='complete';
  const pending=await createCheckout({env:testCheckoutEnv(env),request:new Request(base+'/api/payments/stripe/create',
