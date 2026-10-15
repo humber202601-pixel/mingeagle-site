@@ -25,8 +25,8 @@ try{
  const product=fs.readFileSync('public/silent-basketball.html','utf8');
  const inquiryPage=fs.readFileSync('public/inquiry.html','utf8');
  assert(product.includes('retail-buy.js?v=20261014-creator1'));
- assert(inquiryPage.includes('forms-core.js?v=20261016-b2b-rfq1'));
- assert(inquiryPage.includes('inquiry.js?v=20261016-b2b-rfq1'));
+ assert(inquiryPage.includes('forms-core.js?v=20261016-b2b-exactqty2'));
+ assert(inquiryPage.includes('inquiry.js?v=20261016-b2b-exactqty2'));
  const buy=fs.readFileSync('public/retail-buy.js','utf8');
  assert(buy.includes('mingeagle_video_to_product_v1'));
  assert(buy.includes("productId==='p1'"),'Other product pages must not inherit demonstration context');
