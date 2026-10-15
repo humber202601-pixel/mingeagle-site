@@ -1,4 +1,4 @@
-import {requiresClosedOrderPaymentReview} from '../../../lib/closed-order-payment';
+import {requiresClosedOrderPaymentReview} from '../../../../lib/closed-order-payment';
 interface Env {
   MINGEAGLE_DB: D1Database;
   AIRWALLEX_WEBHOOK_SECRET?: string;
