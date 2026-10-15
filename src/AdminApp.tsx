@@ -204,7 +204,7 @@ function Dashboard({ data }: { data: AdminData }) {
         <Link className="table-action" to="/app/orders">查看订单</Link>
       </div>)}
       {paymentReviewOrders.length>6&&<p>另有 {paymentReviewOrders.length-6} 笔需在订单管理中核查。</p>}
-    </section>
+    </section>}
     {quoteAttentionItems.length>0 && <section className="panel" aria-label="批发报价待处理">
       <div className="panel-head"><h2>批发报价待处理</h2><span>{quoteAttentionItems.length} 项需人工检查</span></div>
       <p>依次核实报价过期、客户已查看未反馈、已发送未确认及久未审核的草稿。不要自动催单，也不要把已查看或已转化误认为已付款。</p>
