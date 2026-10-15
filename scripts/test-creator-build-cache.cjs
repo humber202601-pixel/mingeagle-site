@@ -9,7 +9,7 @@ try{
  run();
  const once=fs.readFileSync(path.join(pub,'inquiry.html'),'utf8');
  for(const file of ['forms-core.js','inquiry.js'])
-  assert(once.includes(file+'?v=20261014-creator1'),file+' must remain new on inquiry form');
+  assert(once.includes(file+'?v=20261016-b2b-rfq1'),file+' must remain new on inquiry form');
  const direct=fs.readFileSync(path.join(pub,'index.html'),'utf8');
  assert(direct.includes('forms-core.js?v=20261010-turnstile-v30'),
   'Other site pages must retain existing working contact script version');

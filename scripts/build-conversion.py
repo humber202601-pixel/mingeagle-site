@@ -6,7 +6,7 @@ for p in root.glob('*.html'):
  s=p.read_text()
  if 'site.js?' not in s:
   continue
- asset_version='20261014-creator1' if p.name=='inquiry.html' else version
+ asset_version='20261016-b2b-rfq1' if p.name=='inquiry.html' else version
  s=re.sub(r'<script src="direct-contact\.js[^"]*"></script>','',s)
  s=re.sub(r'<script src="forms-core\.js[^"]*"></script>',f'<script src="forms-core.js?v={asset_version}"></script>',s)
  if 'forms-core.js?' not in s:
