@@ -11,7 +11,6 @@ export type AirwallexEnv = {
 export function airwallexCheckoutReadiness(env:AirwallexEnv){
  const mode=String(env.AIRWALLEX_ENV||'').trim().toLowerCase();
  const environment=mode==='sandbox'||mode==='prod'?mode:null;
- const checkoutRequested=env.AIRWALLEX_CHECKOUT_ENABLED==='true';
  const providerCredentialsConfigured=Boolean(env.AIRWALLEX_CLIENT_ID?.trim()&&env.AIRWALLEX_API_KEY?.trim());
  const webhookConfigured=Boolean(env.AIRWALLEX_WEBHOOK_SECRET?.trim());
  // Merchant policy: Stripe is the only website payment gateway.
