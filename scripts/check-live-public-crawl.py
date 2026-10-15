@@ -21,7 +21,7 @@ from urllib.parse import urlparse
 ROOT = Path(__file__).resolve().parents[1] / "public"
 HOST = "www.mingeagle.com"
 BASE = "https://" + HOST
-EXPECTED = {"sitemap.xml": 25, "sitemap-localized.xml": 4}
+EXPECTED = {"sitemap.xml": 26, "sitemap-localized.xml": 4}
 PAGE_AGENT = "MING-EAGLE-public-crawl-audit/1.0 (+site reliability)"
 BOT_PROBES = [
     "Googlebot", "Bingbot", "OAI-SearchBot", "PerplexityBot", "Claude-SearchBot",
@@ -233,11 +233,11 @@ def self_test():
     assert "noindex_directive" in inspect_html(url, sample.replace("</head>", '<meta name="robots" content="noindex"></head>'))[0]
     assert "h1_count_not_one" in inspect_html(url, sample.replace("<h1>Real product</h1>", ""))[0]
     assert "missing_title" in inspect_html(url, sample.replace("<title>Test Page</title>", ""))[0]
-    assert sitemap_urls() and len(sitemap_urls()) == 29
+    assert sitemap_urls() and len(sitemap_urls()) == 30
     assert "localized_language_mismatch" in inspect_html(
         BASE + "/school-sports-equipment-fr.html", sample)[0]
     print("PASS: offline crawl audit rejects wrong canonical, noindex header/meta, missing H1/title,"
-          " incorrect translated page language, and validates both 29-URL sitemaps.")
+          " incorrect translated page language, and validates both 30-URL sitemaps.")
     return 0
 
 

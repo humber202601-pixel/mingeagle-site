@@ -23,5 +23,5 @@ try{
  r=run();assert.notEqual(r.status,0,'Apex sitemap URLs must fail');
  fs.writeFileSync(sitemap,s0);
  r=run();assert.equal(r.status,0,r.stderr||r.stdout);
- console.log('PASS: 25-page canonical integrity; apex HTML and offer schema and sitemap drift fail closed; baseline recovers cleanly.');
+ console.log('PASS: 26-page canonical integrity; apex HTML and offer schema and sitemap drift fail closed; baseline recovers cleanly.');
 }finally{fs.rmSync(tmp,{recursive:true,force:true})}

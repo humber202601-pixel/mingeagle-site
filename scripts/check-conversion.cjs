@@ -20,6 +20,16 @@ function init(search){
  vm.runInNewContext(fs.readFileSync('public/inquiry.js','utf8'),sandbox);
  const fire=(id,type)=>(get(id).events[type]||[]).forEach(fn=>fn());return {get,fire};
 }
+for(const [query,expected] of [
+ ['?type=quote&customer=government','Government / public agency'],
+ ['?type=quote&customer=district','School district / education authority'],
+ ['?type=quote&customer=business','Business / corporate procurement'],
+ ['?type=quote&customer=nonprofit','Nonprofit / community organization']
+]){
+ const buyer=init(query);
+ assert.equal(buyer.get('request_type').value,'Wholesale quote');
+ assert.equal(buyer.get('customer_type').value,expected,'B2B buyer profile must survive the landing-page handoff');
+}
 const sample=init('?type=sample');assert.equal(sample.get('estimated_quantity').value,'1–2 samples');sample.get('request_type').value='Wholesale quote';sample.fire('request_type','change');assert.equal(sample.get('estimated_quantity').value,'');
 sample.get('estimated_quantity').value='100–499 units';sample.fire('estimated_quantity','change');sample.get('request_type').value='Sample request';sample.fire('request_type','change');assert.equal(sample.get('estimated_quantity').value,'100–499 units','Keep customer quantity');
 const explicit=init('?type=sample');explicit.fire('estimated_quantity','change');explicit.get('request_type').value='Wholesale quote';explicit.fire('request_type','change');assert.equal(explicit.get('estimated_quantity').value,'1–2 samples','Keep explicit customer selection');

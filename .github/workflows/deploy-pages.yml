@@ -450,10 +450,10 @@ jobs:
                       assert b'calculateFromCatalog' in body
           PY
 
-      - name: Audit all 29 live public sitemap URLs after deployment
+      - name: Audit all 30 live public sitemap URLs after deployment
         run: python scripts/check-live-public-crawl.py
 
-      - name: Preserve 29-page HTTP crawl and synthetic UA diagnostic evidence
+      - name: Preserve 30-page HTTP crawl and synthetic UA diagnostic evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -462,7 +462,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      - name: Notify IndexNow only after live 29-page audit passes
+      - name: Notify IndexNow only after live 30-page audit passes
         if: ${{ github.event_name == 'push' }}
         continue-on-error: true  # Search-engine outage must not undo a verified website deployment
         env:

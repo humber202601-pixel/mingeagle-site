@@ -18,6 +18,19 @@ async function getJson(url, fetcher) {
   return data;
 }
 
+async function getHtml(url, fetcher) {
+  const response = await fetcher(url, {
+    method: 'GET',
+    redirect: 'follow',
+    headers: {'accept':'text/html','cache-control':'no-cache','user-agent':'MING-EAGLE-production-smoke/1.0'},
+    signal: AbortSignal.timeout(12000)
+  });
+  if (!response.ok) throw new Error(url+' returned HTTP '+response.status);
+  const body=await response.text();
+  if (!body || !body.includes('<html')) throw new Error('Unexpected HTML at '+url);
+  return body;
+}
+
 async function checkProduction({expectedRevision, fetcher=globalThis.fetch, attempts=4, delay=sleep}={}) {
   assert.match(expectedRevision || '', /^[a-f0-9]{40}$/i, 'Expected full main commit SHA');
   assert(Number.isInteger(attempts) && attempts >= 1 && attempts <= 8, 'Invalid attempt limit');
@@ -71,7 +84,23 @@ async function checkProduction({expectedRevision, fetcher=globalThis.fetch, atte
     if(!body.includes(needle))throw new Error('Public discovery asset '+path+' has unexpected content');
   }
 
-  return {revision:expectedRevision,crmBinding:true,priceProducts:4,priceCatalogsMatch:true,discoveryAssets:3};
+  // The deployment hash alone does not prove that the buyer journey survived.
+  // GET-only acceptance checks never create leads, send messages or charge cards.
+  const buyerPages=[
+    ['', ['INDOOR SPORTS EQUIPMENT FOR ORGANIZATIONS.', 'id="institutional-buyers"', 'href="procurement.html"','href="inquiry.html?type=quote"']],
+    ['procurement.html', ['PROCUREMENT-READY INDOOR SPORTS EQUIPMENT.', 'customer=government', 'customer=business','Request samples']],
+    ['wholesale.html', ['SUPPLY OPTIONS FOR INSTITUTIONAL BUYERS.', 'href="procurement.html"', 'href="inquiry.html?type=quote"']],
+    ['for-schools.html', ['School district and procurement office resources', 'customer=district']],
+    ['products.html', ['PRODUCTS FOR WHOLESALE BUYERS AND SAMPLES.', 'Request wholesale quote']],
+    ['inquiry.html', ['REQUEST A BULK QUOTE OR SAMPLE.', '<option value="Government / public agency">', '<option value="School district / education authority">', 'id="quoteForm"','src="inquiry.js']]
+  ];
+  for (const [path,needles] of buyerPages) {
+    const html=await getHtml(BASE+path,fetcher);
+    for (const needle of needles) {
+      if (!html.includes(needle)) throw new Error('Missing B2B procurement content on '+(path||'homepage')+': '+needle);
+    }
+  }
+  return {revision:expectedRevision,crmBinding:true,priceProducts:4,priceCatalogsMatch:true,discoveryAssets:3,b2bPagesVerified:buyerPages.length};
 }
 
 if (require.main===module) {
