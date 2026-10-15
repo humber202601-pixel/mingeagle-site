@@ -22,7 +22,7 @@ try{
   AIRWALLEX_API_KEY:'synthetic-key',
   AIRWALLEX_WEBHOOK_SECRET:'synthetic-signed-webhook'
  };
- assert.equal(airwallexCheckoutReadiness(complete).checkoutReady,true);
+ assert.equal(airwallexCheckoutReadiness(complete).checkoutReady,false,'Stripe-only payment policy overrides stale enabled credentials');
  const missing=[
   {}, {...complete,AIRWALLEX_CHECKOUT_ENABLED:'false'},
   {...complete,AIRWALLEX_CHECKOUT_ENABLED:undefined},
@@ -52,15 +52,19 @@ try{
   assert.equal(data.airwallex.environment,env.AIRWALLEX_ENV==='sandbox'?'sandbox':null);
   assert(!JSON.stringify(data).includes('synthetic-'),'No payment credentials must be exposed');
  }
+ const forcedDisabled=await onRequestPost({env:{...complete,MINGEAGLE_DB:db},
+  request:new Request('https://app.mingeagle.com/api/payments/airwallex/create',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token:'a'.repeat(64)})})});
+ assert.equal(forcedDisabled.status,503,'Even complete old Airwallex payment credentials cannot create an online checkout');
+ assert.equal((await forcedDisabled.json()).ok,false);
  const enabled=await onRequestGet({env:complete});
  const ready=(await enabled.json()).airwallex;
- assert.equal(ready.checkoutReady,true);
- assert.equal(ready.checkoutRequested,true);
+ assert.equal(ready.checkoutReady,false);
+ assert.equal(ready.checkoutRequested,false);
  assert.equal(ready.webhookConfigured,true);
  assert.equal(ready.environment,'sandbox');
  assert(!JSON.stringify(ready).includes('synthetic-'));
- assert.equal(airwallexCheckoutReadiness({...complete,AIRWALLEX_ENV:'prod'}).checkoutReady,true);
+ assert.equal(airwallexCheckoutReadiness({...complete,AIRWALLEX_ENV:'prod'}).checkoutReady,false);
  assert.equal(external,0,'Fail-closed payment gate must never contact provider');
  assert.equal(dbReads,0);assert.equal(dbWrites,0);
- console.log('PASS: payment readiness consistent, signed webhook required, no provider calls or D1 access on disabled/misconfigured checkout.');
+ console.log('PASS: Stripe-only checkout policy blocks legacy Airwallex gateway even with configured credentials; no provider calls, D1 access or credential leakage.');
 }finally{globalThis.fetch=originalFetch;rmSync(tmp,{recursive:true,force:true});}
