@@ -32,7 +32,11 @@ const future=lib.prioritizeProspects([{
 }],now);
 assert.equal(future[0].due,false);
 const admin=readFileSync('src/AdminApp.tsx','utf8');
-assert(admin.includes('<ProspectActionQueue leads={data.leads}/>'));
+assert(admin.includes('<LeadSections leads={data.leads}/>'),'All CRM leads are supplied to the inbound-first section');
+assert(admin.includes('<ProspectActionQueue leads={sourcedLeads}/>'),'The proactive review panel must not mix in website-submitted inquiries');
+assert(admin.includes("String(row.source||'').toUpperCase()==='WEBSITE'"),'Website-originated leads require a separate first section');
+assert(admin.includes('<DataTable rows={websiteLeads} filterKey="status" columns={columns}/>'),'Inbound buyers retain searchable and filterable table');
+assert(admin.includes('<DataTable rows={sourcedLeads} filterKey="status" columns={columns}/>'),'Discovery leads remain accessible with status filter');
 const api=readFileSync('functions/api/admin/data.ts','utf8');
 assert(api.includes('l.source, l.lead_score')&&api.includes('l.last_contact_at'));
 assert(api.includes('contact_email_present')&&api.includes('contact_email_verified'));
