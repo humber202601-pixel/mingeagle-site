@@ -4,7 +4,7 @@
   "website": "https://www.mingeagle.com",
   "publicEmail": "mingeaglecommerce@gmail.com",
   "strategy": "Wholesale-first; retail for samples and small trials",
-  "verifiedAt": "2026-10-15T06:25:08.638489+00:00",
+  "verifiedAt": "2026-10-15T07:08:08.676689+00:00",
   "accounts": [
     {
       "network": "pinterest",
@@ -62,7 +62,7 @@
     },
     {
       "network": "facebook",
-      "status": "PAGE_LIVE_NATIVE_POST_PUBLISHED_METRICOOL_AUTH_PENDING",
+      "status": "PAGE_LIVE_METRICOOL_CONNECTED",
       "created": true,
       "displayName": "MING EAGLE",
       "publicProfileId": "61594156866139",
@@ -74,11 +74,22 @@
       "publicEmail": "mingeaglecommerce@gmail.com",
       "publicPhone": "+8613851585237",
       "avatar": "https://www.mingeagle.com/assets/mingeagle-social-wordmark.png",
-      "coverAsset": "docs/marketing/assets/facebook-wholesale-cover.png",
+      "coverAsset": "docs/marketing/assets/facebook-training-cover-v2.jpg",
       "contactButtonUrl": "https://www.mingeagle.com/wholesale.html?utm_source=facebook&utm_medium=organic_social&utm_campaign=wholesale_samples_20261015&utm_content=page_cta",
-      "metricoolConnected": false,
-      "metricoolStatus": "PAGE_PERMISSION_GRANT_AWAITING_ACTION_TIME_CONFIRMATION",
-      "metricoolPendingScopes": [
+      "metricoolConnected": true,
+      "metricoolStatus": "CONNECTED_NATIVE_UI_VERIFIED",
+      "whatsappLinked": false,
+      "publishedQueueIds": [
+        "FB-BULK-001"
+      ],
+      "verifiedAt": "2026-10-15T07:08:08.676689+00:00",
+      "metricoolBrandId": "7436627",
+      "metricoolPageId": "1406582449205088",
+      "coverPhotoId": "122101307403471895",
+      "coverAiAssisted": true,
+      "visualStyleReference": "public/assets/hero-weighted-flocked-silent-basketball.webp",
+      "visualUpdatedAt": "2026-10-15T07:08:08.676689+00:00",
+      "metricoolGrantedScopes": [
         "read_insights",
         "pages_manage_posts",
         "pages_manage_engagement",
@@ -86,12 +97,7 @@
         "pages_manage_metadata",
         "pages_read_user_content",
         "pages_show_list"
-      ],
-      "whatsappLinked": false,
-      "publishedQueueIds": [
-        "FB-BULK-001"
-      ],
-      "verifiedAt": "2026-10-15T06:25:08.638489+00:00"
+      ]
     },
     {
       "network": "linkedin",
@@ -110,11 +116,18 @@
     "connectorBrandId": "7430045",
     "browserBrandId": "7436627",
     "browserBrandName": "MING EAGLE",
-    "status": "PINTEREST_CONNECTED_NATIVE_PLANNER_READY_CONNECTOR_REAUTH_REQUIRED",
+    "status": "FACEBOOK_PINTEREST_CONNECTED_NATIVE_PLANNER_READY_CONNECTOR_REAUTH_REQUIRED",
     "automatedPublishingEnabled": true,
     "automatedPublishingMode": "Native Metricool calendar for verified schedules only",
     "connectorAutomationEnabled": false,
     "nativeScheduledPostCount": 3,
-    "nativeScheduleVerifiedAt": "2026-10-15T05:27:59.713400+00:00"
-  }
+    "nativeScheduleVerifiedAt": "2026-10-15T07:08:08.676689+00:00",
+    "nativeConnectionVerifiedAt": "2026-10-15T07:08:08.676689+00:00",
+    "connectedNetworks": [
+      "facebook",
+      "pinterest"
+    ]
+  },
+  "socialVisualDirection": "docs/marketing/social-visual-direction-20261015.md",
+  "socialVisualReference": "public/assets/hero-weighted-flocked-silent-basketball.webp"
 }
