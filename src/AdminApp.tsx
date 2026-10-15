@@ -178,6 +178,7 @@ function LeadSections({ leads }: { leads: Row[] }) {
 }
 
 function Dashboard({ data }: { data: AdminData }) {
+  const failedNotices=data.inquiries.filter(row=>row.notification_status==='FAILED').length;
   const metrics = [
     ['新增潜客', data.metrics.newLeads, '最近 7 天新建'],
     ['待处理询盘', data.metrics.openInquiries, '需要审核或回复'],
@@ -188,6 +189,7 @@ function Dashboard({ data }: { data: AdminData }) {
   return <>
     <Top title="仪表盘" description="实时查看销售漏斗、跟进任务、报价、订单和客户动态。"/>
     <section className="metric-grid">{metrics.map(([label, value, note]) => <div className="metric" key={String(label)}><span>{label}</span><strong>{value}</strong><small>{note}</small></div>)}</section>
+    {failedNotices>0 && <section className="panel" role="status"><strong>⚠️ {failedNotices} 条询盘的邮件通知未获服务商确认</strong><p>客户需求已经保存到CRM，但邮件通知可能未送达。请立即核实并人工处理。</p><Link to="/app/inquiries">查看相关询盘</Link></section>}
     <section className="admin-grid two-col">
       <div className="panel"><div className="panel-head"><h2>下一步行动</h2><span>自动化 + 人工跟进</span></div>
         {data.tasks.length === 0 && <div className="empty-row">当前没有待处理任务。</div>}
@@ -285,7 +287,7 @@ export default function AdminApp() {
   else if (page === 'companies' && detailId) content = <AdminDetail type="company" id={detailId} accessKey={key}/>;
   else if (page === 'leads') content = <><Top title="潜在客户" description="先处理官网真实主动询盘，再核实公开来源待开发客户。所有外联邮件须人工审阅。"/><LeadSections leads={data.leads}/></>;
   else if (page === 'inquiries') content = <><Top title="询盘" description="网站提交的每条询盘都会自动进入销售流程并形成结构化记录。"/><DataTable filterKey="status" rows={data.inquiries} columns={[
-    {key:'reference',label:'询盘编号'},{key:'customer',label:'客户'},{key:'request_type',label:'询盘类型',format:r=>requestTypeLabel(r.request_type)},{key:'estimated_quantity',label:'预计数量'},{key:'status',label:'状态',format:r=>statusLabel(r.status)},{key:'created_at',label:'创建时间',format:r=>zhDate(r.created_at)},{key:'detail',label:'操作',format:r=><Link to={`/app/inquiries/${text(r.id)}`}>查看详情</Link>}
+    {key:'reference',label:'询盘编号'},{key:'customer',label:'客户'},{key:'request_type',label:'询盘类型',format:r=>requestTypeLabel(r.request_type)},{key:'estimated_quantity',label:'预计数量'},{key:'status',label:'状态',format:r=>statusLabel(r.status)},{key:'notification_status',label:'通知状态',format:r=>String(r.notification_status)==='FAILED'?'⚠️ 邮件通知未确认 · 请查CRM':String(r.notification_status)==='ACCEPTED'?'服务已接收（非送达确认）':'未记录（历史/导入）'},{key:'created_at',label:'创建时间',format:r=>zhDate(r.created_at)},{key:'detail',label:'操作',format:r=><Link to={`/app/inquiries/${text(r.id)}`}>查看详情</Link>}
   ]}/></>;
   else if (page === 'companies') content = <><Top title="客户公司" description="管理客户组织、客户类型、国家地区和生命周期阶段。"/><DataTable filterKey="status" rows={data.companies} columns={[
     {key:'name',label:'公司 / 机构'},{key:'customer_type',label:'客户类型',format:r=>customerTypeLabel(r.customer_type)},{key:'country',label:'国家'},{key:'city',label:'城市'},{key:'status',label:'阶段',format:r=>statusLabel(r.status)},{key:'created_at',label:'创建时间',format:r=>zhDate(r.created_at)},{key:'detail',label:'操作',format:r=><Link to={`/app/companies/${text(r.id)}`}>查看详情</Link>}

@@ -20,8 +20,15 @@ try{
     async run(){return {meta:sqlite.prepare(sql).run(...params)}}
   });return stmt();}};
   const env={MINGEAGLE_DB:db};
-  let forwards=0;
-  globalThis.fetch=async url=>{if(String(url).includes('formsubmit.co/ajax/')){forwards++;return Response.json({success:true})}throw Error('Unexpected external URL '+url)};
+  let forwards=0,providerAccept=true;
+  globalThis.fetch=async url=>{
+    if(String(url).includes('formsubmit.co/ajax/')){
+      forwards++;
+      // A transport-level 200 can still be a rejected notification.
+      return Response.json({success:providerAccept?'true':'false'});
+    }
+    throw Error('Unexpected external URL '+url);
+  };
   const base='https://app.mingeagle.com/api/inquiries';
   const origin='https://www.mingeagle.com';
   const options=async o=>api.onRequestOptions({request:new Request(base,{method:'OPTIONS',headers:{origin:o,'Access-Control-Request-Method':'POST'}}),env});
@@ -64,8 +71,23 @@ try{
   const savedSample=sqlite.prepare("SELECT a.metadata_json FROM activities a JOIN inquiries i ON i.lead_id=a.entity_id WHERE i.reference=? AND a.activity_type='INQUIRY_CREATED'").get(sample.originalReference);
   assert.equal(JSON.parse(savedSample.metadata_json).creatorVideoCode,null,'Reject nonexistent creator IDs');
   assert.equal(sqlite.prepare("SELECT request_type FROM inquiries WHERE reference=?").get(sample.originalReference).request_type,'SAMPLE');
+  providerAccept=false;
   const support=await request({...general,originalReference:'ME-20261010-C1B2C3D4',email:'support@example.test',requestType:'ORDER_SUPPORT',message:'My order has a shipping question',products:['Flocked Silent Soccer Ball']});
-  assert.equal(support.status,200);
+  assert.equal(support.status,200,'Persist CRM inquiry when email provider responds HTTP 200 but success=false');
+  const supportReceipt=await support.json();
+  assert.equal(supportReceipt.emailForwarded,false,'Do not claim a rejected email notification was accepted');
+  providerAccept=true;
+  const noticeEvents=sqlite.prepare(`SELECT a.activity_type,a.metadata_json
+    FROM activities a JOIN inquiries i ON i.lead_id=a.entity_id
+    WHERE i.reference=? AND a.activity_type LIKE 'INQUIRY_NOTIFICATION_%'`).all('ME-20261010-C1B2C3D4');
+  assert.equal(noticeEvents.length,1,'Record one provider audit event for a saved inquiry');
+  assert.equal(noticeEvents[0].activity_type,'INQUIRY_NOTIFICATION_FAILED');
+  assert.deepEqual(JSON.parse(noticeEvents[0].metadata_json),{reference:'ME-20261010-C1B2C3D4'},'Audit metadata must not contain buyer PII');
+  const forwardedBeforeReplay=forwards;
+  const retrySupport=await request({...general,originalReference:'ME-20261010-C1B2C3D4',email:'support@example.test',requestType:'ORDER_SUPPORT',message:'My order has a shipping question',products:['Flocked Silent Soccer Ball']});
+  assert.equal((await retrySupport.json()).idempotent,true,'Avoid creating another customer request on network retry');
+  assert.equal(forwards,forwardedBeforeReplay,'Idempotent retry cannot send a second provider notification');
+  assert.equal(sqlite.prepare(`SELECT COUNT(*) AS n FROM activities WHERE activity_type='INQUIRY_NOTIFICATION_FAILED'`).get().n,1);
   const savedSupport=sqlite.prepare("SELECT a.metadata_json FROM activities a JOIN inquiries i ON i.lead_id=a.entity_id WHERE i.reference=? AND a.activity_type='INQUIRY_CREATED'").get('ME-20261010-C1B2C3D4');
   assert.equal(JSON.parse(savedSupport.metadata_json).creatorVideoCode,null,'Do not attach a flocked-ball video to another product');
   assert.equal(sqlite.prepare("SELECT request_type FROM inquiries WHERE reference=?").get('ME-20261010-C1B2C3D4').request_type,'ORDER_SUPPORT');
@@ -121,6 +143,19 @@ try{
   assert.equal(failed.headers.get('cache-control'),'no-store');
 
   assert.equal(forwards,7,'inquiry emails only forward for accepted new records, not retries');
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM activities WHERE activity_type='INQUIRY_NOTIFICATION_ACCEPTED'").get().n,6,'Provider-accepted requests are audited but not treated as inbox delivery');
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM activities WHERE activity_type='INQUIRY_NOTIFICATION_FAILED'").get().n,1);
+  // Run the actual production read-side expression against the same
+  // in-memory D1-compatible SQLite fixture (not a duplicated SQL example).
+  const adminRead=readFileSync('functions/api/admin/data.ts','utf8');
+  const statusExpr=adminRead.match(/COALESCE\(\(\s*SELECT CASE a\.activity_type[\s\S]*?\), 'UNKNOWN'\) AS notification_status/)?.[0];
+  assert(statusExpr,'Admin inquiry list must expose a provider audit status');
+  const statusRows=sqlite.prepare(`SELECT i.reference, ${statusExpr} FROM inquiries i`).all();
+  assert.equal(statusRows.find(row=>row.reference==='ME-20261010-C1B2C3D4')?.notification_status,'FAILED');
+  assert.equal(statusRows.find(row=>row.reference===general.originalReference)?.notification_status,'ACCEPTED');
+  const adminUi=readFileSync('src/AdminApp.tsx','utf8');
+  assert(adminUi.includes('邮件通知未确认')&&adminUi.includes('非送达确认'),'Never mistake provider acceptance for inbox delivery in the admin');
+  assert(adminUi.includes('failedNotices>0')&&adminUi.includes('查看相关询盘'),'The dashboard must surface failed inquiry notifications without sending mail');
   // The same Cloudflare-facing IP may submit up to 12 requests within a
   // 15-minute window; the 13th is rejected without creating a new record.
   for(let i=0;i<13;i++){
