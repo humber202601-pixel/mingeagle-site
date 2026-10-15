@@ -183,7 +183,7 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
             <label className="span-2">付款凭证 / 流水号<input name="paymentReference" required placeholder={`请填写已核实的银行/收款平台流水号（客户付款备注号：${paymentReference}）`} /></label>
             <label className="span-2"><input type="checkbox" name="fundsReceivedConfirmed" value="true" required /> 我已独立核对银行或收款平台账单，确认这笔款项确实到账且没有重复登记。</label>
           </div>
-          <small>仅用于人工记录并已核对银行/收款服务商到账凭证的线下收款。网站在线付款仅通过 Stripe 处理，其支付成功状态由签名 Webhook 核对；请先核对收款记录，避免重复登记。</small>
+          <small>仅用于人工记录并已核对银行/收款服务商到账凭证的线下收款。网站在线付款仅通过 Stripe 处理，其支付成功状态由签名 Webhook 核对；请先核对支付记录，避免重复登记。</small>
           {paymentStatus === 'PARTIAL' && <div className="payment-progress">已到账 {money(received, order.currency)} · 待收 {money(outstanding, order.currency)}</div>}
           <button className="button small" disabled={busy !== ''}>{busy === `${reference}:MARK_PAID` ? '正在保存…' : paymentStatus === 'PARTIAL' ? '记录下一笔付款' : '记录银行到账'}</button>
         </form>}
