@@ -1,6 +1,6 @@
 // Five truly translated school/academy pages, not language-switch-only shells.
 // Google hreflang: each alternate must include itself and reciprocate all peers.
-// Four localized URLs live in a separate sitemap; existing 25-page sitemap stays untouched.
+// Four localized URLs live in a separate sitemap; primary sitemap now includes the institutional procurement page.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const root=path.resolve(process.argv[2]||'public'),base='https://www.mingeagle.com/';
 const map={
@@ -16,7 +16,7 @@ const original=fs.readFileSync(path.join(root,'sitemap.xml'),'utf8');
 const localized=fs.readFileSync(path.join(root,'sitemap-localized.xml'),'utf8');
 const originalUrls=[...original.matchAll(/<loc>([^<]+)<\/loc>/g)].map(x=>x[1]);
 const localizedUrls=[...localized.matchAll(/<loc>([^<]+)<\/loc>/g)].map(x=>x[1]);
-assert.equal(originalUrls.length,25,'Original public URL inspection baseline must stay on its own sitemap');
+assert.equal(originalUrls.length,26,'Original public URL inspection baseline must stay on its own sitemap');
 assert.equal(localizedUrls.length,4,'New sitemap contains exactly four actual translated buyer guides');
 assert.deepEqual(localizedUrls,files.slice(1).map(x=>base+x),'Localized sitemap order and URLs must match all four pages');
 for(const url of localizedUrls){
@@ -79,7 +79,7 @@ for(const [lang,filename] of Object.entries(map)){
  data.push({lang,words:text.split(/\s+/).length,sections});
 }
 const seen=new Set(originalUrls.concat(localizedUrls));
-assert.equal(seen.size,29,'25 original + 4 new translated URLs require 29 distinct public URLs');
+assert.equal(seen.size,30,'26 original + 4 translated URLs require 30 distinct public URLs');
 const english=fs.readFileSync(path.join(root,map.en),'utf8');
 assert(!english.includes('<meta http-equiv="refresh"'),'Never auto redirect language alternatives');
-console.log('PASS: 29 distinct public URLs across 2 sitemaps; four substantial multilingual pages with 6 reciprocal hreflangs each, self-canonicals, native-language content, first-party product/quote links and honest disclaimers.');
+console.log('PASS: 30 distinct public URLs across 2 sitemaps; four substantial multilingual pages with 6 reciprocal hreflangs each, self-canonicals, native-language content, first-party product/quote links and honest disclaimers.');

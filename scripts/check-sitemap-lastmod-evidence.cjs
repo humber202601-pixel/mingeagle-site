@@ -6,7 +6,7 @@ const xml=fs.readFileSync(path.join(dir,'sitemap.xml'),'utf8');
 const entries=[...xml.matchAll(/<url>\s*<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>\s*<\/url>/g)].map(m=>({url:m[1],date:m[2]}));
 const all=[...xml.matchAll(/<url>/g)].length;
 assert.equal(entries.length,all,'Every sitemap URL needs one explicit verified lastmod');
-assert.equal(entries.length,25,'Sitemap and current buyer benchmark contain 25 pages');
+assert.equal(entries.length,26,'Sitemap and current buyer benchmark contain 25 pages');
 const seen=new Set(),dates=new Map(),today=new Date().toISOString().slice(0,10);
 for(const entry of entries){
  assert(!seen.has(entry.url),'Duplicate sitemap URL: '+entry.url);seen.add(entry.url);
@@ -25,4 +25,4 @@ for(const p of ['order-status.html']){
  assert.equal(dates.get(p),'2026-10-12','Do not rewrite untouched pages merely to appear fresh: '+p);
 }
 assert.equal(dates.get('videos.html'),'2026-10-13','Genuine video gallery editorial update needs evidence-backed sitemap lastmod');
-console.log('PASS: 25 unique www canonical URLs, real ISO lastmod dates, four revised buyer pages current, untouched pages not mass-updated.');
+console.log('PASS: 26 unique www canonical URLs, real ISO lastmod dates, four revised buyer pages current, untouched pages not mass-updated.');
