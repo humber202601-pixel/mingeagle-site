@@ -1,4 +1,4 @@
-import {requiresClosedOrderPaymentReview} from '../../../lib/closed-order-payment';
+import {requiresClosedOrderPaymentReview} from '../../../../lib/closed-order-payment';
 import {stripeSessionMatchesMode} from '../../../_shared/stripe';
 import {automaticTaxAmount} from '../../../_shared/retail-stripe-tax';
 
