@@ -72,6 +72,19 @@ try{
  assert(response.body.issues.includes('QUOTE_EXPIRED'));
  assert.equal(query('SELECT count(*) AS n FROM quote_public_links').n,0);
  sqlite.prepare("UPDATE quotes SET valid_until='2099-12-31 00:00:00' WHERE id=?").run(quoteId);
+ // Send-time payability review: the seller may not send a Stripe link
+ // without an explicit state, tax amount, and an accountable tax basis.
+ sqlite.prepare("UPDATE quotes SET payment_terms='Stripe card payment in full' WHERE id=?").run(quoteId);
+ response=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true});
+ assert.equal(response.status,409,'A Stripe quote without ship-to state cannot be released');
+ assert.equal(response.body.code,'B2B_STRIPE_QUOTE_NOT_PAYABLE');
+ assert.equal(query('SELECT count(*) AS n FROM quote_public_links').n,0);
+ sqlite.prepare("UPDATE quotes SET shipping_terms='Sea freight DDP to destination. Ship-to state: TX' WHERE id=?").run(quoteId);
+ sqlite.prepare("UPDATE quotes SET tax_basis=NULL WHERE id=?").run(quoteId);
+ response=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true});
+ assert.equal(response.status,409,'Missing reviewed sales-tax basis must block card quote');
+ assert.equal(response.body.code,'B2B_STRIPE_QUOTE_NOT_PAYABLE');
+ sqlite.prepare("UPDATE quotes SET payment_terms='Bank transfer before production',shipping_terms='Sea freight DDP to destination subject to confirmed timeline',tax_basis='SYNTHETIC_TEST: reviewed tax record' WHERE id=?").run(quoteId);
  const edit={quoteId,items:[{id:item.id,description:item.description,quantity:3,unitPrice:'8.07'}],shipping:'19.90',taxUSD:'1.10',taxBasis:'Synthetic test: explicit tax amount',discount:'0.29',validUntil:'2026-12-31',paymentTerms:'Test terms',shippingTerms:'Test freight'};
  response=await call('edit','/api/admin/quote-edit',{...edit,items:[{...edit.items[0],quantity:3.5}]});assert.equal(response.status,400);assert.equal(query('SELECT quantity FROM quote_items').quantity,100);
  response=await call('edit','/api/admin/quote-edit',{...edit,items:[{...edit.items[0],unitPrice:'6.99'}]});
