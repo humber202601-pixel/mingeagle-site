@@ -1,4 +1,4 @@
-import {quoteTermsIssues} from './b2b-quote-terms';
+import {quoteTermsIssues,stripeCheckoutTermsSupported} from './b2b-quote-terms';
 
 /**
  * Both sides must agree to complete commercial terms before a wholesale order
@@ -20,6 +20,7 @@ const utcTimestamp=(value:unknown):number|null=>{
 };
 export function acceptedB2bQuotePayable(quote:AcceptedB2bQuote):boolean{
  if(!['ACCEPTED','CONVERTED'].includes(String(quote.status||'')))return false;
+ if(!stripeCheckoutTermsSupported(quote.payment_terms))return false;
  const sent=utcTimestamp(quote.sent_at),accepted=utcTimestamp(quote.accepted_at);
  if(sent===null||accepted===null||sent>accepted)return false;
  return quoteTermsIssues({payment_terms:quote.payment_terms,
