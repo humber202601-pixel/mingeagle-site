@@ -4,6 +4,11 @@ import {DatabaseSync} from 'node:sqlite';
 import {createHmac,webcrypto} from 'node:crypto';
 import {build,transform} from 'esbuild';
 if(!globalThis.crypto)globalThis.crypto=webcrypto;
+// The secure buyer page must not offer a second pay button when a
+// signed Stripe receipt is succeeded but administrative reconciliation remains.
+const publicPage=readFileSync('functions/quote/[token].ts','utf8');
+assert(publicPage.includes("['PENDING','PENDING_REVIEW','SUCCEEDED']"),'Succeeded provider payment awaiting reconciliation suppresses duplicate pay action');
+assert(publicPage.includes('Stripe receipt needs reconciliation.'),'Buyer sees manual review guidance without a paid claim');
 const src=readFileSync('lib/closed-order-payment.ts','utf8');
 const helper=(await transform(src,{loader:'ts',format:'esm'})).code;
 const {requiresClosedOrderPaymentReview}=await import('data:text/javascript;base64,'+Buffer.from(helper).toString('base64'));
