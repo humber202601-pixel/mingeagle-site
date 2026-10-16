@@ -8,7 +8,7 @@ const load=async path=>{
  const result=await build({entryPoints:[path],bundle:true,write:false,platform:'node',format:'esm',logLevel:'silent'});
  return import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'));
 };
-const {onRequestPost:acceptQuote}=await load('functions/api/quote/[token].ts');
+const {onRequestPost:acceptQuote,onRequestGet:quoteApiGet}=await load('functions/api/quote/[token].ts');
 const {onRequestGet:quotePage}=await load('functions/quote/[token].ts');
 const {onRequestPost:checkout}=await load('functions/api/payments/stripe/create.ts');
 const {onRequestPost:webhook}=await load('functions/api/payments/stripe/webhook.ts');
@@ -95,6 +95,30 @@ try{
  sqlite.prepare(`INSERT INTO quote_items
   (id,quote_id,description,quantity,unit_price,line_total,sort_order)
   VALUES (?,?,?,10,15,150,0)`).run(randomUUID(),quoteId,'Flocked Silent Basketball Set | No. 7 | Orange');
+ // Public HTML and JSON quote endpoints must agree with the shared
+ // quoteTermsIssues validity contract: YYYY-MM-DD is inclusive through
+ // that day's end (UTC). Explicit timestamps retain precise expiry.
+ const quoteGet=()=>quoteApiGet({env,params:{token:bearer},request:new Request(orderPage)});
+ sqlite.prepare("UPDATE quotes SET valid_until=datetime('now','-1 hour') WHERE id=?").run(quoteId);
+ let expired=await quoteGet();
+ assert.equal(expired.status,200);
+ assert.equal((await expired.json()).quote.status,'EXPIRED',
+  'Explicit datetime in the past must already expire');
+ sqlite.prepare("UPDATE quotes SET status='SENT',valid_until=date('now','-1 day') WHERE id=?").run(quoteId);
+ expired=await quoteGet();
+ assert.equal((await expired.json()).quote.status,'EXPIRED',
+  'Date-only yesterday must expire');
+ sqlite.prepare("UPDATE quotes SET status='SENT',valid_until=date('now') WHERE id=?").run(quoteId);
+ const todayApi=await quoteGet();
+ assert.equal(todayApi.status,200);
+ const todayData=await todayApi.json();
+ assert.equal(todayData.quote.status,'VIEWED',
+  'Date-only quote remains valid during the final UTC calendar day');
+ assert.equal(sqlite.prepare("SELECT status FROM quotes WHERE id=?").get(quoteId).status,'VIEWED');
+ const todayHtml=await quotePage({env,params:{token:bearer},request:new Request(orderPage)});
+ assert.equal(todayHtml.status,200);
+ assert(!(await todayHtml.text()).includes('This quote has expired'),
+  'HTML must not show final-day quote as expired');
  const ship={country:'US',state:'TX',city:'Austin',postalCode:'78701',line1:'123 Synthetic B2B Street'};
  const incorrect=await accept({...ship,state:'CA'});
  assert.equal(incorrect.status,409,'Wrong delivery state must not create an order');
