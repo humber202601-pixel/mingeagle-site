@@ -47,7 +47,7 @@ function row(item,includeName){
  '<td><a class="usPriceChoose" href="'+item.page+'?size='+item.size+'#buy-now">Choose size, color &amp; add →</a></td></tr>';
 }
 function panel(items,{title,id,includeName}){
- const headers=(includeName?'<th scope="col">Product</th>':'')+'<th scope="col">Size</th><th scope="col">Product</th><th scope="col">US air parcel</th><th scope="col">US total before tax</th><th scope="col">Add to cart</th>';
+ const headers=(includeName?'<th scope="col">Product</th>':'')+'<th scope="col">Size</th><th scope="col">Product</th><th scope="col">US air parcel</th><th scope="col">Product + US air shipping</th><th scope="col">Add to cart</th>';
  return begin+'<section class="section usPriceSummary" id="'+id+'"><div class="wrap"><div class="eyebrow">TRANSPARENT USA SINGLE-ITEM PRICING</div><h2>'+title+'</h2><p class="usPriceIntro">For retail orders of 1–9 items, prices below are public USD prices; compare the product price and one-item small-parcel shipping to the US. A standard basketball set includes one silent ball plus a mini hoop; weighted balls and soccer balls are sold as specified on their product pages.</p><div class="usPriceTableWrap"><table class="usPriceTable"><thead><tr>'+headers+'</tr></thead><tbody>'+items.map(it=>row(it,includeName)).join('')+'</tbody></table></div><p class="usPriceNote">'+disclaimer+'</p><div class="actions"><a class="btn primary" href="'+(includeName?'#buy-p1':'#buy-now')+'">Select product size and color above</a><a class="btn" href="retail-cart.html">View shopping cart</a><a class="btn" href="inquiry.html?type=quote">Request wholesale quote (10+)</a></div></div></section>'+end;
 }
 function save(filename,fn){
@@ -65,18 +65,18 @@ for(const [id,filename] of Object.entries(pages)){
  save(filename,s=>{
   const open=s.indexOf('<section class="productHero">'),close=s.indexOf('</section>',open);
   if(open<0||close<0)throw Error('Missing product hero on '+filename);
-  return s.slice(0,close+10)+panel(chosen,{title:'US delivered price for one '+safe(catalog[id].name),id:'us-single-parcel',includeName:false})+s.slice(close+10);
+  return s.slice(0,close+10)+panel(chosen,{title:'US price + shipping benchmark for one '+safe(catalog[id].name),id:'us-single-parcel',includeName:false})+s.slice(close+10);
  });
 }
 save('products.html',s=>{
  const x=s.indexOf('<section class="section comparisonSection"');
  if(x<0)throw Error('No catalog comparison');
- return s.slice(0,x)+panel(list,{title:'Compare all 11 USA single-item totals',id:'us-delivered-prices',includeName:true})+s.slice(x);
+ return s.slice(0,x)+panel(list,{title:'Compare 11 USA single-item price + shipping benchmarks',id:'us-delivered-prices',includeName:true})+s.slice(x);
 });
 save('index.html',s=>{
  const productSection=s.indexOf('<section class="section">',s.indexOf('<main'));
  if(productSection<0)throw Error('No homepage product section');
- const banner=begin+'<section class="section usPriceSummary" id="us-delivered-prices"><div class="wrap"><div class="eyebrow">USA HOME PLAY · 1 BALL + MINI HOOP</div><h2>Quiet indoor basketball sets from '+money(21.4)+' shipped to the US, before tax</h2><p class="usPriceIntro">The 3-size flocked basketball set starts at '+money(9.9)+' plus '+money(11.5)+' single-item air small-parcel shipping. Expected delivery: around 12–15 days after dispatch (estimate, not guaranteed). The fabric-cover mini-hoop set starts at '+money(22.4)+' delivered before tax. Standard retail products dispatch within '+fulfillment.dispatchWithinDays+' days of ordering. Final freight, taxes and order terms are confirmed before payment.</p><p class="usPriceNote">'+disclaimer+'</p><div class="actions"><a class="btn primary" href="products.html#us-delivered-prices">Compare all 11 US delivered prices</a><a class="btn" href="silent-basketball.html#us-single-parcel">See the ball + hoop set</a></div></div></section>'+end;
+ const banner=begin+'<section class="section usPriceSummary" id="us-delivered-prices"><div class="wrap"><div class="eyebrow">USA HOME PLAY · 1 BALL + MINI HOOP</div><h2>Quiet indoor basketball sets from '+money(21.4)+' shipped to the US, before tax</h2><p class="usPriceIntro">The 3-size flocked basketball set starts at '+money(9.9)+' plus '+money(11.5)+' single-item air small-parcel shipping. Expected delivery: around 12–15 days after dispatch (estimate, not guaranteed). The fabric-cover mini-hoop set is '+money(10.9)+' product + '+money(11.5)+' single-item air shipping = '+money(22.4)+' before US sales tax; import-duty treatment must be confirmed before purchase. Standard retail products dispatch within '+fulfillment.dispatchWithinDays+' days of ordering. Final freight, taxes and order terms are confirmed before payment.</p><p class="usPriceNote">'+disclaimer+'</p><div class="actions"><a class="btn primary" href="products.html#us-delivered-prices">Compare 11 US price + shipping benchmarks</a><a class="btn" href="silent-basketball.html#us-single-parcel">See the ball + hoop set</a></div></div></section>'+end;
  return s.slice(0,productSection)+banner+s.slice(productSection);
 });
 console.log('PASS: one-item US shipping 12–15-day estimates rendered from 11 verified SKU prices on four product pages, catalog and home.');

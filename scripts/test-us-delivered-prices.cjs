@@ -31,6 +31,8 @@ try{
   assert.match(s,/estimated delivery 12–15 days after dispatch/i,f);
   assert.match(s,/not guaranteed/i,f);
   assert.match(s,/US state\/local sales tax is separate/i,f);
+  assert.match(s,/US price \+ shipping|Product \+ US air shipping/i,f);
+  assert(!/fabric-cover mini-hoop set starts at \$22\.40 delivered before tax/i.test(s),'Do not call an unconfirmed-duty SKU delivered');
   assert.match(s,/P1-S3 \(\$11\.50 delivery\)/,f);
   assert.match(s,/P1-S7 \(\$14 delivery\)/,f);
   assert.match(s,/import duties/i,f);
@@ -52,7 +54,7 @@ try{
  const usTable=catalog.match(/<!-- MING EAGLE US DELIVERED PRICES BEGIN -->([\s\S]*?)<!-- MING EAGLE US DELIVERED PRICES END -->/)?.[1]||'';
  const usRows=usTable.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1]||'';
  assert.equal((usRows.match(/<tr>/g)||[]).length,11);
- assert.equal((catalog.match(/<th scope="col">US total before tax<\/th>/g)||[]).length,1);
+ assert.equal((catalog.match(/<th scope="col">Product \+ US air shipping<\/th>/g)||[]).length,1);
  for(const link of Object.values(products))assert(catalog.includes('href="'+link+'#us-single-parcel"'));
  assert(actual['index.html'].includes('from $21.40 shipped to the US'));
  run();
@@ -62,5 +64,5 @@ try{
  delete broken.productSizeShippingUSD.p4['5'];
  fs.writeFileSync(path.join(tmp,'us-single-parcel-shipping.json'),JSON.stringify(broken));
  assert.throws(run,/Command failed|size mismatch/,'Fail closed if approved shipping SKU omitted');
- console.log('PASS: all 11 approved US one-item totals, homepage/catalog/product visibility, truthful ETA/disclaimer, verified SKU coverage and stable idempotent build.');
+ console.log('PASS: all 11 approved US one-item price + shipping benchmarks, homepage/catalog/product visibility, truthful ETA/disclaimer, verified SKU coverage and stable idempotent build.');
 }finally{fs.rmSync(tmp,{recursive:true,force:true})}
