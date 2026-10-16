@@ -300,7 +300,7 @@ try{
  // but intentionally has no order record. It must be acknowledged, audited
  // and NEVER treated as an ordinary CRM order or fulfillment trigger.
  const liveProof={id:'evt_synthetic_live_payment_link',type:'checkout.session.completed',data:{object:{
-   id:'cs_live_synthetic_external_only',
+   id:'cs_live_syntheticExternalOnly',
    payment_link:'plink_1UR4X56ggh6j2Fv09VrTJNum',
    payment_status:'paid',currency:'usd',amount_total:50,
    client_reference_id:null,
