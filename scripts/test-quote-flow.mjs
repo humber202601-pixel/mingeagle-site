@@ -40,6 +40,12 @@ try{
  response=await call('create','/api/admin/quotes',input);assert.equal(response.status,201,JSON.stringify(response));assert.equal(response.body.total,822.9);
  const quoteId=response.body.quoteId;
  let quote=query('SELECT * FROM quotes');let item=query('SELECT * FROM quote_items');
+ // Normal quote approval must not also count as supplier cost verification.
+ let unverified=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true});
+ assert.equal(unverified.status,409,'Missing supplier cost needs separate staff acknowledgement');
+ assert.equal(unverified.body.code,'SUPPLIER_COST_ACK_REQUIRED');
+ assert.equal(query('SELECT count(*) AS n FROM quote_public_links').n,0,'No quote token from unacknowledged cost');
+ assert.equal(externalCalls,0,'Cost acknowledgement rejection may not contact Gmail');
  // Supplier cost data here is SYNTHETIC and exists only in a :memory: test DB.
  sqlite.prepare(`INSERT INTO supplier_purchase_terms
    (sku,supplier_name,moq,case_pack,tiers_json,source_note,effective_on,expires_on,status,version)
@@ -104,5 +110,17 @@ try{
  response=await call('edit','/api/admin/quote-edit',edit);assert.equal(response.status,409,'Released quotations are locked');
  const blocked=await root({request:new Request('https://quote-test.example/api/admin/email-queue',{method:'POST'}),env,next:()=>{throw Error('Preview must block this mutation');}});assert.equal(blocked.status,403);
  assert.equal(externalCalls,0);assert.equal(query("SELECT count(*) AS n FROM messages WHERE direction='OUTBOUND'").n,0);
+ // An approved cost can later be disabled; every repeated public link
+ // must require the separate manual confirmation at release time.
+ sqlite.prepare("UPDATE supplier_purchase_terms SET status='DISABLED' WHERE sku='P1-S5'").run();
+ unverified=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true});
+ assert.equal(unverified.status,409,'Released quote with unverified source requires new attestation');
+ assert.equal(unverified.body.code,'SUPPLIER_COST_ACK_REQUIRED');
+ const acknowledged=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true,supplierCostAcknowledged:true});
+ assert.equal(acknowledged.status,200,'Extra supplier confirmation permits staff-reviewed noncatalog quote');
+ const audit=sqlite.prepare("SELECT metadata_json FROM activities WHERE activity_type='QUOTE_LINK_GENERATED' ORDER BY created_at DESC, rowid DESC LIMIT 1").get();
+ assert.equal(JSON.parse(audit.metadata_json).supplierCostManuallyAcknowledged,true,'Staff acknowledgement must be stored in quote activity metadata');
+ assert.equal(JSON.parse(audit.metadata_json).unverifiedSupplierLines,1);
+ assert.equal(externalCalls,0);
  console.log('PASS: real SQL inquiry → authenticated draft → decimal totals → edit/invalidation → staff approval → secure customer quote, no external sends.');
 }finally{globalThis.fetch=originalFetch;sqlite.close();}
