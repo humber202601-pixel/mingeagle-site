@@ -38,9 +38,9 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   const hash=await tokenHash(token);
   const order=await db.prepare(
    "SELECT o.id,o.reference,o.status,o.payment_status,o.total,o.subtotal,o.discount,o.shipping,o.tax,o.currency,o.shipping_address,"+
-   "q.status AS quote_status,q.sent_at AS quote_sent_at,q.accepted_at AS quote_accepted_at,
-   q.payment_terms AS quote_payment_terms,q.shipping_terms AS quote_shipping_terms,
-   q.valid_until,q.reference AS quote_reference,ct.email AS email,"+
+   "q.status AS quote_status,q.sent_at AS quote_sent_at,q.accepted_at AS quote_accepted_at,"+
+   "q.payment_terms AS quote_payment_terms,q.shipping_terms AS quote_shipping_terms,"+
+   "q.valid_until,q.reference AS quote_reference,ct.email AS email,"+
    "(SELECT COALESCE(SUM(amount),0) FROM payments WHERE order_id=o.id AND status='RECEIVED') AS received "+
    "FROM quotes q JOIN orders o ON o.quote_id=q.id LEFT JOIN contacts ct ON ct.id=o.contact_id "+
    "WHERE "+QUOTE_PUBLIC_TOKEN_PREDICATE+" "+
