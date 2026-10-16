@@ -251,7 +251,7 @@ try{
   'No orphan first-row audit after transaction rollback');
  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM supplier_purchase_terms WHERE sku='P1-S7'").get().n,1,
   'Concurrent writer row is preserved');
- const ordered=sqlite.prepare('SELECT action,version FROM supplier_purchase_audit ORDER BY version').all();
+ const ordered=sqlite.prepare("SELECT action,version FROM supplier_purchase_audit WHERE sku='P1-S5' ORDER BY version").all();
  assert.deepEqual(ordered.map(r=>r.action),['SAVE_DRAFT','APPROVE','SAVE_DRAFT','DISABLE','SAVE_DRAFT']);
  assert.deepEqual(ordered.map(r=>r.version),[1,2,3,4,5]);
  console.log('PASS: migration required, admin-only, validated USD source, tier ordering, no fictional price seeding, revision conflict, explicit approval, review reset, expiry lock, disabled state, durable audit and safe costs.');
