@@ -5,7 +5,13 @@ const source=await readFile(path,'utf8');
 const accept=source.slice(source.indexOf('export const onRequestPost'));
 assert(accept.includes("if (!['SENT','VIEWED'].includes(status))"),'only sent/viewed quotes accepted');
 assert(accept.includes('CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_quote_unique'),'one order per quote');
-assert(accept.includes('await db.batch([orderInsert, ...itemInserts, converted])'),'order, items, conversion must be atomic');
+assert(accept.includes('await db.batch(operationBatch)'),'order, quote conversion, payment task and activity must share one atomic batch');
+assert(accept.includes('const operationBatch:D1PreparedStatement[]=[orderInsert,...itemInserts,converted]'),
+ 'Order with quote conversion is transactionally coupled');
+assert(accept.includes("operationBatch.push(")&&accept.includes("Confirm Stripe payment for"),
+ 'Creation of Stripe payment follow-up is in the acceptance transaction');
+assert(accept.indexOf("await db.batch(operationBatch)")>accept.indexOf("'QUOTE_ACCEPTED'"),
+ 'Customer order audit should be enlisted before the batch commits');
 assert(accept.includes("payment_status: 'UNPAID'"),'new order must be unpaid');
 assert(accept.includes("status: 'PAYMENT_PENDING'"),'new order must be awaiting payment');
 assert(accept.includes('const raced = await getOrder(db, quoteId)'),'concurrent acceptance must reuse order');
