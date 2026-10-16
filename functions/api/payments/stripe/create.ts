@@ -100,7 +100,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       String(ship.line1||ship.address1||'').trim().length<5)
     return fail('Confirm the full US delivery destination and quote freight before wholesale card payment.',409);
    const state=String(ship.state),quotedDelivery=String(order.quote_shipping_terms||'').toUpperCase();
-   if(!quotedDelivery.includes('SHIP-TO STATE: '+state))
+   if(quotedDelivery.match(/SHIP-TO STATE:\s*([A-Z]{2})(?![A-Z])/)?.[1]!==state)
     return fail('Delivery state differs from the buyer-accepted freight quotation. Request a corrected quote.',409);
    const approved=(env.STRIPE_B2B_APPROVED_US_STATES||'')
      .split(',').map(x=>x.trim().toUpperCase()).filter(x=>/^[A-Z]{2}$/.test(x));
