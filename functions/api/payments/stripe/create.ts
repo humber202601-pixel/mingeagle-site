@@ -106,10 +106,9 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
      .split(',').map(x=>x.trim().toUpperCase()).filter(x=>/^[A-Z]{2}$/.test(x));
    if(!approved.includes(state))
     return fail('Business-order sales tax review for this delivery state is not yet authorized.',409);
-   // Current approved start-up destinations have no general sales tax.
-   // Other states must never inherit a zero-tax assumption.
-   if(['OR','NH'].includes(state)&&cents(order.tax)!==0)
-    return fail('Unexpected sales tax for this reviewed US delivery state.',409);
+   // Nationwide B2B is allowed only against the seller's explicit quote.
+   // The quoted tax amount may be zero only when the documented tax basis supports
+   // non-collection or a valid exemption/resale treatment. We never infer zero tax.
   }
   if(!isRetail&&!acceptedB2bQuotePayable({
    status:order.quote_status,sent_at:order.quote_sent_at,accepted_at:order.quote_accepted_at,
