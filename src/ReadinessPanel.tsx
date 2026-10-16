@@ -3,6 +3,7 @@ type Snapshot={ok:boolean;checkedAt:string;
  analytics:{cloudflare:{schemaPresent:boolean;observedDates:number|null;latestDateUTC:string|null;lastFetchedAtUTC:string|null;partialInitialDayObserved:boolean;observedDateCoverage:{status:'SCHEMA_MISSING'|'NO_VERIFIED_DATA'|'LATEST_COMPLETED_UTC_DAY'|'OLDER_OBSERVED_DATE'|'INVALID_OBSERVED_DATE';daysBehind:number|null}};google:{schemaPresent:boolean;observedDates:number|null;latestDatePacific:string|null;lastFetchedAtUTC:string|null}};
  procurement:{catalogPresent:boolean;supplierSources:number|null;approvedSourceCount:number|null;shippingRates:number|null;activeShippingRates:number|null;packagingSkus:number|null;activeShippingRoutes:Array<{country:string;method:string;minimumUnits:number}>|null};
  b2bStripeEvidence:{schemaPresent:boolean;wholesaleOrders:number|null;awaitingPaymentOrders:number|null;stripeCheckoutSessions:number|null;reconciledPaidOrders:number|null};
+ stripeWebhookHealth:{schemaPresent:boolean;receivedEvents:number|null;processedEvents:number|null;unprocessedEvents:number|null;olderThanTenMinutes:number|null;oldestUnprocessedUTC:string|null};
  security:{turnstileConfigured:boolean;turnstileEnabled:boolean;turnstileMisconfigured:boolean};
  payments:{checkoutRequested:boolean;providerCredentialsConfigured:boolean;webhookConfigured:boolean;environment:string|null;checkoutConfigurationReady:boolean;retailOnlyRestriction:boolean;b2bCheckoutRequested:boolean;b2bTaxReviewed:boolean;b2bApprovedDestinationStates:string[];b2bConfigurationReady:boolean};
  caveats:string[];error?:string};
@@ -36,6 +37,14 @@ export default function ReadinessPanel({accessKey}:{accessKey:string}){
    <div className="list-row"><div><strong>真实批发 Stripe 收款闭环</strong><small>仅统计报价合计至少 10 件、Stripe 成功会话对应足额入账记录且订单为 PAID 的正式订单；不包含 $0.50 独立验证或历史线下收款。</small></div><span>{data.b2bStripeEvidence.reconciledPaidOrders===null?'尚无法核验':data.b2bStripeEvidence.reconciledPaidOrders+' / '+count(data.b2bStripeEvidence.wholesaleOrders)}</span></div>
    <div className="list-row"><div><strong>批发待付款订单 / Stripe 会话</strong><small>未全额付款订单数和已创建的批发 Stripe Checkout 会话数，均为生产数据库只读统计；不代表已扣款。</small></div><span>{count(data.b2bStripeEvidence.awaitingPaymentOrders)} / {count(data.b2bStripeEvidence.stripeCheckoutSessions)}</span></div>
    {data.b2bStripeEvidence.schemaPresent&&data.b2bStripeEvidence.reconciledPaidOrders===0&&<p role="status" className="form-status error">尚无可核对的正式批发 Stripe 足额付款闭环。配置开启及独立小额测试成功，不等于客户批发订单验收通过。</p>}
+   <div className="list-row"><div><strong>Stripe 签名事件处理情况</strong><small>仅统计系统收到并登记的 Stripe Webhook 事件，不代表 Stripe 全部事件或真实订单付款完成；已处理 / 已收到。</small></div>
+    <span>{count(data.stripeWebhookHealth.processedEvents)} / {count(data.stripeWebhookHealth.receivedEvents)}</span></div>
+   <div className="list-row"><div><strong>Stripe 未完成处理的事件</strong><small>待处理 / 超过 10 分钟仍未处理。Webhook 验签失败、未送达平台的事件不会计入。</small></div>
+    <span>{count(data.stripeWebhookHealth.unprocessedEvents)} / {count(data.stripeWebhookHealth.olderThanTenMinutes)}</span></div>
+   {!data.stripeWebhookHealth.schemaPresent&&<p role="alert" className="form-status error">Stripe 事件台账不存在，不能判断支付回调是否处理。请检查正式数据库迁移。</p>}
+   {(data.stripeWebhookHealth.olderThanTenMinutes??0)>0&&<p role="alert" className="form-status error">
+    存在超过 10 分钟仍未处理的 Stripe 事件（最早登记于 UTC {data.stripeWebhookHealth.oldestUnprocessedUTC||'未知'}）。请先在 Stripe Dashboard 核实事件和订单状态，确认后再按正常重试流程处理，切勿手工标记付款。
+   </p>}
    <div className="list-row"><div><strong>网站 Turnstile</strong><small>防止机器人滥用询盘接口；配置必须有站点和服务端双密钥</small></div><span>{data.security.turnstileEnabled?'已启用':data.security.turnstileMisconfigured?'启用配置不完整':'未启用'}</span></div>
    <div className="list-row"><div><strong>Stripe 在线收款配置</strong><small>仅代表 API 凭证和签名 Webhook 的配置状态；不代表真实到账或税务义务已经核实</small></div><span>{data.payments.checkoutConfigurationReady?'基础配置就绪，待真实交易验收':data.payments.checkoutRequested?'Stripe 启用请求存在但配置不完整':'未启用'}</span></div>
    <div className="list-row"><div><strong>B2B 报价订单 Stripe 收款</strong><small>须卖方正式发出完整报价、买方接受，且满足税务及收款安全条件；不是所有询盘均可直接付款</small></div><span>{data.payments.b2bConfigurationReady?'已配置受控收款：'+data.payments.b2bApprovedDestinationStates.join(' / ')+'（仅符合条件的订单可付款）':data.payments.retailOnlyRestriction?'当前仅限零售样品付款':data.payments.b2bCheckoutRequested&&!data.payments.b2bTaxReviewed?'待审核 B2B 税务及运输费用':'B2B 收款尚未开放或条件未满足'}</span></div>

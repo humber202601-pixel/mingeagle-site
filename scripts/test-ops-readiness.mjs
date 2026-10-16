@@ -28,6 +28,8 @@ try{
  const read=async(env={})=>{const r=await onRequestGet({env:{MINGEAGLE_DB:db,...env}});return {status:r.status,body:await r.json()}};
  let r=await read();assert.equal(r.status,200);assert.equal(r.body.analytics.cloudflare.observedDates,null);
  assert.equal(r.body.analytics.google.observedDates,null);
+ assert.equal(r.body.stripeWebhookHealth.schemaPresent,false);
+ assert.equal(r.body.stripeWebhookHealth.unprocessedEvents,null,'Missing event ledger cannot be shown as zero');
  assert.equal(r.body.b2bStripeEvidence.schemaPresent,false);
  assert.equal(r.body.b2bStripeEvidence.reconciledPaidOrders,null,'Missing payment ledger tables means unknown, not zero');assert.equal(r.body.procurement.supplierSources,null);
  assert.equal(r.body.procurement.activeShippingRoutes,null,'Absent route table must remain unknown rather than zero coverage');
@@ -116,6 +118,26 @@ try{
  assert.equal(r.body.b2bStripeEvidence.reconciledPaidOrders,1,'Manual paid order must not count as Stripe');
  sqlite.exec("UPDATE payments SET amount=179.99 WHERE provider='STRIPE'");
  r=await read();assert.equal(r.body.b2bStripeEvidence.reconciledPaidOrders,0,'Underpaid Stripe receipt must not count');
+ // Synthetic accepted Stripe events: one processed, one fresh, one stuck.
+ // The health panel is read-only and must not leak payment metadata.
+ sqlite.exec(`CREATE TABLE payment_webhook_events(provider TEXT,event_id TEXT,event_name TEXT,received_at TEXT,processed_at TEXT);
+ INSERT INTO payment_webhook_events VALUES('STRIPE','evt_processed','checkout.session.completed',datetime('now','-1 day'),datetime('now','-1 day'));
+ INSERT INTO payment_webhook_events VALUES('STRIPE','evt_pending_new','checkout.session.completed',datetime('now','-1 minute'),NULL);
+ INSERT INTO payment_webhook_events VALUES('STRIPE','evt_pending_old','checkout.session.completed',datetime('now','-20 minutes'),NULL);
+ INSERT INTO payment_webhook_events VALUES('OTHER','evt_other','mock',datetime('now','-30 minutes'),NULL);`);
+ r=await read();
+ assert.equal(r.body.stripeWebhookHealth.schemaPresent,true);
+ assert.equal(r.body.stripeWebhookHealth.receivedEvents,3,'Non-Stripe events do not count');
+ assert.equal(r.body.stripeWebhookHealth.processedEvents,1);
+ assert.equal(r.body.stripeWebhookHealth.unprocessedEvents,2);
+ assert.equal(r.body.stripeWebhookHealth.olderThanTenMinutes,1);
+ assert(r.body.stripeWebhookHealth.oldestUnprocessedUTC,'Oldest pending record should be shown in UTC');
+ assert(!JSON.stringify(r.body).includes('evt_pending_old'),'Never return event IDs in readiness');
+ sqlite.exec("UPDATE payment_webhook_events SET processed_at=CURRENT_TIMESTAMP WHERE provider='STRIPE' AND processed_at IS NULL");
+ r=await read();
+ assert.equal(r.body.stripeWebhookHealth.unprocessedEvents,0);
+ assert.equal(r.body.stripeWebhookHealth.olderThanTenMinutes,0);
+ assert.equal(r.body.stripeWebhookHealth.oldestUnprocessedUTC,null);
  assert(!JSON.stringify(r.body).includes('test-only'),'never leak credential values');assert.equal(writes,0);
  sqlite.close();console.log('PASS: read-only readiness uses real aggregate counts, unknown vs zero, no secrets or business record mutation.');
 }finally{rmSync(temp,{recursive:true,force:true})}
