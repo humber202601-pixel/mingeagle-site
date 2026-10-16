@@ -127,5 +127,9 @@ const submit=async(responseData,responseStatus=200)=>{
   'Payment policy must preserve buyer and seller approval before B2B payment');
  assert(paymentPolicy.includes('Submitting an inquiry or accepting a wholesale quote does not charge a payment method.'),
   'Public copy must not imply a submitted request or accepted quote is a payment');
+ assert(source.includes("wholesaleMinimumNotice.textContent='Wholesale pricing starts at 10 units."),'Wholesale form must explain 10-unit minimum');
+ assert(source.includes("if($('request_type').value==='Wholesale quote')"),'Only wholesale RFQs must enforce the 10-unit minimum');
+ assert(source.includes("exactWholesaleUnits<10"),'Wholesale below 10 units must not submit as bulk quote');
+ assert(source.includes('select Sample request or Retail purchase inquiry'),'Under-10 buyers must keep sample and retail paths');
  console.log('PASS: public form maps all five request types, passes source attribution, preserves exact references, rejects mismatched CRM confirmations, never sends admin keys and retains honest HubSpot fallback.');
 })().catch(e=>{console.error(e);process.exitCode=1});
