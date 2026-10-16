@@ -153,6 +153,11 @@ try{
  const routes=readFileSync('src/App.tsx','utf8');
  assert(routes.includes('path="/retail/checkout"'));
  assert(routes.includes('path="/quote/:token"'));
+ const retailUi=readFileSync('src/RetailCheckout.tsx','utf8');
+ assert(retailUi.includes('Confirmed duty-paid parcel rates are not yet available for:'),
+  'Unsupported SKU must have a specific, truthful reason before quote fallback');
+ assert(retailUi.includes('unconfirmedSkus.length===0')&&retailUi.includes('overDirectLimit'),
+  'Two supported SKUs cannot be rejected merely because the cart has multiple lines');
  const quoteUi=readFileSync('src/CustomerQuote.tsx','utf8');
  assert(quoteUi.includes('payment_status')&&quoteUi.includes('noindex,nofollow'));
  assert(!quoteUi.includes('/api/payments/airwallex/create'),
