@@ -38,7 +38,30 @@ try{
     ?api.onRequestPost({request,env}):api.onRequestGet({request,env})});
   return {status:r.status,json:await r.json()};
  };
+ await build({entryPoints:['lib/supplier-cost-intake.ts'],outfile:join(temp,'intake.mjs'),
+   bundle:true,platform:'node',format:'esm',logLevel:'silent'});
+ const {OWNER_REPORTED_FACTORY_COSTS_USD,OWNER_COST_NOTE_DATE,supplierCostIntakeRows,supplierCostIntakeCsv}=
+   await import(pathToFileURL(join(temp,'intake.mjs')));
+ assert.equal(OWNER_COST_NOTE_DATE,'2026-10-14');
+ assert.deepEqual(OWNER_REPORTED_FACTORY_COSTS_USD,{'P1-S7':21,'P2-S7':23,'P3-S7':32},
+  'Only the three factory figures actually supplied by the owner may appear');
+ const intake=supplierCostIntakeRows();
+ assert.equal(intake.length,11,'Cost intake covers all eleven known SKUs');
+ assert(intake.every(row=>row.length===18),'Every worksheet row must match its 18 columns');
+ const costBySku=Object.fromEntries(intake.map(row=>[row[0],row[2]]));
+ assert.equal(costBySku['P1-S7'],'21.00');
+ assert.equal(costBySku['P2-S7'],'23.00');
+ assert.equal(costBySku['P3-S7'],'32.00');
+ assert.equal(intake.filter(row=>row[2]).length,3,'Other eight costs must remain unknown');
+ assert(intake.every(row=>row.slice(3).every(cell=>cell==='')),
+  'Supplier cost, supplier identity, MOQ, packing, freight, duties, approval and dates are unknown and must remain blank');
+ const csv=supplierCostIntakeCsv();
+ assert.equal(csv.trim().split(/\\r?\\n/).length,12,'One CSV header and eleven SKU records');
+ assert(csv.includes('Owner_Reported_Factory_USD_UNVERIFIED'));
+ assert(csv.includes('Sea_Freight_DDP_USD_Per_Unit')&&csv.includes('Supplier_Confirmed_Unit_Cost_USD'));
  const supplierUi=readFileSync('src/SupplierPricingManager.tsx','utf8');
+ assert(supplierUi.includes('downloadIntakeSheet')&&supplierUi.includes('经营者参考出厂价（未核实）'),
+  'Admin should offer a clearly unverified reference worksheet, not import or preapprove costs');
  const catalogLabels=readFileSync('lib/supplier-pricing.ts','utf8');
  assert(supplierUi.includes('供应商真实采购价覆盖：{readyCount} / {coverage.length} 个 SKU'),
   'Buyer-facing supply team needs a catalog coverage summary, not invented cost figures');
