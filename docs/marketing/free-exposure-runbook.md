@@ -141,3 +141,14 @@ Added a regression check that compares schema and visible links with the recorde
 Extended the existing reviewed footer navigation to the product catalog, wholesale, schools, coaches and all four product pages. The nine-page V37 builder reuses the homepage navigation and preserves each page's quote/sample links. Source HTML contains the same links for preview and deployment; no social embed or new external script is added. The stylesheet version is refreshed consistently.
 
 The regression checks now require exactly one matching official navigation on each of the nine pages, repeat-build stability and preservation of the weighted product's quote attribution. Pending social accounts remain excluded. This adds a follow path for search visitors landing directly on procurement/product pages; it is not evidence of new followers or AI recommendations.
+
+
+## B2B sample-evaluation publication — 2026-10-16
+
+The user requested resumed platform registration and publication. Recovered the owner-completed native Metricool login and checked the September–November list before posting: the Oct 16 08:00 Pinterest bulk brief showed Published, with public URL https://www.pinterest.es/pin/1149192029968437579; eight prior schedules remained Pending. Do not duplicate that bulk brief or those schedules.
+
+Published the existing FB-SAMPLE-001 draft as a revised institutional sample-evaluation checklist, with a reviewed product-family illustration, custom alt text, an AI-assisted illustration caption and a platform-specific procurement-page UTM. Native Published status and the actual public MING EAGLE post were both verified: https://www.facebook.com/122101312845471895/posts/122102467257471895 . The public audience, body, image and image alt text were visible. Exact publication timestamp is unavailable; observed local minute and verification time are recorded separately.
+
+Submitted distinct PIN-SAMPLE-007 via Publish now with school board 1149192098607199389, title, 493-character description, custom ALT and separate Pinterest UTM. Uploading files was shown. Instagram secure-login waiting subsequently timed out, and the browser session expired before the Pin's final receipt was checked. Its status is SUBMITTED_PUBLICATION_UNVERIFIED, not Published. Reconcile the actual native list before any retry. The Pinterest public profile returned a site-served Forbidden page in this browser; no alternative route was attempted.
+
+Instagram login result remains unknown after the secure prompt timed out. LinkedIn and TikTok were inspected at signup but no new account, password or agreement was submitted. No credential or personal verification material is recorded here. Existing YouTube access-review limitations remain unchanged. No paid upgrade, ads or unsolicited messages were used. The previously paused background exposure automation was not resumed by this session; native saved schedules are separate.
