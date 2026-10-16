@@ -280,102 +280,115 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ok:false,code:costAudit.code,error:costAudit.error},{status:409});
     }
     await ensureQuoteLinks(db);
-    if (quote.public_token_hash) {
-      await db.prepare(`INSERT OR IGNORE INTO quote_public_links (id, quote_id, token_hash)
-        VALUES (?, ?, ?)`)
-        .bind(crypto.randomUUID(), quote.id, quote.public_token_hash).run();
-    }
-
     const token = `${crypto.randomUUID().replaceAll('-', '')}${crypto.randomUUID().replaceAll('-', '')}`;
     const tokenHash = await sha256(token);
     const linkId = crypto.randomUUID();
     const publicPath = `/quote/${token}`;
     const absoluteUrl = `${new URL(request.url).origin}${publicPath}`;
 
-    const linkInsert=db.prepare(`INSERT INTO quote_public_links (id, quote_id, token_hash)
-      VALUES (?, ?, ?)`).bind(linkId, quote.id, tokenHash);
-    // For wholesale, the new bearer link and private accounting evidence must
-    // be written atomically. Customer quote notes never include costs/sources.
+    // Persist a usable, approved quote BEFORE any irreversible Gmail call.
+    // The public link, 10+ unit private cost audit, and quote state form ONE
+    // D1 transaction; failure cannot dispatch email with an invalid URL.
+    const releaseCommands:D1PreparedStatement[]=[];
+    if(quote.public_token_hash) {
+      releaseCommands.push(db.prepare(`INSERT OR IGNORE INTO quote_public_links (id, quote_id, token_hash)
+        VALUES (?, ?, ?)`).bind(crypto.randomUUID(),quote.id,quote.public_token_hash));
+    }
+    releaseCommands.push(db.prepare(`INSERT INTO quote_public_links (id, quote_id, token_hash)
+      VALUES (?, ?, ?)`).bind(linkId,quote.id,tokenHash));
     if(costAudit?.ok){
-      const audit=db.prepare(`INSERT INTO activities
+      releaseCommands.push(db.prepare(`INSERT INTO activities
         (id,entity_type,entity_id,activity_type,title,description,metadata_json)
         VALUES (?,'QUOTE',?,'QUOTE_LANDED_COST_REVIEW','Internal landed cost review',?,?)`)
         .bind(crypto.randomUUID(),quote.id,
          `Staff reviewed six landed cost categories for ${quote.reference}`,
          JSON.stringify({...costAudit.record,sourceType:'STAFF_ATTESTED_NOT_AUDITED',
            reviewedAtUTC:new Date().toISOString(),
-           unverifiedSupplierLines:review.unverified}));
-      const recorded=await db.batch([linkInsert,audit]);
-      if(recorded.length!==2||recorded.some(x=>!x.success||Number(x.meta?.changes)!==1))
-        throw Error('COST_AUDIT_TRANSACTION_FAILED');
-    }else{
-      await linkInsert.run();
+           unverifiedSupplierLines:review.unverified})));
     }
+    releaseCommands.push(db.prepare(`UPDATE quotes SET status='SENT',
+      public_token_hash=?,sent_at=COALESCE(sent_at,CURRENT_TIMESTAMP),
+      updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('DRAFT','SENT','VIEWED')`)
+      .bind(tokenHash,quote.id));
+    if(quote.status==='DRAFT'){
+      releaseCommands.push(db.prepare(`INSERT INTO activities
+        (id,entity_type,entity_id,activity_type,title,description,metadata_json)
+        VALUES (?,'QUOTE',?,'QUOTE_APPROVED','Quote approved by staff',?,?)`)
+        .bind(crypto.randomUUID(),quote.id,
+         `Staff approved ${quote.reference} for customer review`,
+         JSON.stringify({total:quote.total,currency:quote.currency,sendEmail,approved:true,
+          unverifiedSupplierLines:review.unverified,
+          supplierCostManuallyAcknowledged:review.unverified>0&&supplierCostAcknowledged===true,
+          supplierReviewBasis:review.unverified>0?reviewedSourceNote:null})));
+    }
+    const releaseResult=await db.batch(releaseCommands);
+    const expectedChanges=releaseCommands.length-(quote.public_token_hash?1:0);
+    const verifiedChanges=releaseResult.reduce((sum,item)=>
+      sum+(item.success?Number(item.meta?.changes||0):0),0);
+    if(releaseResult.length!==releaseCommands.length||
+       releaseResult.some(item=>!item.success)||
+       verifiedChanges<expectedChanges)
+      throw Error('QUOTE_RELEASE_TRANSACTION_UNCONFIRMED');
 
-    let emailResult: Awaited<ReturnType<typeof sendQuoteEmail>> | null = null;
-    if (sendEmail) {
-      try {
-        emailResult = await sendQuoteEmail(env, quote, absoluteUrl);
-      } catch (error) {
-        await db.prepare(`UPDATE quote_public_links SET revoked_at=CURRENT_TIMESTAMP WHERE id=?`).bind(linkId).run().catch(() => undefined);
-        const message = error instanceof Error ? error.message : 'Unable to send quotation email.';
-        return Response.json({ ok: false, error: message }, { status: 502 });
+    let emailResult:Awaited<ReturnType<typeof sendQuoteEmail>>|null=null;
+    if(sendEmail){
+      try{
+        emailResult=await sendQuoteEmail(env,quote,absoluteUrl);
+      }catch{
+        // Gmail might have accepted the message even if its response failed.
+        // Do NOT revoke an already sent-to-customer link or encourage blind
+        // resending. Staff must reconcile Gmail Sent before re-attempting.
+        return Response.json({ok:true,reference:quote.reference,publicPath,
+          emailed:false,deliveryUnconfirmed:true,
+          warning:'Quotation link is active. Gmail delivery could not be confirmed. Check Gmail Sent before considering another send; do not blindly resend.',
+          to:null,gmailMessageId:null,gmailThreadId:null});
       }
     }
 
-    await db.prepare(`UPDATE quotes
-      SET status='SENT', public_token_hash=?, sent_at=COALESCE(sent_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP
-      WHERE id=?`).bind(tokenHash, quote.id).run();
-
-    if (quote.status === 'DRAFT') await db.prepare(`INSERT INTO activities (id,entity_type,entity_id,activity_type,title,description,metadata_json)
-      VALUES (?,'QUOTE',?,'QUOTE_APPROVED','Quote approved by staff',?,?)`).bind(crypto.randomUUID(),quote.id,`Staff approved ${quote.reference} for customer review`,JSON.stringify({total:quote.total,currency:quote.currency,sendEmail,approved:true,unverifiedSupplierLines:review.unverified,supplierCostManuallyAcknowledged:review.unverified>0&&supplierCostAcknowledged===true,supplierReviewBasis:review.unverified>0?reviewedSourceNote:null})).run();
-
-    if (quote.lead_id) {
-      await db.prepare(`UPDATE leads SET status='QUOTE', last_contact_at=CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE last_contact_at END,
-        next_best_action=?, next_action_at=datetime('now','+3 days'), updated_at=CURRENT_TIMESTAMP WHERE id=?`)
-        .bind(sendEmail ? 1 : 0, `Follow up quote ${quote.reference}`, quote.lead_id).run();
+    // The irreversible email is already sent (or no email requested).
+    // CRM tracking errors must not return a false "send failed" and prompt
+    // duplicate sends. Surface a separate tracking warning instead.
+    let trackingIncomplete=false;
+    try{
+      if(quote.lead_id){
+        await db.prepare(`UPDATE leads SET status='QUOTE',
+          last_contact_at=CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE last_contact_at END,
+          next_best_action=?,next_action_at=datetime('now','+3 days'),
+          updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+          .bind(emailResult?1:0,`Follow up quote ${quote.reference}`,quote.lead_id).run();
+      }
+      if(emailResult&&quote.lead_id){
+        await db.prepare(`INSERT INTO messages
+          (id,lead_id,company_id,contact_id,channel,direction,subject,body,intent,external_id,sent_at)
+          VALUES (?,?,?,?,'EMAIL','OUTBOUND',?,?,'QUOTE_SENT',?,CURRENT_TIMESTAMP)`)
+          .bind(crypto.randomUUID(),quote.lead_id,quote.company_id,quote.contact_id,
+            emailResult.subject,emailResult.body,emailResult.gmailMessageId).run();
+        await upsertQuoteFollowUpTask(db,quote);
+      }
+      await db.prepare(`INSERT INTO activities
+        (id,entity_type,entity_id,activity_type,title,description,metadata_json)
+        VALUES (?,'QUOTE',?,?,?,?,?)`)
+        .bind(crypto.randomUUID(),quote.id,
+          emailResult?'QUOTE_EMAIL_SENT':'QUOTE_LINK_GENERATED',
+          emailResult?'Quote emailed to customer':'Quote customer link generated',
+          emailResult?`${quote.reference} emailed to ${emailResult.to}`:`${quote.reference} customer link generated`,
+          JSON.stringify({reference:quote.reference,total:quote.total,publicPath,
+            emailed:Boolean(emailResult),gmailMessageId:emailResult?.gmailMessageId||null,
+            gmailThreadId:emailResult?.gmailThreadId||null,previousLinksRemainValid:true,
+            unverifiedSupplierLines:review.unverified,
+            supplierCostManuallyAcknowledged:review.unverified>0&&supplierCostAcknowledged===true,
+            supplierReviewBasis:review.unverified>0?reviewedSourceNote:null})).run();
+    }catch{
+      console.error('quote_release_tracking_incomplete');
+      trackingIncomplete=true;
     }
 
-    if (emailResult && quote.lead_id) {
-      await db.prepare(`INSERT INTO messages (id, lead_id, company_id, contact_id, channel, direction, subject, body, intent, external_id, sent_at)
-        VALUES (?, ?, ?, ?, 'EMAIL', 'OUTBOUND', ?, ?, 'QUOTE_SENT', ?, CURRENT_TIMESTAMP)`)
-        .bind(
-          crypto.randomUUID(), quote.lead_id, quote.company_id, quote.contact_id,
-          emailResult.subject, emailResult.body, emailResult.gmailMessageId,
-        ).run();
-      await upsertQuoteFollowUpTask(db, quote);
-    }
+    return Response.json({ok:true,reference:quote.reference,publicPath,
+      emailed:Boolean(emailResult),deliveryUnconfirmed:false,trackingIncomplete,
+      warning:trackingIncomplete?'Quote link and delivery outcome are valid but CRM tracking needs manual review. Check Gmail Sent before any resend.':null,
+      to:emailResult?.to||null,gmailMessageId:emailResult?.gmailMessageId||null,
+      gmailThreadId:emailResult?.gmailThreadId||null});
 
-    await db.prepare(`INSERT INTO activities (id, entity_type, entity_id, activity_type, title, description, metadata_json)
-      VALUES (?, 'QUOTE', ?, ?, ?, ?, ?)`)
-      .bind(
-        crypto.randomUUID(),
-        quote.id,
-        emailResult ? 'QUOTE_EMAIL_SENT' : 'QUOTE_LINK_GENERATED',
-        emailResult ? 'Quote emailed to customer' : 'Quote customer link generated',
-        emailResult ? `${quote.reference} emailed to ${emailResult.to}` : `${quote.reference} customer link generated`,
-        JSON.stringify({
-          reference: quote.reference,
-          total: quote.total,
-          publicPath,
-          emailed: Boolean(emailResult),
-          gmailMessageId: emailResult?.gmailMessageId || null,
-          gmailThreadId: emailResult?.gmailThreadId || null,
-          previousLinksRemainValid: true,
-          unverifiedSupplierLines:review.unverified,
-          supplierCostManuallyAcknowledged:review.unverified>0&&supplierCostAcknowledged===true,supplierReviewBasis:review.unverified>0?reviewedSourceNote:null,
-        }),
-      ).run();
-
-    return Response.json({
-      ok: true,
-      reference: quote.reference,
-      publicPath,
-      emailed: Boolean(emailResult),
-      to: emailResult?.to || null,
-      gmailMessageId: emailResult?.gmailMessageId || null,
-      gmailThreadId: emailResult?.gmailThreadId || null,
-    });
   } catch (error) {
     console.error('quote_send_failed', error);
     return Response.json({ ok: false, error: error instanceof Error ? error.message : 'Unable to send quote.' }, { status: 500 });
