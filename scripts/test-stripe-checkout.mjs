@@ -14,6 +14,26 @@ assert.equal(stripeSessionMatchesMode('cs_live_synthetic','live'),true);
 for(const [id,mode] of [['cs_live_synthetic','test'],['cs_test_synthetic','live'],['cs_test_synthetic',''],['cs_unknown_synthetic','test'],['not_a_session','live']])
  assert.equal(stripeSessionMatchesMode(id,mode),false,'Provider session IDs must match environment');
 const {onRequestPost:createCheckout}=await load('functions/api/payments/stripe/create.ts');
+const {acceptedB2bItemSnapshotMatches}=await load('lib/b2b-line-snapshot.ts');
+const line=(description,quantity,unit_price)=>({product_id:'sku-1',variant_id:'size-7',
+ description,quantity,unit_price,line_total:quantity*unit_price});
+const accepted=[line('Blue silent basketball',2,12.5),line('Orange silent soccer',1,10)];
+assert.equal(acceptedB2bItemSnapshotMatches(accepted,[accepted[1],accepted[0]],35,35),true,
+ 'Identical line content must survive row reordering');
+for(const revised of [
+ [line('Different ball',2,12.5),accepted[1]],
+ [{...accepted[0],variant_id:'size-5'},accepted[1]],
+ [line('Blue silent basketball',1,25),accepted[1]],
+ [{...accepted[0],line_total:25.01},accepted[1]],
+ [accepted[0],{...accepted[1],unit_price:10.01}],
+ [accepted[0]],
+ []]){
+ assert.equal(acceptedB2bItemSnapshotMatches(accepted,revised,35,35),false,
+  'Changing buyer-accepted items must not preserve Stripe chargeability');
+}
+assert.equal(acceptedB2bItemSnapshotMatches(accepted,accepted,34.99,35),false,
+ 'Subtotal must reconcile against accepted line items');
+
 const {onRequestPost:webhook,verifyStripeSignature}=await load('functions/api/payments/stripe/webhook.ts');
 const ready={
  STRIPE_MODE:'test',STRIPE_SECRET_KEY:'sk_test_synthetic_key',
