@@ -222,10 +222,12 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     "UPDATE tasks SET status='DONE',completed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP "+
     "WHERE order_id=? AND type='PAYMENT' AND status IN ('OPEN','IN_PROGRESS')"
    ).bind(matched.order_id).run();
+   // A later signed event for the same settled Checkout must not recreate a
+   // fulfillment task after staff have already completed or closed it.
    await db.prepare(
     "INSERT INTO tasks (id,lead_id,company_id,contact_id,order_id,type,title,description,status,priority,due_at) "+
     "SELECT ?,?,?,?,?,'FULFILLMENT',?,?,'OPEN','HIGH',datetime('now','+1 day') "+
-    "WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE order_id=? AND type='FULFILLMENT' AND status IN ('OPEN','IN_PROGRESS'))"
+    "WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE order_id=? AND type='FULFILLMENT')"
    ).bind(crypto.randomUUID(),order.lead_id||null,order.company_id||null,order.contact_id||null,
     matched.order_id,'Start processing '+String(order.reference),
     'Stripe payment confirmed. Prepare fulfillment.',matched.order_id).run();

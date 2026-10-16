@@ -235,6 +235,19 @@ try{
  assert.equal((await duplicate.json()).duplicate,true);
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM payments WHERE order_id=?').get(orderId).n,1);
  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM tasks WHERE order_id=? AND type='FULFILLMENT'").get(orderId).n,1);
+ // Stripe may deliver a second, separately identified signed notification for
+ // the SAME already-paid Checkout, after warehouse staff completed its task.
+ // That notification must never schedule an additional shipment.
+ sqlite.prepare("UPDATE tasks SET status='DONE',completed_at=CURRENT_TIMESTAMP WHERE order_id=? AND type='FULFILLMENT'").run(orderId);
+ const lateRepeat={...event,id:'evt_synthetic_b2b_late_distinct_notification'};
+ const lateResult=await webhook({env,request:signedEvent(lateRepeat)});
+ assert.equal(lateResult.status,200,await lateResult.clone().text());
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM payments WHERE order_id=? AND provider='STRIPE'").get(orderId).n,1,
+  'Distinct signed notification cannot book the same settled Checkout twice');
+ assert.deepEqual(sqlite.prepare("SELECT status FROM tasks WHERE order_id=? AND type='FULFILLMENT'").all(orderId).map(x=>x.status),['DONE'],
+  'Later webhook events cannot reopen or recreate completed fulfillment');
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM payment_webhook_events WHERE provider='STRIPE' AND event_id=? AND processed_at IS NOT NULL").get(lateRepeat.id).n,1,
+  'Late signed notification is acknowledged without repeated fulfillment');
  const statusBeforeWrites=writes;
  const statusResponse=await status({env,request:new Request(origin+'/api/payments/stripe/status?token='+bearer)});
  assert.equal(statusResponse.status,200);
