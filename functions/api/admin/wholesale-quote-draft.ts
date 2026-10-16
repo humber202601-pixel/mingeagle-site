@@ -37,8 +37,9 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  const review=reviewRfqQuantityConstraints(lines,input.quantityConstraints);
  if(!review.ok)return bad('MOQ/packing review failed: '+review.errors.join(', ')+'; confirm with the supplier and buyer before changing requested quantities.');
  if(!Array.isArray(input.unitPrices)||input.unitPrices.length!==lines.length)return bad('Enter verified USD unit price for each line');
+ if(input.taxUSD===''||input.taxUSD===null||input.taxUSD===undefined)return bad('Enter the explicitly reviewed US sales-tax amount for this quotation (0 is allowed only when the documented tax basis supports it)');
  let calculation:ReturnType<typeof quoteTotals>;
- try{calculation=quoteTotals(lines.map((line,i)=>({quantity:line.quantity,unitPrice:input.unitPrices![i]})),input.shippingUSD)}catch{return bad('Enter valid USD prices and explicit shipping with at most two decimal places; review quantity and total limits');}
+ try{calculation=quoteTotals(lines.map((line,i)=>({quantity:line.quantity,unitPrice:input.unitPrices![i]})),input.shippingUSD,0,input.taxUSD)}catch{return bad('Enter valid USD prices, explicit shipping and a reviewed sales-tax amount with at most two decimal places; review quantity and total limits');}
  // Compare the staff-selected sell prices against only APPROVED, effective
  // supplier SKU/size cost tiers. A missing/expired vendor source stays unverified;
  // never make up a margin. This check runs server-side even when the UI is bypassed.
@@ -75,7 +76,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  VALUES (?,?,?,?,?,?,?)`).bind(id,line.itemId,line.retail,RETAIL_SOURCE_URL,line.description,line.wholesale,line.quantity)),
  db.prepare("UPDATE inquiries SET status='QUOTED',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(inquiry.id)];
  await db.batch(stmts);
- return Response.json({ok:true,quoteReference:quoteRef,status:'DRAFT',items:lines.length,subtotalUSD:subtotalCents/100,shippingUSD:shipping,totalUSD:totalCents/100,reviewRequired:true,
+ return Response.json({ok:true,quoteReference:quoteRef,status:'DRAFT',items:lines.length,subtotalUSD:subtotalCents/100,shippingUSD:shipping,taxUSD:calculation.tax,totalUSD:totalCents/100,reviewRequired:true,
    quantityReview:{fullySpecified:review.verified.length,pending:review.pending.length},
    purchaseCostReview:{
      approvedSkuBaselines:costReview.approvedLines,unverifiedSkuBaselines:costReview.unverifiedLines,
