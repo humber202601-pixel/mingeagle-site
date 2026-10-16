@@ -32,6 +32,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
      !Number.isFinite(Number(quote.tax))||Number(quote.tax)<0)
     termsIssues.push('B2B_STRIPE_QUOTE_NOT_PAYABLE');
   }
+  const wholesaleUnits=result.results.reduce((sum,item)=>sum+Number(item.quantity||0),0);
   const computed=quoteTotals(result.results.map(r=>({quantity:r.quantity,unitPrice:r.unit_price})),
    quote.shipping??0,quote.discount??0,quote.tax??0);
   const amountMatchesQuote=quote.currency==='USD'
@@ -45,7 +46,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
   const baseline=amountMatchesQuote?review.baselineMerchandiseCostCents:null;
   const difference=baseline===null?null:(computed.subtotalCents-computed.discountCents-baseline);
   return reply({ok:true,quoteReference:quote.reference,quoteStatus:quote.status,
-   review:{safeForManualRelease:review.ok&&issues.length===0&&['DRAFT','SENT','VIEWED'].includes(quote.status),
+   review:{requiresLandedCostReview:wholesaleUnits>=10,safeForManualRelease:review.ok&&issues.length===0&&['DRAFT','SENT','VIEWED'].includes(quote.status),
     issues,approvedSkuBaselines:review.matched,
     unverifiedSkuBaselines:review.unverified,
     supplierConfirmationRequired:review.unverified>0,
