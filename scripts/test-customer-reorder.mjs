@@ -55,6 +55,7 @@ try{
  assert.equal(response.data.quote.total,138,'Old sales tax must not be silently carried over');
  const row=sqlite.prepare('SELECT * FROM quotes').get();
  assert.equal(row.status,'DRAFT');
+ assert.equal(row.notes,null,'Internal factory-cost review instructions must not appear in public quote notes');
  assert.match(row.payment_terms,/Stripe card checkout/);
  assert.match(row.shipping_terms,/to be confirmed/);
  assert.equal(row.tax,0,'New sale tax needs independent review');

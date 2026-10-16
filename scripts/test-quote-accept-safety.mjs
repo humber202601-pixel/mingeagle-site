@@ -69,6 +69,7 @@ assert(page.includes("b2bTaxReview")===false,'Do not expose internal tax decisio
  assert.equal(response.status,201,JSON.stringify(response));
  const latest=sqlite.prepare("SELECT * FROM quotes WHERE reference LIKE 'ME-Q-OLD-R%'").get();
  assert.equal(latest.status,'DRAFT');
+ assert.equal(latest.notes,null,'Internal sourcing/tax review must remain in staff task, never buyer quote notes');
  assert.equal(latest.tax_basis,null,'Historic tax justification requires new review');
  assert.match(latest.payment_terms,/Stripe card checkout/);
  assert.match(latest.shipping_terms,/to be confirmed/);

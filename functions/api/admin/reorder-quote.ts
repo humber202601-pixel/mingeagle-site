@@ -53,7 +53,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     const quoteId=crypto.randomUUID();
     const reference=`ME-Q-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0,8).toUpperCase()}`;
-    const note=`Draft only; previous order ${orderReference} is a reference, not an accepted reorder. Manually reconfirm current factory costs, quantities, freight/DDP charges, import duties, US sales tax and recipient state before buyer release.`;
+    // notes is buyer-visible. Keep staff-only sourcing checks in the REORDER task.
+    const note=null;
     const statements:D1PreparedStatement[]=[
       db.prepare(`INSERT INTO quotes (
         id,reference,lead_id,company_id,contact_id,status,currency,
