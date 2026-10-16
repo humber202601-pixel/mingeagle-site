@@ -1,5 +1,6 @@
 import {verifyQuoteProcurement} from '../../../lib/quote-procurement-review';
 import {quoteTermsIssues,quoteTermsIssueDescriptions} from '../../../lib/b2b-quote-terms';
+import {quoteTotals} from '../../../lib/quote-totals';
 interface Env {
   MINGEAGLE_DB: D1Database;
   GMAIL_CLIENT_ID?: string;
@@ -23,6 +24,7 @@ type QuoteRow = {
   shipping_terms: string | null;
   total: number;
   subtotal:number;
+  shipping:number;
   discount:number;
   currency: string | null;
   tax: number;
@@ -156,7 +158,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const db = env.MINGEAGLE_DB;
 
     const quote = await db.prepare(`SELECT
-      q.id, q.reference, q.status, q.lead_id, q.company_id, q.contact_id, q.valid_until, q.payment_terms, q.shipping_terms, q.total, q.subtotal, q.discount, q.currency, q.tax, q.tax_basis, q.public_token_hash,
+      q.id, q.reference, q.status, q.lead_id, q.company_id, q.contact_id, q.valid_until, q.payment_terms, q.shipping_terms, q.total, q.subtotal, q.shipping, q.discount, q.currency, q.tax, q.tax_basis, q.public_token_hash,
       ct.email AS contact_email, ct.full_name AS contact_name, COALESCE(c.name,'') AS company_name,
       COALESCE(ct.do_not_contact,0) AS do_not_contact, l.status AS lead_status
       FROM quotes q
@@ -212,6 +214,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const items=await db.prepare(`SELECT description,quantity,unit_price FROM quote_items
       WHERE quote_id=? ORDER BY sort_order,id`).bind(quote.id)
         .all<{description:string;quantity:number;unit_price:number}>();
+    // The separate read-only UI preflight is not an authorization boundary.
+    // Reconcile current stored quote totals again at the authoritative
+    // send/link-generation endpoint, before any link or outbound email.
+    let moneyValid=false;
+    try{
+      const totals=quoteTotals((items.results||[]).map(row=>({
+        quantity:row.quantity,unitPrice:row.unit_price
+      })),quote.shipping??0,quote.discount??0,quote.tax??0);
+      moneyValid=String(quote.currency||'USD')==='USD' &&
+        totals.subtotalCents===Math.round(Number(quote.subtotal)*100) &&
+        totals.totalCents===Math.round(Number(quote.total)*100);
+    }catch{moneyValid=false}
+    if(!moneyValid)return Response.json({ok:false,code:'QUOTE_TOTALS_MISMATCH',
+      error:'Quotation line amounts do not reconcile with the approved subtotal, shipping, discount, tax and total. Correct the quotation before issuing a customer link.'},{status:409});
     let review:Awaited<ReturnType<typeof verifyQuoteProcurement>>;
     try{
       review=await verifyQuoteProcurement(db,(items.results||[]).map(x=>({

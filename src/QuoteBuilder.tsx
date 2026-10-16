@@ -34,6 +34,13 @@ type QuoteSendResult = {
 type QuotePreflight={ok?:boolean;error?:string;review?:{
  safeForManualRelease:boolean;approvedSkuBaselines:number;unverifiedSkuBaselines:number;
  supplierConfirmationRequired:boolean;issues:string[];note:string;
+ commercialEstimate?:{
+  basis:'NOT_CALCULABLE'|'SKU_SIZE_COST_FLOOR_ONLY';
+  netMerchandiseUSD:number;approvedFactoryCostBaselineUSD:number|null;
+  merchandiseDifferenceBeforeOtherCostsUSD:number|null;
+  shippingCollectedUSD:number;salesTaxCollectedUSD:number;totalQuotedUSD:number;
+  isGrossProfit:false;missingProof:string[];
+ };
 }};
 
 type EditDetail = {
@@ -340,15 +347,26 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           PAYMENT_TERMS_UNCONFIRMED:'付款方式及付款时间尚未确认',
           SHIPPING_TERMS_UNCONFIRMED:'运费、运输方式及交付责任尚未确认',
           QUOTE_VALIDITY_MISSING:'报价有效期未填写',
-          QUOTE_EXPIRED:'报价已过期，需要重新核价'
+          QUOTE_EXPIRED:'报价已过期，需要重新核价',
+          QUOTE_TOTALS_MISMATCH:'商品明细和报价总额不一致，须先修正报价'
         };
         throw Error('报价暂不能发布：'+(review.issues.map(issue=>labels[issue]||issue).join('、')||'报价状态不允许发布')+'。请先补全采购商业条款并重新预审。');
       }
       const counts='匹配已审核 SKU/尺寸采购成本：'+review.approvedSkuBaselines+' 行；仍待供应商核实：'+review.unverifiedSkuBaselines+' 行。';
+      const est=review.commercialEstimate;
+      const commercialSummary=est?.basis==='SKU_SIZE_COST_FLOOR_ONLY'&&
+        est.approvedFactoryCostBaselineUSD!==null&&
+        est.merchandiseDifferenceBeforeOtherCostsUSD!==null
+        ?'仅 SKU/尺寸采购基准：'+money(est.approvedFactoryCostBaselineUSD,'USD')+
+         '；折扣后商品报价：'+money(est.netMerchandiseUSD,'USD')+
+         '；商品差额（未扣海运、关税、手续费及其他成本）：'+
+          money(est.merchandiseDifferenceBeforeOtherCostsUSD,'USD')+'。'
+        :'无法计算商品成本差额：采购基准缺失、已过期或未全部通过验证。';
+      const financialWarning='请注意：上述商品差额不是毛利或净利润；收取的销售税不是收入，向客户收取的运费也不能在未核对实际运费前当作利润。';
       const warning=review.supplierConfirmationRequired
         ?'额外人工确认：存在未核验的采购成本，系统不能证明利润。请先独立核对实际供应商报价、颜色、包装、MOQ、整箱数量、实际运费与税费。点击“确定”即单独确认这项风险，后台将记录核验声明；无法核实时点击“取消”。'
         :'已匹配的成本也不是完整到岸成本，仍须人工复核颜色、包装、运费、税费和商业条款。';
-      const confirmed=window.confirm(`批准报价 ${text(quote.reference)}，总额 ${money(quote.total,quote.currency)}。\n${counts}\n${warning}\n${sendEmail?'批准后将通过 Gmail 向该客户真实发送。':'批准后只生成客户可查看的安全链接，不会发送邮件。'}`);
+      const confirmed=window.confirm(`批准报价 ${text(quote.reference)}，总额 ${money(quote.total,quote.currency)}。\n${counts}\n${commercialSummary}\n${financialWarning}\n${warning}\n${sendEmail?'批准后将通过 Gmail 向该客户真实发送。':'批准后只生成客户可查看的安全链接，不会发送邮件。'}`);
       if(!confirmed)return;
       let supplierReviewBasis='';
       if(review.supplierConfirmationRequired){

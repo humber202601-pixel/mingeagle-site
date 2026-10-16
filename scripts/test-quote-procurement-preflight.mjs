@@ -9,7 +9,7 @@ try{
  const output=join(tmp,'preflight.mjs');
  await build({entryPoints:['functions/api/admin/quote-procurement-preflight.ts'],outfile:output,bundle:true,platform:'node',format:'esm',logLevel:'silent'});
  const {onRequestGet}=await import(pathToFileURL(output));
- const quote={id:'quote-preflight-test',reference:'ME-Q-SYNTHETIC',status:'DRAFT',currency:'USD',discount:0,payment_terms:'Bank transfer before production',shipping_terms:'Ocean freight DDP to US receiving site within agreed delivery estimate',valid_until:'2099-12-31 00:00:00'};
+ const quote={id:'quote-preflight-test',reference:'ME-Q-SYNTHETIC',status:'DRAFT',currency:'USD',subtotal:803,discount:0,shipping:40,tax:0,total:843,payment_terms:'Bank transfer before production',shipping_terms:'Ocean freight DDP to US receiving site within agreed delivery estimate',valid_until:'2099-12-31 00:00:00'};
  const lines=[{description:'Flocked Silent Basketball Set | No. 5 | Blue',quantity:100,unit_price:8.03}];
  let vendor=[],failCatalog=false,reads=0,writes=0;
  const db={prepare(sql){
@@ -34,6 +34,13 @@ try{
  assert.equal(r.data.review.approvedSkuBaselines,0);
  assert.equal(r.data.review.unverifiedSkuBaselines,1);
  assert.equal(r.data.review.supplierConfirmationRequired,true);
+ assert.equal(r.data.review.commercialEstimate.basis,'NOT_CALCULABLE');
+ assert.equal(r.data.review.commercialEstimate.approvedFactoryCostBaselineUSD,null);
+ assert.equal(r.data.review.commercialEstimate.merchandiseDifferenceBeforeOtherCostsUSD,null);
+ assert.equal(r.data.review.commercialEstimate.netMerchandiseUSD,803);
+ assert.equal(r.data.review.commercialEstimate.shippingCollectedUSD,40);
+ assert.equal(r.data.review.commercialEstimate.salesTaxCollectedUSD,0);
+ assert.equal(r.data.review.commercialEstimate.isGrossProfit,false);
  assert(r.cache.includes('no-store'));
  quote.payment_terms='Payment terms to be confirmed before sending.';
  r=await invoke();assert.equal(r.status,200);
@@ -60,13 +67,35 @@ try{
  assert.equal(r.data.review.approvedSkuBaselines,1);
  assert.equal(r.data.review.unverifiedSkuBaselines,0);
  assert.equal(r.data.review.safeForManualRelease,true);
+ assert.equal(r.data.review.commercialEstimate.basis,'SKU_SIZE_COST_FLOOR_ONLY');
+ assert.equal(r.data.review.commercialEstimate.approvedFactoryCostBaselineUSD,700);
+ assert.equal(r.data.review.commercialEstimate.merchandiseDifferenceBeforeOtherCostsUSD,103,
+  'Product cost floor only: no freight, duties, fees, tax revenue or profit inference');
+ quote.tax=5;quote.total=848;
+ r=await invoke();assert.equal(r.data.review.commercialEstimate.merchandiseDifferenceBeforeOtherCostsUSD,103,
+  'Collected sales tax is not additional product contribution');
+ assert.equal(r.data.review.commercialEstimate.salesTaxCollectedUSD,5);
+ quote.tax=0;quote.total=843;
+ quote.discount=20;quote.total=823;
+ r=await invoke();
+ assert.equal(r.data.review.commercialEstimate.merchandiseDifferenceBeforeOtherCostsUSD,83,
+  'Approved whole-quote discounts reduce the merchandise-only difference');
+ quote.discount=0;quote.total=843;
+ quote.total=842;
+ r=await invoke();
+ assert.equal(r.data.review.safeForManualRelease,false,'Mismatched stored quote total fails preflight');
+ assert(r.data.review.issues.includes('QUOTE_TOTALS_MISMATCH'));
+ assert.equal(r.data.review.commercialEstimate.approvedFactoryCostBaselineUSD,null);
+ quote.total=843;
  vendor=[{...source,tiers_json:JSON.stringify([{minimumQuantity:20,purchaseCents:900}])}];
  r=await invoke();assert.equal(r.status,200);assert.equal(r.data.review.safeForManualRelease,false);
  assert(r.data.review.issues.includes('LINE_1_AT_OR_BELOW_APPROVED_COST'));
+ assert.equal(r.data.review.commercialEstimate.approvedFactoryCostBaselineUSD,null,'Failed cost-floor checks must not claim a complete approved basis');
  vendor=[{...source,expires_on:'2020-01-01'}];
  r=await invoke();assert.equal(r.status,200);
  assert.equal(r.data.review.unverifiedSkuBaselines,1,'Expired vendor price cannot claim verified coverage');
  assert.equal(r.data.review.supplierConfirmationRequired,true);
+ assert.equal(r.data.review.commercialEstimate.approvedFactoryCostBaselineUSD,null,'Expired cost references must not generate a value');
  quote.status='ACCEPTED';vendor=[source];
  r=await invoke();assert.equal(r.status,200);assert.equal(r.data.review.safeForManualRelease,false);
  quote.status='DRAFT';failCatalog=true;
