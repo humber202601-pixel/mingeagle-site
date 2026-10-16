@@ -161,17 +161,9 @@ console.log('PASS: all six pages load cart selectors; 11 SKU prices; real size/c
  const fakeDocument={getElementById(id){return elements[id]||null},createElement(tag){return new Widget(tag)}};
  const navigation={href:''};
  let requests=0;
- const fakeFetch=async(url,init)=>{
+ const fakeFetch=async()=>{
   requests++;
-  assert.equal(url,'https://app.mingeagle.com/api/shipping/cart','Wholesale must not launch Stripe');
-  const input=JSON.parse(init.body);
-  assert.equal(input.method,'sea');
-  assert.equal(input.seaFreightAccepted,true);
-  assert.equal(input.lines[0].quantity,10);
-  return {ok:true,async json(){return {ok:true,wholesale:true,quoteRequired:true,
-   paymentEnabled:false,method:'sea',country:'US',quantity:10,
-   productsUSD:null,shippingUSD:null,totalBeforeTaxesUSD:null,volumeCBM:null,
-   packagingVerified:false,ddpConfirmed:false}}};
+  throw Error('The quote-only wholesale path must not contact shipping or payment APIs');
  };
  vm.runInNewContext(js,{window:{},localStorage:local,document:fakeDocument,
   Option:function(label,value){this.textContent=label;this.value=value;},
@@ -182,11 +174,11 @@ console.log('PASS: all six pages load cart selectors; 11 SKU prices; real size/c
   'Never mislabel retail reference prices as an approved wholesale line');
  elements.cartSeaConsent.checked=true;
  await elements.cartEstimateForm.handlers.submit({preventDefault(){}});
- assert.equal(requests,1);
+ assert.equal(requests,0,'A freight API outage cannot block a quote-only wholesale inquiry');
  assert.equal(elements.cartSummaryShipping.textContent,'Written DDP quote required');
  assert.equal(elements.cartSummaryTotal.textContent,'To be confirmed');
  assert.equal(elements.cartCheckout.disabled,false,'Bulk RFQ submission must remain possible');
- assert.equal(elements.cartCheckout.textContent,'Submit wholesale RFQ →');
+ assert.equal(elements.cartCheckout.textContent,'Continue to wholesale RFQ form →');
  assert.equal(elements.cartEstimate.hidden,true,'Do not show pricing from null API fields');
  assert(!JSON.stringify([elements.cartSummaryGoods.textContent,elements.cartSummaryShipping.textContent,
   elements.cartSummaryTotal.textContent]).includes('$0.00'));
@@ -206,6 +198,7 @@ console.log('PASS: all six pages load cart selectors; 11 SKU prices; real size/c
  vm.runInNewContext(parser,{q:{get:k=>untrusted.get(k)},window:obj,
   $:k=>inputFields[k]||null,console,URLSearchParams});
  assert(inputFields.message.value.includes('written quotation required'));
+ assert(inputFields.message.value.includes('Wholesale quote request (NOT AN ORDER / NOT PAID)'));
  assert(!inputFields.message.value.includes('Estimated freight USD'));
  assert(!inputFields.message.value.includes('Estimated total before tax USD'));
  // A single-product detail must point bulk shoppers toward the quote cart.
@@ -213,5 +206,5 @@ console.log('PASS: all six pages load cart selectors; 11 SKU prices; real size/c
  assert(productScript.includes("if(qty>=10)"));
  assert(productScript.includes("typeof data.productUSD!=='number'"),
   'Quote-only response must never become $0.00 on detail view');
- console.log('PASS: buyer-facing wholesale price/CBM fields remain quote-only and checkout handoff preserves SKU/quantity without false $0.00.');
+ console.log('PASS: wholesale RFQ accepts valid cart without shipping API; preserves SKU/qty and never invents USD/CBM or a payable order.');
 })().catch(err=>{console.error(err);process.exitCode=1});

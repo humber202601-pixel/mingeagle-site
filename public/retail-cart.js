@@ -169,8 +169,32 @@ $('cartEstimateForm').addEventListener('submit',async e=>{
  if(bulk&&$('cartMethod').value!=='sea'||!bulk&&$('cartMethod').value!=='air'){
   $('cartStatus').textContent='Invalid delivery method for this order quantity.';return;
  }
+ if(!/^[A-Z]{2}$/.test(country())){
+  $('cartStatus').textContent='Enter a valid two-letter destination country before continuing.';return;
+ }
+ if(n>10000){
+  $('cartStatus').textContent='Maximum inquiry quantity is 10,000 units per request. Please contact MING EAGLE for larger quantities.';return;
+ }
+ if(bulk){
+  // Wholesale is an RFQ, not a rate calculation or payment. Do not make a
+  // prospect's ability to request a written quotation depend on shipping API
+  // uptime when supplier cartons/sea DDP charges are not yet verified.
+  clearEstimate();
+  last={country:country(),method:'sea',wholesale:true,quoteRequired:true,
+   productsUSD:null,shippingUSD:null,totalBeforeTaxesUSD:null,volumeCBM:null,
+   paymentEnabled:false,ddpConfirmed:false};
+  $('cartSummaryGoods').textContent='Price on request';
+  $('cartSummaryShipping').textContent='Written DDP quote required';
+  $('cartSummaryTotal').textContent='To be confirmed';
+  $('cartEstimate').hidden=true;
+  $('cartCheckout').disabled=false;
+  $('cartInquiry').hidden=true;
+  $('cartCheckout').textContent='Continue to wholesale RFQ form →';
+  $('cartStatus').textContent='Continue to the wholesale inquiry form to confirm products, quantity and destination. No payment or shipping quote is generated. Supplier prices, actual cartons and DDP freight require written confirmation.';
+  return;
+ }
  clearEstimate();const current=version;loading=true;
- $('cartStatus').textContent='Checking current server-side shipping estimate…';
+ $('cartStatus').textContent='Checking current server-side retail air shipping…';
  try{
   const response=await fetch('https://app.mingeagle.com/api/shipping/cart',{
    method:'POST',headers:{'content-type':'application/json'},
@@ -180,23 +204,7 @@ $('cartEstimateForm').addEventListener('submit',async e=>{
   const result=await response.json();
   if(current!==version)return;
   if(!response.ok||!result.ok)throw Error(result.error||'Estimate unavailable');
-  if((n>=10)!==Boolean(result.wholesale))throw Error('Order classification mismatch');
-  if(bulk){
-   if(result.quoteRequired!==true||result.paymentEnabled!==false||
-      result.productsUSD!==null||result.shippingUSD!==null||
-      result.totalBeforeTaxesUSD!==null||result.volumeCBM!==null)
-    throw Error('Wholesale price and carton measurements require verification');
-   last=result;checkoutAvailable=false;
-   $('cartSummaryGoods').textContent='Price on request';
-   $('cartSummaryShipping').textContent='Written DDP quote required';
-   $('cartSummaryTotal').textContent='To be confirmed';
-   $('cartEstimate').hidden=true;
-   $('cartCheckout').disabled=false;
-   $('cartInquiry').hidden=true;
-   $('cartCheckout').textContent='Submit wholesale RFQ →';
-   $('cartStatus').textContent='Wholesale RFQ ready. The item prices, actual carton dimensions and delivered DDP freight must be confirmed in writing. No payment is requested.';
-   return;
-  }
+  if(result.wholesale!==false)throw Error('Retail air order classification mismatch');
   last=result;
   if(typeof (result.productsUSD??result.productUSD)!=='number'||
      typeof result.shippingUSD!=='number'||typeof result.totalBeforeTaxesUSD!=='number')
