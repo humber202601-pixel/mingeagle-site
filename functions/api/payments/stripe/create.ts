@@ -5,6 +5,7 @@ import {registeredStripeTaxState,fixedTaxCustomer,automaticTaxAmount,type Delive
 import {separateUnitUsAirParcels} from '../../../../lib/us-small-parcel';
 import {requiresClosedOrderPaymentReview} from '../../../../lib/closed-order-payment';
 import {acceptedB2bQuotePayable} from '../../../../lib/b2b-stripe-eligibility';
+import {acceptedB2bItemSnapshotMatches} from '../../../../lib/b2b-line-snapshot';
 
 interface Env extends StripeEnv,RetailTaxEnv {
   MINGEAGLE_DB: D1Database;
@@ -44,7 +45,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    "q.payment_terms AS quote_payment_terms,q.shipping_terms AS quote_shipping_terms,"+
    "q.valid_until,q.tax_basis,q.reference AS quote_reference,q.subtotal AS quote_subtotal,"+
    "q.discount AS quote_discount,q.shipping AS quote_shipping,q.tax AS quote_tax,"+
-   "q.total AS quote_total,q.currency AS quote_currency,ct.email AS email,"+
+   "q.total AS quote_total,q.currency AS quote_currency,o.quote_id,ct.email AS email,"+
    "(SELECT COALESCE(SUM(amount),0) FROM payments WHERE order_id=o.id AND status='RECEIVED') AS received "+
    "FROM quotes q JOIN orders o ON o.quote_id=q.id LEFT JOIN contacts ct ON ct.id=o.contact_id "+
    "WHERE "+QUOTE_PUBLIC_TOKEN_PREDICATE+" "+
@@ -131,6 +132,20 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       Number.isFinite(Number(a))&&Number.isFinite(Number(b))&&cents(a)===cents(b);
     });
    if(!quoteMatchesOrder)return fail('Approved wholesale quote differs from order amounts. Please issue and accept a revised quote before payment.',409);
+   // The total alone is insufficient: a different product/size can keep the
+   // same subtotal. Compare every buyer-approved quote item with its order copy,
+   // including quantity, SKU/variant, description, price and extended amount.
+   // Read-only validation happens before any Stripe call or payment-session write.
+   const quoteLines=await db.prepare(
+    'SELECT product_id,variant_id,description,quantity,unit_price,line_total FROM quote_items WHERE quote_id=?'
+   ).bind(String(order.quote_id)).all();
+   const orderLines=await db.prepare(
+    'SELECT product_id,variant_id,description,quantity,unit_price,line_total FROM order_items WHERE order_id=?'
+   ).bind(String(order.id)).all();
+   if(!quoteLines.success||!orderLines.success||
+      !acceptedB2bItemSnapshotMatches(quoteLines.results,orderLines.results,order.quote_subtotal,order.subtotal))
+    return fail('Wholesale order items differ from the accepted quotation. A corrected quotation must be approved before payment.',409);
+
   }
   const received=cents(order.received);
   const total=cents(order.total),due=total-received;
