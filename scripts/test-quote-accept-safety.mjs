@@ -36,6 +36,7 @@ assert(page.includes("b2bTaxReview")===false,'Do not expose internal tax decisio
  const sqlite=new DatabaseSync(':memory:');
  const core=await readFile(new URL('../migrations/0001_core.sql',import.meta.url),'utf8');
  sqlite.exec(core);
+ sqlite.exec(await readFile(new URL('../migrations/0016_b2b_tax_basis.sql',import.meta.url),'utf8'));
  const bundle=await build({entryPoints:['functions/api/admin/quote-revise.ts'],
    platform:'node',format:'esm',bundle:true,write:false,logLevel:'silent'});
  const handler=(await import('data:text/javascript;base64,'+
