@@ -123,6 +123,11 @@ try{
  assert(!(await todayHtml.text()).includes('This quote has expired'),
   'HTML must not show final-day quote as expired');
  const ship={country:'US',state:'TX',city:'Austin',postalCode:'78701',line1:'123 Synthetic B2B Street'};
+ sqlite.prepare("UPDATE quotes SET shipping_terms='DDP sea freight 25–30 days; Ship-to state: ZZ' WHERE id=?").run(quoteId);
+ const impossible=await accept({...ship,state:'ZZ'});
+ assert.equal(impossible.status,409,'Buyer may not accept invalid state code even if quote has same two letters');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM orders').get().n,0);
+ sqlite.prepare("UPDATE quotes SET shipping_terms='DDP sea freight 25–30 days, customs and duties included; Ship-to state: TX' WHERE id=?").run(quoteId);
  const incorrect=await accept({...ship,state:'CA'});
  assert.equal(incorrect.status,409,'Wrong delivery state must not create an order');
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM orders').get().n,0);
