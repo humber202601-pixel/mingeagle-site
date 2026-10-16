@@ -19,7 +19,7 @@ function utcCoverage(date:string|null|undefined,hasSchema:boolean,days:number|nu
 export const onRequestGet:PagesFunction<Env>=async({env})=>{
  const db=env.MINGEAGLE_DB;if(!db)return json({ok:false,error:'Production database unavailable'},503);
  try{
-  const found=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('web_analytics_daily','gsc_search_daily','supplier_purchase_terms','shipping_rates','shipping_packaging')").all<{name:string}>();
+  const found=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('web_analytics_daily','gsc_search_daily','supplier_purchase_terms','shipping_rates','shipping_packaging','orders','quote_items','payments','payment_provider_sessions')").all<{name:string}>();
   const names=new Set((found.results||[]).map(x=>x.name));
   const get=async<T>(name:string,sql:string)=>names.has(name)?await db.prepare(sql).first<T>():null;
   const [rum,gsc,cost,freight,packages]=await Promise.all([
@@ -35,6 +35,17 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
    ?await db.prepare("SELECT country,method,min_units FROM shipping_rates WHERE active=1 ORDER BY country,method LIMIT 30")
      .all<{country:string;method:string;min_units:number}>()
    :null;
+  // A successful verification charge or a manual bank receipt is not a wholesale Stripe reconciliation.
+  const b2bEvidenceSchema=['orders','quote_items','payments','payment_provider_sessions'].every(name=>names.has(name));
+  const wholesalePredicate="EXISTS(SELECT 1 FROM quote_items qi WHERE qi.quote_id=o.quote_id GROUP BY qi.quote_id HAVING SUM(qi.quantity)>=10)";
+  const [wholesaleOrderCounts,stripeSettled,stripeSessionCounts]=b2bEvidenceSchema?await Promise.all([
+   db.prepare("SELECT COUNT(*) AS total,COALESCE(SUM(CASE WHEN payment_status IN ('UNPAID','PARTIAL') THEN 1 ELSE 0 END),0) AS awaitingPayment FROM orders o WHERE "+wholesalePredicate).first<{total:number;awaitingPayment:number}>(),
+   db.prepare("SELECT COUNT(*) AS settled FROM orders o WHERE o.payment_status='PAID' AND o.currency='USD' AND "+wholesalePredicate+
+    " AND (SELECT COALESCE(SUM(p.amount),0) FROM payments p JOIN payment_provider_sessions s ON s.provider_intent_id=p.provider_reference"+
+    " AND s.order_id=p.order_id AND s.provider='STRIPE' AND s.status='SUCCEEDED' WHERE p.order_id=o.id AND p.provider='STRIPE'"+
+    " AND p.status='RECEIVED' AND p.currency='USD') >= o.total-0.005").first<{settled:number}>(),
+   db.prepare("SELECT COUNT(*) AS sessions FROM payment_provider_sessions s JOIN orders o ON o.id=s.order_id WHERE s.provider='STRIPE' AND "+wholesalePredicate).first<{sessions:number}>()
+  ]):[null,null,null];
   const turnstileCredentials=Boolean(env.TURNSTILE_SITE_KEY&&env.TURNSTILE_SECRET_KEY);
   const turnstileRequested=env.TURNSTILE_ENABLED==='1'||env.TURNSTILE_ENABLED==='true';
   const payment=stripeCheckoutReadiness(env);
@@ -43,6 +54,10 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
    procurement:{catalogPresent:names.has('supplier_purchase_terms'),supplierSources:cost?.total??null,approvedSourceCount:cost?.approved??null,
     shippingRates:freight?.total??null,activeShippingRates:freight?.active??null,packagingSkus:packages?.total??null,
     activeShippingRoutes:shippingRoutes?.results?.map(r=>({country:String(r.country),method:String(r.method),minimumUnits:Number(r.min_units)}))??null},
+   b2bStripeEvidence:{schemaPresent:b2bEvidenceSchema,wholesaleOrders:wholesaleOrderCounts?.total??null,
+    awaitingPaymentOrders:wholesaleOrderCounts?.awaitingPayment??null,
+    stripeCheckoutSessions:stripeSessionCounts?.sessions??null,
+    reconciledPaidOrders:stripeSettled?.settled??null},
    security:{turnstileConfigured:turnstileCredentials,turnstileEnabled:turnstileRequested&&turnstileCredentials,turnstileMisconfigured:turnstileRequested&&!turnstileCredentials},
    payments:{checkoutRequested:payment.checkoutRequested,providerCredentialsConfigured:payment.keyConfigured,
     webhookConfigured:payment.webhookConfigured,environment:payment.mode,
@@ -58,6 +73,7 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
    caveats:['GSC search metrics use Pacific reporting dates; Cloudflare RUM uses UTC. Do not compute a raw conversion ratio.',
     'An empty supplier catalog means purchase cost and profit are not validated; prices cannot be inferred from public retail.',
     'Stripe configuration readiness does not prove successful card capture, webhook delivery or bank settlement.',
+    'Reconciled wholesale orders require 10+ quoted units, full Stripe-only RECEIVED records linked to SUCCEEDED sessions, and a PAID order; provider payout is verified separately.',
     'Turnstile configuration does not by itself verify each individual inquiry submission.',
     'The latest observed source date is not proof the scheduled sync ran. No newer visitor data might exist; absent UTC dates remain unknown, not zero.']});
  }catch{return json({ok:false,error:'Readiness checks unavailable'},503)}
