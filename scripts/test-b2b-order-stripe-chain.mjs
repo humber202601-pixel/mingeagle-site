@@ -69,7 +69,7 @@ globalThis.fetch=async(url,init)=>{
  assert.equal(params.get('line_items[0][price_data][unit_amount]'),'15000');
  assert.equal(params.get('line_items[1][price_data][unit_amount]'),'3000');
  assert.equal(params.get('line_items[2][price_data][unit_amount]'),null);
- const id='cs_test_synthetic_b2b_chain_'+String(provider.size+1);
+ const id='cs_test_syntheticB2BChain'+String(provider.size+1);
  const session={id,status:'open',payment_status:'unpaid',currency:'usd',livemode:false,
   url:'https://checkout.stripe.com/c/pay/'+id,
   amount_total:18000,client_reference_id:params.get('client_reference_id'),
@@ -121,7 +121,7 @@ try{
  assert.equal(createdCheckout.status,200,await createdCheckout.clone().text());
  assert.equal(provider.size,1,'One simulated hosted checkout');
  const ref=sqlite.prepare("SELECT provider_intent_id FROM payment_provider_sessions WHERE order_id=? AND provider='STRIPE'").get(orderId);
- assert.equal(ref.provider_intent_id,'cs_test_synthetic_b2b_chain_1');
+ assert.equal(ref.provider_intent_id,'cs_test_syntheticB2BChain1');
  const reused=await checkout({env,request:checkoutRequest()});
  assert.equal(reused.status,200);
  assert.equal((await reused.json()).reused,true,'Second click must reuse an existing open Checkout');
