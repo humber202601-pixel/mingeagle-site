@@ -3,6 +3,19 @@ const vm = require('vm');
 const assert = require('assert/strict');
 const path = require('path');
 const scripts = ['custom-logo-model.js','custom-logo-studio.js'].map(name=>fs.readFileSync(path.join(__dirname,'../public',name),'utf8'));
+const homeHtml=fs.readFileSync(path.join(__dirname,'../public/index.html'),'utf8');
+const customLogoHtml=fs.readFileSync(path.join(__dirname,'../public/custom-logo.html'),'utf8');
+const extractNav=(html,kind)=>{
+  const re=kind==='desktop'
+    ? /<nav class="navlinks" aria-label="Main navigation"[^>]*>([\\s\\S]*?)<\\/nav>/
+    : /<nav aria-label="Mobile navigation"[^>]*>([\\s\\S]*?)<\\/nav>/;
+  const m=html.match(re);assert(m,kind+' main navigation must exist');
+  return m[1].replace(/\\s+/g,' ').trim().replace(/ aria-current="page"/g,'');
+};
+assert.equal(extractNav(customLogoHtml,'desktop'),extractNav(homeHtml,'desktop'),'Custom Logo desktop navigation must stay aligned with homepage');
+assert.equal(extractNav(customLogoHtml,'mobile'),extractNav(homeHtml,'mobile'),'Custom Logo mobile navigation must stay aligned with homepage');
+
+
 const localeScript=fs.readFileSync(path.join(__dirname,'../public/custom-logo-i18n.js'),'utf8');
 const source=scripts.join('\n');
 const inlineArtifactTest=false;
