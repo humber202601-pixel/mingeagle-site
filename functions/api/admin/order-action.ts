@@ -185,6 +185,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const currency = String(order.currency || 'USD');
 
     if (status === 'CANCELLED') return Response.json({ ok: false, error: 'Cancelled orders cannot be updated.' }, { status: 409 });
+    if (paymentStatus === 'REFUNDED' && action === 'MARK_PAID') return Response.json({ ok: false, error: 'Refunded orders cannot be marked paid again. Reconcile the refund separately.' }, { status: 409 });
 
     if (action === 'MARK_PAID') {
       if (paymentStatus === 'PAID') return Response.json({ ok: true, unchanged: true, order: { reference: orderReference, status, payment_status: paymentStatus } });
