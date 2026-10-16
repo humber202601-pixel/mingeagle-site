@@ -187,10 +187,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
     }
 
     const orderId = crypto.randomUUID();
-    const orderReference = `ME-${Date.now().toString(36).toUpperCase()}`;
+    const orderReference = `ME-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0,8).toUpperCase()}`;
 
-    // Commit the order, every order item, and the quotation state together.
-    // A failure must not leave a payable order missing its items.
     const orderInsert = db.prepare(`INSERT INTO orders (
         id, reference, quote_id, lead_id, company_id, contact_id, status, currency,
         subtotal, discount, shipping, tax, total, payment_status, shipping_address, customer_notes, confirmed_at
@@ -213,27 +211,41 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
         Number(item.unit_price || 0), Number(item.line_total || 0)));
     const converted = db.prepare(`UPDATE quotes SET status='CONVERTED', accepted_at=CURRENT_TIMESTAMP,
         updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('SENT','VIEWED')`).bind(quoteId);
+    // Buyer confirmation, order items, quote conversion, payment follow-up
+    // and staff audit are a single transaction. A late task/activity error
+    // may not leave a real order created while the browser reports failure.
+    const operationBatch:D1PreparedStatement[]=[orderInsert,...itemInserts,converted];
+    if(quote.lead_id)operationBatch.push(
+      db.prepare(`UPDATE leads SET status='NEGOTIATION',
+        next_best_action='Confirm payment and fulfillment',
+        next_action_at=datetime('now','+1 day'),updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+        .bind(String(quote.lead_id))
+    );
+    operationBatch.push(
+      db.prepare(`INSERT INTO tasks
+        (id,lead_id,company_id,contact_id,order_id,type,title,description,status,priority,due_at)
+        VALUES (?,?,?,?,?,'PAYMENT',?,?,'OPEN','HIGH',datetime('now','+1 day'))`)
+        .bind(crypto.randomUUID(),quote.lead_id||null,quote.company_id||null,
+          quote.contact_id||null,orderId,`Confirm Stripe payment for ${orderReference}`,
+          `Buyer accepted ${String(quote.reference)}. Only a verified Stripe Webhook confirms payment; do not mark PAID manually.`),
+      db.prepare(`INSERT INTO activities
+        (id,entity_type,entity_id,activity_type,title,description,metadata_json)
+        VALUES (?,'ORDER',?,'QUOTE_ACCEPTED','Quote accepted and order created',?,?)`)
+        .bind(crypto.randomUUID(),orderId,
+          `${String(quote.reference)} accepted; ${orderReference} created`,
+          JSON.stringify({quoteReference:quote.reference,orderReference}))
+    );
     try {
-      await db.batch([orderInsert, ...itemInserts, converted]);
+      const committed=await db.batch(operationBatch);
+      if(committed.length!==operationBatch.length||
+         committed.some(row=>!row.success))throw Error('QUOTE_ACCEPTANCE_TRANSACTION_UNCONFIRMED');
     } catch (insertError) {
-      const raced = await getOrder(db, quoteId);
-      if (raced) return Response.json({ ok: true, accepted: true, order: raced });
+      // A separate request may have created this order first. Only return
+      // the actual persisted order from that concurrent acceptance.
+      const raced=await getOrder(db,quoteId);
+      if(raced)return Response.json({ok:true,accepted:true,order:raced});
       throw insertError;
     }
-    if (quote.lead_id) {
-      await db.prepare(`UPDATE leads SET status='NEGOTIATION', next_best_action='Confirm payment and fulfillment', next_action_at=datetime('now','+1 day'), updated_at=CURRENT_TIMESTAMP WHERE id=?`)
-        .bind(String(quote.lead_id)).run();
-    }
-    await db.prepare(`INSERT INTO tasks (id, lead_id, company_id, contact_id, order_id, type, title, description, status, priority, due_at)
-      VALUES (?, ?, ?, ?, ?, 'PAYMENT', ?, ?, 'OPEN', 'HIGH', datetime('now','+1 day'))`)
-      .bind(
-        crypto.randomUUID(), quote.lead_id || null, quote.company_id || null, quote.contact_id || null, orderId,
-        `Confirm payment for ${orderReference}`, `Customer accepted ${String(quote.reference)}. Confirm payment method and receipt.`,
-      ).run();
-    await db.prepare(`INSERT INTO activities (id, entity_type, entity_id, activity_type, title, description, metadata_json)
-      VALUES (?, 'ORDER', ?, 'QUOTE_ACCEPTED', 'Quote accepted and order created', ?, ?)`)
-      .bind(crypto.randomUUID(), orderId, `${String(quote.reference)} accepted; ${orderReference} created`, JSON.stringify({ quoteReference: quote.reference, orderReference })).run();
-
     return Response.json({ ok: true, accepted: true, order: { id: orderId, reference: orderReference, status: 'PAYMENT_PENDING', payment_status: 'UNPAID' } }, { status: 201 });
   } catch (error) {
     console.error('public_quote_accept_failed', error);
