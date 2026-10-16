@@ -1,7 +1,7 @@
 // Admin-only read-only preflight. The existing quote-send route remains the
 // final decision gate and recalculates procurement immediately before release.
 import {verifyQuoteProcurement} from '../../../lib/quote-procurement-review';
-import {quoteTermsIssues} from '../../../lib/b2b-quote-terms';
+import {quoteTermsIssues,stripeCheckoutTermsSupported} from '../../../lib/b2b-quote-terms';
 import {quoteTotals} from '../../../lib/quote-totals';
 interface Env{MINGEAGLE_DB?:D1Database}
 type Quote={id:string;reference:string;status:string;currency:string|null;subtotal:number;discount:number|null;shipping:number;tax:number;total:number;payment_terms:string|null;shipping_terms:string|null;valid_until:string|null};
@@ -21,7 +21,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
   const termsIssues=quoteTermsIssues(quote);
   // The preview must surface the same Stripe-only payment rule enforced at
   // quote release, before staff asks a buyer to accept an unpayable quotation.
-  if(!/\bstripe\b/i.test(String(quote.payment_terms||'')))termsIssues.push('STRIPE_ONLY_QUOTE_TERMS');
+  if(!stripeCheckoutTermsSupported(quote.payment_terms))termsIssues.push('STRIPE_ONLY_QUOTE_TERMS');
   const computed=quoteTotals(result.results.map(r=>({quantity:r.quantity,unitPrice:r.unit_price})),
    quote.shipping??0,quote.discount??0,quote.tax??0);
   const amountMatchesQuote=quote.currency==='USD'
