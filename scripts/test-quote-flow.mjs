@@ -129,11 +129,22 @@ try{
  unverified=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true});
  assert.equal(unverified.status,409,'Released quote with unverified source requires new attestation');
  assert.equal(unverified.body.code,'SUPPLIER_COST_ACK_REQUIRED');
- const acknowledged=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true,supplierCostAcknowledged:true});
- assert.equal(acknowledged.status,200,'Extra supplier confirmation permits staff-reviewed noncatalog quote');
+ const basisMissing=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true,supplierCostAcknowledged:true});
+ assert.equal(basisMissing.status,409,'A staff checkbox without verified supplier evidence cannot release a quote');
+ assert.equal(basisMissing.body.code,'SUPPLIER_REVIEW_BASIS_REQUIRED');
+ const oldLinkCount=query('SELECT count(*) AS n FROM quote_public_links').n;
+ assert.equal(externalCalls,0);
+ const tooShort=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true,supplierCostAcknowledged:true,supplierReviewBasis:'confirmed'});
+ assert.equal(tooShort.status,409,'Short generic acknowledgements do not count as sourcing evidence');
+ assert.equal(query('SELECT count(*) AS n FROM quote_public_links').n,oldLinkCount);
+ const reviewNote='SYNTHETIC TEST ONLY: Factory offer reviewed for size, carton packing, MOQ and estimated DDP freight/duties; no live source verified.';
+ const acknowledged=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true,supplierCostAcknowledged:true,supplierReviewBasis:reviewNote});
+ assert.equal(acknowledged.status,200,'Documented supplier source permits staff-reviewed noncatalog quote');
  const audit=sqlite.prepare("SELECT metadata_json FROM activities WHERE activity_type='QUOTE_LINK_GENERATED' ORDER BY created_at DESC, rowid DESC LIMIT 1").get();
  assert.equal(JSON.parse(audit.metadata_json).supplierCostManuallyAcknowledged,true,'Staff acknowledgement must be stored in quote activity metadata');
  assert.equal(JSON.parse(audit.metadata_json).unverifiedSupplierLines,1);
+ assert.equal(JSON.parse(audit.metadata_json).supplierReviewBasis,reviewNote,'Source review evidence must persist in private quote activity');
+
  assert.equal(externalCalls,0);
  console.log('PASS: real SQL inquiry → authenticated draft → decimal totals → edit/invalidation → staff approval → secure customer quote, no external sends.');
 }finally{globalThis.fetch=originalFetch;sqlite.close();}

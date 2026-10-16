@@ -22,7 +22,15 @@ async function clickWithQuoteApproval(page:Page,click:()=>Promise<void>,approve:
  const dialogPromise=page.waitForEvent('dialog');
  const clickPromise=click();
  const dialog=await dialogPromise;
- if(approve)await dialog.accept();else await dialog.dismiss();
+ if(approve){
+  // After the business approval confirmation, an unverified supplier line
+  // requires separately documented sourcing evidence. Register before
+  // accepting the first dialog to avoid losing the next prompt event.
+  const evidencePrompt=page.waitForEvent('dialog',{predicate:d=>d.type()==='prompt'});
+  await dialog.accept();
+  const evidence=await evidencePrompt;
+  await evidence.accept('SYNTHETIC TEST ONLY: checked factory MOQ, carton packing and DDP freight in isolated browser test.');
+ }else await dialog.dismiss();
  await clickPromise;
 }
 async function noPageOverflow(page:Page){

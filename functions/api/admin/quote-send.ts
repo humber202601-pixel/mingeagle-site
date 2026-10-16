@@ -9,7 +9,7 @@ interface Env {
   OUTBOUND_EMAIL_DISABLED?: string;
 }
 
-type Input = { quoteId?: string; sendEmail?: boolean; approved?: boolean; supplierCostAcknowledged?: boolean };
+type Input = { quoteId?: string; sendEmail?: boolean; approved?: boolean; supplierCostAcknowledged?: boolean; supplierReviewBasis?: string };
 
 type QuoteRow = {
   id: string;
@@ -149,7 +149,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.MINGEAGLE_DB) return Response.json({ ok: false, error: 'Database is not configured.' }, { status: 503 });
 
   try {
-    const { quoteId = '', sendEmail = false, approved = false, supplierCostAcknowledged = false } = await request.json() as Input;
+    const { quoteId = '', sendEmail = false, approved = false, supplierCostAcknowledged = false, supplierReviewBasis = '' } = await request.json() as Input;
     if (sendEmail && env.OUTBOUND_EMAIL_DISABLED === 'true') return Response.json({ok:false,code:'OUTBOUND_DISABLED',error:'Customer email sending is disabled in this test environment.'},{status:403});
     if (!quoteId) return Response.json({ ok: false, error: 'Quote id is required.' }, { status: 400 });
 
@@ -231,6 +231,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         unverifiedSkuBaselines:review.unverified,
         error:'Unverified supplier cost or SKU. Separately confirm source, options, MOQ, carton packing and landed charges before releasing the quotation.'},{status:409});
     }
+    const reviewedSourceNote=typeof supplierReviewBasis==='string'?supplierReviewBasis.trim():'';
+    // The checkbox alone is not a supplier quote, cost source or margin audit.
+    // Require staff to preserve concrete sourcing evidence in the private
+    // activity audit when any supplier baseline is unverified.
+    if(review.unverified>0&&(
+      reviewedSourceNote.length<20||reviewedSourceNote.length>500||
+      /[\x00-\x1f\x7f]/.test(reviewedSourceNote)
+    )){
+      return Response.json({ok:false,code:'SUPPLIER_REVIEW_BASIS_REQUIRED',
+        unverifiedSkuBaselines:review.unverified,
+        error:'Record the supplier/source and what was checked (unit cost, MOQ, packing and landed freight/duties) before approving an unverified B2B quote. Never assume a missing baseline means positive profit.'},{status:409});
+    }
     await ensureQuoteLinks(db);
     if (quote.public_token_hash) {
       await db.prepare(`INSERT OR IGNORE INTO quote_public_links (id, quote_id, token_hash)
@@ -264,7 +276,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       WHERE id=?`).bind(tokenHash, quote.id).run();
 
     if (quote.status === 'DRAFT') await db.prepare(`INSERT INTO activities (id,entity_type,entity_id,activity_type,title,description,metadata_json)
-      VALUES (?,'QUOTE',?,'QUOTE_APPROVED','Quote approved by staff',?,?)`).bind(crypto.randomUUID(),quote.id,`Staff approved ${quote.reference} for customer review`,JSON.stringify({total:quote.total,currency:quote.currency,sendEmail,approved:true,unverifiedSupplierLines:review.unverified,supplierCostManuallyAcknowledged:review.unverified>0&&supplierCostAcknowledged===true})).run();
+      VALUES (?,'QUOTE',?,'QUOTE_APPROVED','Quote approved by staff',?,?)`).bind(crypto.randomUUID(),quote.id,`Staff approved ${quote.reference} for customer review`,JSON.stringify({total:quote.total,currency:quote.currency,sendEmail,approved:true,unverifiedSupplierLines:review.unverified,supplierCostManuallyAcknowledged:review.unverified>0&&supplierCostAcknowledged===true,supplierReviewBasis:review.unverified>0?reviewedSourceNote:null})).run();
 
     if (quote.lead_id) {
       await db.prepare(`UPDATE leads SET status='QUOTE', last_contact_at=CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE last_contact_at END,
@@ -299,7 +311,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           gmailThreadId: emailResult?.gmailThreadId || null,
           previousLinksRemainValid: true,
           unverifiedSupplierLines:review.unverified,
-          supplierCostManuallyAcknowledged:review.unverified>0&&supplierCostAcknowledged===true,
+          supplierCostManuallyAcknowledged:review.unverified>0&&supplierCostAcknowledged===true,supplierReviewBasis:review.unverified>0?reviewedSourceNote:null,
         }),
       ).run();
 
