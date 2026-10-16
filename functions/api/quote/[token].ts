@@ -144,7 +144,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
       if(country!=='US'||!/^[A-Z]{2}$/.test(state)||line1.length<5||line1.length>180||
          city.length<2||city.length>100||!/^[0-9]{5}(?:-[0-9]{4})?$/.test(postalCode))
         return Response.json({ok:false,error:'Valid US shipping street, city, state and ZIP code are required.'},{status:409});
-      if(!String(quote.shipping_terms||'').toUpperCase().includes('SHIP-TO STATE: '+state))
+      if(String(quote.shipping_terms||'').toUpperCase().match(/SHIP-TO STATE:\s*([A-Z]{2})(?![A-Z])/)?.[1]!==state)
         return Response.json({ok:false,error:'Ship-to state differs from the seller quotation. Request a revised freight quotation first.'},{status:409});
       shippingAddress={line1,city,state,postalCode,country};
     }
