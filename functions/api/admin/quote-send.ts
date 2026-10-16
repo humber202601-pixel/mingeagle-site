@@ -148,6 +148,37 @@ async function upsertQuoteFollowUpTask(db: D1Database, quote: QuoteRow) {
     .bind(crypto.randomUUID(), quote.lead_id, quote.company_id, quote.contact_id, title, description).run();
 }
 
+// Durable staff follow-up for Gmail ambiguity; never resends email or changes
+// a customer's payment/order. A task is written before the optional activity
+// so an activity logging failure does not suppress operational attention.
+async function flagQuoteDeliveryReview(db:D1Database,quote:QuoteRow,kind:'DELIVERY_UNCONFIRMED'|'CRM_TRACKING_INCOMPLETE'){
+  const title=kind==='DELIVERY_UNCONFIRMED'
+    ?'Verify Gmail delivery for quote '+quote.reference
+    :'Verify CRM tracking for quote '+quote.reference;
+  const instruction=kind==='DELIVERY_UNCONFIRMED'
+    ?'Gmail delivery outcome is uncertain. Inspect Gmail Sent and confirm recipient/delivery before deciding on a manual resend. The customer quotation link remains active.'
+    :'Gmail accepted the quote but follow-up records may be missing. Check Gmail Sent and reconcile CRM activity/task status; do not automatically resend.';
+  try{
+    await db.prepare(`INSERT INTO tasks
+      (id,lead_id,company_id,contact_id,type,title,description,status,priority,due_at)
+      SELECT ?,?,?,?,'QUOTE_EMAIL_REVIEW',?,?,'OPEN','URGENT',CURRENT_TIMESTAMP
+      WHERE NOT EXISTS(SELECT 1 FROM tasks WHERE type='QUOTE_EMAIL_REVIEW'
+        AND title=? AND status IN ('OPEN','IN_PROGRESS'))`)
+      .bind(crypto.randomUUID(),quote.lead_id,quote.company_id,quote.contact_id,title,instruction,title).run();
+    try{
+      await db.prepare(`INSERT INTO activities
+        (id,entity_type,entity_id,activity_type,title,description,metadata_json)
+        VALUES (?,'QUOTE',?,'QUOTE_EMAIL_REVIEW_REQUIRED',?,?,?)`)
+        .bind(crypto.randomUUID(),quote.id,title,instruction,
+          JSON.stringify({reference:quote.reference,kind,automaticResend:false})).run();
+    }catch{console.error('quote_delivery_review_activity_failed')}
+    return true;
+  }catch{
+    console.error('quote_delivery_review_task_failed');
+    return false;
+  }
+}
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.MINGEAGLE_DB) return Response.json({ ok: false, error: 'Database is not configured.' }, { status: 503 });
 
@@ -347,11 +378,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       try{
         emailResult=await sendQuoteEmail(env,quote,absoluteUrl);
       }catch{
+        const followUpRecorded=await flagQuoteDeliveryReview(db,quote,'DELIVERY_UNCONFIRMED');
         // Gmail might have accepted the message even if its response failed.
         // Do NOT revoke an already sent-to-customer link or encourage blind
         // resending. Staff must reconcile Gmail Sent before re-attempting.
         return Response.json({ok:true,reference:quote.reference,publicPath,
-          emailed:false,deliveryUnconfirmed:true,
+          emailed:false,deliveryUnconfirmed:true,followUpRecorded,
           warning:'Quotation link is active. Gmail delivery could not be confirmed. Check Gmail Sent before considering another send; do not blindly resend.',
           to:null,gmailMessageId:null,gmailThreadId:null});
       }
@@ -393,6 +425,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }catch{
       console.error('quote_release_tracking_incomplete');
       trackingIncomplete=true;
+      await flagQuoteDeliveryReview(db,quote,'CRM_TRACKING_INCOMPLETE');
     }
 
     return Response.json({ok:true,reference:quote.reference,publicPath,

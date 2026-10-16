@@ -31,6 +31,7 @@ type QuoteSendResult = {
   to?: string | null;
   gmailMessageId?: string | null;
   deliveryUnconfirmed?: boolean;
+  followUpRecorded?: boolean;
   trackingIncomplete?: boolean;
   warning?: string | null;
   error?: string;
@@ -402,7 +403,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       const url = `${window.location.origin}${body.publicPath}`;
       setCustomerLink({ reference: body.reference, url, emailed: Boolean(body.emailed), to: text(body.to) });
       setQuoteDeliveryMessage(body.deliveryUnconfirmed
-        ? `报价 ${body.reference} 的有效安全链接已保存，但 Gmail 是否发送成功尚无法确认。请先打开 Gmail“已发送”核对，切勿直接重复发送；如未发送，可复制链接联系客户。`
+        ? `报价 ${body.reference} 的有效安全链接已保存，但 Gmail 是否发送成功尚无法确认。${body.followUpRecorded?'已创建紧急核实待办；':'请手工记录核实任务；'}请先打开 Gmail“已发送”核对，切勿直接重复发送；如未发送，可复制链接联系客户。`
         : body.trackingIncomplete
         ? `报价 ${body.reference} 的有效链接已保存，${body.emailed?'Gmail 已确认发送，但':'未发送邮件，且'}后台跟进记录有异常。请核对后台与 Gmail“已发送”，不要盲目重发。`
         : body.emailed
