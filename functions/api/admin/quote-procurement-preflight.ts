@@ -4,7 +4,7 @@ import {verifyQuoteProcurement} from '../../../lib/quote-procurement-review';
 import {quoteTermsIssues,stripeCheckoutTermsSupported} from '../../../lib/b2b-quote-terms';
 import {quoteTotals} from '../../../lib/quote-totals';
 interface Env{MINGEAGLE_DB?:D1Database}
-type Quote={id:string;reference:string;status:string;currency:string|null;subtotal:number;discount:number|null;shipping:number;tax:number;total:number;payment_terms:string|null;shipping_terms:string|null;valid_until:string|null};
+type Quote={id:string;reference:string;status:string;currency:string|null;subtotal:number;discount:number|null;shipping:number;tax:number;total:number;tax_basis:string|null;payment_terms:string|null;shipping_terms:string|null;valid_until:string|null};
 type Item={description:string;quantity:number;unit_price:number;line_total:number};
 const reply=(data:Record<string,unknown>,status=200)=>Response.json(data,{status,headers:{'cache-control':'private, no-store'}});
 export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
@@ -12,7 +12,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
  const quoteId=new URL(request.url).searchParams.get('quoteId')||'';
  if(!/^[A-Za-z0-9_-]{3,128}$/.test(quoteId))return reply({ok:false,error:'Invalid quotation identifier'},400);
  try{
-  const quote=await db.prepare('SELECT id,reference,status,currency,subtotal,discount,shipping,tax,total,payment_terms,shipping_terms,valid_until FROM quotes WHERE id=? LIMIT 1').bind(quoteId).first<Quote>();
+  const quote=await db.prepare('SELECT id,reference,status,currency,subtotal,discount,shipping,tax,total,tax_basis,payment_terms,shipping_terms,valid_until FROM quotes WHERE id=? LIMIT 1').bind(quoteId).first<Quote>();
   if(!quote)return reply({ok:false,error:'Quotation not found'},404);
   const result=await db.prepare('SELECT description,quantity,unit_price,line_total FROM quote_items WHERE quote_id=? ORDER BY sort_order,id').bind(quote.id).all<Item>();
   if(!Array.isArray(result.results))throw Error('Missing quotation lines');
@@ -22,6 +22,16 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
   // The preview must surface the same Stripe-only payment rule enforced at
   // quote release, before staff asks a buyer to accept an unpayable quotation.
   if(!stripeCheckoutTermsSupported(quote.payment_terms))termsIssues.push('STRIPE_ONLY_QUOTE_TERMS');
+  // Match the authoritative quote-send check for seller-confirmed US
+  // destination and sales-tax basis before declaring a quote releasable.
+  // A UI preview is never the final authorization boundary.
+  if(stripeCheckoutTermsSupported(quote.payment_terms)){
+   const state=String(quote.shipping_terms||'').toUpperCase()
+    .match(/SHIP-TO STATE:\s*([A-Z]{2})(?![A-Z])/)?.[1];
+   if(!state||!String(quote.tax_basis||'').trim()||
+     !Number.isFinite(Number(quote.tax))||Number(quote.tax)<0)
+    termsIssues.push('B2B_STRIPE_QUOTE_NOT_PAYABLE');
+  }
   const computed=quoteTotals(result.results.map(r=>({quantity:r.quantity,unitPrice:r.unit_price})),
    quote.shipping??0,quote.discount??0,quote.tax??0);
   const amountMatchesQuote=quote.currency==='USD'
