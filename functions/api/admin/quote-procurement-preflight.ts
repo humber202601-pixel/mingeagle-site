@@ -5,7 +5,7 @@ import {quoteTermsIssues} from '../../../lib/b2b-quote-terms';
 import {quoteTotals} from '../../../lib/quote-totals';
 interface Env{MINGEAGLE_DB?:D1Database}
 type Quote={id:string;reference:string;status:string;currency:string|null;subtotal:number;discount:number|null;shipping:number;tax:number;total:number;payment_terms:string|null;shipping_terms:string|null;valid_until:string|null};
-type Item={description:string;quantity:number;unit_price:number};
+type Item={description:string;quantity:number;unit_price:number;line_total:number};
 const reply=(data:Record<string,unknown>,status=200)=>Response.json(data,{status,headers:{'cache-control':'private, no-store'}});
 export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
  const db=env.MINGEAGLE_DB;if(!db)return reply({ok:false,error:'CRM database unavailable'},503);
@@ -14,7 +14,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
  try{
   const quote=await db.prepare('SELECT id,reference,status,currency,subtotal,discount,shipping,tax,total,payment_terms,shipping_terms,valid_until FROM quotes WHERE id=? LIMIT 1').bind(quoteId).first<Quote>();
   if(!quote)return reply({ok:false,error:'Quotation not found'},404);
-  const result=await db.prepare('SELECT description,quantity,unit_price FROM quote_items WHERE quote_id=? ORDER BY sort_order,id').bind(quote.id).all<Item>();
+  const result=await db.prepare('SELECT description,quantity,unit_price,line_total FROM quote_items WHERE quote_id=? ORDER BY sort_order,id').bind(quote.id).all<Item>();
   if(!Array.isArray(result.results))throw Error('Missing quotation lines');
   const review=await verifyQuoteProcurement(db,result.results.map(r=>({description:r.description,quantity:r.quantity,unitPrice:r.unit_price})),
    quote.discount??0,String(quote.currency||'USD'),new Date().toISOString().slice(0,10));
@@ -22,6 +22,8 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
   const computed=quoteTotals(result.results.map(r=>({quantity:r.quantity,unitPrice:r.unit_price})),
    quote.shipping??0,quote.discount??0,quote.tax??0);
   const amountMatchesQuote=quote.currency==='USD'
+    &&result.results.every((row,i)=>Number.isFinite(Number(row.line_total))&&
+      computed.lineCents[i]===Math.round(Number(row.line_total)*100))
     &&computed.subtotalCents===Math.round(Number(quote.subtotal)*100)
     &&computed.totalCents===Math.round(Number(quote.total)*100);
   const issues=[...review.issues,...termsIssues,...(!amountMatchesQuote?['QUOTE_TOTALS_MISMATCH']:[])];

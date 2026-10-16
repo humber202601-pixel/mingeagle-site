@@ -211,9 +211,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     // previously safe draft can be edited (or vendor approved costs updated).
     // Never let a discounted quote bypass the supplier purchase cost floor.
     // Run before touching public links, quote status or email APIs.
-    const items=await db.prepare(`SELECT description,quantity,unit_price FROM quote_items
+    const items=await db.prepare(`SELECT description,quantity,unit_price,line_total FROM quote_items
       WHERE quote_id=? ORDER BY sort_order,id`).bind(quote.id)
-        .all<{description:string;quantity:number;unit_price:number}>();
+        .all<{description:string;quantity:number;unit_price:number;line_total:number}>();
     // The separate read-only UI preflight is not an authorization boundary.
     // Reconcile current stored quote totals again at the authoritative
     // send/link-generation endpoint, before any link or outbound email.
@@ -223,6 +223,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         quantity:row.quantity,unitPrice:row.unit_price
       })),quote.shipping??0,quote.discount??0,quote.tax??0);
       moneyValid=String(quote.currency||'USD')==='USD' &&
+        (items.results||[]).every((row,i)=>Number.isFinite(Number(row.line_total))&&
+          totals.lineCents[i]===Math.round(Number(row.line_total)*100)) &&
         totals.subtotalCents===Math.round(Number(quote.subtotal)*100) &&
         totals.totalCents===Math.round(Number(quote.total)*100);
     }catch{moneyValid=false}

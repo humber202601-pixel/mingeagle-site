@@ -10,7 +10,7 @@ try{
  await build({entryPoints:['functions/api/admin/quote-procurement-preflight.ts'],outfile:output,bundle:true,platform:'node',format:'esm',logLevel:'silent'});
  const {onRequestGet}=await import(pathToFileURL(output));
  const quote={id:'quote-preflight-test',reference:'ME-Q-SYNTHETIC',status:'DRAFT',currency:'USD',subtotal:803,discount:0,shipping:40,tax:0,total:843,payment_terms:'Bank transfer before production',shipping_terms:'Ocean freight DDP to US receiving site within agreed delivery estimate',valid_until:'2099-12-31 00:00:00'};
- const lines=[{description:'Flocked Silent Basketball Set | No. 5 | Blue',quantity:100,unit_price:8.03}];
+ const lines=[{description:'Flocked Silent Basketball Set | No. 5 | Blue',quantity:100,unit_price:8.03,line_total:803}];
  let vendor=[],failCatalog=false,reads=0,writes=0;
  const db={prepare(sql){
   if(!/^\s*SELECT /i.test(sql)){writes++;throw Error('READ_ONLY_PREVIEW_MUST_NOT_WRITE');}
@@ -34,6 +34,12 @@ try{
  assert.equal(r.data.review.approvedSkuBaselines,0);
  assert.equal(r.data.review.unverifiedSkuBaselines,1);
  assert.equal(r.data.review.supplierConfirmationRequired,true);
+ lines[0].line_total=802.99;
+ r=await invoke();
+ assert.equal(r.data.review.safeForManualRelease,false,'Incorrect line extension must fail preflight even if the quote subtotal matches');
+ assert(r.data.review.issues.includes('QUOTE_TOTALS_MISMATCH'));
+ lines[0].line_total=803;
+ r=await invoke();
  assert.equal(r.data.review.commercialEstimate.basis,'NOT_CALCULABLE');
  assert.equal(r.data.review.commercialEstimate.approvedFactoryCostBaselineUSD,null);
  assert.equal(r.data.review.commercialEstimate.merchandiseDifferenceBeforeOtherCostsUSD,null);

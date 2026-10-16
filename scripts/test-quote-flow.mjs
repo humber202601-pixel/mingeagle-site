@@ -49,6 +49,12 @@ try{
  assert.equal(query('SELECT count(*) AS n FROM quote_public_links').n,0);
  assert.equal(externalCalls,0);
  sqlite.prepare('UPDATE quotes SET total=? WHERE id=?').run(quote.total,quoteId);
+ sqlite.prepare('UPDATE quote_items SET line_total=line_total+0.01 WHERE quote_id=?').run(quoteId);
+ const tamperedLine=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true});
+ assert.equal(tamperedLine.status,409,'Line-level tampering must fail even when total matches the quote');
+ assert.equal(tamperedLine.body.code,'QUOTE_TOTALS_MISMATCH');
+ assert.equal(query('SELECT count(*) AS n FROM quote_public_links').n,0);
+ sqlite.prepare('UPDATE quote_items SET line_total=? WHERE quote_id=?').run(item.line_total,quoteId);
  // Normal quote approval must not also count as supplier cost verification.
  let unverified=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true});
  assert.equal(unverified.status,409,'Missing supplier cost needs separate staff acknowledgement');
