@@ -117,5 +117,15 @@ const submit=async(responseData,responseStatus=200)=>{
  assert(source.includes('Inquiry origin: Website AI sales assistant (customer-reviewed handoff).'),'assist-origin tag should be preserved in CRM inquiry message');
  assert(source.includes("AI-assisted RFQ details (customer-reviewed): '+assistantSummary"),'exact quote details must remain in CRM payload despite form textbox truncation');
  assert(source.indexOf('await sendCrmInquiry')<source.indexOf('await sendPayload(c,buildPayload(d,c,context),undefined,4500)'),'CRM is primary; HubSpot optional mirror');
+ const wholesaleCopy=fs.readFileSync('public/wholesale.html','utf8');
+ const paymentPolicy=fs.readFileSync('public/policies.html','utf8');
+ assert(wholesaleCopy.includes('both sides accept the written quote')&&wholesaleCopy.includes('Stripe checkout is enabled'),
+  'Wholesale public guidance must explain seller/buyer approval and Stripe gate');
+ assert(wholesaleCopy.includes('Stripe is the only online payment method'),
+  'Wholesale site must not offer an unapproved secondary payment provider');
+ assert(paymentPolicy.includes('both parties accept the written quote')&&paymentPolicy.includes('specific order is enabled for B2B checkout'),
+  'Payment policy must preserve buyer and seller approval before B2B payment');
+ assert(paymentPolicy.includes('Submitting an inquiry or accepting a wholesale quote does not charge a payment method.'),
+  'Public copy must not imply a submitted request or accepted quote is a payment');
  console.log('PASS: public form maps all five request types, passes source attribution, preserves exact references, rejects mismatched CRM confirmations, never sends admin keys and retains honest HubSpot fallback.');
 })().catch(e=>{console.error(e);process.exitCode=1});
