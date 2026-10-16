@@ -339,14 +339,14 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       }
       const counts='匹配已审核 SKU/尺寸采购成本：'+review.approvedSkuBaselines+' 行；仍待供应商核实：'+review.unverifiedSkuBaselines+' 行。';
       const warning=review.supplierConfirmationRequired
-        ?'注意：存在未核验的采购成本，系统不能据此证明利润。必须人工确认供应商报价、颜色、包装、MOQ、整箱数量、实际运费和税费。'
+        ?'额外人工确认：存在未核验的采购成本，系统不能证明利润。请先独立核对实际供应商报价、颜色、包装、MOQ、整箱数量、实际运费与税费。点击“确定”即单独确认这项风险，后台将记录核验声明；无法核实时点击“取消”。'
         :'已匹配的成本也不是完整到岸成本，仍须人工复核颜色、包装、运费、税费和商业条款。';
       const confirmed=window.confirm(`批准报价 ${text(quote.reference)}，总额 ${money(quote.total,quote.currency)}。\n${counts}\n${warning}\n${sendEmail?'批准后将通过 Gmail 向该客户真实发送。':'批准后只生成客户可查看的安全链接，不会发送邮件。'}`);
       if(!confirmed)return;
       const response = await fetch('/api/admin/quote-send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
-        body: JSON.stringify({ quoteId, sendEmail, approved: true }),
+        body: JSON.stringify({ quoteId, sendEmail, approved: true, supplierCostAcknowledged: review.supplierConfirmationRequired }),
       });
       const body = await response.json() as QuoteSendResult;
       if (!response.ok || !body.ok || !body.reference || !body.publicPath) {

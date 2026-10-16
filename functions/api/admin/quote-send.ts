@@ -9,7 +9,7 @@ interface Env {
   OUTBOUND_EMAIL_DISABLED?: string;
 }
 
-type Input = { quoteId?: string; sendEmail?: boolean; approved?: boolean };
+type Input = { quoteId?: string; sendEmail?: boolean; approved?: boolean; supplierCostAcknowledged?: boolean };
 
 type QuoteRow = {
   id: string;
@@ -147,7 +147,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.MINGEAGLE_DB) return Response.json({ ok: false, error: 'Database is not configured.' }, { status: 503 });
 
   try {
-    const { quoteId = '', sendEmail = false, approved = false } = await request.json() as Input;
+    const { quoteId = '', sendEmail = false, approved = false, supplierCostAcknowledged = false } = await request.json() as Input;
     if (sendEmail && env.OUTBOUND_EMAIL_DISABLED === 'true') return Response.json({ok:false,code:'OUTBOUND_DISABLED',error:'Customer email sending is disabled in this test environment.'},{status:403});
     if (!quoteId) return Response.json({ ok: false, error: 'Quote id is required.' }, { status: 400 });
 
@@ -208,6 +208,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if(!review.ok)return Response.json({ok:false,error:
       'Quote requires procurement review before customer release: '+review.issues.join(', ')+
       '. Check supplier MOQ, approved purchasing floor and total discount.'},{status:409});
+    // The normal quotation approval is not proof of a verified purchase cost.
+    // For bespoke or not-yet-cataloged supplier lines require a second
+    // explicit acknowledgement before any buyer link/email is created.
+    if(review.unverified>0&&supplierCostAcknowledged!==true){
+      return Response.json({ok:false,code:'SUPPLIER_COST_ACK_REQUIRED',
+        unverifiedSkuBaselines:review.unverified,
+        error:'Unverified supplier cost or SKU. Separately confirm source, options, MOQ, carton packing and landed charges before releasing the quotation.'},{status:409});
+    }
     await ensureQuoteLinks(db);
     if (quote.public_token_hash) {
       await db.prepare(`INSERT OR IGNORE INTO quote_public_links (id, quote_id, token_hash)
@@ -241,7 +249,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       WHERE id=?`).bind(tokenHash, quote.id).run();
 
     if (quote.status === 'DRAFT') await db.prepare(`INSERT INTO activities (id,entity_type,entity_id,activity_type,title,description,metadata_json)
-      VALUES (?,'QUOTE',?,'QUOTE_APPROVED','Quote approved by staff',?,?)`).bind(crypto.randomUUID(),quote.id,`Staff approved ${quote.reference} for customer review`,JSON.stringify({total:quote.total,currency:quote.currency,sendEmail,approved:true})).run();
+      VALUES (?,'QUOTE',?,'QUOTE_APPROVED','Quote approved by staff',?,?)`).bind(crypto.randomUUID(),quote.id,`Staff approved ${quote.reference} for customer review`,JSON.stringify({total:quote.total,currency:quote.currency,sendEmail,approved:true,unverifiedSupplierLines:review.unverified,supplierCostManuallyAcknowledged:review.unverified>0&&supplierCostAcknowledged===true})).run();
 
     if (quote.lead_id) {
       await db.prepare(`UPDATE leads SET status='QUOTE', last_contact_at=CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE last_contact_at END,
@@ -275,6 +283,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           gmailMessageId: emailResult?.gmailMessageId || null,
           gmailThreadId: emailResult?.gmailThreadId || null,
           previousLinksRemainValid: true,
+          unverifiedSupplierLines:review.unverified,
+          supplierCostManuallyAcknowledged:review.unverified>0&&supplierCostAcknowledged===true,
         }),
       ).run();
 
