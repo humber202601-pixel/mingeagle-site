@@ -129,6 +129,7 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
       const note = message[reference];
       const onlineStatus = text(order.online_payment_status, '');
       const onlineProvider = text(order.online_payment_provider, '');
+      const legacyNonStripe = text(order.quote_payment_route,'UNKNOWN') === 'NON_STRIPE';
       return <section className="panel order-card" key={reference}>
         <div className="order-head">
           <div><span className="eyebrow">订单</span><h2>{reference}</h2><p>{text(order.customer)} · {money(order.total, order.currency)}</p></div>
@@ -160,11 +161,19 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
           </table></div>}
         </div>
 
-        {paymentStatus !== 'PAID' && !['CANCELLED','COMPLETED'].includes(status) && <div className="form-status">
-          <strong>仅通过 Stripe 确认在线收款</strong>
-          <p>报价经双方确认后，由客户通过专属安全报价链接完成 Stripe 支付。后台不会人工将订单标记为已付款；请核对真实的 Stripe 支付记录及 Webhook 回执。</p>
-          <p>待收金额：<strong>{money(outstanding, order.currency)}</strong>。已收到的历史线下记录仅供核对，不代表 Stripe 付款已完成。</p>
-        </div>}
+        {paymentStatus !== 'PAID' && !['CANCELLED','COMPLETED'].includes(status) && (legacyNonStripe ?
+          <div className="form-status error" role="status">
+            <strong>需重新报价：旧付款条款不支持 Stripe</strong>
+            <p>此订单关联的报价 {text(order.quote_reference,'—')} 不包含 Stripe 付款条款，不能通过当前唯一在线收款渠道直接付款。不得手工将旧订单改为 PAID。</p>
+            <p>请在报价管理中创建新的报价草稿，重新确认客户意向、数量、真实采购成本、美国收货地址、海运费、进口税费和销售税依据；经双方重新接受后，再使用安全 Stripe Checkout 链接收款。</p>
+            <p>原订单与付款历史仅保留供核对，待收金额：<strong>{money(outstanding, order.currency)}</strong>。</p>
+            <a className="table-action" href="/app/quotes">打开批发报价管理</a>
+          </div> :
+          <div className="form-status">
+            <strong>仅通过 Stripe 确认在线收款</strong>
+            <p>报价经双方确认后，由客户通过专属安全报价链接完成 Stripe 支付。后台不会人工将订单标记为已付款；请核对真实的 Stripe 支付记录及 Webhook 回执。</p>
+            <p>待收金额：<strong>{money(outstanding, order.currency)}</strong>。已收到的历史线下记录仅供核对，不代表 Stripe 付款已完成。</p>
+          </div>)}
 
         {paymentStatus === 'PAID' && status === 'PAID' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'START_PROCESSING')}>开始处理订单</button></div>}
         {paymentStatus === 'PAID' && status === 'PROCESSING' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'READY_TO_SHIP')}>标记为待发货</button></div>}
