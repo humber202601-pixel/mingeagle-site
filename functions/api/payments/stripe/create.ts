@@ -4,6 +4,7 @@ import {retailTaxTreatment,reviewedStripeTaxStates,remoteStartupState,remoteStar
 import {registeredStripeTaxState,fixedTaxCustomer,automaticTaxAmount,type DeliveryAddress} from '../../../_shared/retail-stripe-tax';
 import {separateUnitUsAirParcels} from '../../../../lib/us-small-parcel';
 import {requiresClosedOrderPaymentReview} from '../../../../lib/closed-order-payment';
+import {acceptedB2bQuotePayable} from '../../../../lib/b2b-stripe-eligibility';
 
 interface Env extends StripeEnv,RetailTaxEnv {
   MINGEAGLE_DB: D1Database;
@@ -37,7 +38,9 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   const hash=await tokenHash(token);
   const order=await db.prepare(
    "SELECT o.id,o.reference,o.status,o.payment_status,o.total,o.subtotal,o.discount,o.shipping,o.tax,o.currency,o.shipping_address,"+
-   "q.status AS quote_status,q.valid_until,q.reference AS quote_reference,ct.email AS email,"+
+   "q.status AS quote_status,q.sent_at AS quote_sent_at,q.accepted_at AS quote_accepted_at,
+   q.payment_terms AS quote_payment_terms,q.shipping_terms AS quote_shipping_terms,
+   q.valid_until,q.reference AS quote_reference,ct.email AS email,"+
    "(SELECT COALESCE(SUM(amount),0) FROM payments WHERE order_id=o.id AND status='RECEIVED') AS received "+
    "FROM quotes q JOIN orders o ON o.quote_id=q.id LEFT JOIN contacts ct ON ct.id=o.contact_id "+
    "WHERE "+QUOTE_PUBLIC_TOKEN_PREDICATE+" "+
@@ -78,8 +81,11 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       Math.round(Number(order.tax)*100)!==0||Math.round(Number(order.discount)*100)!==0)
     return fail('Duty-paid delivery is not verified for the requested products.',409);
   }
-  if(!isRetail&&!['ACCEPTED','CONVERTED'].includes(String(order.quote_status)))
-   return fail('Please accept the quotation before paying.',409);
+  if(!isRetail&&!acceptedB2bQuotePayable({
+   status:order.quote_status,sent_at:order.quote_sent_at,accepted_at:order.quote_accepted_at,
+   payment_terms:order.quote_payment_terms,shipping_terms:order.quote_shipping_terms,
+   valid_until:order.valid_until
+  }))return fail('Wholesale quote requires confirmed seller terms and buyer acceptance before Stripe payment.',409);
   const received=cents(order.received);
   const total=cents(order.total),due=total-received;
   if(String(order.payment_status)==='PAID'||due<=0)return fail('Already paid.',409);
