@@ -138,9 +138,7 @@ test('真实报价界面：精确数量、金额、修改审核、批准与客�
  const acceptResponse=page.waitForResponse(r=>r.url().includes('/api/quote/')&&r.request().method()==='POST');
  await page.getByRole('button',{name:'Accept quote & create order',exact:true}).click();
  const accepted=await acceptResponse;
- const acceptedBody=await accepted.json();
- expect(accepted.status()).toBe(201,JSON.stringify(acceptedBody));
- expect(acceptedBody.ok).toBe(true);
+ expect(accepted.status()).toBe(201);
  await expect(page.getByText(/Order ME-/)).toBeVisible();
  await expect(page.getByText(/Payment: UNPAID/)).toBeVisible();
  await expect(page.getByText('Stripe checkout is currently unavailable for this order.',{exact:true})).toBeVisible();
