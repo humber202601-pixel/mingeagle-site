@@ -23,6 +23,8 @@ type EditInput = {
   paymentTerms?: string;
   shippingTerms?: string;
   notes?: string;
+  taxUSD?: number|string;
+  taxBasis?: string;
 };
 
 const clean = (value: unknown, max = 3000) => typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -91,7 +93,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     // description into arbitrary text without reclassifying the quote.
     if(normalized.some(row=>existingSkuById.get(row.id)&&!quoteLineSku(row.description)))
       return Response.json({ok:false,error:'Previously identified SKU cannot be removed from quote description without manual commercial reclassification.'},{status:409});
-    const calculation = quoteTotals(normalized, input.shipping, input.discount ?? 0, quote.tax ?? 0);
+    const taxUSD = input.taxUSD === undefined ? Number(quote.tax ?? 0) : Number(input.taxUSD);
+    const taxBasis = clean(input.taxBasis, 1000);
+    if (!Number.isFinite(taxUSD) || taxUSD < 0) throw new Error('INVALID_TAX');
+    if (!taxBasis) throw new Error('TAX_BASIS_REQUIRED');
+    const calculation = quoteTotals(normalized, input.shipping, input.discount ?? 0, taxUSD);
     let costReview:Awaited<ReturnType<typeof verifyQuoteProcurement>>;
     try{
       costReview=await verifyQuoteProcurement(db,normalized.map(x=>({
@@ -117,14 +123,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       db.prepare(`UPDATE quote_items SET description=?, quantity=?, unit_price=?, line_total=?, sort_order=? WHERE id=? AND quote_id=?`)
         .bind(item.description,item.quantity,item.unitPrice,item.lineTotal,item.sortOrder,item.id,quoteId)
     ]);
-    updates.push(db.prepare(`UPDATE quotes SET subtotal=?, discount=?, shipping=?, total=?, payment_terms=?, shipping_terms=?, notes=?, valid_until=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
-      .bind(subtotal, discount, shipping, total, paymentTerms, shippingTerms, notes, `${validUntil} 23:59:59`, quoteId));
+    updates.push(db.prepare(`UPDATE quotes SET subtotal=?, discount=?, shipping=?, tax=?, total=?, payment_terms=?, shipping_terms=?, notes=?, tax_basis=?, valid_until=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+      .bind(subtotal, discount, shipping, calculation.tax, total, paymentTerms, shippingTerms, notes, taxBasis, `${validUntil} 23:59:59`, quoteId));
     updates.push(db.prepare(`INSERT INTO activities (id, entity_type, entity_id, activity_type, title, description, metadata_json)
       VALUES (?, 'QUOTE', ?, 'QUOTE_DRAFT_UPDATED', 'Quote draft updated', ?, ?)`)
       .bind(crypto.randomUUID(), quoteId, `${String(quote.reference)} draft commercial terms updated`, JSON.stringify({ subtotal, discount, shipping, total, items: normalized.length })));
     await db.batch(updates);
 
-    return Response.json({ ok: true, quote: { id: quoteId, reference: quote.reference, status: 'DRAFT', currency: quote.currency || 'USD', subtotal, discount, shipping, total, validUntil },
+    return Response.json({ ok: true, quote: { id: quoteId, reference: quote.reference, status: 'DRAFT', currency: quote.currency || 'USD', subtotal, discount, shipping, tax:calculation.tax, total, validUntil },
       procurementReview:{matched:costReview.matched,unverified:costReview.unverified,
         scope:'Internal purchasing SKU/size reference, not full landed margin.'} });
   } catch (error) {
