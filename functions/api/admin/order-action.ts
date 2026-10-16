@@ -328,7 +328,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (!carrier || !trackingNumber) return Response.json({ ok: false, error: 'Carrier and tracking number are required.' }, { status: 400 });
       if (trackingUrl && !/^https:\/\//i.test(trackingUrl)) return Response.json({ ok: false, error: 'Tracking URL must use https://.' }, { status: 400 });
 
-      const existingShipment = await db.prepare(`SELECT id FROM shipments WHERE order_id=? ORDER BY created_at DESC LIMIT 1`).bind(orderId).first<{ id: string }>();
+      const existingShipment = await db.prepare(`SELECT id,carrier,service,tracking_number,tracking_url FROM shipments WHERE order_id=? ORDER BY created_at DESC LIMIT 1`)
+        .bind(orderId).first<{id:string;carrier:string;service:string|null;tracking_number:string;tracking_url:string|null}>();
+      // Repeating the same shipped action must not create another delivery
+      // follow-up or re-email the buyer; changed tracking is still editable.
+      if (status === 'SHIPPED' && existingShipment &&
+          existingShipment.carrier === carrier && (existingShipment.service || null) === service &&
+          existingShipment.tracking_number === trackingNumber && (existingShipment.tracking_url || null) === trackingUrl)
+        return Response.json({ok:true,unchanged:true,order:{reference:orderReference,status,payment_status:paymentStatus}});
       if (existingShipment) {
         await db.prepare(`UPDATE shipments SET carrier=?, service=?, tracking_number=?, tracking_url=?, status='SHIPPED', shipped_at=COALESCE(shipped_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP WHERE id=?`)
           .bind(carrier, service, trackingNumber, trackingUrl, existingShipment.id).run();
