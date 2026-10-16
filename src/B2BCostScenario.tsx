@@ -4,7 +4,7 @@ import {calculateB2BScenario,COST_FIELDS,type ScenarioCostKey,type ScenarioInput
 import type {WholesaleReleaseProof} from '../lib/b2b-quote-release-cost';
 
 type Preflight={
- ok?:boolean;error?:string;quoteReference?:string;
+ ok?:boolean;error?:string;quoteReference?:string;quoteFingerprint?:string;
  review?:{
   issues:string[];requiresLandedCostReview:boolean;approvedSkuBaselines:number;unverifiedSkuBaselines:number;
   commercialEstimate?:QuoteScenarioTotals&{
@@ -105,10 +105,11 @@ export default function B2BCostScenario({quoteId,reference,accessKey,onClose,onA
        disabled={!scenario?.complete||(scenario.estimatedDifferenceUSD??0)<=0||
         Number(values.factoryUSD)<=0||Number(values.stripeFeesUSD)<=0||
         assumptions.trim().length<40||assumptions.trim().length>700||
+        !/^[a-f0-9]{64}$/.test(preflight.quoteFingerprint||'')||
         Boolean(preflight.review.issues.length)||
         (estimate.approvedFactoryCostBaselineUSD!==null&&
          Number(values.factoryUSD)<estimate.approvedFactoryCostBaselineUSD)}
-       onClick={()=>onApply({quotedTotalUSD:estimate.totalQuotedUSD,costs:values,evidence:assumptions.trim()})}>
+       onClick={()=>onApply({quotedTotalUSD:estimate.totalQuotedUSD,quoteFingerprint:preflight.quoteFingerprint!,costs:values,evidence:assumptions.trim()})}>
        将六项已核实成本带入本次发布审核
       </button>
       <p>请逐项核对真实来源，特别是DDP运费是否包含进口税费。该操作只准备当前报价的审核资料，不会直接发布、付款或联系客户。</p>

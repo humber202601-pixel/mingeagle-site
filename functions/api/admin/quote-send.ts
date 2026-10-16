@@ -2,6 +2,7 @@ import {verifyQuoteProcurement} from '../../../lib/quote-procurement-review';
 import {quoteTermsIssues,quoteTermsIssueDescriptions,stripeCheckoutTermsSupported} from '../../../lib/b2b-quote-terms';
 import {quoteTotals} from '../../../lib/quote-totals';
 import {checkWholesaleReleaseProof,type WholesaleReleaseProof} from '../../../lib/b2b-quote-release-cost';
+import {quoteReleaseFingerprint} from '../../../lib/b2b-quote-release-fingerprint';
 interface Env {
   MINGEAGLE_DB: D1Database;
   GMAIL_CLIENT_ID?: string;
@@ -255,7 +256,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     // previously safe draft can be edited (or vendor approved costs updated).
     // Never let a discounted quote bypass the supplier purchase cost floor.
     // Run before touching public links, quote status or email APIs.
-    const items=await db.prepare(`SELECT description,quantity,unit_price,line_total FROM quote_items
+    const items=await db.prepare(`SELECT id,product_id,variant_id,sort_order,description,quantity,unit_price,line_total FROM quote_items
       WHERE quote_id=? ORDER BY sort_order,id`).bind(quote.id)
         .all<{description:string;quantity:number;unit_price:number;line_total:number}>();
     // The separate read-only UI preflight is not an authorization boundary.
@@ -313,12 +314,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ok:false,code:'STRIPE_ONLY_QUOTE_TERMS',
         error:'MING EAGLE accepts wholesale order payments through Stripe Checkout only. Update payment terms and review ship-to state, freight and sales-tax basis before releasing this quotation.'},{status:409});
     const totalQuoteUnits=(items.results||[]).reduce((sum,line)=>sum+Number(line.quantity||0),0);
+    const currentFingerprint=totalQuoteUnits>=10?await quoteReleaseFingerprint(quote,items.results||[]):null;
     const costAudit=totalQuoteUnits>=10?checkWholesaleReleaseProof({
       netMerchandiseUSD:Number(quote.subtotal)-Number(quote.discount),
       shippingCollectedUSD:Number(quote.shipping),
       salesTaxCollectedUSD:Number(quote.tax),
       totalQuotedUSD:Number(quote.total),
-    },landedReview,review.baselineMerchandiseCostCents):null;
+    },landedReview,review.baselineMerchandiseCostCents,currentFingerprint!):null;
     if(costAudit&&!costAudit.ok){
       return Response.json({ok:false,code:costAudit.code,error:costAudit.error},{status:409});
     }
@@ -345,7 +347,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         VALUES (?,'QUOTE',?,'QUOTE_LANDED_COST_REVIEW','Internal landed cost review',?,?)`)
         .bind(crypto.randomUUID(),quote.id,
          `Staff reviewed six landed cost categories for ${quote.reference}`,
-         JSON.stringify({...costAudit.record,sourceType:'STAFF_ATTESTED_NOT_AUDITED',
+         JSON.stringify({...costAudit.record,quoteFingerprint:currentFingerprint,sourceType:'STAFF_ATTESTED_NOT_AUDITED',
            reviewedAtUTC:new Date().toISOString(),
            unverifiedSupplierLines:review.unverified})));
     }

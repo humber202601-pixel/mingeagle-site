@@ -9,6 +9,7 @@ const routes={
  edit:(await load('functions/api/admin/quote-edit.ts')).onRequestPost,
  approve:(await load('functions/api/admin/quote-retail-approval.ts')).onRequestPost,
  release:(await load('functions/api/admin/quote-send.ts')).onRequestPost,
+ preflight:(await load('functions/api/admin/quote-procurement-preflight.ts')).onRequestGet,
  view:(await load('functions/quote/[token].ts')).onRequestGet,
 };
 const auth=(await load('functions/api/admin/_middleware.ts')).onRequest;
@@ -170,7 +171,11 @@ try{
  sqlite.prepare("UPDATE quote_items SET quantity=10,line_total=80.70 WHERE id=?").run(item.id);
  sqlite.prepare("UPDATE quotes SET subtotal=80.70,total=101.41 WHERE id=?").run(quoteId);
  const costEvidence='SYNTHETIC TEST ONLY: Supplier offer dated 2026-10-16 checked MOQ 1, carton 1 and quoted DDP freight/duties; mocked card fees are not live evidence.';
- const reviewed={quotedTotalUSD:101.41,
+ const preflightResponse=await routes.preflight({request:new Request('https://quote-test.example/api/admin/quote-procurement-preflight?quoteId='+quoteId),env});
+ assert.equal(preflightResponse.status,200);
+ const freshSnapshot=(await preflightResponse.json()).quoteFingerprint;
+ assert.match(freshSnapshot,/^[a-f0-9]{64}$/);
+ const reviewed={quotedTotalUSD:101.41,quoteFingerprint:freshSnapshot,
   costs:{factoryUSD:'70',freightUSD:'15',dutiesUSD:'0',packingUSD:'1',stripeFeesUSD:'3',otherUSD:'0'},
   evidence:costEvidence};
  const linksBeforeCost=query('SELECT COUNT(*) n FROM quote_public_links').n;
@@ -191,11 +196,32 @@ try{
  assert.equal(costResult.status,409);
  assert.equal(costResult.body.code,'LANDED_COST_PROOF_REQUIRED');
  assert.equal(query('SELECT COUNT(*) n FROM quote_public_links').n,linksBeforeCost,'No link on failed landed cost reviews');
+ // Previously cost proof was bound only to the grand total. A different
+ // color/variant or DDP contract at the same total must force a fresh review.
+ sqlite.prepare('UPDATE quote_items SET description=? WHERE id=?')
+  .run('Flocked Silent Basketball Set | No. 5 | Orange',item.id);
+ costResult=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true,landedReview:reviewed});
+ assert.equal(costResult.status,409,'Old proof cannot cover a changed color at identical total');
+ assert.equal(costResult.body.code,'LANDED_COST_PROOF_REQUIRED');
+ assert.equal(query('SELECT COUNT(*) n FROM quote_public_links').n,linksBeforeCost);
+ sqlite.prepare('UPDATE quote_items SET description=? WHERE id=?').run(item.description,item.id);
+ const originalShipping=query('SELECT shipping_terms FROM quotes').shipping_terms;
+ sqlite.prepare('UPDATE quotes SET shipping_terms=shipping_terms||? WHERE id=?')
+  .run('; synthetic revised DDP port handling cost note',quoteId);
+ costResult=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true,landedReview:reviewed});
+ assert.equal(costResult.status,409,'Old proof cannot cover new freight terms at identical total');
+ assert.equal(costResult.body.code,'LANDED_COST_PROOF_REQUIRED');
+ sqlite.prepare('UPDATE quotes SET shipping_terms=? WHERE id=?').run(originalShipping,quoteId);
+ const absentFingerprint={...reviewed,quoteFingerprint:''};
+ costResult=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true,landedReview:absentFingerprint});
+ assert.equal(costResult.status,409,'Browser-only synthetic proof without snapshot is not accepted');
+ assert.equal(query('SELECT COUNT(*) n FROM quote_public_links').n,linksBeforeCost);
  costResult=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true,landedReview:reviewed});
  assert.equal(costResult.status,200,JSON.stringify(costResult));
  assert.equal(query("SELECT COUNT(*) n FROM activities WHERE activity_type='QUOTE_LANDED_COST_REVIEW'").n,1);
  const logged=JSON.parse(query("SELECT metadata_json FROM activities WHERE activity_type='QUOTE_LANDED_COST_REVIEW'").metadata_json);
  assert.equal(logged.evidence,costEvidence,'Supplier costing evidence must remain private audit metadata');
+ assert.equal(logged.quoteFingerprint,freshSnapshot,'Private cost audit references reviewed exact quote snapshot');
  assert.equal(logged.scenarioDifferenceUSD,11.31,'No sales tax is counted as revenue');
  const wholesaleToken=costResult.body.publicPath.split('/').pop();
  const wholesaleHtml=await (await routes.view({request:new Request('https://quote-test.example'+costResult.body.publicPath),env,params:{token:wholesaleToken}})).text();
