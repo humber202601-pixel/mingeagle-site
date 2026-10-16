@@ -87,7 +87,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const newQuoteId=crypto.randomUUID();
-    const draftNotes=`Revision draft from ${String(source.reference)}. Reconfirm current factory prices, quantity, destination, DDP freight, import duties and destination sales tax before publishing.`;
+    // quotes.notes is displayed to buyers. Internal purchase and tax review
+    // instructions belong in staff-only tasks, never in customer quote notes.
+    const draftNotes=null;
     const commands:D1PreparedStatement[]=[
       db.prepare(`INSERT INTO quotes (
         id,reference,lead_id,inquiry_id,company_id,contact_id,status,currency,
