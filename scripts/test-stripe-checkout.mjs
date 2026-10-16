@@ -72,6 +72,7 @@ try{
 
  let stored=false;
  let simulatedShippingState='NY';
+ let hasB2BShippingAddress=true;
  let orderReference='ME-RO-SYNTHETIC',quoteStatus='SENT';
  let wholesaleTerms='Full amount payable by secure Stripe card checkout';
  let wholesaleSentAt='2026-10-15 12:00:00';
@@ -92,9 +93,9 @@ try{
        quote_subtotal:retailGoods,quote_discount:0,quote_shipping:retailShipping,quote_tax:0,
        quote_total:retailGoods+retailShipping+simulatedQuoteAmountDelta,quote_currency:'USD',
        quote_payment_terms:wholesaleTerms,
-       quote_shipping_terms:'China origin sea freight, 25–30 days, duties confirmed in quotation',
+       quote_shipping_terms:'China origin sea freight, 25–30 days, duties confirmed in quotation. Ship-to state: OR',
        valid_until:'2026-12-31 23:59:59',
-      shipping_address:JSON.stringify({state:simulatedShippingState,country:'US'}),
+      shipping_address:hasB2BShippingAddress?JSON.stringify({state:simulatedShippingState,country:'US',city:'Portland',postalCode:'97201',line1:'123 Example Street'}):null,
       received:0,email:'buyer@example.net'
     };
     if(sql.includes("WHERE order_id=? AND provider='STRIPE'"))return null;
@@ -150,8 +151,8 @@ try{
   assert.equal(dbReads,readsBefore+1,'Only the order lookup may run before the retail gate');
  }
  // Wholesale requires a separate opt-in in addition to the retail-only restriction.
- orderReference='ME-O-SYNTHETIC';quoteStatus='ACCEPTED';
- const limited=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'true',STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
+ orderReference='ME-O-SYNTHETIC';quoteStatus='ACCEPTED';simulatedShippingState='OR';
+ const limited=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'true',STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',STRIPE_B2B_APPROVED_US_STATES:'OR,NH',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
  assert.equal(limited.status,503,'Retail-only restriction must override B2B opt-in');
  assert.equal(providerCalls,0);
  const notOptedIn=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
@@ -161,29 +162,50 @@ try{
   STRIPE_B2B_CHECKOUT_ENABLED:'true',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
  assert.equal(taxNotApproved.status,503,'B2B Stripe payment must not inherit retail tax approval');
  assert.equal(providerCalls,0,'Unreviewed wholesale tax must not call Stripe');
- const wholesale=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
+ const wholesale=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',STRIPE_B2B_APPROVED_US_STATES:'OR,NH',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
  assert.equal(wholesale.status,200,await wholesale.clone().text());
  assert.equal(providerCalls,1);
+ wholesaleTerms='Bank transfer before production';
+ const wrongAgreedMethod=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',
+   STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',
+   STRIPE_B2B_APPROVED_US_STATES:'OR,NH',MINGEAGLE_DB:db},request:request()});
+ assert.equal(wrongAgreedMethod.status,409,'Cannot collect by Stripe if buyer accepted bank transfer only');
+ assert.equal(providerCalls,1);
+ wholesaleTerms='Full amount payable by secure Stripe card checkout';
+ hasB2BShippingAddress=false;
+ const missingAddress=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',
+   STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',
+   STRIPE_B2B_APPROVED_US_STATES:'OR,NH',MINGEAGLE_DB:db},request:request()});
+ assert.equal(missingAddress.status,409,'Wholesale destination must be verified before checkout');
+ assert.equal(providerCalls,1);
+ hasB2BShippingAddress=true;
+ simulatedShippingState='NY';
+ const unknownTaxState=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',
+   STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',
+   STRIPE_B2B_APPROVED_US_STATES:'OR,NH',MINGEAGLE_DB:db},request:request()});
+ assert.equal(unknownTaxState.status,409,'Do not use no-sales-tax decision for other states');
+ assert.equal(providerCalls,1);
+ simulatedShippingState='OR';
  simulatedQuoteAmountDelta=0.01;
  const changedQuote=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',
-  STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',
+  STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',STRIPE_B2B_APPROVED_US_STATES:'OR,NH',
   RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
  assert.equal(changedQuote.status,409,'Wholesale order must agree with the buyer-accepted quote');
  assert.equal(providerCalls,1,'Mismatched quote amounts must not call Stripe');
  simulatedQuoteAmountDelta=0;
  wholesaleTerms='Payment terms to be confirmed before sending.';
  const unconfirmed=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',
-  STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
+  STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',STRIPE_B2B_APPROVED_US_STATES:'OR,NH',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
  assert.equal(unconfirmed.status,409,'Accepted B2B quotes with unconfirmed payment terms are not payable');
  assert.equal(providerCalls,1,'Unconfirmed terms must not call Stripe');
  wholesaleTerms='Full amount payable by secure Stripe card checkout';
  wholesaleSentAt='';
  const neverSent=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',
-  STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
+  STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',STRIPE_B2B_APPROVED_US_STATES:'OR,NH',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
  assert.equal(neverSent.status,409,'Quote must have been formally issued by seller');
  assert.equal(providerCalls,1);
  wholesaleSentAt='2026-10-15 12:00:00';
- orderReference='ME-RO-SYNTHETIC';quoteStatus='SENT';
+ orderReference='ME-RO-SYNTHETIC';quoteStatus='SENT';simulatedShippingState='NY';
  providerCalls=0;dbWrites=0;stored=false;
  for(const closed of [{status:'CANCELLED',payment:'UNPAID'},{status:'REFUNDED',payment:'UNPAID'},{status:'PAYMENT_PENDING',payment:'REFUNDED'}]){
   simulatedOrderStatus=closed.status;simulatedPaymentStatus=closed.payment;

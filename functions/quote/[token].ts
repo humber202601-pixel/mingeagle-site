@@ -19,6 +19,8 @@ interface Env {
   RETAIL_TAX_POLICY_APPROVED?:string;
   STRIPE_RETAIL_ONLY_ENABLED?:string;
   STRIPE_B2B_CHECKOUT_ENABLED?:string;
+  STRIPE_B2B_TAX_POLICY_APPROVED?:string;
+  STRIPE_B2B_APPROVED_US_STATES?:string;
 }
 
 type Row = Record<string, unknown>;
@@ -61,7 +63,7 @@ async function getQuote(db: D1Database, token: string) {
 }
 
 async function getOrder(db: D1Database, quoteId: string) {
-  return db.prepare(`SELECT o.id, o.reference, o.status, o.payment_status, o.total, o.currency,
+  return db.prepare(`SELECT o.id, o.reference, o.status, o.payment_status, o.total, o.currency, o.shipping_address,
       (SELECT COALESCE(SUM(p.amount),0) FROM payments p WHERE p.order_id=o.id AND p.status='RECEIVED') AS amount_received,
       (SELECT pps.status FROM payment_provider_sessions pps WHERE pps.order_id=o.id AND pps.provider='STRIPE' ORDER BY datetime(pps.updated_at) DESC, datetime(pps.created_at) DESC LIMIT 1) AS provider_status,
       (SELECT carrier FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS carrier,
@@ -152,9 +154,20 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
       const trackLink = order.tracking_url && /^https:\/\//i.test(String(order.tracking_url))
         ? `<a class="track-link" target="_blank" rel="noreferrer" href="${esc(order.tracking_url)}">Open carrier tracking ↗</a>` : '';
       const closedOrder = String(order.status||'').toUpperCase()==='CANCELLED' || String(order.payment_status||'').toUpperCase()==='REFUNDED';
+      let wholesaleAddressReady=false;
+      try {
+        const ship=JSON.parse(String(order.shipping_address||'null')) as Record<string,unknown>|null;
+        const allowed=(env.STRIPE_B2B_APPROVED_US_STATES||'').split(',').map(x=>x.trim().toUpperCase());
+        wholesaleAddressReady=Boolean(ship&&ship.country==='US'&&allowed.includes(String(ship.state||''))&&
+          String(ship.city||'').trim().length>=2&&String(ship.line1||'').trim().length>=5&&
+          String(ship.postalCode||'').trim().length>=5&&
+          String(quote.shipping_terms||'').toUpperCase().includes('SHIP-TO STATE: '+String(ship.state||'')));
+      } catch { wholesaleAddressReady=false; }
       const stripeReady = !closedOrder && stripeCheckoutReadiness(env).checkoutReady && env.STRIPE_TAX_POLICY_APPROVED==='true'
         && (String(order.reference).startsWith('ME-RO-') || (acceptedB2bQuotePayable(quote)
-          && env.STRIPE_RETAIL_ONLY_ENABLED!=='true' && env.STRIPE_B2B_CHECKOUT_ENABLED==='true'))
+          && env.STRIPE_RETAIL_ONLY_ENABLED!=='true' && env.STRIPE_B2B_CHECKOUT_ENABLED==='true'
+          && env.STRIPE_B2B_TAX_POLICY_APPROVED==='true' && wholesaleAddressReady
+          && String(quote.payment_terms||'').toLowerCase().includes('stripe')))
         && (!String(order.reference).startsWith('ME-RO-') ||
           (env.RETAIL_CHECKOUT_ENABLED==='true' && env.RETAIL_STOCK_FULFILLMENT_APPROVED==='true' && env.RETAIL_TAX_POLICY_APPROVED==='true'));
       const providerNotice = paymentStateNotice(order.provider_status);
@@ -175,7 +188,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
     } else if (Number(quote.total || 0) <= 0) {
       actionArea = `<div class="notice error">This quotation has no valid price. Please contact MING EAGLE for a corrected quotation.</div>`;
     } else {
-      actionArea = `<div id="acceptArea" class="accept"><label><input id="agree" type="checkbox"> <span>I have reviewed the quotation and authorize MING EAGLE to create the order based on these terms.</span></label><button id="acceptBtn" class="button" disabled>Accept quote & create order</button><div id="message"></div></div>`;
+      const shipToFields=String(quote.payment_terms||'').toLowerCase().includes('stripe')
+        ? '<fieldset style="border:1px solid #d0d5dd;border-radius:12px;padding:14px;margin-bottom:18px"><legend>Confirm the US delivery destination from this quotation</legend><p class="notice info">The quoted freight must already specify the same state as "Ship-to state: XX". A different destination requires a revised quote.</p><label>Street address<input id="shipLine1" autocomplete="street-address" maxlength="180" style="width:100%" required></label><label>City<input id="shipCity" autocomplete="address-level2" maxlength="100" style="width:100%" required></label><label>US state (two letters)<input id="shipState" autocomplete="address-level1" maxlength="2" placeholder="OR" style="width:100%" required></label><label>ZIP code<input id="shipZip" autocomplete="postal-code" maxlength="10" style="width:100%" required></label></fieldset>'
+        : '';
+      actionArea = `<div id="acceptArea" class="accept">${shipToFields}<label><input id="agree" type="checkbox"> <span>I have reviewed the quotation and authorize MING EAGLE to create the order based on these terms.</span></label><button id="acceptBtn" class="button" disabled>Accept quote & create order</button><div id="message"></div></div>`;
     }
 
     // Internal notes from the wholesale draft workflow are NOT contractual
@@ -192,7 +208,19 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
 <script>
 const token=${tokenJson};
 const agree=document.getElementById('agree');const btn=document.getElementById('acceptBtn');
-if(agree&&btn){agree.addEventListener('change',()=>{btn.disabled=!agree.checked});btn.addEventListener('click',async()=>{if(!agree.checked)return;btn.disabled=true;btn.textContent='Creating order…';const message=document.getElementById('message');try{const r=await fetch('/api/quote/'+token,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'accept'})});const b=await r.json();if(!r.ok||!b.ok)throw new Error(b.error||'Unable to accept quote.');window.location.reload()}catch(e){if(message){message.textContent='';const alert=document.createElement('div');alert.className='notice error';const heading=document.createElement('strong');heading.textContent='Unable to create order: ';alert.appendChild(heading);alert.appendChild(document.createTextNode(String(e&&e.message?e.message:e)));message.appendChild(alert);}btn.disabled=false;btn.textContent='Accept quote & create order'}})}
+if(agree&&btn){agree.addEventListener('change',()=>{btn.disabled=!agree.checked});btn.addEventListener('click',async()=>{if(!agree.checked)return;btn.disabled=true;btn.textContent='Creating order…';const message=document.getElementById('message');try{
+ const shipState=document.getElementById('shipState');
+ let shippingAddress=null;
+ if(shipState){
+  const line1=String(document.getElementById('shipLine1')?.value||'').trim();
+  const city=String(document.getElementById('shipCity')?.value||'').trim();
+  const state=String(shipState.value||'').trim().toUpperCase();
+  const postalCode=String(document.getElementById('shipZip')?.value||'').trim();
+  if(!line1||!city||!/^[A-Z]{2}$/.test(state)||!/^[0-9]{5}(?:-[0-9]{4})?$/.test(postalCode))
+   throw Error('Complete the confirmed US ship-to address and ZIP code.');
+  shippingAddress={line1,city,state,postalCode,country:'US'};
+ }
+ const r=await fetch('/api/quote/'+token,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'accept',...(shippingAddress?{shippingAddress}:{})})});const b=await r.json();if(!r.ok||!b.ok)throw new Error(b.error||'Unable to accept quote.');window.location.reload()}catch(e){if(message){message.textContent='';const alert=document.createElement('div');alert.className='notice error';const heading=document.createElement('strong');heading.textContent='Unable to create order: ';alert.appendChild(heading);alert.appendChild(document.createTextNode(String(e&&e.message?e.message:e)));message.appendChild(alert);}btn.disabled=false;btn.textContent='Accept quote & create order'}})}
 const stripeBtn=document.getElementById('stripePayBtn');
 if(stripeBtn){stripeBtn.addEventListener('click',async()=>{const message=document.getElementById('stripePayMessage');stripeBtn.disabled=true;const original=stripeBtn.textContent;stripeBtn.textContent='Opening Stripe checkout…';try{const response=await fetch('/api/payments/stripe/create',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token})});const body=await response.json();if(!response.ok||!body.ok)throw Error(body.error||'Unable to start Stripe checkout');const url=new URL(String(body.url||''));if(url.protocol!=='https:'||url.hostname!=='checkout.stripe.com')throw Error('Invalid payment destination');window.location.assign(url.href)}catch(e){if(message){message.textContent=String(e&&e.message?e.message:e);}stripeBtn.disabled=false;stripeBtn.textContent=original}})}
 if(new URLSearchParams(window.location.search).get('payment_return')==='1'){let attempts=0;const notice=document.getElementById('paymentReturnNotice');const timer=setInterval(async()=>{attempts+=1;try{const r=await fetch('/api/payments/stripe/status?token='+encodeURIComponent(token),{cache:'no-store'});const b=await r.json();if(b&&b.ok&&b.paymentStatus==='PAID'){clearInterval(timer);window.location.replace(window.location.pathname);return}if(b&&b.ok&&['CANCELLED','PAYMENT_FAILED','FAILED','EXPIRED'].includes(String(b.providerStatus||'').toUpperCase())){clearInterval(timer);window.location.replace(window.location.pathname);return}if(attempts>=30&&notice){notice.innerHTML='<strong>Payment is still processing.</strong> You may close this page and return later; your order will update automatically when the payment provider confirms it.'}}catch{}if(attempts>=30)clearInterval(timer)},2000)}

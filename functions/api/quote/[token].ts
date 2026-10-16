@@ -87,7 +87,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
   if (origin && origin !== requestOrigin) return Response.json({ ok: false, error: 'Invalid request origin.' }, { status: 403 });
 
   try {
-    const body = await request.json().catch(() => ({})) as { action?: string };
+    const body = await request.json().catch(() => ({})) as { action?: string; shippingAddress?: unknown };
     if (body.action !== 'accept') return Response.json({ ok: false, error: 'Unsupported action.' }, { status: 400 });
 
     const db = env.MINGEAGLE_DB;
@@ -130,6 +130,25 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
       return Response.json({ ok: false, error: 'Payment, shipping or quote validity terms need seller confirmation before acceptance.' }, { status: 409 });
     }
 
+    // Stripe-bound orders require an explicit buyer-confirmed delivery state
+    // to prevent freight and sales tax decisions from silently changing.
+    let shippingAddress:Record<string,string>|null=null;
+    if(String(quote.payment_terms||'').toLowerCase().includes('stripe')){
+      const raw=body.shippingAddress;
+      if(!raw||typeof raw!=='object'||Array.isArray(raw))
+        return Response.json({ok:false,error:'Confirm the delivery address before accepting this Stripe quotation.'},{status:409});
+      const entry=raw as Record<string,unknown>;
+      const line1=String(entry.line1||'').trim(),city=String(entry.city||'').trim(),
+        state=String(entry.state||'').trim().toUpperCase(),postalCode=String(entry.postalCode||'').trim(),
+        country=String(entry.country||'').trim().toUpperCase();
+      if(country!=='US'||!/^[A-Z]{2}$/.test(state)||line1.length<5||line1.length>180||
+         city.length<2||city.length>100||!/^[0-9]{5}(?:-[0-9]{4})?$/.test(postalCode))
+        return Response.json({ok:false,error:'Valid US shipping street, city, state and ZIP code are required.'},{status:409});
+      if(String(quote.shipping_terms||'').toUpperCase().match(/SHIP-TO STATE:\s*([A-Z]{2})(?![A-Z])/)?.[1]!==state)
+        return Response.json({ok:false,error:'Ship-to state differs from the seller quotation. Request a revised freight quotation first.'},{status:409});
+      shippingAddress={line1,city,state,postalCode,country};
+    }
+
     const items = await db.prepare(`SELECT product_id, variant_id, description, quantity, unit_price, line_total FROM quote_items WHERE quote_id=? ORDER BY sort_order, id`)
       .bind(quoteId).all<Row>();
     if (!items.results.length) return Response.json({ ok: false, error: 'Quote has no line items.' }, { status: 409 });
@@ -159,14 +178,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
     // A failure must not leave a payable order missing its items.
     const orderInsert = db.prepare(`INSERT INTO orders (
         id, reference, quote_id, lead_id, company_id, contact_id, status, currency,
-        subtotal, discount, shipping, tax, total, payment_status, customer_notes, confirmed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, 'PAYMENT_PENDING', ?, ?, ?, ?, ?, ?, 'UNPAID', ?, CURRENT_TIMESTAMP)`)
+        subtotal, discount, shipping, tax, total, payment_status, shipping_address, customer_notes, confirmed_at
+      ) VALUES (?, ?, ?, ?, ?, ?, 'PAYMENT_PENDING', ?, ?, ?, ?, ?, ?, 'UNPAID', ?, ?, CURRENT_TIMESTAMP)`)
       .bind(orderId, orderReference, quoteId,
         quote.lead_id ? String(quote.lead_id) : null,
         quote.company_id ? String(quote.company_id) : null,
         quote.contact_id ? String(quote.contact_id) : null,
         String(quote.currency || 'USD'), Number(quote.subtotal || 0), Number(quote.discount || 0),
         Number(quote.shipping || 0), Number(quote.tax || 0), Number(quote.total || 0),
+        shippingAddress?JSON.stringify(shippingAddress):null,
         `Accepted from quote ${String(quote.reference)}`);
     const itemInserts = items.results.map(item => db.prepare(`INSERT INTO order_items
         (id, order_id, product_id, variant_id, description, quantity, unit_price, line_total)

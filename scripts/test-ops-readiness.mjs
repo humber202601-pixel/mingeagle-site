@@ -73,7 +73,14 @@ try{
   STRIPE_SECRET_KEY:'sk_test_synthetic_key_for_readiness',STRIPE_WEBHOOK_SECRET:'whsec_synthetic_signature_secret_for_readiness',
   STRIPE_TAX_POLICY_APPROVED:'true',STRIPE_RETAIL_ONLY_ENABLED:'false',
   STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true'});
+ assert.equal(r.body.payments.b2bConfigurationReady,false,'No destination allowlist means no B2B charge');
+ r=await read({STRIPE_CHECKOUT_ENABLED:'true',STRIPE_MODE:'test',
+  STRIPE_SECRET_KEY:'sk_test_synthetic_key_for_readiness',STRIPE_WEBHOOK_SECRET:'whsec_synthetic_signature_secret_for_readiness',
+  STRIPE_TAX_POLICY_APPROVED:'true',STRIPE_RETAIL_ONLY_ENABLED:'false',
+  STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',
+  STRIPE_B2B_APPROVED_US_STATES:'OR,NH'});
  assert.equal(r.body.payments.b2bTaxReviewed,true);
+ assert.deepEqual(r.body.payments.b2bApprovedDestinationStates,['OR','NH']);
  assert.equal(r.body.payments.b2bConfigurationReady,true,'All B2B-specific permissions and verified Stripe credentials required');
  assert(!JSON.stringify(r.body).includes('test-only'),'never leak credential values');assert.equal(writes,0);
  sqlite.close();console.log('PASS: read-only readiness uses real aggregate counts, unknown vs zero, no secrets or business record mutation.');
