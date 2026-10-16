@@ -31,6 +31,17 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  const parcels=separateUnitUsAirParcels(lines,country,String(method));
  if(parcels)return result({ok:true,...parcels,volumeCBM:null,
   notice:parcels.quantity+' items ship in '+parcels.parcelCount+' separate one-unit air parcels. Shipping is the sum of each item’s confirmed rate; customs clearance and US import duties are included, with no additional import duty owed by the buyer. Parcels may arrive separately. Final US sales tax is shown before payment. Delivery 12–15 days after dispatch is an estimate.'});
+ if(method==='sea')return result({
+  ok:true,lines:lines.map(x=>({sku:x.sku,quantity:x.quantity})),
+  quantity,country,method,wholesale:true,quoteRequired:true,
+  quoteStatus:'FREIGHT_PRODUCT_AND_CARTONS_UNVERIFIED',
+  volumeCBM:null,packagingVerified:false,packagingEstimateOnly:false,
+  productsUSD:null,shippingUSD:null,totalBeforeTaxesUSD:null,paymentEnabled:false,
+  ddpConfirmed:false,seaFreightAccepted:true,currency:'USD',
+  deliveryEstimateDaysMin:25,deliveryEstimateDaysMax:30,
+  discountPolicy:'QUANTITY_DEPENDENT_QUOTE_NO_FIXED_PERCENT',
+  notice:'Wholesale RFQ only. Existing carton dimensions are not supplier-verified, so no estimated CBM is supplied. Confirm actual cartons, destination ZIP, supplier quantity price, written DDP freight/clearance/duties/last-mile quotation and separately applicable sales tax.'
+ });
  if(!env.MINGEAGLE_DB)return result({ok:false,error:'Database unavailable'},503);
  try{
  const rate=await env.MINGEAGLE_DB.prepare('SELECT * FROM shipping_rates WHERE country=? AND method=? AND active=1').bind(country,method).first<Record<string,number>>();
@@ -41,19 +52,6 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   if(!pack)return result({ok:false,error:'Packaging not configured for '+line.sku},404);
   cbm+=Number(pack.length_cm)*Number(pack.width_cm)*Number(pack.height_cm)*Math.ceil(line.quantity/Number(pack.units_per_package))/1e6;
  }
- // Existing active sea rates are only reference configurations and
- // are not independently sourced, ZIP-specific US DDP forwarder quotes.
- // Do not claim a fixed wholesale price or numeric freight from them.
- if(method==='sea')return result({
-  ok:true,lines:lines.map(x=>({sku:x.sku,quantity:x.quantity})),
-  quantity,country,method,volumeCBM:Number(cbm.toFixed(6)),currency:'USD',
-  wholesale:true,quoteRequired:true,quoteStatus:'FREIGHT_AND_PRODUCT_PRICE_UNCONFIRMED',
-  productsUSD:null,shippingUSD:null,totalBeforeTaxesUSD:null,paymentEnabled:false,
-  ddpConfirmed:false,packagingEstimateOnly:true,seaFreightAccepted:true,
-  deliveryEstimateDaysMin:25,deliveryEstimateDaysMax:30,
-  discountPolicy:'QUANTITY_DEPENDENT_QUOTE_NO_FIXED_PERCENT',
-  notice:'This is a bulk RFQ, not a payable price. CBM uses stored package dimensions. Supplier quantity pricing and the destination-specific US ocean DDP freight (including clearance, import duties and last-mile delivery) require current written verification; US sales tax is separate. Delivery 25–30 days after dispatch is an estimate.'
- });
  const raw=cbm*1e6/Number(rate.volume_divisor)*Number(rate.usd_per_unit);
  if(!Number.isFinite(raw)||raw<0)return result({ok:false,error:'Invalid shipping configuration'},503);
  const shippingCents=Math.round((Math.max(raw,Number(rate.min_charge_usd))+Number(rate.handling_usd))*100);
