@@ -15,6 +15,8 @@ type QuoteInput = {
   paymentTerms?: string;
   shippingTerms?: string;
   notes?: string;
+  taxUSD?: number|string;
+  taxBasis?: string;
 };
 
 const clean = (value: unknown, max = 1000) =>
@@ -38,7 +40,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const quantity = quantityRaw;
     let calculation: ReturnType<typeof quoteTotals>;
     try {
-      calculation = quoteTotals([{ quantity: input.quantity, unitPrice: input.unitPrice }], input.shipping, input.discount ?? 0);
+      calculation = quoteTotals([{ quantity: input.quantity, unitPrice: input.unitPrice }], input.shipping, input.discount ?? 0, input.taxUSD ?? 0);
     } catch {
       return Response.json({ ok: false, error: 'Confirm a whole-number quantity, positive USD price, explicit shipping and valid discount. Amounts must have at most two decimal places and the quote total must be positive and within review limits.' }, { status: 400 });
     }
@@ -49,6 +51,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const paymentTerms = clean(input.paymentTerms, 500) || 'Payment terms to be confirmed before sending.';
     const shippingTerms = clean(input.shippingTerms, 500) || 'Shipping terms to be confirmed before sending.';
     const notes = clean(input.notes, 3000);
+    const taxUSD = num(input.taxUSD, NaN);
+    const taxBasis = clean(input.taxBasis, 1000);
 
     if (!inquiryReference) {
       return Response.json({ ok: false, error: 'Inquiry reference is required.' }, { status: 400 });
@@ -58,6 +62,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
     if (input.shipping === '' || input.shipping === null || input.shipping === undefined || !Number.isFinite(shipping) || shipping < 0) {
       return Response.json({ ok: false, error: 'Confirm the USD shipping amount explicitly (enter 0 only when shipping is included).' }, { status: 400 });
+    }
+    if (!Number.isFinite(taxUSD) || taxUSD < 0) {
+      return Response.json({ ok: false, error: 'Enter the explicitly reviewed US sales-tax amount for this quotation (0 is allowed only when the documented tax basis supports it).' }, { status: 400 });
+    }
+    if (!taxBasis) {
+      return Response.json({ ok: false, error: 'Document the sales-tax basis for this B2B quotation before creating it.' }, { status: 400 });
     }
     if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
       return Response.json({ ok: false, error: 'Unit price must be greater than 0 before creating a quote draft.' }, { status: 400 });
@@ -95,9 +105,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     await db.prepare(`INSERT INTO quotes (
       id, reference, lead_id, inquiry_id, company_id, contact_id, status, currency,
-      subtotal, discount, shipping, tax, total, payment_terms, shipping_terms, notes,
+      subtotal, discount, shipping, tax, total, payment_terms, shipping_terms, notes, tax_basis,
       valid_until
-    ) VALUES (?, ?, ?, ?, ?, ?, 'DRAFT', 'USD', ?, ?, ?, 0, ?, ?, ?, ?, datetime('now', ?))`)
+    ) VALUES (?, ?, ?, ?, ?, ?, 'DRAFT', 'USD', ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', ?))`)
       .bind(
         quoteId,
         reference,
@@ -109,9 +119,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         discount,
         shipping,
         total,
+        calculation.tax,
         paymentTerms,
         shippingTerms,
         notes || null,
+        taxBasis,
         `+${validDays} days`,
       ).run();
 
