@@ -154,7 +154,7 @@ console.log('PASS: all six pages load cart selectors; 11 SKU prices; real size/c
   setAttribute(k,v){this.attrs[k]=v}
  }
  const js=fs.readFileSync('public/retail-cart.js','utf8');
- const ids=[...js.matchAll(/\$\('([^']+)'\)/g)].map(m=>m[1]);
+ const ids=['retailCart',...[...js.matchAll(/\$\('([^']+)'\)/g)].map(m=>m[1])];
  const elements=Object.fromEntries([...new Set(ids)].map(id=>[id,new Widget()]));
  elements.cartCountry.value='US';
  const local={getItem(){return JSON.stringify([{sku:'P1-S3',color:'Orange',quantity:10}])},setItem(){}};
