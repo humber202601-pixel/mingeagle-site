@@ -42,6 +42,8 @@ test('真实报价界面：精确数量、金额、修改审核、批准与客�
  await expect(page.getByLabel('产品描述（客户可见，建议英文）',{exact:true})).toHaveValue(description);
  await page.getByLabel('单价（USD）',{exact:true}).fill('8.03');
  await page.getByLabel('运费（USD）',{exact:true}).fill('19.90');
+ await page.getByLabel('美国销售税（USD）',{exact:true}).fill('0');
+ await page.getByLabel('销售税依据（客户订单审核记录）',{exact:true}).fill('Synthetic browser fixture only; no legal tax determination.');
  await page.getByLabel('付款条款（客户可见）',{exact:true}).fill('Bank wire transfer in full before goods dispatch.');
  await page.getByLabel('运输条款（客户可见）',{exact:true}).fill('Sea freight DDP to destination ZIP 75201, estimated 25–30 days after shipment; duties included.');
  await expect(page.getByLabel('商品金额（实时预览）',{exact:true})).toHaveValue('USD 803.00');
