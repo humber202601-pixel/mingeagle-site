@@ -140,7 +140,7 @@ test('真实报价界面：精确数量、金额、修改审核、批准与客�
  const accepted=await acceptResponse;
  expect(accepted.status()).toBe(201);
  await expect(page.getByText(/Order ME-/)).toBeVisible();
- await expect(page.getByText(/Payment: UNPAID/)).toBeVisible();
+ await expect(page.locator('.order-grid').getByText('UNPAID',{exact:true})).toBeVisible();
  await expect(page.getByText('Stripe checkout is currently unavailable for this order.',{exact:true})).toBeVisible();
  await expect(page.getByText('Pay securely with Airwallex',{exact:true})).toHaveCount(0);
  await noPageOverflow(page);
