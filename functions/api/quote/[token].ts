@@ -104,6 +104,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
 
     const quoteId = String(quote.id);
     const status = String(quote.status);
+    // A previously accepted quotation already has an order. Retrying its
+    // private link after the quotation validity date must return that order
+    // instead of treating it as a request for a new post-expiry acceptance.
+    // Keep a converted quote and its persisted order read-only on retry.
+    const existing = await getOrder(db, quoteId);
+    if (existing) {
+      if (['SENT','VIEWED','ACCEPTED'].includes(status))
+        await db.prepare(`UPDATE quotes SET status='CONVERTED',
+          accepted_at=COALESCE(accepted_at,CURRENT_TIMESTAMP),
+          updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(quoteId).run();
+      return Response.json({ ok: true, accepted: true, order: existing });
+    }
     if (Number(quote.is_expired) === 1 || status === 'EXPIRED') {
       await db.prepare(`UPDATE quotes SET status='EXPIRED', updated_at=CURRENT_TIMESTAMP WHERE id=? AND status NOT IN ('ACCEPTED','CONVERTED')`).bind(quoteId).run();
       return Response.json({ ok: false, error: 'This quote has expired. Please request an updated quote.' }, { status: 409 });
@@ -111,13 +123,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
     if (status === 'DECLINED') return Response.json({ ok: false, error: 'This quote is no longer available.' }, { status: 409 });
     if (Number(quote.total || 0) <= 0) {
       return Response.json({ ok: false, error: 'This quotation has no valid price and cannot be accepted. Please request a corrected quotation.' }, { status: 409 });
-    }
-
-    await db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_quote_unique ON orders(quote_id) WHERE quote_id IS NOT NULL`).run();
-    const existing = await getOrder(db, quoteId);
-    if (existing) {
-      await db.prepare(`UPDATE quotes SET status='CONVERTED', accepted_at=COALESCE(accepted_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(quoteId).run();
-      return Response.json({ ok: true, accepted: true, order: existing });
     }
 
     if (!['SENT','VIEWED'].includes(status)) {
@@ -186,6 +191,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
       return Response.json({ ok:false, error:'Quotation totals or item amounts do not reconcile. Please request a corrected quotation.' }, { status:409 });
     }
 
+    // Enforce one order per quote only when about to create a new order.
+    await db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_quote_unique ON orders(quote_id) WHERE quote_id IS NOT NULL`).run();
     const orderId = crypto.randomUUID();
     const orderReference = `ME-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0,8).toUpperCase()}`;
 
