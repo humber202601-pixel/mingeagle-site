@@ -37,7 +37,7 @@ type QuoteSendResult = {
   error?: string;
 };
 
-type QuotePreflight={ok?:boolean;error?:string;review?:{
+type QuotePreflight={ok?:boolean;error?:string;quoteFingerprint?:string;review?:{
  safeForManualRelease:boolean;requiresLandedCostReview:boolean;approvedSkuBaselines:number;unverifiedSkuBaselines:number;
  supplierConfirmationRequired:boolean;issues:string[];note:string;
  commercialEstimate?:{
@@ -364,8 +364,9 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       }
       const costEvidence=landedReviews[quoteId];
       if(review.requiresLandedCostReview&&
-        (!costEvidence||costEvidence.quotedTotalUSD!==review.commercialEstimate?.totalQuotedUSD))
-        throw Error('10件及以上批发报价必须先打开“内部成本试算”，填写六项实际成本、核实日期和来源，并点击“带入发布审核”。未核实成本不能按零填写。');
+        (!costEvidence||costEvidence.quotedTotalUSD!==review.commercialEstimate?.totalQuotedUSD||
+         costEvidence.quoteFingerprint!==preflight.quoteFingerprint))
+        throw Error('10件及以上批发报价必须先打开“内部成本试算”，填写六项实际成本、核实日期和来源，并点击“带入发布审核”。报价SKU、数量或税务运输条款改动后必须重新试算，未核实成本不能按零填写。');
       const counts='匹配已审核 SKU/尺寸采购成本：'+review.approvedSkuBaselines+' 行；仍待供应商核实：'+review.unverifiedSkuBaselines+' 行。';
       const est=review.commercialEstimate;
       const commercialSummary=est?.basis==='SKU_SIZE_COST_FLOOR_ONLY'&&
