@@ -125,6 +125,9 @@ jobs:
           node scripts/check-web-analytics.cjs
           node scripts/enable-web-analytics.cjs --check
 
+      - name: Verify canonical B2B header navigation across public pages
+        run: node scripts/check-site-navigation.cjs
+
       - name: Verify confirmation build
         run: |
           test -f public/index.html
