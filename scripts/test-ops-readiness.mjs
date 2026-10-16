@@ -30,6 +30,8 @@ try{
  assert.equal(r.body.analytics.google.observedDates,null);
  assert.equal(r.body.stripeWebhookHealth.schemaPresent,false);
  assert.equal(r.body.stripeWebhookHealth.unprocessedEvents,null,'Missing event ledger cannot be shown as zero');
+ assert.equal(r.body.b2bStripeSessionHealth.schemaPresent,false);
+ assert.equal(r.body.b2bStripeSessionHealth.olderThan24Hours,null,'Absent session schema is unknown rather than zero');
  assert.equal(r.body.b2bStripeEvidence.schemaPresent,false);
  assert.equal(r.body.b2bStripeEvidence.reconciledPaidOrders,null,'Missing payment ledger tables means unknown, not zero');assert.equal(r.body.procurement.supplierSources,null);
  assert.equal(r.body.procurement.activeShippingRoutes,null,'Absent route table must remain unknown rather than zero coverage');
@@ -99,15 +101,15 @@ try{
  // Verified paid B2B orders require live-like Stripe ledger consistency, not a manual PAID marker.
  sqlite.exec(`CREATE TABLE orders(id TEXT,quote_id TEXT,total REAL,currency TEXT,payment_status TEXT);
  CREATE TABLE quote_items(quote_id TEXT,quantity INTEGER);
- CREATE TABLE payment_provider_sessions(order_id TEXT,provider TEXT,provider_intent_id TEXT,status TEXT);
+ CREATE TABLE payment_provider_sessions(order_id TEXT,provider TEXT,provider_intent_id TEXT,status TEXT,created_at TEXT);
  CREATE TABLE payments(order_id TEXT,provider TEXT,provider_reference TEXT,amount REAL,currency TEXT,status TEXT);
  INSERT INTO orders VALUES('b2b-paid-stripe','q1',180,'USD','PAID');
  INSERT INTO orders VALUES('b2b-paid-manual','q2',200,'USD','PAID');
  INSERT INTO orders VALUES('b2b-unpaid','q3',140,'USD','UNPAID');
  INSERT INTO orders VALUES('retail-not-counted','q4',30,'USD','UNPAID');
  INSERT INTO quote_items VALUES('q1',10),('q2',12),('q3',5),('q3',5),('q4',1);
- INSERT INTO payment_provider_sessions VALUES('b2b-paid-stripe','STRIPE','cs_test_fake_success','SUCCEEDED');
- INSERT INTO payment_provider_sessions VALUES('b2b-unpaid','STRIPE','cs_test_fake_open','OPEN');
+ INSERT INTO payment_provider_sessions VALUES('b2b-paid-stripe','STRIPE','cs_test_fake_success','SUCCEEDED',datetime('now','-40 hours'));
+ INSERT INTO payment_provider_sessions VALUES('b2b-unpaid','STRIPE','cs_test_fake_open','OPEN',datetime('now','-30 hours'));
  INSERT INTO payments VALUES('b2b-paid-stripe','STRIPE','cs_test_fake_success',180,'USD','RECEIVED');
  INSERT INTO payments VALUES('b2b-paid-manual',NULL,'bank_receipt',200,'USD','RECEIVED');`);
  r=await read();
@@ -116,6 +118,15 @@ try{
  assert.equal(r.body.b2bStripeEvidence.awaitingPaymentOrders,1);
  assert.equal(r.body.b2bStripeEvidence.stripeCheckoutSessions,2);
  assert.equal(r.body.b2bStripeEvidence.reconciledPaidOrders,1,'Manual paid order must not count as Stripe');
+ assert.equal(r.body.b2bStripeSessionHealth.openOrPendingSessions,1,'Only unpaid B2B open provider rows are considered');
+ assert.equal(r.body.b2bStripeSessionHealth.olderThan24Hours,1,'30-hour checkout snapshot needs review');
+ assert(r.body.b2bStripeSessionHealth.oldestAgedUTC,'Aged record includes only created_at, not private session ID');
+ assert(!JSON.stringify(r.body).includes('cs_test_fake_open'),'Checkout reference must not be included in aggregate API response');
+ sqlite.exec("UPDATE payment_provider_sessions SET created_at=datetime('now') WHERE provider_intent_id='cs_test_fake_open'");
+ r=await read();
+ assert.equal(r.body.b2bStripeSessionHealth.openOrPendingSessions,1);
+ assert.equal(r.body.b2bStripeSessionHealth.olderThan24Hours,0,'Current local snapshot should not look stale');
+ assert.equal(r.body.b2bStripeSessionHealth.oldestAgedUTC,null);
  sqlite.exec("UPDATE payments SET amount=179.99 WHERE provider='STRIPE'");
  r=await read();assert.equal(r.body.b2bStripeEvidence.reconciledPaidOrders,0,'Underpaid Stripe receipt must not count');
  // Synthetic accepted Stripe events: one processed, one fresh, one stuck.

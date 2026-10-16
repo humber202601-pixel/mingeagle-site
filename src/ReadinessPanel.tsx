@@ -3,6 +3,7 @@ type Snapshot={ok:boolean;checkedAt:string;
  analytics:{cloudflare:{schemaPresent:boolean;observedDates:number|null;latestDateUTC:string|null;lastFetchedAtUTC:string|null;partialInitialDayObserved:boolean;observedDateCoverage:{status:'SCHEMA_MISSING'|'NO_VERIFIED_DATA'|'LATEST_COMPLETED_UTC_DAY'|'OLDER_OBSERVED_DATE'|'INVALID_OBSERVED_DATE';daysBehind:number|null}};google:{schemaPresent:boolean;observedDates:number|null;latestDatePacific:string|null;lastFetchedAtUTC:string|null}};
  procurement:{catalogPresent:boolean;supplierSources:number|null;approvedSourceCount:number|null;shippingRates:number|null;activeShippingRates:number|null;packagingSkus:number|null;activeShippingRoutes:Array<{country:string;method:string;minimumUnits:number}>|null};
  b2bStripeEvidence:{schemaPresent:boolean;wholesaleOrders:number|null;awaitingPaymentOrders:number|null;stripeCheckoutSessions:number|null;reconciledPaidOrders:number|null};
+ b2bStripeSessionHealth:{schemaPresent:boolean;openOrPendingSessions:number|null;olderThan24Hours:number|null;oldestAgedUTC:string|null};
  stripeWebhookHealth:{schemaPresent:boolean;receivedEvents:number|null;processedEvents:number|null;unprocessedEvents:number|null;olderThanTenMinutes:number|null;oldestUnprocessedUTC:string|null};
  security:{turnstileConfigured:boolean;turnstileEnabled:boolean;turnstileMisconfigured:boolean};
  payments:{checkoutRequested:boolean;providerCredentialsConfigured:boolean;webhookConfigured:boolean;environment:string|null;checkoutConfigurationReady:boolean;retailOnlyRestriction:boolean;b2bCheckoutRequested:boolean;b2bTaxReviewed:boolean;b2bApprovedDestinationStates:string[];b2bConfigurationReady:boolean};
@@ -37,6 +38,12 @@ export default function ReadinessPanel({accessKey}:{accessKey:string}){
    <div className="list-row"><div><strong>真实批发 Stripe 收款闭环</strong><small>仅统计报价合计至少 10 件、Stripe 成功会话对应足额入账记录且订单为 PAID 的正式订单；不包含 $0.50 独立验证或历史线下收款。</small></div><span>{data.b2bStripeEvidence.reconciledPaidOrders===null?'尚无法核验':data.b2bStripeEvidence.reconciledPaidOrders+' / '+count(data.b2bStripeEvidence.wholesaleOrders)}</span></div>
    <div className="list-row"><div><strong>批发待付款订单 / Stripe 会话</strong><small>未全额付款订单数和已创建的批发 Stripe Checkout 会话数，均为生产数据库只读统计；不代表已扣款。</small></div><span>{count(data.b2bStripeEvidence.awaitingPaymentOrders)} / {count(data.b2bStripeEvidence.stripeCheckoutSessions)}</span></div>
    {data.b2bStripeEvidence.schemaPresent&&data.b2bStripeEvidence.reconciledPaidOrders===0&&<p role="status" className="form-status error">尚无可核对的正式批发 Stripe 足额付款闭环。配置开启及独立小额测试成功，不等于客户批发订单验收通过。</p>}
+   <div className="list-row"><div><strong>批发 Stripe Checkout 待确认会话</strong><small>本地数据库中仍为 OPEN/PENDING 且订单未结清的会话总数 / 超过 24 小时的会话数；不是实时 Stripe 支付状态。</small></div>
+    <span>{count(data.b2bStripeSessionHealth.openOrPendingSessions)} / {count(data.b2bStripeSessionHealth.olderThan24Hours)}</span></div>
+   {(data.b2bStripeSessionHealth.olderThan24Hours??0)>0&&
+    <p role="alert" className="form-status error">存在超过 24 小时未更新的批发 Checkout 记录，最早创建于 UTC {data.b2bStripeSessionHealth.oldestAgedUTC||'未知'}。请核对 Stripe Dashboard 与 Webhook。勿直接重开付款、人工标记 PAID 或自动发货。</p>}
+   {!data.b2bStripeSessionHealth.schemaPresent&&
+    <p role="alert" className="form-status error">批发 Stripe 会话数据库表缺失，不能判断等待确认的支付记录。</p>}
    <div className="list-row"><div><strong>Stripe 签名事件处理情况</strong><small>仅统计系统收到并登记的 Stripe Webhook 事件，不代表 Stripe 全部事件或真实订单付款完成；已处理 / 已收到。</small></div>
     <span>{count(data.stripeWebhookHealth.processedEvents)} / {count(data.stripeWebhookHealth.receivedEvents)}</span></div>
    <div className="list-row"><div><strong>Stripe 未完成处理的事件</strong><small>待处理 / 超过 10 分钟仍未处理。Webhook 验签失败、未送达平台的事件不会计入。</small></div>
