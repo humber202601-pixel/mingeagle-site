@@ -25,6 +25,8 @@ type QuoteRow = {
   subtotal:number;
   discount:number;
   currency: string | null;
+  tax: number;
+  tax_basis: string | null;
   public_token_hash: string | null;
   contact_email: string | null;
   contact_name: string | null;
@@ -154,7 +156,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const db = env.MINGEAGLE_DB;
 
     const quote = await db.prepare(`SELECT
-      q.id, q.reference, q.status, q.lead_id, q.company_id, q.contact_id, q.valid_until, q.payment_terms, q.shipping_terms, q.total, q.subtotal, q.discount, q.currency, q.public_token_hash,
+      q.id, q.reference, q.status, q.lead_id, q.company_id, q.contact_id, q.valid_until, q.payment_terms, q.shipping_terms, q.total, q.subtotal, q.discount, q.currency, q.tax, q.tax_basis, q.public_token_hash,
       ct.email AS contact_email, ct.full_name AS contact_name, COALESCE(c.name,'') AS company_name,
       COALESCE(ct.do_not_contact,0) AS do_not_contact, l.status AS lead_status
       FROM quotes q
@@ -177,6 +179,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         issues:commercialIssues,
         error:'Quotation not released: '+commercialIssues.map(x=>quoteTermsIssueDescriptions[x]||x).join(' ')
       },{status:409});
+    }
+
+    // A Stripe quotation must have enough agreed destination and tax detail
+    // for the customer to accept and complete card payment. Never publish a
+    // non-payable public link then ask the buyer to fix seller pricing.
+    if(/\bstripe\b/i.test(String(quote.payment_terms||''))){
+      const shipState=String(quote.shipping_terms||'').toUpperCase()
+        .match(/SHIP-TO STATE:\s*([A-Z]{2})(?![A-Z])/)?.[1];
+      if(!shipState||!String(quote.tax_basis||'').trim()||
+         !Number.isFinite(Number(quote.tax))||Number(quote.tax)<0){
+        return Response.json({ok:false,code:'B2B_STRIPE_QUOTE_NOT_PAYABLE',
+          error:'Before sending a Stripe payment quote, document the destination as Ship-to state: XX, the US sales-tax amount and the reviewed sales-tax basis. Verify freight, import duties and the customer tax treatment.'},{status:409});
+      }
     }
 
     const pricedItems = await db.prepare(`SELECT COUNT(*) AS value
