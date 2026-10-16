@@ -3,6 +3,7 @@ type Snapshot={ok:boolean;checkedAt:string;
  analytics:{cloudflare:{schemaPresent:boolean;observedDates:number|null;latestDateUTC:string|null;lastFetchedAtUTC:string|null;partialInitialDayObserved:boolean;observedDateCoverage:{status:'SCHEMA_MISSING'|'NO_VERIFIED_DATA'|'LATEST_COMPLETED_UTC_DAY'|'OLDER_OBSERVED_DATE'|'INVALID_OBSERVED_DATE';daysBehind:number|null}};google:{schemaPresent:boolean;observedDates:number|null;latestDatePacific:string|null;lastFetchedAtUTC:string|null}};
  procurement:{catalogPresent:boolean;supplierSources:number|null;approvedSourceCount:number|null;shippingRates:number|null;activeShippingRates:number|null;packagingSkus:number|null;activeShippingRoutes:Array<{country:string;method:string;minimumUnits:number}>|null};
  b2bStripeEvidence:{schemaPresent:boolean;wholesaleOrders:number|null;awaitingPaymentOrders:number|null;stripeCheckoutSessions:number|null;reconciledPaidOrders:number|null};
+ quoteExpiryHealth:{schemaPresent:boolean;outstandingSentOrViewed:number|null;expiringWithinTwoCalendarDays:number|null;pastValidityDate:number|null};
  b2bStripeSessionHealth:{schemaPresent:boolean;openOrPendingSessions:number|null;olderThan24Hours:number|null;oldestAgedUTC:string|null};
  stripeWebhookHealth:{schemaPresent:boolean;receivedEvents:number|null;processedEvents:number|null;unprocessedEvents:number|null;olderThanTenMinutes:number|null;oldestUnprocessedUTC:string|null};
  security:{turnstileConfigured:boolean;turnstileEnabled:boolean;turnstileMisconfigured:boolean};
@@ -38,6 +39,14 @@ export default function ReadinessPanel({accessKey}:{accessKey:string}){
    <div className="list-row"><div><strong>真实批发 Stripe 收款闭环</strong><small>仅统计报价合计至少 10 件、Stripe 成功会话对应足额入账记录且订单为 PAID 的正式订单；不包含 $0.50 独立验证或历史线下收款。</small></div><span>{data.b2bStripeEvidence.reconciledPaidOrders===null?'尚无法核验':data.b2bStripeEvidence.reconciledPaidOrders+' / '+count(data.b2bStripeEvidence.wholesaleOrders)}</span></div>
    <div className="list-row"><div><strong>批发待付款订单 / Stripe 会话</strong><small>未全额付款订单数和已创建的批发 Stripe Checkout 会话数，均为生产数据库只读统计；不代表已扣款。</small></div><span>{count(data.b2bStripeEvidence.awaitingPaymentOrders)} / {count(data.b2bStripeEvidence.stripeCheckoutSessions)}</span></div>
    {data.b2bStripeEvidence.schemaPresent&&data.b2bStripeEvidence.reconciledPaidOrders===0&&<p role="status" className="form-status error">尚无可核对的正式批发 Stripe 足额付款闭环。配置开启及独立小额测试成功，不等于客户批发订单验收通过。</p>}
+   <div className="list-row"><div><strong>已发送/已浏览、尚未接受的报价</strong><small>待跟进报价总数 / 未来两个 UTC 日历日内到期数 / 已过报价有效日但尚未处理数；仅为后台只读统计。</small></div>
+    <span>{count(data.quoteExpiryHealth.outstandingSentOrViewed)} / {count(data.quoteExpiryHealth.expiringWithinTwoCalendarDays)} / {count(data.quoteExpiryHealth.pastValidityDate)}</span></div>
+   {(data.quoteExpiryHealth.expiringWithinTwoCalendarDays??0)>0&&
+     <p role="status" className="form-status">有报价临近有效期限。请在 <a href="/app/quotes">报价管理</a> 中逐单核查客户需求、实际供应商价格、DDP 运费及税务；不得未经客户同意自动改价或发送邮件。</p>}
+   {(data.quoteExpiryHealth.pastValidityDate??0)>0&&
+     <p role="alert" className="form-status error">有已发送或已浏览报价超过有效日期但仍未转为已接受/过期状态。旧报价不可当成有效收款依据，应核对状态并重新审核。</p>}
+   {!data.quoteExpiryHealth.schemaPresent&&
+     <p role="alert" className="form-status error">报价数据表缺失，不能核实报价到期风险。</p>}
    <div className="list-row"><div><strong>批发 Stripe Checkout 待确认会话</strong><small>本地数据库中仍为 OPEN/PENDING 且订单未结清的会话总数 / 超过 24 小时的会话数；不是实时 Stripe 支付状态。</small></div>
     <span>{count(data.b2bStripeSessionHealth.openOrPendingSessions)} / {count(data.b2bStripeSessionHealth.olderThan24Hours)}</span></div>
    {(data.b2bStripeSessionHealth.olderThan24Hours??0)>0&&
