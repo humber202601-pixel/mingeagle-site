@@ -3,9 +3,10 @@
 import {verifyQuoteProcurement} from '../../../lib/quote-procurement-review';
 import {quoteTermsIssues,stripeCheckoutTermsSupported} from '../../../lib/b2b-quote-terms';
 import {quoteTotals} from '../../../lib/quote-totals';
+import {quoteReleaseFingerprint} from '../../../lib/b2b-quote-release-fingerprint';
 interface Env{MINGEAGLE_DB?:D1Database}
 type Quote={id:string;reference:string;status:string;currency:string|null;subtotal:number;discount:number|null;shipping:number;tax:number;total:number;tax_basis:string|null;payment_terms:string|null;shipping_terms:string|null;valid_until:string|null};
-type Item={description:string;quantity:number;unit_price:number;line_total:number};
+type Item={id:string;product_id:string|null;variant_id:string|null;sort_order:number;description:string;quantity:number;unit_price:number;line_total:number};
 const reply=(data:Record<string,unknown>,status=200)=>Response.json(data,{status,headers:{'cache-control':'private, no-store'}});
 export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
  const db=env.MINGEAGLE_DB;if(!db)return reply({ok:false,error:'CRM database unavailable'},503);
@@ -14,7 +15,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
  try{
   const quote=await db.prepare('SELECT id,reference,status,currency,subtotal,discount,shipping,tax,total,tax_basis,payment_terms,shipping_terms,valid_until FROM quotes WHERE id=? LIMIT 1').bind(quoteId).first<Quote>();
   if(!quote)return reply({ok:false,error:'Quotation not found'},404);
-  const result=await db.prepare('SELECT description,quantity,unit_price,line_total FROM quote_items WHERE quote_id=? ORDER BY sort_order,id').bind(quote.id).all<Item>();
+  const result=await db.prepare('SELECT id,product_id,variant_id,sort_order,description,quantity,unit_price,line_total FROM quote_items WHERE quote_id=? ORDER BY sort_order,id').bind(quote.id).all<Item>();
   if(!Array.isArray(result.results))throw Error('Missing quotation lines');
   const review=await verifyQuoteProcurement(db,result.results.map(r=>({description:r.description,quantity:r.quantity,unitPrice:r.unit_price})),
    quote.discount??0,String(quote.currency||'USD'),new Date().toISOString().slice(0,10));
@@ -45,7 +46,8 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
   // and sales tax are NOT profit, and operational costs remain unknown.
   const baseline=amountMatchesQuote?review.baselineMerchandiseCostCents:null;
   const difference=baseline===null?null:(computed.subtotalCents-computed.discountCents-baseline);
-  return reply({ok:true,quoteReference:quote.reference,quoteStatus:quote.status,
+  const quoteFingerprint=await quoteReleaseFingerprint(quote,result.results);
+  return reply({ok:true,quoteReference:quote.reference,quoteStatus:quote.status,quoteFingerprint,
    review:{requiresLandedCostReview:wholesaleUnits>=10,safeForManualRelease:review.ok&&issues.length===0&&['DRAFT','SENT','VIEWED'].includes(quote.status),
     issues,approvedSkuBaselines:review.matched,
     unverifiedSkuBaselines:review.unverified,
