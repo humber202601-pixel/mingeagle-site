@@ -126,11 +126,28 @@ test('真实报价界面：精确数量、金额、修改审核、批准与客�
  await expect(page.getByText(/Save USD 3\.83/)).toBeVisible();
  await expect(page.getByText(/Product savings USD 11\.49/)).toBeVisible();
  await expect(page.getByText('USD 43.82',{exact:true}).first()).toBeVisible();
+ await expect(page.getByText('Confirm the US delivery destination from this quotation',{exact:true})).toBeVisible();
+ await expect(page.getByText('Pay securely with Airwallex',{exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Accept quote & create order',exact:true})).toBeDisabled();
+ await page.getByLabel('Street address',{exact:true}).fill('1 Synthetic Street');
+ await page.getByLabel('City',{exact:true}).fill('Austin');
+ await page.getByLabel('US state (two letters)',{exact:true}).fill('TX');
+ await page.getByLabel('ZIP code',{exact:true}).fill('78701');
+ await page.getByRole('checkbox',{name:/I have reviewed the quotation and authorize MING EAGLE/}).check();
+ await expect(page.getByRole('button',{name:'Accept quote & create order',exact:true})).toBeEnabled();
+ const acceptResponse=page.waitForResponse(r=>r.url().includes('/api/quote/')&&r.request().method()==='POST');
+ await page.getByRole('button',{name:'Accept quote & create order',exact:true}).click();
+ const accepted=await acceptResponse;
+ expect(accepted.status()).toBe(201);
+ await expect(page.getByText(/Order ME-/)).toBeVisible();
+ await expect(page.locator('.order-grid').getByText('UNPAID',{exact:true})).toBeVisible();
+ await expect(page.getByText(/Stripe checkout is currently unavailable for this order\./)).toBeVisible();
+ await expect(page.getByText('Pay securely with Airwallex',{exact:true})).toHaveCount(0);
  await noPageOverflow(page);
  await page.screenshot({path:testInfo.outputPath('synthetic-customer-quote.png'),fullPage:true});
  expect(errors).toEqual([]);
  data=await (await request.get('/api/admin/data',{headers:auth})).json();
- expect(data.quotes.find((q:{id:string})=>q.id===created.quoteId).status).toBe('VIEWED');
+ expect(data.quotes.find((q:{id:string})=>q.id===created.quoteId).status).toBe('CONVERTED');
 });
 
 test('数量区间留待确认，空数量不能提交草稿',async({page,request})=>{

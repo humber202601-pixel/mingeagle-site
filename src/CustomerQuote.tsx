@@ -5,18 +5,8 @@ type Quote={reference:string;status:string;currency:string;subtotal:number;
 type Item={description:string;quantity:number;unit_price:number;line_total:number};
 type Order={reference:string;status:string;payment_status:string};
 type Info={ok:boolean;error?:string;quote?:Quote;items?:Item[];order?:Order};
-type PayStatus={ok:boolean;stripe?:{checkoutReady:boolean;mode:'test'|'live'|null};airwallex?:{checkoutReady:boolean;environment:'sandbox'|'prod'|null}};
-type Sdk={payments:{redirectToCheckout:(opts:Record<string,unknown>)=>void}};
-declare global{interface Window{AirwallexComponentsSDK?:{init:(o:Record<string,unknown>)=>Promise<Sdk>}}}
-function loadProvider(){
- if(window.AirwallexComponentsSDK)return Promise.resolve();
- return new Promise<void>((resolve,reject)=>{
-  const tag=document.createElement('script');tag.src='https://static.airwallex.com/components/sdk/v1/index.js';
-  tag.async=true;tag.onload=()=>window.AirwallexComponentsSDK?resolve():reject(Error('Secure payment SDK is unavailable'));
-  tag.onerror=()=>reject(Error('Payment service could not be loaded'));
-  document.head.appendChild(tag);
- });
-}
+type PayStatus={ok:boolean;stripe?:{checkoutReady:boolean;mode:'test'|'live'|null}};
+const US_STATES=[['AL','Alabama'],['AK','Alaska'],['AZ','Arizona'],['AR','Arkansas'],['CA','California'],['CO','Colorado'],['CT','Connecticut'],['DE','Delaware'],['DC','District of Columbia'],['FL','Florida'],['GA','Georgia'],['HI','Hawaii'],['ID','Idaho'],['IL','Illinois'],['IN','Indiana'],['IA','Iowa'],['KS','Kansas'],['KY','Kentucky'],['LA','Louisiana'],['ME','Maine'],['MD','Maryland'],['MA','Massachusetts'],['MI','Michigan'],['MN','Minnesota'],['MS','Mississippi'],['MO','Missouri'],['MT','Montana'],['NE','Nebraska'],['NV','Nevada'],['NH','New Hampshire'],['NJ','New Jersey'],['NM','New Mexico'],['NY','New York'],['NC','North Carolina'],['ND','North Dakota'],['OH','Ohio'],['OK','Oklahoma'],['OR','Oregon'],['PA','Pennsylvania'],['RI','Rhode Island'],['SC','South Carolina'],['SD','South Dakota'],['TN','Tennessee'],['TX','Texas'],['UT','Utah'],['VT','Vermont'],['VA','Virginia'],['WA','Washington'],['WV','West Virginia'],['WI','Wisconsin'],['WY','Wyoming']];
 const money=(v:number)=>'$'+Number(v).toFixed(2);
 export default function CustomerQuote(){
  const {token=''}=useParams<{token:string}>();
@@ -61,39 +51,16 @@ export default function CustomerQuote(){
    window.location.assign(url.href);
   }catch(e){setError(e instanceof Error?e.message:'Stripe checkout unavailable');setBusy(false)}
  }
- async function pay(){
-  if(!valid||!payment?.airwallex?.checkoutReady||!data?.order||busy)return;
-  setBusy(true);setError('');
-  try{
-   const response=await fetch('/api/payments/airwallex/create',{
-    method:'POST',headers:{'content-type':'application/json'},
-    body:JSON.stringify({token})
-   });
-   const result=await response.json() as {ok?:boolean;pending?:boolean;status?:string;
-    intentId?:string;clientSecret?:string;currency?:string;sdkEnv?:string;successUrl?:string;error?:string};
-   if(!response.ok||!result.ok)throw Error(result.error||'Unable to start payment');
-   if(result.pending){setError('Payment is pending verification. Do not pay twice.');return}
-   if(!result.intentId||!result.clientSecret||!result.currency||
-     !['sandbox','prod'].includes(String(result.sdkEnv)))throw Error('Payment session incomplete');
-   const target=new URL(String(result.successUrl||''));
-   if(target.origin!==location.origin||!target.pathname.startsWith('/quote/'+token))
-    throw Error('Invalid payment return URL');
-   await loadProvider();
-   const sdk=await window.AirwallexComponentsSDK!.init({
-    env:result.sdkEnv==='sandbox'?'demo':'prod',enabledElements:['payments']
-   });
-   sdk.payments.redirectToCheckout({
-    env:result.sdkEnv==='sandbox'?'demo':'prod',mode:'payment',currency:result.currency,
-    intent_id:result.intentId,client_secret:result.clientSecret,successUrl:target.href
-   });
-  }catch(e){setError(e instanceof Error?e.message:'Secure payment unavailable')}
-  finally{setBusy(false)}
- }
+ const [shippingAddress,setShippingAddress]=useState({line1:'',city:'',state:'',postalCode:''});
  async function accept(){
   if(!valid||!data?.quote)return;
+  const line1=shippingAddress.line1.trim(),city=shippingAddress.city.trim(),state=shippingAddress.state.trim().toUpperCase(),postalCode=shippingAddress.postalCode.trim();
+  if(line1.length<5||line1.length>180||city.length<2||city.length>100||!US_STATES.some(([code])=>code===state)||!/^[0-9]{5}(?:-[0-9]{4})?$/.test(postalCode)){
+   setError('Enter a valid US street address, city, state and ZIP code before accepting this quotation.');return;
+  }
   setBusy(true);setError('');
   try{
-   const r=await fetch('/api/quote/'+token,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'accept'})});
+   const r=await fetch('/api/quote/'+token,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'accept',shippingAddress:{country:'US',line1,city,state,postalCode}})});
    const result=await r.json() as {ok?:boolean;error?:string};
    if(!r.ok||!result.ok)throw Error(result.error||'Unable to accept this quotation');
    await load();
@@ -121,6 +88,16 @@ export default function CustomerQuote(){
      <h2>{taxPending?'Total before sales tax':'Total'}: {money(q.total)}</h2>
      {taxPending&&<p className="form-note">Your final sales tax and total will be shown before you pay, using the delivery address on this order.</p>}
      <p className="form-note">{q.shipping_terms||'Delivery terms are stated in the quotation.'}</p>
+     {!order&&['SENT','VIEWED'].includes(q.status)&&!q.is_expired&&<section className="form-note" aria-label="US delivery address">
+      <h3>Confirm US delivery address</h3>
+      <p>Before accepting this Stripe quotation, enter the delivery address. We use the state and ZIP to verify the quoted freight and tax treatment.</p>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12}}>
+       <label>Street address<input aria-label="Street address" value={shippingAddress.line1} onChange={e=>setShippingAddress(a=>({...a,line1:e.target.value}))} autoComplete="street-address" /></label>
+       <label>City<input aria-label="City" value={shippingAddress.city} onChange={e=>setShippingAddress(a=>({...a,city:e.target.value}))} autoComplete="address-level2" /></label>
+       <label>State<select aria-label="State" value={shippingAddress.state} onChange={e=>setShippingAddress(a=>({...a,state:e.target.value}))} autoComplete="address-level1"><option value="">Select state</option>{US_STATES.map(([code,name])=><option key={code} value={code}>{name} ({code})</option>)}</select></label>
+       <label>ZIP code<input aria-label="ZIP code" value={shippingAddress.postalCode} onChange={e=>setShippingAddress(a=>({...a,postalCode:e.target.value}))} autoComplete="postal-code" inputMode="numeric" /></label>
+      </div>
+     </section>}
      {order?<div role="status">
       <strong>Order {order.reference}</strong>
       <p>Payment: {order.payment_status}. Status: {order.status}.</p>
@@ -133,9 +110,7 @@ export default function CustomerQuote(){
        <button className="button" disabled={busy} onClick={accept}>{busy?'Processing…':'Accept quote to create unpaid order'}</button>:
        order&&payment?.stripe?.checkoutReady?
        <button className="button" disabled={busy} onClick={payStripe}>{busy?'Preparing…':'Pay securely with Stripe'}</button>:
-       order&&!order.reference.startsWith('ME-RO-')&&payment?.airwallex?.checkoutReady?
-       <button className="button" disabled={busy} onClick={pay}>{busy?'Preparing…':'Pay securely with Airwallex'}</button>:
-       <p className="form-note">Online payment is not yet activated for this order. Contact MING EAGLE for approved payment arrangements.</p>}
+       <p className="form-note">Stripe online payment is not yet activated for this order. Contact MING EAGLE for the approved Stripe payment link.</p>}
      <p className="form-note">Do not send credit card details by email, chat or WhatsApp.</p>
     </section>
    </>}

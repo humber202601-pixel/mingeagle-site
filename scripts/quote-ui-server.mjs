@@ -16,6 +16,7 @@ const paths=['inquiries','quote-reference','admin/session','admin/data','admin/q
 const routes=new Map();
 for(const path of paths)routes.set('/api/'+path,await load(path.replaceAll('/','-'),'functions/api/'+path+'.ts'));
 const customer=await load('customer','functions/quote/[token].ts');
+const customerApi=await load('customer-api','functions/api/quote/[token].ts');
 const sqlite=new DatabaseSync(':memory:');
 for(const file of ['0001_core.sql','0002_quote_public_links.sql','0003_airwallex_payment_sessions.sql','0004_shipping_rates.sql','0005_supplier_purchase_terms.sql','0016_b2b_tax_basis.sql'])sqlite.exec(readFileSync('migrations/'+file,'utf8'));
 /* Production discovery candidate data is provisioned by the discovery intake
@@ -35,7 +36,7 @@ const database={
  prepare(sql){const s={args:[],bind(...args){s.args=args;return s;},async first(){return sqlite.prepare(sql).get(...s.args)||null;},async all(){return {success:true,results:sqlite.prepare(sql).all(...s.args)};},async run(){return {success:true,meta:{changes:Number(sqlite.prepare(sql).run(...s.args).changes)}};}};return s;},
  async batch(statements){sqlite.exec('BEGIN');try{const result=[];for(const s of statements)result.push(await s.run());sqlite.exec('COMMIT');return result;}catch(error){sqlite.exec('ROLLBACK');throw error;}}
 };
-const env={MINGEAGLE_DB:database,ADMIN_ACCESS_KEY:FIXTURE_KEY,TEST_ENVIRONMENT:'preview',OUTBOUND_EMAIL_DISABLED:'true',AUTO_EMAIL_ENABLED:'false'};
+const env={MINGEAGLE_DB:database,ADMIN_ACCESS_KEY:FIXTURE_KEY,TEST_ENVIRONMENT:'preview',OUTBOUND_EMAIL_DISABLED:'true',AUTO_EMAIL_ENABLED:'false',STRIPE_B2B_APPROVED_US_STATES:'TX,OR,NH',STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',STRIPE_RETAIL_ONLY_ENABLED:'false'};
 // A mistaken email/provider call fails this fixture, even if future code changes.
 let externalAttempts=0;
 globalThis.fetch=async()=>{externalAttempts++;throw Error('External requests are forbidden in the isolated browser fixture');};
@@ -49,6 +50,8 @@ const server=http.createServer(async(req,res)=>{
   let module=routes.get(url.pathname),params={};
   const token=/^\/quote\/([a-f0-9]{64})$/.exec(url.pathname);
   if(token){module=customer;params={token:token[1]};}
+  const apiToken=/^\/api\/quote\/([a-f0-9]{64})$/.exec(url.pathname);
+  if(apiToken){module=customerApi;params={token:apiToken[1]};}
   if(module){
    const chunks=[];for await(const chunk of req)chunks.push(chunk);
    const request=new Request(url,{method:req.method,headers:req.headers,...(!['GET','HEAD'].includes(req.method)?{body:Buffer.concat(chunks)}:{})});
