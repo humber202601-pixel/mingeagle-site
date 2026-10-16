@@ -82,7 +82,10 @@ const env={MINGEAGLE_DB:{
   sql,params
  }}}},async batch(stmts){saved.push(...stmts);return stmts.map(()=>({success:true}))}
 }};
-const call=async payload=>{const resp=await onRequestPost({request:new Request('https://app.mingeagle.com/api/admin/wholesale-quote-draft',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({inquiryReference:reference,...payload})}),env});return {status:resp.status,result:await resp.json()}};
+const call=async payload=>{const resp=await onRequestPost({request:new Request('https://app.mingeagle.com/api/admin/wholesale-quote-draft',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({inquiryReference:reference,taxUSD:0,taxBasis:'SYNTHETIC_TEST: documented simulated tax review for isolated unit tests only',...payload})}),env});return {status:resp.status,result:await resp.json()}};
+const missingBasis=await call({unitPrices:[2,3,4],shippingUSD:20,paymentTerms:'Payment after confirmation',shippingTerms:'FOB by agreement',taxBasis:''});
+assert.equal(missingBasis.status,400,'No quotation can be created without an explicit tax review basis');
+assert.equal(saved.length,0,'Missing tax review must not mutate quotes');
 let x=await call({unitPrices:[2,3,4],shippingUSD:20,paymentTerms:'Payment after confirmation',shippingTerms:'FOB by agreement'});
 assert.equal(x.status,200,JSON.stringify(x));assert.equal(x.result.items,3);
 assert.equal(x.result.purchaseCostReview.approvedSkuBaselines,0);
