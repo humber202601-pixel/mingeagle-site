@@ -83,8 +83,9 @@ if((q.get('type')==='retail'||q.get('type')==='quote')&&q.get('cart')){
   'Total items: '+totalUnits,
   'Destination country: '+country,
   'Preferred shipping: '+mode,
-  'Estimated freight USD (unverified): '+String(q.get('cart_shipping')||'').slice(0,20),
-  'Estimated total before tax USD (unverified): '+String(q.get('cart_total')||'').slice(0,20),
+  ...(mode==='Sea freight'
+   ? ['Wholesale price, supplier cartons and ocean DDP freight: written quotation required (not calculated).']
+   : ['Retail air-shipping estimate: refer to the actual carrier and tax review before payment.']),
   'Final item prices, colors, freight, taxes and availability must be confirmed before payment.'
  ].join('\n');
  if(totalUnits>0&&totalUnits<=10000&&country&&lines.length&&
