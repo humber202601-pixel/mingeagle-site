@@ -171,6 +171,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    "WHERE order_id=? AND provider='STRIPE' AND amount=? AND currency='USD' "+
    "AND status IN ('OPEN','PENDING') ORDER BY created_at DESC LIMIT 1"
   ).bind(String(order.id),taxMode==='STRIPE_AUTOMATIC'?due:due/100).first<{provider_intent_id:string;tax_amount_cents?:number;tax_customer_id?:string}>();
+  let confirmedExpiredSessionId:string|null=null;
   if(old?.provider_intent_id){
    if(!stripeSessionMatchesMode(old.provider_intent_id,env.STRIPE_MODE))
     return fail('Existing checkout session does not match the configured Stripe mode.',409);
@@ -195,8 +196,17 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       last.metadata?.order_reference!==String(order.reference)||
       last.automatic_tax?.enabled===true
     ))return fail('Existing Stripe Checkout does not match the approved order. Contact MING EAGLE for review.',409);
-    if(last.status==='open'&&typeof last.url==='string'&&new URL(last.url).hostname==='checkout.stripe.com'&&new URL(last.url).protocol==='https:')
-     return Response.json({ok:true,url:last.url,reused:true},{headers:{'cache-control':'no-store'}});
+    if(last.status==='open'){
+     if(typeof last.url==='string'&&new URL(last.url).hostname==='checkout.stripe.com'&&new URL(last.url).protocol==='https:')
+      return Response.json({ok:true,url:last.url,reused:true},{headers:{'cache-control':'no-store'}});
+     return fail('Existing Stripe Checkout link is invalid. Contact MING EAGLE before retrying payment.',409);
+    }
+    if(last.status!=='expired')
+     return fail('Existing Stripe Checkout cannot be verified as expired. Do not start another payment.',409);
+    confirmedExpiredSessionId=old.provider_intent_id;
+   }else{
+    // Never create a second payment attempt when Stripe's state is unknown.
+    return fail('Previous Stripe Checkout status is temporarily unavailable. Do not start another payment; retry status verification later.',503);
    }
   }
   const form=new URLSearchParams();
@@ -241,7 +251,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   }
   // Stable for concurrent requests; rotated daily so expired sessions can be replaced.
   const day=Math.floor(Date.now()/86400000);
-  const requestKey='mingeagle-'+String(order.id)+'-'+String(due)+'-'+String(day)+(taxMode==='STRIPE_AUTOMATIC'?'-tax-v1':'');
+  const requestKey='mingeagle-'+String(order.id)+'-'+String(due)+'-'+String(day)+(taxMode==='STRIPE_AUTOMATIC'?'-tax-v1':'')+
+   (confirmedExpiredSessionId?'-after-'+confirmedExpiredSessionId:'');
   const response=await stripeApi(env,'checkout/sessions',{
    method:'POST',headers:{'content-type':'application/x-www-form-urlencoded','idempotency-key':requestKey},
    body:form.toString()
@@ -251,21 +262,35 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    customer?:string;automatic_tax?:{enabled?:boolean;status?:string};total_details?:{amount_tax?:number}};
   const salesTax=taxMode==='STRIPE_AUTOMATIC'?automaticTaxAmount(session,due):0;
   if(!stripeSessionMatchesMode(session.id,env.STRIPE_MODE)||!session.url||
-     salesTax===null||session.amount_total!==due+Number(salesTax)||session.currency!=='usd'||
+     session.status!=='open'||salesTax===null||session.amount_total!==due+Number(salesTax)||session.currency!=='usd'||
      (taxMode==='STRIPE_AUTOMATIC'&&session.customer!==taxCustomer)||
      (new URL(session.url).hostname!=='checkout.stripe.com'||new URL(session.url).protocol!=='https:'))
    return fail('Provider returned an invalid checkout session.',502);
-  if(taxMode==='STRIPE_AUTOMATIC')await db.prepare(
-   "INSERT OR IGNORE INTO payment_provider_sessions "+
-   "(id,order_id,provider,provider_intent_id,request_id,amount,currency,status,tax_mode,base_amount_cents,tax_amount_cents,tax_state,tax_customer_id) "+
-   "VALUES (?,?,'STRIPE',?,?,?,'USD','OPEN','STRIPE_AUTOMATIC',?,?,?,?)"
-  ).bind(crypto.randomUUID(),String(order.id),session.id,requestKey,(due+Number(salesTax))/100,
-   due,salesTax,shippingAddress.state!,taxCustomer!).run();
-  else await db.prepare(
-   "INSERT OR IGNORE INTO payment_provider_sessions "+
-   "(id,order_id,provider,provider_intent_id,request_id,amount,currency,status) "+
-   "VALUES (?,?,'STRIPE',?,?,?,'USD','OPEN')"
-  ).bind(crypto.randomUUID(),String(order.id),session.id,requestKey,due/100).run();
+  const insertSession=taxMode==='STRIPE_AUTOMATIC'?
+   db.prepare(
+    "INSERT OR IGNORE INTO payment_provider_sessions "+
+    "(id,order_id,provider,provider_intent_id,request_id,amount,currency,status,tax_mode,base_amount_cents,tax_amount_cents,tax_state,tax_customer_id) "+
+    "VALUES (?,?,'STRIPE',?,?,?,'USD','OPEN','STRIPE_AUTOMATIC',?,?,?,?)"
+   ).bind(crypto.randomUUID(),String(order.id),session.id,requestKey,(due+Number(salesTax))/100,
+     due,salesTax,shippingAddress.state!,taxCustomer!):
+   db.prepare(
+    "INSERT OR IGNORE INTO payment_provider_sessions "+
+    "(id,order_id,provider,provider_intent_id,request_id,amount,currency,status) "+
+    "VALUES (?,?,'STRIPE',?,?,?,'USD','OPEN')"
+   ).bind(crypto.randomUUID(),String(order.id),session.id,requestKey,due/100);
+  if(confirmedExpiredSessionId){
+   // Make the replacement active and retire the confirmed-expired prior
+   // session in a single D1 transaction. Repeated requests reuse Stripe's
+   // replacement idempotency key even if our first DB attempt failed.
+   const persisted=await db.batch([
+    db.prepare("UPDATE payment_provider_sessions SET status='EXPIRED',updated_at=CURRENT_TIMESTAMP "+
+     "WHERE provider='STRIPE' AND order_id=? AND provider_intent_id=? AND status IN ('OPEN','PENDING')")
+     .bind(String(order.id),confirmedExpiredSessionId),
+    insertSession
+   ]);
+   if(persisted.length!==2||persisted.some(x=>!x.success))
+    return fail('Replacement Checkout could not be recorded. Do not attempt another payment.',503);
+  }else await insertSession.run();
   const stored=await db.prepare(
    "SELECT order_id FROM payment_provider_sessions WHERE provider='STRIPE' AND provider_intent_id=?"
   ).bind(session.id).first<{order_id:string}>();
