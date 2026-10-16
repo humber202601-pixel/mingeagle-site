@@ -38,7 +38,7 @@ type QuoteSendResult = {
 };
 
 type QuotePreflight={ok?:boolean;error?:string;quoteFingerprint?:string;review?:{
- safeForManualRelease:boolean;requiresLandedCostReview:boolean;approvedSkuBaselines:number;unverifiedSkuBaselines:number;
+ safeForManualRelease:boolean;commercialChecksPassed:boolean;remainingReleaseGates:string[];requiresLandedCostReview:boolean;approvedSkuBaselines:number;unverifiedSkuBaselines:number;
  supplierConfirmationRequired:boolean;issues:string[];note:string;
  commercialEstimate?:{
   basis:'NOT_CALCULABLE'|'SKU_SIZE_COST_FLOOR_ONLY';
@@ -350,7 +350,8 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       if(!preflightResponse.ok||!preflight.ok||!preflight.review)
         throw Error(preflight.error||'报价采购成本预审失败，尚未发布或发送。');
       const review=preflight.review;
-      if(!review.safeForManualRelease){
+      // This preflight does not validate the separate six-cost release evidence.
+      if(!review.commercialChecksPassed){
         const labels:Record<string,string>={
           PAYMENT_TERMS_UNCONFIRMED:'付款方式及付款时间尚未确认',
           STRIPE_ONLY_QUOTE_TERMS:'本网站只接受 Stripe 在线收款，请将报价付款条款改为 Stripe Checkout 并核实收货州税务及运费',
@@ -362,6 +363,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
         };
         throw Error('报价暂不能发布：'+(review.issues.map(issue=>labels[issue]||issue).join('、')||'报价状态不允许发布')+'。请先补全采购商业条款并重新预审。');
       }
+      // Quote-specific landed cost proof is mandatory for 10+ wholesale units.
       const costEvidence=landedReviews[quoteId];
       if(review.requiresLandedCostReview&&
         (!costEvidence||costEvidence.quotedTotalUSD!==review.commercialEstimate?.totalQuotedUSD||

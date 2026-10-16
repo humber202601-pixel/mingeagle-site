@@ -30,7 +30,9 @@ try{
  let r=await invoke('invalid id!');assert.equal(r.status,400);assert.equal(reads,0);
  r=await invoke('another-quote-id');assert.equal(r.status,404);
  r=await invoke();assert.equal(r.status,200,JSON.stringify(r.data));
- assert.equal(r.data.review.safeForManualRelease,true);
+ assert.equal(r.data.review.commercialChecksPassed,true,'Basic commercial preflight passes');
+ assert.equal(r.data.review.safeForManualRelease,false,'100-unit quote still lacks final landed cost release proof');
+ assert.deepEqual(r.data.review.remainingReleaseGates,['LANDED_COST_PROOF_REQUIRED','SUPPLIER_COST_ACK_REQUIRED']);
  assert.match(r.data.quoteFingerprint,/^[a-f0-9]{64}$/,'Preflight must return server-calculated snapshot');
  const firstFingerprint=r.data.quoteFingerprint;
  lines[0].description='Flocked Silent Basketball Set | No. 5 | Orange';
@@ -75,7 +77,8 @@ try{
  r=await invoke();assert.equal(r.data.review.safeForManualRelease,false,'Missing Ship-to state cannot pass preflight');
  assert(r.data.review.issues.includes('B2B_STRIPE_QUOTE_NOT_PAYABLE'));
  quote.shipping_terms='Ocean freight DDP to US receiving site within agreed delivery estimate; Ship-to state: TX';
- r=await invoke();assert.equal(r.data.review.safeForManualRelease,true,'Both destination and tax basis restore seller readiness');
+ r=await invoke();assert.equal(r.data.review.commercialChecksPassed,true,'Both destination and tax basis restore commercial preflight');
+ assert.equal(r.data.review.safeForManualRelease,false,'Landed cost gate remains unsatisfied after fixing delivery/tax terms');
  quote.shipping_terms='Final carrier and delivery schedule will be confirmed before shipment.';
  r=await invoke();assert.equal(r.data.review.safeForManualRelease,false,'Default freight text is not a confirmed delivery term');
  assert(r.data.review.issues.includes('SHIPPING_TERMS_UNCONFIRMED'));
@@ -92,7 +95,9 @@ try{
  r=await invoke();assert.equal(r.status,200);
  assert.equal(r.data.review.approvedSkuBaselines,1);
  assert.equal(r.data.review.unverifiedSkuBaselines,0);
- assert.equal(r.data.review.safeForManualRelease,true);
+ assert.equal(r.data.review.commercialChecksPassed,true);
+ assert.equal(r.data.review.safeForManualRelease,false,'An approved supplier SKU floor still does not replace 6-cost proof');
+ assert.deepEqual(r.data.review.remainingReleaseGates,['LANDED_COST_PROOF_REQUIRED']);
  assert.equal(r.data.review.commercialEstimate.basis,'SKU_SIZE_COST_FLOOR_ONLY');
  assert.equal(r.data.review.commercialEstimate.approvedFactoryCostBaselineUSD,700);
  assert.equal(r.data.review.commercialEstimate.merchandiseDifferenceBeforeOtherCostsUSD,103,
