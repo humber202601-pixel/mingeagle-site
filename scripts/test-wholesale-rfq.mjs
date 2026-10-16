@@ -82,18 +82,35 @@ const env={MINGEAGLE_DB:{
   sql,params
  }}}},async batch(stmts){saved.push(...stmts);return stmts.map(()=>({success:true}))}
 }};
-const call=async payload=>{const resp=await onRequestPost({request:new Request('https://app.mingeagle.com/api/admin/wholesale-quote-draft',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({inquiryReference:reference,...payload})}),env});return {status:resp.status,result:await resp.json()}};
-let x=await call({unitPrices:[2,3,4],shippingUSD:20,paymentTerms:'Payment after confirmation',shippingTerms:'FOB by agreement'});
+const reviewedTax={taxUSD:0,taxBasis:'Synthetic CI fixture only; no legal tax determination.'};
+const call=async payload=>{const resp=await onRequestPost({request:new Request('https://app.mingeagle.com/api/admin/wholesale-quote-draft',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({inquiryReference:reference,...reviewedTax,...payload})}),env});return {status:resp.status,result:await resp.json()}};
+let x=await call({unitPrices:[2,3,4],shippingUSD:20,taxUSD:12.34,paymentTerms:'Payment after confirmation',shippingTerms:'FOB by agreement'});
 assert.equal(x.status,200,JSON.stringify(x));assert.equal(x.result.items,3);
 assert.equal(x.result.purchaseCostReview.approvedSkuBaselines,0);
 assert.equal(x.result.purchaseCostReview.unverifiedSkuBaselines,3);
 assert(x.result.purchaseCostReview.estimates.every(x=>x.purchaseUnitUSD===null),
  'No configured purchasing source must not create fictitious supplier costs');
-assert.equal(x.result.subtotalUSD,1200);assert.equal(x.result.totalUSD,1220);
+assert.equal(x.result.subtotalUSD,1200);assert.equal(x.result.taxUSD,12.34);assert.equal(x.result.totalUSD,1232.34);
+assert(saved.some(s=>s.sql.startsWith('INSERT INTO quotes')&&s.params?.includes?.(12.34)),
+ 'Reviewed nonzero tax must be persisted in the quote snapshot');
 assert.deepEqual(x.result.quantityReview,{fullySpecified:0,pending:3},
   'Unverified supplier quantity conditions must be explicit on draft confirmation');
 assert.equal(saved.filter(s=>s.sql.startsWith('INSERT INTO quote_items')).length,3);
 assert.equal(saved.filter(s=>s.sql.includes('INSERT INTO quote_retail_approvals')).length,3,'Three discounted lines must persist matching approved catalog retail values');
+for(const [taxUSD,taxBasis,expected] of [
+ [undefined,reviewedTax.taxBasis,/explicitly reviewed US sales-tax amount/],
+ ['',reviewedTax.taxBasis,/explicitly reviewed US sales-tax amount/],
+ [-1,reviewedTax.taxBasis,/valid USD prices, explicit shipping and a reviewed sales-tax amount/],
+ [1.001,reviewedTax.taxBasis,/valid USD prices, explicit shipping and a reviewed sales-tax amount/],
+ [0,'',/Document the reviewed US sales-tax basis/],
+]){
+ saved.length=0;
+ const payload={unitPrices:[2,3,4],shippingUSD:20,paymentTerms:'Terms',shippingTerms:'Terms',taxUSD,taxBasis};
+ const rejected=await call(payload);
+ assert.equal(rejected.status,400,JSON.stringify(rejected));
+ assert.match(rejected.result.error,expected);
+ assert.equal(saved.length,0,'Missing or invalid tax review must not create a quote');
+}
 for(const [quantityConstraints,expected] of [
  [[{moq:51,casePack:10},{moq:100,casePack:20},{moq:200,casePack:25}],'LINE_1_BELOW_MOQ'],
  [[{moq:50,casePack:24},{moq:100,casePack:20},{moq:200,casePack:25}],'LINE_1_NOT_CASE_MULTIPLE'],
