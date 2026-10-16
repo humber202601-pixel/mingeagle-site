@@ -74,7 +74,7 @@ export default function SupplierPricingManager({accessKey}:{accessKey:string}){
    const review=reviewSupplierCsv(intakeRaw,(data.terms||[]).map(t=>t.sku));
    setIntakeReview(review);
    if(review.errors.length||!review.drafts.length)throw Error('重新预检后存在错误或无可导入草稿。请修正文件并重试。');
-   if(!window.confirm('将 '+review.drafts.length+' 个供应商核实数据保存为待审核草稿。\\n不会批准成本、修改报价或创建付款。\\n如果某个 SKU 已存在，导入会被拒绝。确定继续吗？'))return;
+   if(!window.confirm('将 '+review.drafts.length+' 个供应商核实数据保存为待审核草稿。\n不会批准成本、修改报价或创建付款。\n如果某个 SKU 已存在，导入会被拒绝。确定继续吗？'))return;
    for(const {sku:code,terms:info} of review.drafts){
     const reply=await fetch('/api/admin/supplier-pricing',{
      method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},
