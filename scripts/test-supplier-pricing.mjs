@@ -38,6 +38,16 @@ try{
     ?api.onRequestPost({request,env}):api.onRequestGet({request,env})});
   return {status:r.status,json:await r.json()};
  };
+ const supplierUi=readFileSync('src/SupplierPricingManager.tsx','utf8');
+ const catalogLabels=readFileSync('lib/supplier-pricing.ts','utf8');
+ assert(supplierUi.includes('供应商真实采购价覆盖：{readyCount} / {coverage.length} 个 SKU'),
+  'Buyer-facing supply team needs a catalog coverage summary, not invented cost figures');
+ assert(supplierUi.includes("row?.status==='APPROVED'&&row.effectiveOn<=todayUTC&&row.expiresOn>=todayUTC"),
+  'Only approved current vendor terms can count toward coverage');
+ assert(supplierUi.includes('尚未录入')&&supplierUi.includes('已过期或未生效')&&supplierUi.includes('已停用'),
+  'Missing, expired and disabled supplier costs must not appear as approved');
+ assert(supplierUi.includes('onClick={()=>setSku(row.code)}'),'Operators should navigate to each missing SKU');
+ assert((catalogLabels.match(/'P[1-4]-S[3-7]':/g)||[]).length===11,'Supplier catalog must expose 11 actual public sizes');
  const before=await invoke('GET');
  assert.equal(before.status,503,'Unapplied migration must be an explicit unavailable state');
  sqlite.exec(readFileSync('migrations/0005_supplier_purchase_terms.sql','utf8'));
