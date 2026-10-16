@@ -53,8 +53,9 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  if(!costReview.ok)return bad('Approved supplier cost/MOQ check failed: '+costReview.issues.join(', ')+
   '. Review the supplier source, requested quantities and manual sales prices before drafting.');
  const shipping=calculation.shipping;
- const payment=String(input.paymentTerms||'').trim(),terms=String(input.shippingTerms||'').trim();
+ const payment=String(input.paymentTerms||'').trim(),terms=String(input.shippingTerms||'').trim(),taxBasis=String(input.taxBasis||'').trim();
  if(!payment||!terms||payment.length>500||terms.length>500)return bad('Confirm payment and shipping terms');
+ if(!taxBasis||taxBasis.length>1000)return bad('Document the reviewed US sales-tax basis before creating a wholesale quote');
  const cents=calculation.lineCents,subtotalCents=calculation.subtotalCents,totalCents=calculation.totalCents;
  const id=crypto.randomUUID(),quoteRef='ME-Q-'+Date.now().toString(36).toUpperCase()+'-'+crypto.randomUUID().slice(0,4).toUpperCase();
  // Catalog reference is already published and keyed by product + size.
@@ -66,9 +67,9 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  approved_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
  PRIMARY KEY(quote_id,item_id))`).run();
  const lineItems=lines.map((line,i)=>({ ...line,itemId:crypto.randomUUID(),wholesale:calculation.lines[i].unitCents/100,retail:retailReference(line.description) }));
- const sql=db.prepare("INSERT INTO quotes (id,reference,lead_id,inquiry_id,company_id,contact_id,status,currency,subtotal,discount,shipping,tax,total,payment_terms,shipping_terms,notes,valid_until) VALUES (?,?,?,?,?,?,'DRAFT','USD',?,0,?,0,?,?,?,?,datetime('now','+14 days'))").bind(id,quoteRef,inquiry.lead_id,inquiry.id,inquiry.company_id,inquiry.contact_id,subtotalCents/100,shipping,totalCents/100,payment,terms,'Wholesale draft. Manually priced by staff; verify freight, duties, stock and terms before sending. Source inquiry '+ref
+ const sql=db.prepare("INSERT INTO quotes (id,reference,lead_id,inquiry_id,company_id,contact_id,status,currency,subtotal,discount,shipping,tax,total,payment_terms,shipping_terms,notes,tax_basis,valid_until) VALUES (?,?,?,?,?,?,'DRAFT','USD',?,0,?,?,?,?,?,?,?,datetime('now','+14 days'))").bind(id,quoteRef,inquiry.lead_id,inquiry.id,inquiry.company_id,inquiry.contact_id,subtotalCents/100,shipping,calculation.tax,totalCents/100,payment,terms,'Wholesale draft. Manually priced by staff; verify freight, duties, stock and terms before sending. Source inquiry '+ref
  +'. Staff-entered MOQ/whole-case review: '+review.verified.length+' fully specified; '+review.pending.length+' lines have MOQ or case-pack not verified. Supplier confirmation required.'
- +'. Internal purchase source review: '+costReview.approvedLines+' lines matched an approved SKU-size baseline; '+costReview.unverifiedLines+' missing/expired/unapproved or color unverified. Internal cost figures must not be used as customer sale prices.');
+ +'. Sales-tax basis: '+taxBasis+'. Internal purchase source review: '+costReview.approvedLines+' lines matched an approved SKU-size baseline; '+costReview.unverifiedLines+' missing/expired/unapproved or color unverified. Internal cost figures must not be used as customer sale prices.',taxBasis);
  const stmts=[sql,...lineItems.map((line,i)=>db.prepare('INSERT INTO quote_items (id,quote_id,description,quantity,unit_price,line_total,sort_order) VALUES (?,?,?,?,?,?,?)').bind(line.itemId,id,line.description,line.quantity,line.wholesale,cents[i]/100,i)),
  ...lineItems.filter(line=>line.retail!==null&&line.wholesale<line.retail!).map(line=>db.prepare(`INSERT INTO quote_retail_approvals (quote_id,item_id,retail_usd,source_url,approved_description,approved_unit_price,approved_quantity)
  VALUES (?,?,?,?,?,?,?)`).bind(id,line.itemId,line.retail,RETAIL_SOURCE_URL,line.description,line.wholesale,line.quantity)),

@@ -31,7 +31,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     await ensureRevisionTable(db);
 
     const source = await db.prepare(`SELECT id, reference, lead_id, inquiry_id, company_id, contact_id, status, currency,
-      subtotal, discount, shipping, tax, total, payment_terms, shipping_terms, notes
+      subtotal, discount, shipping, tax, total, tax_basis, payment_terms, shipping_terms, notes
       FROM quotes WHERE id=? LIMIT 1`).bind(quoteId).first<Row>();
     if (!source) return Response.json({ ok: false, error: 'Quote not found.' }, { status: 404 });
 
@@ -69,7 +69,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const newQuoteId = crypto.randomUUID();
     await db.prepare(`INSERT INTO quotes (
       id, reference, lead_id, inquiry_id, company_id, contact_id, status, currency,
-      subtotal, discount, shipping, tax, total, payment_terms, shipping_terms, notes, valid_until
+      subtotal, discount, shipping, tax, total, tax_basis, payment_terms, shipping_terms, notes, valid_until
     ) VALUES (?, ?, ?, ?, ?, ?, 'DRAFT', ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now','+14 days'))`)
       .bind(
         newQuoteId,
@@ -84,6 +84,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         Number(source.shipping || 0),
         Number(source.tax || 0),
         Number(source.total || 0),
+        source.tax_basis || null,
         source.payment_terms || null,
         source.shipping_terms || null,
         source.notes || null,

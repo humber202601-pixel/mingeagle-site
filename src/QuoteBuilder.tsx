@@ -136,9 +136,10 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     const quantity = Math.max(0, safeNumber(data.get('quantity')));
     const unitPrice = Math.max(0, safeNumber(data.get('unitPrice')));
     const shipping = Math.max(0, safeNumber(data.get('shipping')));
+    const taxUSD = Math.max(0, safeNumber(data.get('taxUSD')));
     const discount = Math.max(0, safeNumber(data.get('discount')));
     try {
-      const totals = quoteTotals([{quantity:data.get('quantity'),unitPrice:data.get('unitPrice')}],data.get('shipping'),data.get('discount')||0);
+      const totals = quoteTotals([{quantity:data.get('quantity'),unitPrice:data.get('unitPrice')}],data.get('shipping'),data.get('discount')||0,data.get('taxUSD')||0);
       setCreatePreview(totals); setPreviewError('');
     } catch { setCreatePreview({subtotal:0,shipping:0,discount:0,total:0}); setPreviewError('请确认精确数量、单价和运费；金额最多两位小数，额外折扣不能超过商品金额。'); }
     const retailRaw=String(data.get('retailReference')||'').trim();
@@ -149,6 +150,8 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       quantity:Number.isSafeInteger(Number(data.get('quantity')))&&Number(data.get('quantity'))>0,
       unitPrice:unitPrice>0,
       shipping:String(data.get('shipping')??'').trim()!==''&&Number(data.get('shipping'))>=0,
+      tax:String(data.get('taxUSD')??'').trim()!==''&&Number(data.get('taxUSD'))>=0,
+      taxBasis:String(data.get('taxBasis')||'').trim().length>0,
       payment:String(data.get('paymentTerms')||'').trim().length>0,
       terms:String(data.get('shippingTerms')||'').trim().length>0,
     });
@@ -178,6 +181,8 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           quantity: data.get('quantity'),
           unitPrice: data.get('unitPrice'),
           shipping: data.get('shipping'),
+          taxUSD: data.get('taxUSD'),
+          taxBasis: data.get('taxBasis'),
           discount: data.get('discount'),
           validDays: data.get('validDays'),
           paymentTerms: data.get('paymentTerms'),
@@ -236,7 +241,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     if (!editDetail) return;
     const data = new FormData(event.currentTarget);
     try {
-      const totals = quoteTotals(editDetail.items.map(item=>({quantity:data.get(`quantity-${text(item.id)}`),unitPrice:data.get(`unitPrice-${text(item.id)}`)})),data.get('shipping'),data.get('discount')||0,editDetail.quote.tax??0);
+      const totals = quoteTotals(editDetail.items.map(item=>({quantity:data.get(`quantity-${text(item.id)}`),unitPrice:data.get(`unitPrice-${text(item.id)}`)})),data.get('shipping'),data.get('discount')||0,data.get('taxUSD')??editDetail.quote.tax??0);
       setEditPreviewTotal(totals.total);
     } catch {setEditPreviewTotal(null);}
   }
@@ -265,6 +270,8 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           quoteId,
           items,
           shipping: data.get('shipping'),
+          taxUSD: data.get('taxUSD'),
+          taxBasis: data.get('taxBasis'),
           discount: data.get('discount'),
           validUntil: data.get('validUntil'),
           paymentTerms: data.get('paymentTerms'),
@@ -448,6 +455,12 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           <label>运费（USD）
             <input name="shipping" type="number" min="0" step="0.01" placeholder="填写真实运费，包邮填 0" required />
           </label>
+          <label>美国销售税（USD）
+            <input name="taxUSD" type="number" min="0" step="0.01" placeholder="按收货州/客户免税资格核实；无应税额填 0" required />
+          </label>
+          <label className="span-2">销售税依据（客户订单审核记录）
+            <input name="taxBasis" placeholder="e.g. State nexus reviewed; taxable sale at destination rate, or valid resale/exemption documentation verified" required />
+          </label>
           <label>客户 ZIP（内部参考）
             <input value={text(selected?.shipping_postal_code, '待确认')} readOnly />
           </label>
@@ -514,6 +527,12 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           </div>)}
           <label>运费
             <input name="shipping" type="number" min="0" step="0.01" defaultValue={Number(editDetail.quote.shipping || 0).toFixed(2)} />
+            <label>美国销售税（USD）
+              <input name="taxUSD" type="number" min="0" step="0.01" defaultValue={Number(editDetail.quote.tax || 0).toFixed(2)} />
+            </label>
+            <label className="span-2">销售税依据
+              <input name="taxBasis" defaultValue={text(editDetail.quote.tax_basis)} placeholder="记录收货州税务审核、免税/转售证明等依据" required />
+            </label>
           </label>
           <label>优惠 / 折扣
             <input name="discount" type="number" min="0" step="0.01" defaultValue={Number(editDetail.quote.discount || 0).toFixed(2)} />

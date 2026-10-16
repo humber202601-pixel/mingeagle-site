@@ -21,7 +21,7 @@ const reference='ME-TEST-'+randomUUID().slice(0,8).toUpperCase();
 const description='Flocked Silent Basketball Set | No. 5 | Blue';
 let r=await request('/api/inquiries',{originalReference:reference,firstName:'Synthetic',lastName:'Preview Test',email:'quote-preview@example.invalid',country:'US',postalCode:'75201',estimatedQuantity:'50–100',products:['Flocked Silent Basketball Set'],privacyAck:true,message:'Synthetic isolated acceptance test.\nCombined wholesale RFQ (customer-selected; not a final price):\n'+description+' | 100 units'});
 assert.equal(r.status,200,JSON.stringify(r));assert.equal(r.body.reference,reference);assert.equal(r.body.emailForwarded,false);
-r=await request('/api/admin/wholesale-quote-draft',{inquiryReference:reference,unitPrices:['8.03'],shippingUSD:'19.90',paymentTerms:'Synthetic test; no payment',shippingTerms:'Synthetic test; no shipment'});
+r=await request('/api/admin/wholesale-quote-draft',{inquiryReference:reference,unitPrices:['8.03'],shippingUSD:'19.90',taxUSD:'0',taxBasis:'Synthetic preview: no tax collection',paymentTerms:'Synthetic test; no payment',shippingTerms:'Synthetic test; no shipment'});
 assert.equal(r.status,200,JSON.stringify(r));assert.equal(r.body.totalUSD,822.9);assert.equal(r.body.sent,false);
 const quoteReference=r.body.quoteReference;
 r=await request('/api/admin/data');assert.equal(r.status,200,JSON.stringify(r));

@@ -42,7 +42,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    "SELECT o.id,o.reference,o.status,o.payment_status,o.total,o.subtotal,o.discount,o.shipping,o.tax,o.currency,o.shipping_address,"+
    "q.status AS quote_status,q.sent_at AS quote_sent_at,q.accepted_at AS quote_accepted_at,"+
    "q.payment_terms AS quote_payment_terms,q.shipping_terms AS quote_shipping_terms,"+
-   "q.valid_until,q.reference AS quote_reference,q.subtotal AS quote_subtotal,"+
+   "q.valid_until,q.tax_basis,q.reference AS quote_reference,q.subtotal AS quote_subtotal,"+
    "q.discount AS quote_discount,q.shipping AS quote_shipping,q.tax AS quote_tax,"+
    "q.total AS quote_total,q.currency AS quote_currency,ct.email AS email,"+
    "(SELECT COALESCE(SUM(amount),0) FROM payments WHERE order_id=o.id AND status='RECEIVED') AS received "+
@@ -106,11 +106,12 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
      .split(',').map(x=>x.trim().toUpperCase()).filter(x=>/^[A-Z]{2}$/.test(x));
    if(!approved.includes(state))
     return fail('Business-order sales tax review for this delivery state is not yet authorized.',409);
-   // Current approved start-up destinations have no general sales tax.
-   // Other states must never inherit a zero-tax assumption.
-   if(['OR','NH'].includes(state)&&cents(order.tax)!==0)
-    return fail('Unexpected sales tax for this reviewed US delivery state.',409);
+   // Nationwide B2B is allowed only against the seller's explicit quote.
+   // The quoted tax amount may be zero only when the documented tax basis supports
+   // non-collection or a valid exemption/resale treatment. We never infer zero tax.
   }
+  if(!isRetail&&!String(order.tax_basis||'').trim())
+   return fail('Wholesale quotation is missing its documented sales-tax basis.',409);
   if(!isRetail&&!acceptedB2bQuotePayable({
    status:order.quote_status,sent_at:order.quote_sent_at,accepted_at:order.quote_accepted_at,
    payment_terms:order.quote_payment_terms,shipping_terms:order.quote_shipping_terms,
