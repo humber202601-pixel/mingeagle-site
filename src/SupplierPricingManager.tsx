@@ -1,6 +1,7 @@
 import {useCallback,useEffect,useState,type FormEvent} from 'react';
 import {SKU_LABELS} from '../lib/supplier-pricing';
 import {OWNER_REPORTED_FACTORY_COSTS_USD,OWNER_COST_NOTE_DATE,supplierCostIntakeCsv} from '../lib/supplier-cost-intake';
+import {reviewSupplierCsv,type SupplierImportReview} from '../lib/supplier-cost-import';
 type Tier={minimumQuantity:number;purchaseCents:number};
 type Term={sku:string;supplierName:string;supplierSku:string;moq:number;casePack:number;
  currency:string;tiers:Tier[];sourceNote:string;effectiveOn:string;expiresOn:string;
@@ -13,6 +14,7 @@ export default function SupplierPricingManager({accessKey}:{accessKey:string}){
  const [moq,setMoq]=useState(''),[casePack,setCasePack]=useState(''),[source,setSource]=useState('');
  const [effective,setEffective]=useState(''),[expiry,setExpiry]=useState('');
  const [tiers,setTiers]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
+ const [intakeRaw,setIntakeRaw]=useState(''),[intakeReview,setIntakeReview]=useState<SupplierImportReview|null>(null);
  const selected=terms.find(x=>x.sku===sku);
  // Coverage means only an approved and currently dated SKU/size baseline.
  // It is not verification of color, freight, customs, duties or profit.
@@ -46,6 +48,56 @@ export default function SupplierPricingManager({accessKey}:{accessKey:string}){
   const link=document.createElement('a');
   link.href=url;link.download='mingeagle-supplier-cost-intake-20261016.csv';
   document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+ }
+ async function previewIntake(file?:File){
+  setError('');setMessage('');setIntakeRaw('');setIntakeReview(null);
+  if(!file)return;
+  try{
+   if(file.size>120000)throw Error('CSV 文件超过 120 KB，请使用已导出的标准 11 SKU 模板');
+   const raw=await file.text();
+   const result=reviewSupplierCsv(raw,terms.map(t=>t.sku));
+   setIntakeRaw(raw);setIntakeReview(result);
+  }catch(e){setError('CSV 导入预检失败：'+(e instanceof Error?e.message:'无法读取文件'))}
+ }
+ async function importIntakeDrafts(){
+  if(!intakeRaw||!intakeReview||busy)return;
+  setBusy(true);setError('');setMessage('');
+  let written=0;
+  try{
+   // Refresh provider state immediately before starting to guard against
+   // stale preview overwriting a newly reviewed SKU. Never overwrite terms.
+   const res=await fetch('/api/admin/supplier-pricing',{
+    headers:{'x-admin-key':accessKey},cache:'no-store'
+   });
+   const data=await res.json() as {ok?:boolean;terms?:Term[];error?:string};
+   if(!res.ok||!data.ok)throw Error(data.error||'供应商目录无法重新核对');
+   const review=reviewSupplierCsv(intakeRaw,(data.terms||[]).map(t=>t.sku));
+   setIntakeReview(review);
+   if(review.errors.length||!review.drafts.length)throw Error('重新预检后存在错误或无可导入草稿。请修正文件并重试。');
+   if(!window.confirm('将 '+review.drafts.length+' 个供应商核实数据保存为待审核草稿。\\n不会批准成本、修改报价或创建付款。\\n如果某个 SKU 已存在，导入会被拒绝。确定继续吗？'))return;
+   for(const {sku:code,terms:info} of review.drafts){
+    const reply=await fetch('/api/admin/supplier-pricing',{
+     method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},
+     body:JSON.stringify({action:'SAVE_DRAFT',sku:code,expectedVersion:0,
+      supplierName:info.supplierName,supplierSku:info.supplierSku,
+      moq:info.moq,casePack:info.casePack,effectiveOn:info.effectiveOn,
+      expiresOn:info.expiresOn,sourceNote:info.sourceNote,
+      tiers:info.tiers.map(t=>({minimumQuantity:t.minimumQuantity,
+       unitCostUSD:(t.purchaseCents/100).toFixed(2)}))})
+    });
+    const response=await reply.json() as {ok?:boolean;error?:string;status?:string};
+    if(!reply.ok||!response.ok||response.status!=='DRAFT')
+     throw Error('SKU '+code+'：'+(response.error||'未能确认为待审核草稿'));
+    written++;
+   }
+   setMessage('已保存 '+written+' 条待审核供应商草稿，自动批准 0 条。请逐项查对供应商凭证后再单独审批。');
+   setIntakeRaw('');setIntakeReview(null);
+  }catch(e){
+   setError('批量导入已完成 '+written+' 条草稿后停止：'+(e instanceof Error?e.message:'未知错误')+'。请刷新目录再核查未完成的 SKU。');
+  }finally{
+   try{await refresh()}catch(e){setError(prev=>prev+' 目录刷新失败：'+String(e))}
+   setBusy(false);
+  }
  }
  async function save(e:FormEvent<HTMLFormElement>){
   e.preventDefault();setBusy(true);setError('');setMessage('');
@@ -95,6 +147,24 @@ export default function SupplierPricingManager({accessKey}:{accessKey:string}){
      {coverage.map(row=><tr key={row.code}><td>{row.code}</td><td>{row.name}</td><td>{OWNER_REPORTED_FACTORY_COSTS_USD[row.code]===undefined?'尚无参考':`${OWNER_REPORTED_FACTORY_COSTS_USD[row.code].toFixed(2)} · 待供应商核对`}</td><td>{row.label}</td>
        <td><button type="button" className="table-action" disabled={busy} onClick={()=>setSku(row.code)}>填写 / 核对</button></td></tr>)}
     </tbody></table></div>
+   </section>
+   <section className="panel" aria-label="批量核实供应商 CSV 导入" style={{padding:14,margin:'12px 0'}}>
+    <h3>批量导入采购核实表 · 仅保存草稿</h3>
+    <p>下载上方 11 SKU 表格后，只在 <strong>Supplier_Confirmed_Unit_Cost_USD</strong> 填写有供应商凭证支持的美元采购价，补齐供应商、MOQ、装箱、报价日期、有效期及供应商报价编号。历史参考价栏不会参与任何导入。</p>
+    <label>选择已填写的 CSV 文件（预览不会修改数据库）
+      <input type="file" accept=".csv,text/csv" disabled={busy}
+       onChange={e=>void previewIntake(e.target.files?.[0])}/>
+    </label>
+    {intakeReview&&<div role="status" style={{marginTop:12}}>
+     <p><strong>预检：</strong>可创建草稿 {intakeReview.drafts.length} 条；
+      未填写确认价而跳过 {intakeReview.skipped.length} 条；
+      错误 {intakeReview.errors.length} 条。</p>
+     {intakeReview.drafts.length>0&&<p>拟导入 SKU：{intakeReview.drafts.map(x=>x.sku).join('、')}。导入后必须人工审核，绝不会自动标记 APPROVED。</p>}
+     {intakeReview.errors.length>0&&<ul>{intakeReview.errors.map((reason,i)=><li key={i}>{reason}</li>)}</ul>}
+     <button type="button" className="button secondary" disabled={busy||!!intakeReview.errors.length||!intakeReview.drafts.length}
+      onClick={()=>void importIntakeDrafts()}>{busy?'正在核对 / 导入…':'确认导入为待审核草稿'}</button>
+    </div>}
+    <p style={{fontSize:12,color:'#667085'}}>不会覆盖已有 SKU（包括已审核版本），也不会把历史口述价、海运或关税自动当成已批准成本。导入中途失败时可能保留先前成功的草稿，须刷新目录核对。</p>
    </section>
    <form onSubmit={e=>void save(e)} className="quote-form">
     <div className="quote-form-grid">
