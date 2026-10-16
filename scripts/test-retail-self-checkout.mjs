@@ -32,7 +32,7 @@ const make=(body=base,origin='https://app.mingeagle.com')=>new Request(
 let network=0,reads=0,writes=0;
 const saved=globalThis.fetch;
 const db={prepare(sql){reads++;let parameters=[];
-  const statement={bind(...x){parameters=x;return statement},
+  const statement={sql,parameters,bind(...x){parameters=x;this.parameters=x;return statement},
    async first(){if(sql.includes('FROM retail_checkout_requests'))return db.seen?{request_id:requestId}:null;
     if(sql.includes('FROM contacts'))return null;
     throw Error('Unexpected read '+sql)},
@@ -40,7 +40,7 @@ const db={prepare(sql){reads++;let parameters=[];
   return statement;
  },async batch(statements){writes+=statements.length;
   const hasQuote=statements.some(s=>s===undefined);assert.equal(hasQuote,false);
-  db.seen=true;return statements.map(()=>({success:true}));
+  db.lastBatch=statements;db.seen=true;return statements.map(()=>({success:true}));
  },seen:false};
 try{
  globalThis.fetch=async()=>{network++;throw Error('Provider network must not be called before readiness')};
@@ -106,6 +106,42 @@ try{
  const smallOrder=await small.json();
  assert.equal(smallOrder.totalBeforeTaxesUSD,21.4,'P1-S3: $9.90 product + $11.50 DDP delivery');
  assert.equal(smallOrder.paymentStatus,'UNPAID');
+ // Real retail checkout route, not merely shipping math: 2-unit single SKU,
+ // mixed confirmed SKUs and the 9-unit upper bound must all create one
+ // UNPAID order with the exact sum of separate one-unit duty-paid parcels.
+ const eligibleBaskets=[
+  {lines:[{sku:'P1-S7',quantity:2,color:'Orange'}],units:2,goods:29.8,shipping:28,total:57.8},
+  {lines:[{sku:'P1-S3',quantity:1,color:'Blue'},{sku:'P1-S7',quantity:1,color:'Orange'}],units:2,goods:24.8,shipping:25.5,total:50.3},
+  {lines:[{sku:'P1-S7',quantity:9,color:'Orange'}],units:9,goods:134.1,shipping:126,total:260.1}
+ ];
+ for(const [i,basket] of eligibleBaskets.entries()){
+  db.seen=false;
+  const beforeNetwork=network;
+  const body={...base,requestId:'eb44e012-00da-469b-9000-b50406b1fb7'+i,lines:basket.lines};
+  const response=await onRequestPost({env,request:make(body)});
+  assert.equal(response.status,200,'Eligible multi-item checkout should prepare one unpaid order: '+JSON.stringify(basket));
+  const order=await response.json();
+  assert.equal(order.quantity,basket.units);
+  assert.equal(Math.round(order.totalBeforeTaxesUSD*100),Math.round(basket.total*100));
+  assert.equal(order.paymentStatus,'UNPAID','Preparing a basket does not mark Stripe funds received');
+  assert.match(order.paymentPage,/^https:\/\/app\.mingeagle\.com\/quote\/[0-9a-f]{64}$/);
+  assert.equal(network,beforeNetwork+1,'Only anti-bot verification occurs; checkout does not charge');
+  const stored=db.lastBatch;
+  const orderInsert=stored.find(x=>x.sql.includes('INSERT INTO orders('));
+  assert(orderInsert,'One order inserted for the entire cart');
+  assert.equal(Math.round(orderInsert.parameters[5]*100),Math.round(basket.goods*100));
+  assert.equal(Math.round(orderInsert.parameters[6]*100),Math.round(basket.shipping*100));
+  assert.equal(Math.round(orderInsert.parameters[7]*100),Math.round(basket.total*100));
+  const orderLines=stored.filter(x=>x.sql.includes('INSERT INTO order_items('));
+  const quoteLines=stored.filter(x=>x.sql.includes('INSERT INTO quote_items('));
+  assert.equal(orderLines.length,basket.lines.length,'Preserve each variant/size in the order');
+  assert.equal(quoteLines.length,basket.lines.length,'Preserve each variant/size in the accepted retail quote');
+  assert.equal(Math.round(orderLines.reduce((sum,x)=>sum+Number(x.parameters[5]),0)*100),
+   Math.round(basket.goods*100),'All order line subtotals must reconcile exactly');
+  assert.deepEqual(orderLines.map(x=>Number(x.parameters[3])),basket.lines.map(x=>x.quantity));
+  assert.equal(stored.filter(x=>x.sql.includes('INSERT INTO retail_checkout_requests(')).length,1,
+   'One idempotency record per mixed cart, not one per product');
+ }
  db.seen=false;
  const unconfirmed=await onRequestPost({env,request:make({...base,
   requestId:'db44e012-00da-469b-9000-b50406b1fb70',
