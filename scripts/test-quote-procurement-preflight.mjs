@@ -76,6 +76,10 @@ try{
  quote.shipping_terms='Ocean freight DDP to US receiving site within agreed delivery estimate';
  r=await invoke();assert.equal(r.data.review.safeForManualRelease,false,'Missing Ship-to state cannot pass preflight');
  assert(r.data.review.issues.includes('B2B_STRIPE_QUOTE_NOT_PAYABLE'));
+ quote.shipping_terms='Ocean freight DDP to US receiving site within agreed delivery estimate; Ship-to state: ZZ';
+ r=await invoke();
+ assert.equal(r.data.review.commercialChecksPassed,false,'Unrecognized two-letter state must not pass commercial review');
+ assert(r.data.review.issues.includes('B2B_STRIPE_QUOTE_NOT_PAYABLE'));
  quote.shipping_terms='Ocean freight DDP to US receiving site within agreed delivery estimate; Ship-to state: TX';
  r=await invoke();assert.equal(r.data.review.commercialChecksPassed,true,'Both destination and tax basis restore commercial preflight');
  assert.equal(r.data.review.safeForManualRelease,false,'Landed cost gate remains unsatisfied after fixing delivery/tax terms');
