@@ -25,7 +25,7 @@ export default function ShippingManager({accessKey}:{accessKey:string}){
  }
  return <section className="panel shipping-manager">
   <h2>国际运费管理</h2>
-  <p>从中国发货。后台设定国家、空运体积重单价 / 海运 CBM 单价以及每个 SKU 的装箱外尺寸。零售价不含运费及税费；自动报价仅作为估算，付款前仍需确认。</p>
+  <p>从中国发货。后台设定国家、空运体积重单价 / 海运 CBM 参考单价以及 SKU 装箱尺寸。<strong>启用费率不代表海运 DDP 已获得货代确认</strong>；10 件及以上批发只展示预估装箱体积，不返回可付款的货款、运费和总价。正式报价须核实目的地邮编、供应商数量价、包装、货代书面 DDP 运费与进口关税，另外审核销售税。</p>
   {message&&<p role="status">{message}</p>}
   <div className="shipping-card"><h3>1. 国家运价设置</h3><p className="shipping-help">按国家配置费率。填写并保存后，可在下方列表查看；启用后才允许前台使用。</p>
   <form onSubmit={e=>void save(e,'rate')} className="shipping-grid">
@@ -36,6 +36,7 @@ export default function ShippingManager({accessKey}:{accessKey:string}){
    <label>操作费 USD<input name="handling_usd" type="number" min="0" step="0.01" defaultValue="0"/></label>
    <label>体积重除数（空运）<input name="volume_divisor" type="number" min="1" step="1" defaultValue="6000"/></label>
    <label className="shipping-check"><input name="active" type="checkbox"/> 启用这一目的地运价</label>
+   <p className="shipping-help">海运保存后仅作为内部参考费率；不会自动产生客户可付款的批发总额。请保留货代报价编号、日期及美国目的地 ZIP 的有效 DDP 费用明细。</p>
    <div className="shipping-actions"><button className="button" disabled={busy}>保存运价</button></div>
   </form>
   </div><div className="shipping-card"><h3>2. 单规格运输包装（厘米）</h3><p className="shipping-help">请填写实际外包装尺寸与每箱球数，不能用球的直径代替包装尺寸。</p>

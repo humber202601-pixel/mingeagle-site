@@ -121,6 +121,51 @@ for(const spec of [
  if(spec.n===10&&spec.method==='sea'&&spec.consent)
   assert.equal(data.error,'Database unavailable');
 }
+// An active sea CBM rate without written DDP source evidence may calculate
+// packing volume but must not manufacture a wholesale price in either API.
+const dbReadOnly={
+ prepare(sql){
+  return {bind(...args){
+   const isRate=sql.includes('shipping_rates');
+   const row=isRate?{country:'US',method:'sea',active:1,usd_per_unit:429.4285714,updated_at:'2026-10-10 16:38:20'}:
+    {length_cm:42,width_cm:30,height_cm:20,units_per_package:10};
+   return {async first(){return row}};
+  }};
+ }
+};
+for(const quantity of [10,50,100]){
+ const params=new URLSearchParams({sku:'P1-S7',country:'US',method:'sea',quantity:String(quantity)});
+ const response=await single.onRequestGet({request:new Request('https://app.mingeagle.com/api/shipping/estimate?'+params),env:{MINGEAGLE_DB:dbReadOnly}});
+ const body=await response.json();
+ assert.equal(response.status,200,JSON.stringify(body));
+ assert.equal(body.quoteRequired,true);
+ assert.equal(body.wholesale,true);
+ assert.equal(body.paymentEnabled,false);
+ assert.equal(body.shippingUSD,null);
+ assert.equal(body.productUSD,null);
+ assert.equal(body.totalBeforeTaxesUSD,null);
+ assert.equal(body.ddpConfirmed,false);
+ assert.equal(body.packagingEstimateOnly,true);
+ assert(body.cbm>0);
+ assert(body.notice.includes('DDP'));
+ assert(!JSON.stringify(body).includes('429.4285714'),'Unverified sea rate must not leak as freight quote');
+ const cartResponse=await cart.onRequestPost({
+  request:new Request('https://app.mingeagle.com/api/shipping/cart',{method:'POST',
+   headers:{'content-type':'application/json'},
+   body:JSON.stringify({country:'US',method:'sea',seaFreightAccepted:true,lines:[{sku:'P1-S7',quantity}]})}),
+  env:{MINGEAGLE_DB:dbReadOnly}
+ });
+ const result=await cartResponse.json();
+ assert.equal(cartResponse.status,200,JSON.stringify(result));
+ assert.equal(result.quoteRequired,true);
+ assert.equal(result.shippingUSD,null);
+ assert.equal(result.productsUSD,null);
+ assert.equal(result.totalBeforeTaxesUSD,null);
+ assert.equal(result.paymentEnabled,false);
+ assert.equal(result.ddpConfirmed,false);
+ assert(result.volumeCBM>0);
+ assert.deepEqual(result.lines,[{sku:'P1-S7',quantity}],'Customer RFQ should preserve the selected item/qty only');
+}
 const other=await single.onRequestGet({request:new Request('https://app.mingeagle.com/api/shipping/estimate?sku=P1-S3&country=CA&method=air&quantity=1'),env:{}});
 assert.equal(other.status,503,'Other countries still depend on existing D1 rates');
 console.log('PASS: 11 USA one-item air shipping prices, 12–15 day estimate, exact website/CRM source match, cart and single SKU endpoints, no extrapolation to bulk or foreign countries.');
