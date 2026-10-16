@@ -95,6 +95,11 @@ try{
  assert.equal(response.status,409,'A Stripe quote without ship-to state cannot be released');
  assert.equal(response.body.code,'B2B_STRIPE_QUOTE_NOT_PAYABLE');
  assert.equal(query('SELECT count(*) AS n FROM quote_public_links').n,0);
+ sqlite.prepare("UPDATE quotes SET shipping_terms='Sea freight DDP to destination. Ship-to state: ZZ' WHERE id=?").run(quoteId);
+ response=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true});
+ assert.equal(response.status,409,'Invalid two-letter state must not release Stripe quotation');
+ assert.equal(response.body.code,'B2B_STRIPE_QUOTE_NOT_PAYABLE');
+ assert.equal(query('SELECT count(*) AS n FROM quote_public_links').n,0);
  sqlite.prepare("UPDATE quotes SET shipping_terms='Sea freight DDP to destination. Ship-to state: TX' WHERE id=?").run(quoteId);
  sqlite.prepare("UPDATE quotes SET tax_basis=NULL WHERE id=?").run(quoteId);
  response=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true});
