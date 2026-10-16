@@ -15,6 +15,7 @@ assert(!/^STRIPE_SECRET_KEY\s*=/m.test(wrangler)&&!/^STRIPE_WEBHOOK_SECRET\s*=/m
  'Never ship encrypted Stripe credentials in Wrangler source');
 const panel=readFileSync('src/ReadinessPanel.tsx','utf8');
 assert(panel.includes('已核验自动运价目的地')&&panel.includes('未列出的目的地必须人工询价'),'No unchecked international shipping claims');
+assert(panel.includes('当前有效的已审核供应商条款')&&panel.includes('过期或未生效条款不会计入'),'Readiness must not imply approved means valid forever');
 assert(panel.includes('Stripe 在线收款配置'));
 assert(panel.includes('B2B 报价订单 Stripe 收款'));
 assert(!panel.includes('<strong>Airwallex 在线收款</strong>'),'Retired online gateway must not be the dashboard heading');
@@ -33,8 +34,8 @@ try{
  assert.equal(r.body.payments.b2bTaxReviewed,false);
  assert.equal(r.body.payments.b2bConfigurationReady,false);
  assert.equal(r.body.security.turnstileEnabled,false);assert.equal(writes,0);
- sqlite.exec('CREATE TABLE web_analytics_daily(date_utc TEXT,fetched_at TEXT);CREATE TABLE gsc_search_daily(date_pacific TEXT,fetched_at TEXT);CREATE TABLE supplier_purchase_terms(status TEXT);CREATE TABLE shipping_rates(country TEXT,method TEXT,min_units INTEGER,active INTEGER);CREATE TABLE shipping_packaging(sku TEXT);');
- sqlite.exec("INSERT INTO supplier_purchase_terms VALUES('APPROVED');INSERT INTO supplier_purchase_terms VALUES('PENDING');INSERT INTO shipping_rates VALUES('US','air',1,1);INSERT INTO shipping_rates VALUES('US','sea',10,1);INSERT INTO shipping_packaging VALUES('P1-S3');");
+ sqlite.exec('CREATE TABLE web_analytics_daily(date_utc TEXT,fetched_at TEXT);CREATE TABLE gsc_search_daily(date_pacific TEXT,fetched_at TEXT);CREATE TABLE supplier_purchase_terms(status TEXT,effective_on TEXT,expires_on TEXT);CREATE TABLE shipping_rates(country TEXT,method TEXT,min_units INTEGER,active INTEGER);CREATE TABLE shipping_packaging(sku TEXT);');
+ sqlite.exec("INSERT INTO supplier_purchase_terms VALUES('APPROVED','2020-01-01','2099-12-31');INSERT INTO supplier_purchase_terms VALUES('APPROVED','2020-01-01','2021-01-01');INSERT INTO supplier_purchase_terms VALUES('APPROVED','2090-01-01','2099-12-31');INSERT INTO supplier_purchase_terms VALUES('PENDING','2020-01-01','2099-12-31');INSERT INTO shipping_rates VALUES('US','air',1,1);INSERT INTO shipping_rates VALUES('US','sea',10,1);INSERT INTO shipping_packaging VALUES('P1-S3');");
  r=await read({TURNSTILE_ENABLED:'true',STRIPE_CHECKOUT_ENABLED:'true',STRIPE_MODE:'test'});
  assert.equal(r.body.analytics.cloudflare.observedDates,0);
  assert.equal(r.body.analytics.cloudflare.observedDateCoverage.status,'NO_VERIFIED_DATA');
@@ -60,7 +61,8 @@ try{
  // Restore the preceding fixture flags before testing Turnstile/payment readiness.
  r=await read({TURNSTILE_ENABLED:'true',AIRWALLEX_CHECKOUT_ENABLED:'true',AIRWALLEX_ENV:'prod'});
  assert.equal(r.body.procurement.approvedSourceCount,1);
- assert.equal(r.body.procurement.supplierSources,2);
+ assert.equal(r.body.procurement.supplierSources,4,'Status count includes expired and future drafts as records, not active terms');
+ assert.equal(r.body.procurement.approvedSourceCount,1,'Expired/future approved terms must not count as cost coverage');
  assert.deepEqual(r.body.procurement.activeShippingRoutes,[{country:'US',method:'air',minimumUnits:1},{country:'US',method:'sea',minimumUnits:10}]);
  assert.equal(r.body.security.turnstileMisconfigured,true);
  assert.equal(r.body.payments.checkoutConfigurationReady,false);
