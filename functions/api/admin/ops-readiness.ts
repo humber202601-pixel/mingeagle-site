@@ -1,7 +1,7 @@
 import {stripeCheckoutReadiness,type StripeEnv} from '../../_shared/stripe';
 // Authenticated production readiness: booleans and aggregate counts only.
 // Never returns API keys, supplier prices, customer data, or guessed business metrics.
-interface Env extends StripeEnv {MINGEAGLE_DB?:D1Database;TURNSTILE_SITE_KEY?:string;TURNSTILE_SECRET_KEY?:string;TURNSTILE_ENABLED?:string;STRIPE_RETAIL_ONLY_ENABLED?:string;STRIPE_B2B_CHECKOUT_ENABLED?:string;STRIPE_TAX_POLICY_APPROVED?:string}
+interface Env extends StripeEnv {MINGEAGLE_DB?:D1Database;TURNSTILE_SITE_KEY?:string;TURNSTILE_SECRET_KEY?:string;TURNSTILE_ENABLED?:string;STRIPE_RETAIL_ONLY_ENABLED?:string;STRIPE_B2B_CHECKOUT_ENABLED?:string;STRIPE_B2B_TAX_POLICY_APPROVED?:string;STRIPE_TAX_POLICY_APPROVED?:string}
 const json=(value:Record<string,unknown>,status=200)=>Response.json(value,{status,headers:{'cache-control':'private, no-store'}});
 type ObservedDateStatus='SCHEMA_MISSING'|'NO_VERIFIED_DATA'|'LATEST_COMPLETED_UTC_DAY'|'OLDER_OBSERVED_DATE'|'INVALID_OBSERVED_DATE';
 function utcCoverage(date:string|null|undefined,hasSchema:boolean,days:number|null):{status:ObservedDateStatus;daysBehind:number|null}{
@@ -42,8 +42,10 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
     checkoutConfigurationReady:payment.checkoutReady,
     retailOnlyRestriction:env.STRIPE_RETAIL_ONLY_ENABLED==='true',
     b2bCheckoutRequested:env.STRIPE_B2B_CHECKOUT_ENABLED==='true',
+    b2bTaxReviewed:env.STRIPE_B2B_TAX_POLICY_APPROVED==='true',
     b2bConfigurationReady:payment.checkoutReady&&env.STRIPE_TAX_POLICY_APPROVED==='true'
-      &&env.STRIPE_RETAIL_ONLY_ENABLED!=='true'&&env.STRIPE_B2B_CHECKOUT_ENABLED==='true'},
+      &&env.STRIPE_RETAIL_ONLY_ENABLED!=='true'&&env.STRIPE_B2B_CHECKOUT_ENABLED==='true'
+      &&env.STRIPE_B2B_TAX_POLICY_APPROVED==='true'},
    caveats:['GSC search metrics use Pacific reporting dates; Cloudflare RUM uses UTC. Do not compute a raw conversion ratio.',
     'An empty supplier catalog means purchase cost and profit are not validated; prices cannot be inferred from public retail.',
     'Stripe configuration readiness does not prove successful card capture, webhook delivery or bank settlement.',
