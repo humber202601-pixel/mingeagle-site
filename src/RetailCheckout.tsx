@@ -34,7 +34,10 @@ export default function RetailCheckout(){
  const [needsOrderReview,setNeedsOrderReview]=useState(false);
  const [requestId]=useState(()=>checkoutIntentId(lines,typeof sessionStorage!=='undefined'?sessionStorage:null,()=>crypto.randomUUID()));
  const quantity=lines.reduce((n,x)=>n+x.quantity,0);
- const cartEligible=lines.length>0&&lines.reduce((n,x)=>n+x.quantity,0)<=(ready?.maxDirectCheckoutUnits??1)&&lines.every(x=>!ready?.eligibleSkus||ready.eligibleSkus.includes(x.sku));
+ const maxDirectUnits=ready?.maxDirectCheckoutUnits??1;
+ const overDirectLimit=quantity>maxDirectUnits;
+ const unconfirmedSkus=lines.filter(x=>ready?.eligibleSkus&&!ready.eligibleSkus.includes(x.sku)).map(x=>x.sku);
+ const cartEligible=lines.length>0&&!overDirectLimit&&unconfirmedSkus.length===0;
  const stateEligible=!state||!ready?.supportedStates||ready.supportedStates.includes(state);
  const goods=price?.productsUSD??price?.productUSD,freight=price?.shippingUSD,total=price?.totalBeforeTaxesUSD;
  const priceReady=price?.ok===true&&price.ddpConfirmed===true&&[goods,freight,total].every(x=>typeof x==='number'&&Number.isFinite(x)&&x>=0)&&Math.round(Number(total)*100)===Math.round(Number(goods)*100)+Math.round(Number(freight)*100);
@@ -78,7 +81,13 @@ export default function RetailCheckout(){
    <div className="rc-title"><div><span className="rc-eyebrow">CHECKOUT</span><h1>Delivery details</h1><p>A few details, then you're ready to play.</p></div><ol className="rc-steps" aria-label="Checkout progress"><li>Cart</li><li aria-current="step">Delivery</li><li>Payment</li></ol></div>
    {!lines.length?<section className="rc-card rc-empty"><h2>Your cart is empty</h2><p>Add a product to prepare your order.</p><a className="rc-action" href="https://www.mingeagle.com/retail-cart.html">Return to cart <ArrowRight size={16}/></a></section>:<div className="rc-layout">
     <section className="rc-card rc-form-card" aria-label="Delivery details">
-     {loading?<p className="rc-message" role="status">Preparing your order…</p>:!canCheckout?<div className="rc-message" role="status"><h2>Let's confirm your delivery price</h2><p>{!cartEligible||price?.ddpConfirmed!==true?'This basket needs a confirmed delivery quote.':'Card checkout is temporarily unavailable. We can confirm your order by email.'}</p><a className="rc-action" href={quoteUrl}>Request an order quote <ArrowRight size={16}/></a></div>:<form onSubmit={submit}>
+     {loading?<p className="rc-message" role="status">Preparing your order…</p>:!canCheckout?<div className="rc-message" role="status"><h2>Let's confirm your delivery price</h2><p>{overDirectLimit
+       ? `This basket has ${quantity} units. Direct air checkout is limited to ${maxDirectUnits}; 10+ units require a separately approved wholesale sea-freight quote.`
+       : unconfirmedSkus.length
+       ? `Confirmed duty-paid parcel rates are not yet available for: ${unconfirmedSkus.join(', ')}. Request a quote for this basket instead of attempting card payment.`
+       : price?.ddpConfirmed!==true
+       ? 'The complete duty-paid delivery price for this basket is not yet confirmed. Please request a quote.'
+       : 'Card checkout is temporarily unavailable. We can confirm your order by email.'}</p><a className="rc-action" href={quoteUrl}>Request an order quote <ArrowRight size={16}/></a></div>:<form onSubmit={submit}>
       <fieldset><legend><span>1</span> Contact information</legend><div className="rc-fields"><label>Full name<input name="name" required maxLength={120} autoComplete="name"/></label><label>Email address<input name="email" type="email" required maxLength={180} autoComplete="email"/></label><label className="rc-wide">Phone number<input name="phone" type="tel" required maxLength={45} autoComplete="tel"/><small>For delivery updates only.</small></label></div></fieldset>
       <fieldset><legend><span>2</span> Shipping address</legend><div className="rc-country"><span>United States</span><small>Ships from China</small></div><div className="rc-fields"><label className="rc-wide">Street address<input name="street1" required maxLength={200} autoComplete="address-line1"/></label><label className="rc-wide">Apartment, suite, etc. <span className="rc-optional">(optional)</span><input name="street2" maxLength={200} autoComplete="address-line2"/></label><label>City<input name="city" required maxLength={100} autoComplete="address-level2"/></label><label>State<select name="state" required autoComplete="address-level1" value={state} onChange={e=>setState(e.target.value)}><option value="" disabled>Select your state</option>{Object.entries(US_DELIVERY_STATES).map(([code,name])=><option key={code} value={code}>{name}</option>)}</select></label><label>ZIP code<input name="postalCode" required maxLength={10} autoComplete="postal-code" inputMode="numeric" pattern="[0-9]{5}(-[0-9]{4})?"/></label></div></fieldset>
       {!stateEligible?<div className="rc-state-note" role="status"><strong>We can help with this address.</strong><p>Your delivery state needs an order confirmation before online payment.</p><a href={quoteUrl}>Request a confirmed order <ArrowRight size={14}/></a></div>:<>
