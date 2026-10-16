@@ -8,7 +8,8 @@ const load=async path=>{
  const result=await build({entryPoints:[path],bundle:true,write:false,platform:'node',format:'esm',logLevel:'silent'});
  return import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'));
 };
-const {onRequestPost:acceptQuote,onRequestGet:quotePage}=await load('functions/quote/[token].ts');
+const {onRequestPost:acceptQuote}=await load('functions/api/quote/[token].ts');
+const {onRequestGet:quotePage}=await load('functions/quote/[token].ts');
 const {onRequestPost:checkout}=await load('functions/api/payments/stripe/create.ts');
 const {onRequestPost:webhook}=await load('functions/api/payments/stripe/webhook.ts');
 const {onRequestGet:status}=await load('functions/api/payments/stripe/status.ts');
