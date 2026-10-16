@@ -290,7 +290,7 @@ try{
  assert.equal(heldStatus.paymentStatus,'PAID','Historical ledger status is not overwritten');
  assert.equal(heldStatus.requiresManualReview,true,'Active manual review overrides otherwise complete Stripe receipts');
  assert.equal(heldStatus.paymentEvidence,'MANUAL_RECONCILIATION');
- const heldPage=await quotePage({env,request:new Request(orderPage)});
+ const heldPage=await quotePage({env,params:{token:bearer},request:new Request(orderPage)});
  assert.equal(heldPage.status,200);
  const heldHtml=await heldPage.text();
  assert(heldHtml.includes('Stripe payment needs manual reconciliation.'),'Buyer is told about Stripe payment review');
