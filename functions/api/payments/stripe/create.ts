@@ -14,6 +14,7 @@ interface Env extends StripeEnv,RetailTaxEnv {
   RETAIL_TAX_POLICY_APPROVED?:string;
   STRIPE_RETAIL_ONLY_ENABLED?:string;
   STRIPE_B2B_CHECKOUT_ENABLED?:string;
+  STRIPE_B2B_TAX_POLICY_APPROVED?:string;
 }
 type RecordRow=Record<string,unknown>;
 const fail=(message:string,status=400)=>Response.json({ok:false,error:message},{status,headers:{'cache-control':'no-store'}});
@@ -40,7 +41,9 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    "SELECT o.id,o.reference,o.status,o.payment_status,o.total,o.subtotal,o.discount,o.shipping,o.tax,o.currency,o.shipping_address,"+
    "q.status AS quote_status,q.sent_at AS quote_sent_at,q.accepted_at AS quote_accepted_at,"+
    "q.payment_terms AS quote_payment_terms,q.shipping_terms AS quote_shipping_terms,"+
-   "q.valid_until,q.reference AS quote_reference,ct.email AS email,"+
+   "q.valid_until,q.reference AS quote_reference,q.subtotal AS quote_subtotal,"+
+   "q.discount AS quote_discount,q.shipping AS quote_shipping,q.tax AS quote_tax,"+
+   "q.total AS quote_total,q.currency AS quote_currency,ct.email AS email,"+
    "(SELECT COALESCE(SUM(amount),0) FROM payments WHERE order_id=o.id AND status='RECEIVED') AS received "+
    "FROM quotes q JOIN orders o ON o.quote_id=q.id LEFT JOIN contacts ct ON ct.id=o.contact_id "+
    "WHERE "+QUOTE_PUBLIC_TOKEN_PREDICATE+" "+
@@ -52,6 +55,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   const isRetail=String(order.reference).startsWith('ME-RO-');
   if(!isRetail&&(env.STRIPE_RETAIL_ONLY_ENABLED==='true'||env.STRIPE_B2B_CHECKOUT_ENABLED!=='true'))
    return fail('Online payment currently supports approved retail orders only. Contact MING EAGLE for this quotation.',503);
+  if(!isRetail&&env.STRIPE_B2B_TAX_POLICY_APPROVED!=='true')
+   return fail('Wholesale tax treatment requires separate business-order review before Stripe collection.',503);
   if(isRetail&&env.RETAIL_CHECKOUT_ENABLED!=='true')
    return fail('Direct retail payment is not activated.',503);
   if(isRetail&&(env.RETAIL_STOCK_FULFILLMENT_APPROVED!=='true'||env.RETAIL_TAX_POLICY_APPROVED!=='true'))
@@ -86,6 +91,21 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    payment_terms:order.quote_payment_terms,shipping_terms:order.quote_shipping_terms,
    valid_until:order.valid_until
   }))return fail('Wholesale quote requires confirmed seller terms and buyer acceptance before Stripe payment.',409);
+  // The accepted quote is the buyer's authorization: do not charge a later,
+  // silently edited order total, shipping or tax amount under the old quote.
+  if(!isRetail){
+   const monetaryFields=[
+    ['subtotal','quote_subtotal'],['discount','quote_discount'],['shipping','quote_shipping'],
+    ['tax','quote_tax'],['total','quote_total']
+   ] as const;
+   const quoteMatchesOrder=String(order.quote_currency||'').toUpperCase()===String(order.currency||'').toUpperCase()&&
+    monetaryFields.every(([orderField,quoteField])=>{
+     const a=order[orderField],b=order[quoteField];
+     return a!==null&&a!==undefined&&b!==null&&b!==undefined&&
+      Number.isFinite(Number(a))&&Number.isFinite(Number(b))&&cents(a)===cents(b);
+    });
+   if(!quoteMatchesOrder)return fail('Approved wholesale quote differs from order amounts. Please issue and accept a revised quote before payment.',409);
+  }
   const received=cents(order.received);
   const total=cents(order.total),due=total-received;
   if(String(order.payment_status)==='PAID'||due<=0)return fail('Already paid.',409);
