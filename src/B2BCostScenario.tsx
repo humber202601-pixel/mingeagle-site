@@ -86,7 +86,7 @@ export default function B2BCostScenario({quoteId,reference,accessKey,onClose}:{
        placeholder="供应商报价编号、物流报价日期、关税已包含/单列的依据；不保存在系统。" />
      </label>
     </div>
-    <p>如 DDP 海运费已经包含进口关税/清关费用，不要重复计费；只有核实确实已包含时，关税栏才可主动填写 0。**空白代表未知，并非零成本。** 手续费需按实际收款方式核对，不采用默认比例。</p>
+    <p>如 DDP 海运费已经包含进口关税/清关费用，不要重复计费；只有核实确实已包含时，关税栏才可主动填写 0。<strong>空白代表未知，并非零成本。</strong> 手续费需按实际收款方式核对，不采用默认比例。</p>
     {scenario?.complete&&scenario.revenueExTaxUSD!==null&&scenario.costTotalUSD!==null&&
      scenario.estimatedDifferenceUSD!==null&&scenario.estimatedDifferencePct!==null
       ?<div role="status"><strong>仅供情景参考的结果：</strong>
