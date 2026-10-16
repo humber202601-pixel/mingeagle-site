@@ -1,3 +1,4 @@
+import {stripeCheckoutTermsSupported} from '../../lib/b2b-quote-terms';
 import {QUOTE_PUBLIC_TOKEN_PREDICATE} from '../../lib/quote-public-token';
 import {calculate, type Comparison} from '../../lib/quote-math-core.mjs';
 import {stripeCheckoutReadiness} from '../_shared/stripe';
@@ -167,7 +168,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
         && (String(order.reference).startsWith('ME-RO-') || (acceptedB2bQuotePayable(quote)
           && env.STRIPE_RETAIL_ONLY_ENABLED!=='true' && env.STRIPE_B2B_CHECKOUT_ENABLED==='true'
           && env.STRIPE_B2B_TAX_POLICY_APPROVED==='true' && wholesaleAddressReady
-          && String(quote.payment_terms||'').toLowerCase().includes('stripe')))
+          && stripeCheckoutTermsSupported(quote.payment_terms)))
         && (!String(order.reference).startsWith('ME-RO-') ||
           (env.RETAIL_CHECKOUT_ENABLED==='true' && env.RETAIL_STOCK_FULFILLMENT_APPROVED==='true' && env.RETAIL_TAX_POLICY_APPROVED==='true'));
       const providerNotice = paymentStateNotice(order.provider_status);
@@ -188,7 +189,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
     } else if (Number(quote.total || 0) <= 0) {
       actionArea = `<div class="notice error">This quotation has no valid price. Please contact MING EAGLE for a corrected quotation.</div>`;
     } else {
-      const shipToFields=String(quote.payment_terms||'').toLowerCase().includes('stripe')
+      const shipToFields=stripeCheckoutTermsSupported(quote.payment_terms)
         ? '<fieldset style="border:1px solid #d0d5dd;border-radius:12px;padding:14px;margin-bottom:18px"><legend>Confirm the US delivery destination from this quotation</legend><p class="notice info">The quoted freight must already specify the same state as "Ship-to state: XX". A different destination requires a revised quote.</p><label>Street address<input id="shipLine1" autocomplete="street-address" maxlength="180" style="width:100%" required></label><label>City<input id="shipCity" autocomplete="address-level2" maxlength="100" style="width:100%" required></label><label>US state (two letters)<input id="shipState" autocomplete="address-level1" maxlength="2" placeholder="OR" style="width:100%" required></label><label>ZIP code<input id="shipZip" autocomplete="postal-code" maxlength="10" style="width:100%" required></label></fieldset>'
         : '';
       actionArea = `<div id="acceptArea" class="accept">${shipToFields}<label><input id="agree" type="checkbox"> <span>I have reviewed the quotation and authorize MING EAGLE to create the order based on these terms.</span></label><button id="acceptBtn" class="button" disabled>Accept quote & create order</button><div id="message"></div></div>`;
