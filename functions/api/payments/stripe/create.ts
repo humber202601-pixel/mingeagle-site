@@ -15,6 +15,7 @@ interface Env extends StripeEnv,RetailTaxEnv {
   STRIPE_RETAIL_ONLY_ENABLED?:string;
   STRIPE_B2B_CHECKOUT_ENABLED?:string;
   STRIPE_B2B_TAX_POLICY_APPROVED?:string;
+  STRIPE_B2B_APPROVED_US_STATES?:string;
 }
 type RecordRow=Record<string,unknown>;
 const fail=(message:string,status=400)=>Response.json({ok:false,error:message},{status,headers:{'cache-control':'no-store'}});
@@ -85,6 +86,27 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       Math.round(Number(order.shipping)*100)!==Math.round(confirmed.shippingUSD*100)||
       Math.round(Number(order.tax)*100)!==0||Math.round(Number(order.discount)*100)!==0)
     return fail('Duty-paid delivery is not verified for the requested products.',409);
+  }
+  if(!isRetail){
+   // Explicitly accepted card/Stripe terms prevent charging a bank-transfer
+   // quotation through a payment channel the customer never agreed to.
+   if(!/\bstripe\b/i.test(String(order.quote_payment_terms||'')))
+    return fail('Accepted wholesale quotation must explicitly authorize Stripe card payment.',409);
+   let ship:Record<string,unknown>;
+   try{ship=JSON.parse(String(order.shipping_address||'null'))}catch{return fail('Confirmed wholesale delivery address is required before Stripe payment.',409)}
+   if(!ship||typeof ship!=='object'||ship.country!=='US'||!^[A-Z]{2}$/.test(String(ship.state||''))||
+      String(ship.city||'').trim().length<2||
+      String(ship.postalCode||ship.postal_code||'').trim().length<5||
+      String(ship.line1||ship.address1||'').trim().length<5)
+    return fail('Confirm the full US delivery destination and quote freight before wholesale card payment.',409);
+   const state=String(ship.state),approved=(env.STRIPE_B2B_APPROVED_US_STATES||'')
+     .split(',').map(x=>x.trim().toUpperCase()).filter(x=>/^[A-Z]{2}$/.test(x));
+   if(!approved.includes(state))
+    return fail('Business-order sales tax review for this delivery state is not yet authorized.',409);
+   // Current approved start-up destinations have no general sales tax.
+   // Other states must never inherit a zero-tax assumption.
+   if(['OR','NH'].includes(state)&&cents(order.tax)!==0)
+    return fail('Unexpected sales tax for this reviewed US delivery state.',409);
   }
   if(!isRetail&&!acceptedB2bQuotePayable({
    status:order.quote_status,sent_at:order.quote_sent_at,accepted_at:order.quote_accepted_at,
