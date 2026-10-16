@@ -238,10 +238,32 @@ try{
  const statusBeforeWrites=writes;
  const statusResponse=await status({env,request:new Request(origin+'/api/payments/stripe/status?token='+bearer)});
  assert.equal(statusResponse.status,200);
- assert.equal((await statusResponse.json()).paymentStatus,'PAID');
+ const normalStatus=await statusResponse.json();
+ assert.equal(normalStatus.paymentStatus,'PAID');
+ assert.equal(normalStatus.stripeVerifiedReceived,180,'Verified Stripe payment is backed by succeeded Checkout');
+ assert.equal(normalStatus.historicalOtherReceived,0);
+ assert.equal(normalStatus.paymentEvidence,'STRIPE_VERIFIED');
+ assert.equal(normalStatus.requiresManualReview,false);
  assert.equal(writes,statusBeforeWrites,'Buyer polling stays read-only');
  const afterPaid=await checkout({env,request:checkoutRequest()});
  assert.equal(afterPaid.status,409,'Paid wholesale order must not create another Checkout');
  assert.equal(provider.size,2,'Two recorded sessions include one expired and one paid; no extra checkout after payment');
+ // A historic/manual receipt added to this same order must never be
+ // misattributed as Stripe-verified funds in the buyer status endpoint.
+ sqlite.prepare("INSERT INTO payments(id,order_id,method,provider,provider_reference,amount,currency,status) "+
+   "VALUES(?,?, 'BANK_TRANSFER',NULL,NULL,5,'USD','RECEIVED')").run(randomUUID(),orderId);
+ const statusBeforeMixed=writes;
+ const reviewResponse=await status({env,request:new Request(origin+'/api/payments/stripe/status?token='+bearer)});
+ assert.equal(reviewResponse.status,200);
+ const reviewed=await reviewResponse.json();
+ assert.equal(reviewed.stripeVerifiedReceived,180);
+ assert.equal(reviewed.historicalOtherReceived,5);
+ assert.equal(reviewed.received,185,'Accounting total includes all recorded channels without mislabeling them');
+ assert.equal(reviewed.requiresManualReview,true,'Mixed records need seller review');
+ assert.equal(reviewed.paymentEvidence,'MANUAL_RECONCILIATION');
+ assert.equal(writes,statusBeforeMixed,'Status observation may not mutate a receipt');
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM tasks WHERE order_id=? AND type='FULFILLMENT'").get(orderId).n,1,
+  'Buyer polling never duplicates fulfillment');
+
  console.log('PASS: isolated B2B quote acceptance → one order → exact item validation → mocked Stripe session → signed paid webhook → PAID → fulfillment once; no live charges.');
 }finally{globalThis.fetch=savedFetch;sqlite.close();}
