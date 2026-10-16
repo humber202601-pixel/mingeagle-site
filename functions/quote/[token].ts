@@ -73,6 +73,10 @@ async function getQuote(db: D1Database, token: string) {
 async function getOrder(db: D1Database, quoteId: string) {
   return db.prepare(`SELECT o.id, o.reference, o.status, o.payment_status, o.total, o.currency, o.shipping_address,
       (SELECT COALESCE(SUM(p.amount),0) FROM payments p WHERE p.order_id=o.id AND p.status='RECEIVED') AS amount_received,
+      (SELECT COUNT(*) FROM tasks t WHERE t.order_id=o.id AND t.type='PAYMENT'
+       AND t.status IN ('OPEN','IN_PROGRESS')
+       AND (t.title LIKE 'Review disputed Stripe receipts%'
+         OR t.title LIKE 'Review payment on closed order%')) AS active_payment_review_count,
       (SELECT pps.status FROM payment_provider_sessions pps WHERE pps.order_id=o.id AND pps.provider='STRIPE' ORDER BY datetime(pps.updated_at) DESC, datetime(pps.created_at) DESC LIMIT 1) AS provider_status,
       (SELECT carrier FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS carrier,
       (SELECT tracking_number FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS tracking_number,
@@ -165,6 +169,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
       const trackLink = order.tracking_url && /^https:\/\//i.test(String(order.tracking_url))
         ? `<a class="track-link" target="_blank" rel="noreferrer" href="${esc(order.tracking_url)}">Open carrier tracking ↗</a>` : '';
       const closedOrder = String(order.status||'').toUpperCase()==='CANCELLED' || String(order.payment_status||'').toUpperCase()==='REFUNDED';
+      const paymentHeld = Number(order.active_payment_review_count || 0) > 0;
       let wholesaleAddressReady=false;
       try {
         const ship=JSON.parse(String(order.shipping_address||'null')) as Record<string,unknown>|null;
@@ -174,7 +179,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
           String(ship.postalCode||'').trim().length>=5&&
           String(quote.shipping_terms||'').toUpperCase().includes('SHIP-TO STATE: '+String(ship.state||'')));
       } catch { wholesaleAddressReady=false; }
-      const stripeReady = !closedOrder && stripeCheckoutReadiness(env).checkoutReady && env.STRIPE_TAX_POLICY_APPROVED==='true'
+      const stripeReady = !closedOrder && !paymentHeld && stripeCheckoutReadiness(env).checkoutReady && env.STRIPE_TAX_POLICY_APPROVED==='true'
         && (String(order.reference).startsWith('ME-RO-') || (acceptedB2bQuotePayable(quote)
           && env.STRIPE_RETAIL_ONLY_ENABLED!=='true' && env.STRIPE_B2B_CHECKOUT_ENABLED==='true'
           && env.STRIPE_B2B_TAX_POLICY_APPROVED==='true' && wholesaleAddressReady
@@ -189,6 +194,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
         : '';
       const paymentMessage = closedOrder
         ? '<div class="payment-help"><strong>Order closed — payment disabled.</strong><p>This order was cancelled or refunded. Do not send payment. Contact mingeaglecommerce@gmail.com for a new quotation or payment review.</p></div>'
+        : paymentHeld
+        ? '<div class="notice info" role="alert"><strong>Stripe payment needs manual reconciliation.</strong> Our team is reviewing the recorded payment. Please do not pay again; preparation and shipping are on hold until reconciliation is complete. Contact MING EAGLE if you need an update.</div>'
         : String(order.payment_status) === 'PAID'
         ? `<div class="payment-success"><strong>Payment received in full.</strong><br>Thank you. Your order is now moving into processing.</div>`
         : `<div class="payment-help"><strong>Secure Stripe payment</strong><p>Stripe is our sole online payment provider. Your reference is <b>${esc(paymentReference)}</b>. Do not pay again while a Stripe payment is still processing.</p>${providerNotice}<div class="payment-options">${stripeReady?stripePay:'<div class="notice info">Stripe checkout is currently unavailable for this order. Please contact MING EAGLE for assistance.</div>'}</div></div>`;

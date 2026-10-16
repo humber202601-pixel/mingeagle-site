@@ -278,6 +278,29 @@ try{
  assert.equal(normalStatus.paymentEvidence,'STRIPE_VERIFIED');
  assert.equal(normalStatus.requiresManualReview,false);
  assert.equal(writes,statusBeforeWrites,'Buyer polling stays read-only');
+ // Even a fully paid Stripe receipt must not be advertised as free for
+ // fulfillment when an unresolved manual review task has been opened.
+ const holdId='synthetic-active-stripe-reconciliation';
+ sqlite.prepare("INSERT INTO tasks(id,order_id,type,title,status,priority) VALUES (?,?,'PAYMENT',?,'OPEN','URGENT')")
+   .run(holdId,orderId,'Review disputed Stripe receipts for '+reference);
+ const holdBeforeWrites=writes;
+ const heldStatusResponse=await status({env,request:new Request(origin+'/api/payments/stripe/status?token='+bearer)});
+ const heldStatus=await heldStatusResponse.json();
+ assert.equal(heldStatusResponse.status,200);
+ assert.equal(heldStatus.paymentStatus,'PAID','Historical ledger status is not overwritten');
+ assert.equal(heldStatus.requiresManualReview,true,'Active manual review overrides otherwise complete Stripe receipts');
+ assert.equal(heldStatus.paymentEvidence,'MANUAL_RECONCILIATION');
+ const heldPage=await quotePage({env,params:{token:bearer},request:new Request(orderPage)});
+ assert.equal(heldPage.status,200);
+ const heldHtml=await heldPage.text();
+ assert(heldHtml.includes('Stripe payment needs manual reconciliation.'),'Buyer is told about Stripe payment review');
+ assert(!heldHtml.includes('Payment received in full.'),'Buyer must not get unconditional paid notice during reconciliation');
+ assert(!heldHtml.includes('id="stripePayBtn"'),'Held order must not prompt buyer to pay again');
+ assert.equal(writes,holdBeforeWrites,'Status and public payment review display must be read-only');
+ sqlite.prepare("UPDATE tasks SET status='DONE' WHERE id=?").run(holdId);
+ const clearedStatus=await (await status({env,request:new Request(origin+'/api/payments/stripe/status?token='+bearer)})).json();
+ assert.equal(clearedStatus.requiresManualReview,false,'Closed review no longer imposes active hold');
+ assert.equal(clearedStatus.paymentEvidence,'STRIPE_VERIFIED');
  const afterPaid=await checkout({env,request:checkoutRequest()});
  assert.equal(afterPaid.status,409,'Paid wholesale order must not create another Checkout');
  assert.equal(provider.size,2,'Two recorded sessions include one expired and one paid; no extra checkout after payment');

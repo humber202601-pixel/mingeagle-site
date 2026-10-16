@@ -130,6 +130,7 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
       const onlineStatus = text(order.online_payment_status, '');
       const onlineProvider = text(order.online_payment_provider, '');
       const legacyNonStripe = text(order.quote_payment_route,'UNKNOWN') === 'NON_STRIPE';
+      const paymentHeld = Number(order.active_payment_review_count || 0) > 0;
       return <section className="panel order-card" key={reference}>
         <div className="order-head">
           <div><span className="eyebrow">订单</span><h2>{reference}</h2><p>{text(order.customer)} · {money(order.total, order.currency)}</p></div>
@@ -142,6 +143,10 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
           <div><small>物流单号</small><strong>{text(order.tracking_number)}</strong></div>
         </div>
 
+        {paymentHeld && <div className="form-status error" role="alert">
+          <strong>Stripe 收款异常待核对 · 暂停发货</strong>
+          <p>这笔订单存在未完成的付款人工复核任务。即使显示 PAID，也不能继续备货、标记待发货或确认发货；请先在后台核实 Stripe 收款、历史付款记录及订单金额。</p>
+        </div>}
         {onlineStatus && <div className={`form-status ${['SUCCEEDED'].includes(onlineStatus) ? 'success' : ['CANCELLED','PAYMENT_FAILED'].includes(onlineStatus) ? 'error' : ''}`}>
           <strong>{paymentProviderLabel(onlineProvider)}：{onlineStatusLabel(onlineStatus)}</strong>
           <p>{text(order.online_payment_intent_id, '') ? `PaymentIntent：${text(order.online_payment_intent_id)} · ` : ''}{text(order.online_payment_updated_at, '') ? `更新时间：${zhDate(order.online_payment_updated_at)}` : ''}</p>
@@ -175,10 +180,10 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
             <p>待收金额：<strong>{money(outstanding, order.currency)}</strong>。已收到的历史线下记录仅供核对，不代表 Stripe 付款已完成。</p>
           </div>)}
 
-        {paymentStatus === 'PAID' && status === 'PAID' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'START_PROCESSING')}>开始处理订单</button></div>}
-        {paymentStatus === 'PAID' && status === 'PROCESSING' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'READY_TO_SHIP')}>标记为待发货</button></div>}
+        {paymentStatus === 'PAID' && !paymentHeld && status === 'PAID' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'START_PROCESSING')}>开始处理订单</button></div>}
+        {paymentStatus === 'PAID' && !paymentHeld && status === 'PROCESSING' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'READY_TO_SHIP')}>标记为待发货</button></div>}
 
-        {paymentStatus === 'PAID' && status === 'READY_TO_SHIP' && <form className="order-action-form" onSubmit={e => shipmentSubmit(e, reference)}>
+        {paymentStatus === 'PAID' && !paymentHeld && status === 'READY_TO_SHIP' && <form className="order-action-form" onSubmit={e => shipmentSubmit(e, reference)}>
           <div className="order-form-grid">
             <label>承运商<input name="carrier" placeholder="UPS / FedEx / USPS / DHL" required /></label>
             <label>物流服务<input name="service" placeholder="Ground / Express（可选）" /></label>

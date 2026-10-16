@@ -91,6 +91,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
           WHEN instr(lower(q.payment_terms),'stripe')>0 THEN 'STRIPE_MENTIONED'
           ELSE 'NON_STRIPE' END AS quote_payment_route,
         (SELECT COALESCE(SUM(p.amount),0) FROM payments p WHERE p.order_id=o.id AND p.status='RECEIVED') AS amount_received,
+        (SELECT COUNT(*) FROM tasks t WHERE t.order_id=o.id AND t.type='PAYMENT'
+         AND t.status IN ('OPEN','IN_PROGRESS')
+         AND (t.title LIKE 'Review disputed Stripe receipts%'
+           OR t.title LIKE 'Review payment on closed order%')) AS active_payment_review_count,
         (SELECT pps.provider FROM payment_provider_sessions pps WHERE pps.order_id=o.id ORDER BY datetime(pps.updated_at) DESC, datetime(pps.created_at) DESC LIMIT 1) AS online_payment_provider,
         (SELECT pps.status FROM payment_provider_sessions pps WHERE pps.order_id=o.id ORDER BY datetime(pps.updated_at) DESC, datetime(pps.created_at) DESC LIMIT 1) AS online_payment_status,
         (SELECT pps.provider_intent_id FROM payment_provider_sessions pps WHERE pps.order_id=o.id ORDER BY datetime(pps.updated_at) DESC, datetime(pps.created_at) DESC LIMIT 1) AS online_payment_intent_id,

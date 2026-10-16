@@ -18,6 +18,10 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
    (SELECT COALESCE(SUM(p.amount),0) FROM payments p WHERE p.order_id=o.id
      AND p.status='RECEIVED' AND (p.provider IS NULL OR upper(p.provider)<>'STRIPE'))
       AS historical_other_received,
+   (SELECT COUNT(*) FROM tasks t WHERE t.order_id=o.id AND t.type='PAYMENT'
+    AND t.status IN ('OPEN','IN_PROGRESS')
+    AND (t.title LIKE 'Review disputed Stripe receipts%'
+      OR t.title LIKE 'Review payment on closed order%')) AS active_payment_review_count,
    (SELECT p.status FROM payment_provider_sessions p WHERE p.order_id=o.id AND p.provider='STRIPE' ORDER BY p.updated_at DESC,p.created_at DESC LIMIT 1) AS provider_status
    FROM quotes q JOIN orders o ON o.quote_id=q.id
    WHERE ${QUOTE_PUBLIC_TOKEN_PREDICATE}
@@ -31,6 +35,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
   // New receipts must be reconciled across channels instead of using order
   // PAID alone as proof of a Stripe settlement. This is read-only evidence.
   const requiresManualReview=
+    Number(order.active_payment_review_count || 0)>0 ||
     (verifiedStripe>0&&historicalOther>0) ||
     received>total+0.005 ||
     (providerStatus==='SUCCEEDED'&&status!=='PAID') ||
