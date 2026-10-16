@@ -17,7 +17,19 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
  const pack=await env.MINGEAGLE_DB.prepare('SELECT * FROM shipping_packaging WHERE sku=?').bind(sku).first<Record<string,number>>();
  if(!rate||!pack)return error('Shipping rate or packaging not configured for this destination and size',404);
  const cbm=Number(pack.length_cm)*Number(pack.width_cm)*Number(pack.height_cm)*Math.ceil(qty/Number(pack.units_per_package))/1000000;
- const charge=method==='air'?cbm*1000000/Number(rate.volume_divisor)*Number(rate.usd_per_unit):cbm*Number(rate.usd_per_unit);
+ // A configured per-CBM reference is not a signed DDP freight quotation,
+ // and the retail list price is not a negotiated bulk unit price.
+ // Do not assemble a counterfeit "wholesale total" from these values.
+ if(method==='sea')return Response.json({
+  ok:true,sku,country,method,quantity:qty,cbm:Number(cbm.toFixed(6)),
+  wholesale:true,quoteRequired:true,quoteStatus:'FREIGHT_AND_PRODUCT_PRICE_UNCONFIRMED',
+  shippingUSD:null,productUSD:null,totalBeforeTaxesUSD:null,
+  currency:'USD',paymentEnabled:false,ddpConfirmed:false,
+  packagingEstimateOnly:true,deliveryEstimateDaysMin:25,deliveryEstimateDaysMax:30,
+  discountPolicy:'QUANTITY_DEPENDENT_QUOTE_NO_FIXED_PERCENT',
+  notice:'Bulk product pricing and US destination-specific ocean DDP freight have not been verified. CBM is an estimate from stored packaging dimensions only. Confirm supplier MOQ/cartons, destination ZIP, freight forwarder quote, US import duty and applicable sales tax before issuing a written wholesale quotation. The 25–30 day delivery estimate is not guaranteed.'
+ },{headers:{'cache-control':'no-store','access-control-allow-origin':'*','vary':'Origin'}});
+ const charge=cbm*1000000/Number(rate.volume_divisor)*Number(rate.usd_per_unit);
  const freight=Math.round((Math.max(charge,Number(rate.min_charge_usd))+Number(rate.handling_usd))*100)/100;
  const products=Math.round(prices[sku]*qty*100)/100;
  return Response.json({ok:true,sku,country,method,quantity:qty,productUSD:products,shippingUSD:freight,totalBeforeTaxesUSD:Math.round((products+freight)*100)/100,cbm:Number(cbm.toFixed(6)),currency:'USD',paymentEnabled:false,taxesNotIncluded:true,wholesale:qty>=10,deliveryEstimateDaysMin:qty>=10?25:undefined,deliveryEstimateDaysMax:qty>=10?30:undefined,discountPolicy:qty>=10?'QUANTITY_DEPENDENT_QUOTE_NO_FIXED_PERCENT':undefined,notice:'Shipping estimate only. Dispatch from China. Stock, packaging, delivery time, applicable duties and final payable amount require confirmation before payment.',rateUpdatedAt:rate.updated_at},{headers:{'cache-control':'no-store','access-control-allow-origin':'*','vary':'Origin'}});
