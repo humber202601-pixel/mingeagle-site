@@ -47,7 +47,7 @@ const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url,'http://127.0.0.1:8788');
   if(url.pathname==='/__test__/outbound'){res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({externalAttempts}));return;}
   let module=routes.get(url.pathname),params={};
-  const token=/^\/quote\/([a-f0-9]{64})$/.exec(url.pathname);
+  const token=/^(?:\/quote|\/api\/quote)\/([a-f0-9]{64})$/.exec(url.pathname);
   if(token){module=customer;params={token:token[1]};}
   if(module){
    const chunks=[];for await(const chunk of req)chunks.push(chunk);
