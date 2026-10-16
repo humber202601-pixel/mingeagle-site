@@ -78,6 +78,7 @@ try{
  sqlite.exec("UPDATE supplier_purchase_terms SET tiers_json=json_array(json_object('minimumQuantity',10,'purchaseCents',2100)) WHERE sku='P1-S7'");
  r=await read();
  assert.equal(r.body.retailReferenceCostRisk.atOrBelowApprovedCost,1);
+ r=await read({TURNSTILE_ENABLED:'true',AIRWALLEX_CHECKOUT_ENABLED:'true',AIRWALLEX_ENV:'prod'});
  assert.equal(r.body.procurement.supplierSources,4,'Status count includes expired and future drafts as records, not active terms');
  assert.equal(r.body.procurement.approvedSourceCount,1,'Expired/future approved terms must not count as cost coverage');
  assert.deepEqual(r.body.procurement.activeShippingRoutes,[{country:'US',method:'air',minimumUnits:1},{country:'US',method:'sea',minimumUnits:10}]);
