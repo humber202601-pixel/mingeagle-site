@@ -17,7 +17,7 @@ const cents=(value:unknown):number|null=>{
  return Number.isSafeInteger(c)&&Math.abs(value*100-c)<0.00001?c:null;
 };
 const enteredCents=(value:string):number|null=>{
- if(typeof value!=='string'||!/^(?:0|[1-9]\\d{0,6})(?:\\.\\d{1,2})?$/.test(value.trim()))return null;
+ if(typeof value!=='string'||!/^(?:0|[1-9]\d{0,6})(?:\.\d{1,2})?$/.test(value.trim()))return null;
  return cents(Number(value.trim()));
 };
 export type ScenarioResult={
@@ -44,7 +44,7 @@ export function calculateB2BScenario(quote:QuoteScenarioTotals,input:ScenarioInp
  const revenue=merchandise+shipping;
  empty.revenueExTaxUSD=revenue/100;
  if(empty.missing.length||empty.invalid.length)return empty;
- const cost=values.reduce((sum,n)=>sum+Number(n),0);
+ const cost=values.reduce<number>((sum,n)=>sum+(n??0),0);
  if(!Number.isSafeInteger(cost))return empty;
  const difference=revenue-cost;
  return {complete:true,missing:[],invalid:[],revenueExTaxUSD:revenue/100,
