@@ -100,7 +100,11 @@ try{
  assert.equal(response.status,409,'Missing reviewed sales-tax basis must block card quote');
  assert.equal(response.body.code,'B2B_STRIPE_QUOTE_NOT_PAYABLE');
  sqlite.prepare("UPDATE quotes SET payment_terms='Bank transfer before production',shipping_terms='Sea freight DDP to destination subject to confirmed timeline',tax_basis='SYNTHETIC_TEST: reviewed tax record' WHERE id=?").run(quoteId);
- const edit={quoteId,items:[{id:item.id,description:item.description,quantity:3,unitPrice:'8.07'}],shipping:'19.90',taxUSD:'1.10',taxBasis:'Synthetic test: explicit tax amount',discount:'0.29',validUntil:'2026-12-31',paymentTerms:'Test terms',shippingTerms:'Test freight'};
+ const blockedBank=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true});
+ assert.equal(blockedBank.status,409,'A bank-transfer-only wholesale quote must not create an unpayable customer link');
+ assert.equal(blockedBank.body.code,'STRIPE_ONLY_QUOTE_TERMS');
+ assert.equal(query('SELECT count(*) AS n FROM quote_public_links').n,0);
+ const edit={quoteId,items:[{id:item.id,description:item.description,quantity:3,unitPrice:'8.07'}],shipping:'19.90',taxUSD:'1.10',taxBasis:'Synthetic test: explicit tax amount',discount:'0.29',validUntil:'2026-12-31',paymentTerms:'Full amount payable by secure Stripe card checkout',shippingTerms:'Sea freight DDP 25–30 days. Ship-to state: TX; customs and duties included'};
  response=await call('edit','/api/admin/quote-edit',{...edit,items:[{...edit.items[0],quantity:3.5}]});assert.equal(response.status,400);assert.equal(query('SELECT quantity FROM quote_items').quantity,100);
  response=await call('edit','/api/admin/quote-edit',{...edit,items:[{...edit.items[0],unitPrice:'6.99'}]});
  assert.equal(response.status,409,'Draft edits at/below approved procurement floor blocked');
