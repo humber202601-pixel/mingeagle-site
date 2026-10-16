@@ -34,14 +34,15 @@ try{
  assert.equal(r.body.b2bStripeSessionHealth.olderThan24Hours,null,'Absent session schema is unknown rather than zero');
  assert.equal(r.body.b2bStripeEvidence.schemaPresent,false);
  assert.equal(r.body.b2bStripeEvidence.reconciledPaidOrders,null,'Missing payment ledger tables means unknown, not zero');assert.equal(r.body.procurement.supplierSources,null);
+ assert.equal(r.body.retailReferenceCostRisk.comparableSkus,null,'Unknown supplier catalog cannot be assumed price safe');
  assert.equal(r.body.procurement.activeShippingRoutes,null,'Absent route table must remain unknown rather than zero coverage');
  assert.equal(r.body.payments.checkoutConfigurationReady,false);
  assert.equal(r.body.payments.b2bCheckoutRequested,false);
  assert.equal(r.body.payments.b2bTaxReviewed,false);
  assert.equal(r.body.payments.b2bConfigurationReady,false);
  assert.equal(r.body.security.turnstileEnabled,false);assert.equal(writes,0);
- sqlite.exec('CREATE TABLE web_analytics_daily(date_utc TEXT,fetched_at TEXT);CREATE TABLE gsc_search_daily(date_pacific TEXT,fetched_at TEXT);CREATE TABLE supplier_purchase_terms(status TEXT,effective_on TEXT,expires_on TEXT);CREATE TABLE shipping_rates(country TEXT,method TEXT,min_units INTEGER,active INTEGER);CREATE TABLE shipping_packaging(sku TEXT);');
- sqlite.exec("INSERT INTO supplier_purchase_terms VALUES('APPROVED','2020-01-01','2099-12-31');INSERT INTO supplier_purchase_terms VALUES('APPROVED','2020-01-01','2021-01-01');INSERT INTO supplier_purchase_terms VALUES('APPROVED','2090-01-01','2099-12-31');INSERT INTO supplier_purchase_terms VALUES('PENDING','2020-01-01','2099-12-31');INSERT INTO shipping_rates VALUES('US','air',1,1);INSERT INTO shipping_rates VALUES('US','sea',10,1);INSERT INTO shipping_packaging VALUES('P1-S3');");
+ sqlite.exec('CREATE TABLE web_analytics_daily(date_utc TEXT,fetched_at TEXT);CREATE TABLE gsc_search_daily(date_pacific TEXT,fetched_at TEXT);CREATE TABLE supplier_purchase_terms(sku TEXT,status TEXT,effective_on TEXT,expires_on TEXT,currency TEXT,moq INTEGER,tiers_json TEXT);CREATE TABLE shipping_rates(country TEXT,method TEXT,min_units INTEGER,active INTEGER);CREATE TABLE shipping_packaging(sku TEXT);');
+ sqlite.exec("INSERT INTO supplier_purchase_terms VALUES('P1-S7','APPROVED','2020-01-01','2099-12-31','USD',10,json_array(json_object('minimumQuantity',10,'purchaseCents',2100)));INSERT INTO supplier_purchase_terms VALUES('P2-S7','APPROVED','2020-01-01','2021-01-01','USD',10,json_array(json_object('minimumQuantity',10,'purchaseCents',2300)));INSERT INTO supplier_purchase_terms VALUES('P3-S7','APPROVED','2090-01-01','2099-12-31','USD',10,json_array(json_object('minimumQuantity',10,'purchaseCents',3200)));INSERT INTO supplier_purchase_terms VALUES('P4-S5','PENDING','2020-01-01','2099-12-31','USD',10,json_array(json_object('minimumQuantity',10,'purchaseCents',1000)));INSERT INTO shipping_rates VALUES('US','air',1,1);INSERT INTO shipping_rates VALUES('US','sea',10,1);INSERT INTO shipping_packaging VALUES('P1-S3');");
  r=await read({TURNSTILE_ENABLED:'true',STRIPE_CHECKOUT_ENABLED:'true',STRIPE_MODE:'test'});
  assert.equal(r.body.analytics.cloudflare.observedDates,0);
  assert.equal(r.body.analytics.cloudflare.observedDateCoverage.status,'NO_VERIFIED_DATA');
@@ -67,6 +68,17 @@ try{
  // Restore the preceding fixture flags before testing Turnstile/payment readiness.
  r=await read({TURNSTILE_ENABLED:'true',AIRWALLEX_CHECKOUT_ENABLED:'true',AIRWALLEX_ENV:'prod'});
  assert.equal(r.body.procurement.approvedSourceCount,1);
+ assert.equal(r.body.retailReferenceCostRisk.comparableSkus,1);
+ assert.equal(r.body.retailReferenceCostRisk.atOrBelowApprovedCost,1);
+ assert.deepEqual(r.body.retailReferenceCostRisk.affectedSkus,['P1-S7']);
+ assert(!JSON.stringify(r.body).includes('2100'),'Do not reveal supplier purchase costs');
+ sqlite.exec("UPDATE supplier_purchase_terms SET tiers_json=json_array(json_object('minimumQuantity',10,'purchaseCents',1000)) WHERE sku='P1-S7'");
+ r=await read();
+ assert.equal(r.body.retailReferenceCostRisk.atOrBelowApprovedCost,0,'Price risk clears with lower approved tier');
+ sqlite.exec("UPDATE supplier_purchase_terms SET tiers_json=json_array(json_object('minimumQuantity',10,'purchaseCents',2100)) WHERE sku='P1-S7'");
+ r=await read();
+ assert.equal(r.body.retailReferenceCostRisk.atOrBelowApprovedCost,1);
+ r=await read({TURNSTILE_ENABLED:'true',AIRWALLEX_CHECKOUT_ENABLED:'true',AIRWALLEX_ENV:'prod'});
  assert.equal(r.body.procurement.supplierSources,4,'Status count includes expired and future drafts as records, not active terms');
  assert.equal(r.body.procurement.approvedSourceCount,1,'Expired/future approved terms must not count as cost coverage');
  assert.deepEqual(r.body.procurement.activeShippingRoutes,[{country:'US',method:'air',minimumUnits:1},{country:'US',method:'sea',minimumUnits:10}]);

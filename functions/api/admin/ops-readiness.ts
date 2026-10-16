@@ -1,4 +1,5 @@
 import {stripeCheckoutReadiness,type StripeEnv} from '../../_shared/stripe';
+import {approvedRetailReferenceRisk} from '../../../lib/approved-retail-reference-risk';
 // Authenticated production readiness: booleans and aggregate counts only.
 // Never returns API keys, supplier prices, customer data, or guessed business metrics.
 interface Env extends StripeEnv {MINGEAGLE_DB?:D1Database;TURNSTILE_SITE_KEY?:string;TURNSTILE_SECRET_KEY?:string;TURNSTILE_ENABLED?:string;STRIPE_RETAIL_ONLY_ENABLED?:string;STRIPE_B2B_CHECKOUT_ENABLED?:string;STRIPE_B2B_TAX_POLICY_APPROVED?:string;STRIPE_B2B_APPROVED_US_STATES?:string;STRIPE_TAX_POLICY_APPROVED?:string}
@@ -29,6 +30,16 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
    get<{total:number;active:number}>('shipping_rates','SELECT COUNT(*) AS total,COALESCE(SUM(CASE WHEN active=1 THEN 1 ELSE 0 END),0) AS active FROM shipping_rates'),
    get<{total:number}>('shipping_packaging','SELECT COUNT(*) AS total FROM shipping_packaging'),
   ]);
+  // Only currently effective, approved supplier SKU-size tiers participate.
+  // The public reference is merchandise only; we never reveal private cost
+  // figures or automatically edit checkout prices based on this advisory.
+  const approvedSupplierPrices=names.has('supplier_purchase_terms')
+   ?await db.prepare("SELECT sku,currency,moq,tiers_json FROM supplier_purchase_terms "+
+    "WHERE status='APPROVED' AND effective_on<=date('now') AND expires_on>=date('now') "+
+    "ORDER BY sku LIMIT 50").all<{sku:string;currency:string;moq:number;tiers_json:string}>()
+   :null;
+  const retailCostRisk=approvedSupplierPrices?.results
+   ?approvedRetailReferenceRisk(approvedSupplierPrices.results):null;
   // Expose only destination/method/minimum, never negotiated freight prices.
   // A destination without an active route requires an individual shipping quote.
   const shippingRoutes=names.has('shipping_rates')
@@ -75,6 +86,11 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
    procurement:{catalogPresent:names.has('supplier_purchase_terms'),supplierSources:cost?.total??null,approvedSourceCount:cost?.approved??null,
     shippingRates:freight?.total??null,activeShippingRates:freight?.active??null,packagingSkus:packages?.total??null,
     activeShippingRoutes:shippingRoutes?.results?.map(r=>({country:String(r.country),method:String(r.method),minimumUnits:Number(r.min_units)}))??null},
+   retailReferenceCostRisk:{schemaPresent:names.has('supplier_purchase_terms'),
+    comparableSkus:retailCostRisk?.comparable??null,
+    atOrBelowApprovedCost:retailCostRisk?.atOrBelowSourceUnitCost??null,
+    unmatchedApprovedSkus:retailCostRisk?.unmatched??null,
+    affectedSkus:retailCostRisk?.affectedSkus??null},
    b2bStripeEvidence:{schemaPresent:b2bEvidenceSchema,wholesaleOrders:wholesaleOrderCounts?.total??null,
     awaitingPaymentOrders:wholesaleOrderCounts?.awaitingPayment??null,
     stripeCheckoutSessions:stripeSessionCounts?.sessions??null,
@@ -102,6 +118,7 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
       &&Boolean(String(env.STRIPE_B2B_APPROVED_US_STATES||'').trim())},
    caveats:['GSC search metrics use Pacific reporting dates; Cloudflare RUM uses UTC. Do not compute a raw conversion ratio.',
     'An empty supplier catalog means purchase cost and profit are not validated; prices cannot be inferred from public retail.',
+    'Retail reference vs supplier unit cost is only a price risk indicator: wholesale MOQ tiers and product variants differ from one-unit samples, and freight, duties, tax and fees are excluded.',
     'Stripe configuration readiness does not prove successful card capture, webhook delivery or bank settlement.',
     'Webhook health includes only signed Stripe events inserted into this database. Zero unprocessed events does not prove every Stripe event arrived; reconcile Stripe Dashboard when suspicious.',
     'Stripe Checkout session age is based on our local D1 snapshot; OPEN/PENDING may be stale when Stripe has already expired or settled a session. Verify Stripe Dashboard and webhook history before any retry or fulfillment.',
