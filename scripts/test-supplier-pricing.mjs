@@ -56,7 +56,7 @@ try{
  assert(intake.every(row=>row.slice(3).every(cell=>cell==='')),
   'Supplier cost, supplier identity, MOQ, packing, freight, duties, approval and dates are unknown and must remain blank');
  const csv=supplierCostIntakeCsv();
- assert.equal(csv.trim().split(/\\r?\\n/).length,12,'One CSV header and eleven SKU records');
+ assert.equal(csv.trim().split(/\r?\n/).length,12,'One CSV header and eleven SKU records');
  assert(csv.includes('Owner_Reported_Factory_USD_UNVERIFIED'));
  assert(csv.includes('Sea_Freight_DDP_USD_Per_Unit')&&csv.includes('Supplier_Confirmed_Unit_Cost_USD'));
  const supplierUi=readFileSync('src/SupplierPricingManager.tsx','utf8');
