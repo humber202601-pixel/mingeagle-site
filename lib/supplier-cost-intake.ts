@@ -10,7 +10,7 @@ export const OWNER_REPORTED_FACTORY_COSTS_USD:Readonly<Record<string,number>>=Ob
 });
 export const OWNER_COST_NOTE_DATE='2026-10-14';
 
-const COLUMNS=[
+export const SUPPLIER_INTAKE_COLUMNS=[
  'SKU','Product_Model','Owner_Reported_Factory_USD_UNVERIFIED',
  'Supplier_Confirmed_Unit_Cost_USD','Supplier_Name','Supplier_SKU',
  'MOQ_Units','Units_Per_Carton','Quotation_Date_UTC','Effective_On_UTC',
@@ -30,5 +30,5 @@ export function supplierCostIntakeRows():string[][]{
 }
 const quote=(value:string)=>'"'+value.replace(/"/g,'""')+'"';
 export function supplierCostIntakeCsv():string{
- return [COLUMNS,...supplierCostIntakeRows()].map(line=>line.map(quote).join(',')).join('\r\n')+'\r\n';
+ return [SUPPLIER_INTAKE_COLUMNS,...supplierCostIntakeRows()].map(line=>line.map(quote).join(',')).join('\r\n')+'\r\n';
 }
