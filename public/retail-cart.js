@@ -79,13 +79,16 @@ function linkToInquiry(type){
  if(!last)return;
  const params=new URLSearchParams({
   type,cart:formatItems(),cart_country:last.country,cart_method:last.method,
-  cart_total:String(last.totalBeforeTaxesUSD),cart_shipping:String(last.shippingUSD),
   order_units:String(quantity(read())),
   cart_options:read().map(x=>x.sku+' | '+x.color+' | '+x.quantity).join('; ').slice(0,2200)
  });
  if(type==='quote'){
   params.set('shipping_consent','sea-25-30-days-estimated');
   params.set('discount_request','quantity-based wholesale pricing');
+ }else{
+  // Retail informational estimates are separate from the official card charge.
+  if(Number.isFinite(last.totalBeforeTaxesUSD))params.set('cart_total',String(last.totalBeforeTaxesUSD));
+  if(Number.isFinite(last.shippingUSD))params.set('cart_shipping',String(last.shippingUSD));
  }
  location.href='inquiry.html?'+params.toString();
 }
@@ -118,7 +121,7 @@ function render(){
    if(found){found.quantity=Math.max(1,Math.min(10000,Math.floor(Number(count.value)||1)));save(current);render()}
   });
   quantityCell.append(count);
-  const cost=document.createElement('td');cost.textContent=money(PRICE[line.sku]*line.quantity);
+  const cost=document.createElement('td');cost.textContent=bulk?'Quote required':money(PRICE[line.sku]*line.quantity);
   subtotal+=Math.round(PRICE[line.sku]*100)*line.quantity;
   const removeCell=document.createElement('td'),remove=document.createElement('button');
   remove.type='button';remove.textContent='Remove';
@@ -126,8 +129,8 @@ function render(){
   removeCell.append(remove);row.append(title,quantityCell,cost,removeCell);body.append(row);
  }
  $('cartEmpty').hidden=lines.length>0;$('cartTable').hidden=lines.length===0;
- $('cartSubtotal').textContent=money(subtotal/100);
- $('cartSummaryGoods').textContent=money(subtotal/100);
+ $('cartSubtotal').textContent=bulk?'Price on request':money(subtotal/100);
+ $('cartSummaryGoods').textContent=bulk?'Price on request':money(subtotal/100);
  $('cartSea').disabled=!bulk;
  $('cartAir').disabled=bulk;
  $('cartMethod').value=bulk?'sea':'air';
@@ -146,7 +149,7 @@ function render(){
   'China → US: each P1-S3 set has $11.50 shipping and each P1-S7 set has $14.00 shipping. Each set ships in its own parcel; charges are added per set and parcels may arrive separately. Customs clearance and US import duties are included, with no additional import duty charged to the buyer. Final US sales tax is shown before payment.':
   'China-direct delivery: customs clearance and import-duty coverage is not yet confirmed for this size or quantity. US sales tax is separate. Request a confirmed delivered-price quote before payment.';
  $('cartStatus').textContent=!lines.length?'Your cart is empty.':
-  bulk?'Agree to sea freight terms before calculating the wholesale freight estimate.':
+  bulk?'Agree to sea freight terms and request a written wholesale quote. The product price, carton dimensions, freight and DDP total have not been verified.':
   'Review air freight and taxes before requesting secure payment. Online checkout is activated only when the payment provider is ready.';
 }
 $('cartCountry').addEventListener('input',render);
@@ -178,7 +181,26 @@ $('cartEstimateForm').addEventListener('submit',async e=>{
   if(current!==version)return;
   if(!response.ok||!result.ok)throw Error(result.error||'Estimate unavailable');
   if((n>=10)!==Boolean(result.wholesale))throw Error('Order classification mismatch');
+  if(bulk){
+   if(result.quoteRequired!==true||result.paymentEnabled!==false||
+      result.productsUSD!==null||result.shippingUSD!==null||
+      result.totalBeforeTaxesUSD!==null||result.volumeCBM!==null)
+    throw Error('Wholesale price and carton measurements require verification');
+   last=result;checkoutAvailable=false;
+   $('cartSummaryGoods').textContent='Price on request';
+   $('cartSummaryShipping').textContent='Written DDP quote required';
+   $('cartSummaryTotal').textContent='To be confirmed';
+   $('cartEstimate').hidden=true;
+   $('cartCheckout').disabled=false;
+   $('cartInquiry').hidden=true;
+   $('cartCheckout').textContent='Submit wholesale RFQ →';
+   $('cartStatus').textContent='Wholesale RFQ ready. The item prices, actual carton dimensions and delivered DDP freight must be confirmed in writing. No payment is requested.';
+   return;
+  }
   last=result;
+  if(typeof (result.productsUSD??result.productUSD)!=='number'||
+     typeof result.shippingUSD!=='number'||typeof result.totalBeforeTaxesUSD!=='number')
+   throw Error('Retail delivered-price quote is incomplete');
   const goods=Number(result.productsUSD??result.productUSD),freight=Number(result.shippingUSD),total=Number(result.totalBeforeTaxesUSD);
   if(![goods,freight,total].every(Number.isFinite))throw Error('Invalid server shipping amount');
   $('cartGoods').textContent=money(goods);$('cartFreight').textContent=money(freight);$('cartTotal').textContent=money(total);
@@ -202,9 +224,7 @@ $('cartEstimateForm').addEventListener('submit',async e=>{
   $('cartCheckout').textContent=bulk?'Request tiered wholesale quote →':
    result.ddpConfirmed!==true?'Request confirmed delivered-price quote →':
    checkoutAvailable?'Continue to secure checkout →':'Request confirmed retail quote →';
-  $('cartStatus').textContent=bulk?
-   'Preliminary wholesale sea freight only. Discounts and the final amount require a written quote; estimated sea delivery is 25–30 days after dispatch.':
-   result.ddpConfirmed!==true?
+  $('cartStatus').textContent=result.ddpConfirmed!==true?
     'Import duties have not been confirmed for this basket. Request a delivered-price quote before payment.':
    checkoutAvailable?
     'Import duties are included. Each set ships in its own parcel, with shipping charged per set; parcels may arrive separately. Continue to checkout for final sales tax before payment.':
