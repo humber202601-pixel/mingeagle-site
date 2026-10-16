@@ -1,6 +1,7 @@
 import {QUOTE_PUBLIC_TOKEN_PREDICATE} from '../../lib/quote-public-token';
 import {calculate, type Comparison} from '../../lib/quote-math-core.mjs';
 import {stripeCheckoutReadiness} from '../_shared/stripe';
+import {acceptedB2bQuotePayable} from '../../lib/b2b-stripe-eligibility';
 interface Env {
   MINGEAGLE_DB: D1Database;
   AIRWALLEX_CLIENT_ID?: string;
@@ -152,7 +153,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
         ? `<a class="track-link" target="_blank" rel="noreferrer" href="${esc(order.tracking_url)}">Open carrier tracking ↗</a>` : '';
       const closedOrder = String(order.status||'').toUpperCase()==='CANCELLED' || String(order.payment_status||'').toUpperCase()==='REFUNDED';
       const stripeReady = !closedOrder && stripeCheckoutReadiness(env).checkoutReady && env.STRIPE_TAX_POLICY_APPROVED==='true'
-        && (String(order.reference).startsWith('ME-RO-') || (env.STRIPE_RETAIL_ONLY_ENABLED!=='true' && env.STRIPE_B2B_CHECKOUT_ENABLED==='true'))
+        && (String(order.reference).startsWith('ME-RO-') || (acceptedB2bQuotePayable(quote)
+          && env.STRIPE_RETAIL_ONLY_ENABLED!=='true' && env.STRIPE_B2B_CHECKOUT_ENABLED==='true'))
         && (!String(order.reference).startsWith('ME-RO-') ||
           (env.RETAIL_CHECKOUT_ENABLED==='true' && env.RETAIL_STOCK_FULFILLMENT_APPROVED==='true' && env.RETAIL_TAX_POLICY_APPROVED==='true'));
       const providerNotice = paymentStateNotice(order.provider_status);
