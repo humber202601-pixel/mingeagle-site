@@ -53,6 +53,17 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    "ORDER BY o.created_at DESC LIMIT 1"
   ).bind(hash,hash).first<RecordRow>();
   if(!order)return fail('Order not found.',404);
+  // Buyer UI also hides the pay button for unresolved Stripe disputes, but
+  // direct POST callers must be stopped server-side before creating/reusing
+  // another chargeable Checkout Session. Staff closes this hold only after
+  // reconciliation; the API never silently clears it.
+  const pendingStripeReview=await db.prepare(`SELECT id FROM tasks
+    WHERE order_id=? AND type='PAYMENT' AND status IN ('OPEN','IN_PROGRESS')
+      AND (title LIKE 'Review disputed Stripe receipts%'
+        OR title LIKE 'Review payment on closed order%')
+    LIMIT 1`).bind(String(order.id)).first<{id:string}>();
+  if(pendingStripeReview)
+   return fail('This order has an unresolved Stripe payment review. Do not pay again until MING EAGLE confirms its payment status.',409);
   if(requiresClosedOrderPaymentReview(order)||String(order.status).toUpperCase()==='REFUNDED')
    return fail('Closed or refunded orders cannot accept new payments.',409);
   const isRetail=String(order.reference).startsWith('ME-RO-');

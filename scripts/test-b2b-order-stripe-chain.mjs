@@ -181,11 +181,36 @@ try{
  assert.equal(altered.status,409,'Changed SKU/description is not payable against original quote');
  assert.equal(network,beforeBlocked,'Tampered order must not call Stripe');
  sqlite.prepare(`UPDATE order_items SET description='Flocked Silent Basketball Set | No. 7 | Orange' WHERE order_id=?`).run(orderId);
+ // Unpaid order with an active manual Stripe review must never get a
+ // brand-new Checkout from a direct POST, even if the buyer UI hides Pay.
+ const disputeTaskId='synthetic-checkout-hold';
+ sqlite.prepare("INSERT INTO tasks(id,order_id,type,title,status,priority) VALUES (?,?,'PAYMENT',?,'OPEN','URGENT')")
+  .run(disputeTaskId,orderId,'Review disputed Stripe receipts for '+reference);
+ for(const disputeStatus of ['OPEN','IN_PROGRESS']){
+  sqlite.prepare('UPDATE tasks SET status=? WHERE id=?').run(disputeStatus,disputeTaskId);
+  const writesBeforeHold=writes,networkBeforeHold=network;
+  const denied=await checkout({env,request:checkoutRequest()});
+  assert.equal(denied.status,409,'Checkout must be held while dispute is '+disputeStatus);
+  assert.match((await denied.json()).error,/unresolved Stripe payment review/i);
+  assert.equal(writes,writesBeforeHold,'Checkout dispute guard must not write D1');
+  assert.equal(network,networkBeforeHold,'Checkout dispute guard must not call Stripe');
+  assert.equal(provider.size,0,'Checkout dispute guard must not create Stripe session');
+ }
+ sqlite.prepare("UPDATE tasks SET status='DONE' WHERE id=?").run(disputeTaskId);
  const createdCheckout=await checkout({env,request:checkoutRequest()});
  assert.equal(createdCheckout.status,200,await createdCheckout.clone().text());
  assert.equal(provider.size,1,'One simulated hosted checkout');
  const ref=sqlite.prepare("SELECT provider_intent_id FROM payment_provider_sessions WHERE order_id=? AND provider='STRIPE'").get(orderId);
  assert.equal(ref.provider_intent_id,'cs_test_syntheticB2BChain1');
+ // An already-open Stripe Session must not be reissued during a new
+ // staff review: guard runs before Stripe retrieval and URL reuse.
+ sqlite.prepare("UPDATE tasks SET status='OPEN' WHERE id=?").run(disputeTaskId);
+ const writesBeforeReuseHold=writes,networkBeforeReuseHold=network;
+ const deniedReuse=await checkout({env,request:checkoutRequest()});
+ assert.equal(deniedReuse.status,409,'Active review blocks existing session URL reuse');
+ assert.equal(network,networkBeforeReuseHold,'Existing Stripe session must not be fetched/reused under hold');
+ assert.equal(writes,writesBeforeReuseHold,'Existing session hold must not mutate D1');
+ sqlite.prepare("UPDATE tasks SET status='DONE' WHERE id=?").run(disputeTaskId);
  // Even if our D1 session row still matches the order, Stripe's own live
  // session response must agree before an existing URL is reissued.
  const originalSession=provider.get(ref.provider_intent_id);

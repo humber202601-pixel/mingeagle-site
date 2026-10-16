@@ -100,6 +100,7 @@ try{
  let simulatedQuoteAmountDelta=0;
  let simulatedOrderItemChange='';
  let simulatedOrderStatus='PAYMENT_PENDING',simulatedPaymentStatus='UNPAID';
+ let simulatedActiveStripeReview=false;
  let retailSku='P1-S7', retailGoods=14.9, retailShipping=14;
  const processedEvents=new Set();
  let receivedInserts=0;
@@ -121,6 +122,7 @@ try{
       shipping_address:hasB2BShippingAddress?JSON.stringify({state:simulatedShippingState,country:'US',city:'Portland',postalCode:'97201',line1:'123 Example Street'}):null,
       received:0,email:'buyer@example.net'
     };
+    if(sql.includes("FROM tasks")&&sql.includes("Review disputed Stripe receipts"))return simulatedActiveStripeReview?{id:'review_synthetic'}:null;
     if(sql.includes("WHERE order_id=? AND provider='STRIPE'"))return null;
     if(sql.includes("WHERE provider='STRIPE' AND provider_intent_id=?"))return stored?{order_id:'ord_synthetic',amount:28.9,currency:'USD',status:'OPEN'}:null;
     if(sql.includes('FROM payment_webhook_events'))return {processed_at:processedEvents.has(this.values?.[0])?'2026-10-14 00:00:00':null};
@@ -182,8 +184,17 @@ try{
   assert.equal(blocked.status,503,'Existing unpaid retail orders must honor the retail activation switch');
   assert.equal(providerCalls,0,'Disabled retail must not contact Stripe');
   assert.equal(dbWrites,writesBefore,'Disabled retail must not write payment sessions');
-  assert.equal(dbReads,readsBefore+1,'Only the order lookup may run before the retail gate');
+  assert.equal(dbReads,readsBefore+2,'Only the order and active payment hold may be read before retail eligibility');
  }
+ // Both retail and wholesale must respect the same server-side Stripe
+ // reconciliation hold even when their payment buttons are hidden in the UI.
+ simulatedActiveStripeReview=true;
+ const beforeHoldWrites=dbWrites,beforeHoldCalls=providerCalls;
+ const held=await createCheckout({env:{...ready,RETAIL_CHECKOUT_ENABLED:'true',MINGEAGLE_DB:db},request:request()});
+ assert.equal(held.status,409,'Active manual Stripe review must block checkout directly');
+ assert.equal(dbWrites,beforeHoldWrites,'Payment hold cannot create or edit DB session');
+ assert.equal(providerCalls,beforeHoldCalls,'Payment hold cannot contact Stripe');
+ simulatedActiveStripeReview=false;
  // Wholesale requires a separate opt-in in addition to the retail-only restriction.
  orderReference='ME-O-SYNTHETIC';quoteStatus='ACCEPTED';simulatedShippingState='OR';
  const limited=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'true',STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',STRIPE_B2B_APPROVED_US_STATES:'OR,NH',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
