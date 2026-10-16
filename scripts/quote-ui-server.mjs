@@ -17,7 +17,7 @@ const routes=new Map();
 for(const path of paths)routes.set('/api/'+path,await load(path.replaceAll('/','-'),'functions/api/'+path+'.ts'));
 const customer=await load('customer','functions/quote/[token].ts');
 const sqlite=new DatabaseSync(':memory:');
-for(const file of ['0001_core.sql','0002_quote_public_links.sql','0003_airwallex_payment_sessions.sql','0004_shipping_rates.sql','0005_supplier_purchase_terms.sql'])sqlite.exec(readFileSync('migrations/'+file,'utf8'));
+for(const file of ['0001_core.sql','0002_quote_public_links.sql','0003_airwallex_payment_sessions.sql','0004_shipping_rates.sql','0005_supplier_purchase_terms.sql','0016_b2b_tax_basis.sql'])sqlite.exec(readFileSync('migrations/'+file,'utf8'));
 /* Production discovery candidate data is provisioned by the discovery intake
    subsystem, not the five core pricing migrations. The isolated quote browser
    fixture needs its read-only projection to match the deployed CRM schema. */
