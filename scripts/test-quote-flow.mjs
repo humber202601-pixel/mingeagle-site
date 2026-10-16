@@ -201,6 +201,105 @@ try{
  const wholesaleHtml=await (await routes.view({request:new Request('https://quote-test.example'+costResult.body.publicPath),env,params:{token:wholesaleToken}})).text();
  assert(!wholesaleHtml.includes(costEvidence),'Buyer must never see internal cost proof');
  assert.equal(externalCalls,0);
+ // Simulate real Gmail API boundary with synthetic email and in-memory SQL.
+ // All network requests below are intercepted; NO external email is sent.
+ sqlite.prepare("INSERT INTO contacts(id,full_name,email) VALUES('synthetic-email-contact','Synthetic Email','synthetic@example.invalid')").run();
+ sqlite.prepare("UPDATE quotes SET contact_id='synthetic-email-contact' WHERE id=?").run(quoteId);
+ const liveLikeEnv={...env,OUTBOUND_EMAIL_DISABLED:'false',GMAIL_CLIENT_ID:'synthetic-client',
+  GMAIL_CLIENT_SECRET:'synthetic-secret',GMAIL_REFRESH_TOKEN:'synthetic-refresh',GMAIL_FROM:'synthetic@example.invalid'};
+ const directSend=async()=>{
+  const request=new Request('https://quote-test.example/api/admin/quote-send',{
+   method:'POST',headers:{'content-type':'application/json'},
+   body:JSON.stringify({quoteId,sendEmail:true,approved:true,landedReview:reviewed})
+  });
+  const reply=await routes.release({request,env:liveLikeEnv,params:{}});
+  return {status:reply.status,body:await reply.json()};
+ };
+ let gmailAttempts=0,oauthAttempts=0;
+ globalThis.fetch=async(url)=>{
+  const endpoint=String(url);
+  if(endpoint==='https://oauth2.googleapis.com/token'){
+   oauthAttempts++;
+   return Response.json({access_token:'synthetic-oauth'});
+  }
+  if(endpoint==='https://gmail.googleapis.com/gmail/v1/users/me/messages/send'){
+   gmailAttempts++;
+   assert.equal(query("SELECT status FROM quotes WHERE id='"+quoteId+"'").status,'SENT',
+    'A quote must be durable and payable before any external email call');
+   return Response.json({id:'synthetic-gmail-id',threadId:'synthetic-thread'});
+  }
+  throw Error('Unmocked network endpoint: '+endpoint);
+ };
+ const priorLinks=query('SELECT COUNT(*) n FROM quote_public_links').n;
+ sqlite.prepare("UPDATE contacts SET do_not_contact=1 WHERE id='synthetic-email-contact'").run();
+ let blockedMail=await directSend();
+ assert.equal(blockedMail.status,409);
+ assert.equal(blockedMail.body.code,'QUOTE_EMAIL_RECIPIENT_BLOCKED');
+ assert.equal(query('SELECT COUNT(*) n FROM quote_public_links').n,priorLinks);
+ assert.equal(gmailAttempts,0);
+ sqlite.prepare("UPDATE contacts SET do_not_contact=0 WHERE id='synthetic-email-contact'").run();
+ const savedRefresh=liveLikeEnv.GMAIL_REFRESH_TOKEN;
+ delete liveLikeEnv.GMAIL_REFRESH_TOKEN;
+ blockedMail=await directSend();
+ assert.equal(blockedMail.status,503);
+ assert.equal(blockedMail.body.code,'GMAIL_NOT_CONFIGURED');
+ assert.equal(query('SELECT COUNT(*) n FROM quote_public_links').n,priorLinks);
+ liveLikeEnv.GMAIL_REFRESH_TOKEN=savedRefresh;
+ sqlite.exec("CREATE TRIGGER prevent_release_link BEFORE INSERT ON quote_public_links BEGIN SELECT RAISE(ABORT,'synthetic pre-mail DB failure'); END");
+ let mail=await directSend();
+ assert.equal(mail.status,500,'DB transaction failure must prevent Gmail dispatch');
+ assert.equal(gmailAttempts,0,'Never send an email for an uncommitted customer link');
+ assert.equal(oauthAttempts,0);
+ assert.equal(query('SELECT COUNT(*) n FROM quote_public_links').n,priorLinks);
+ sqlite.exec('DROP TRIGGER prevent_release_link');
+ mail=await directSend();
+ assert.equal(mail.status,200,JSON.stringify(mail));
+ assert.equal(mail.body.emailed,true);
+ assert.equal(mail.body.deliveryUnconfirmed,false);
+ assert.equal(mail.body.trackingIncomplete,false);
+ assert.equal(gmailAttempts,1);
+ const confirmedLink=await routes.view({
+  request:new Request('https://quote-test.example'+mail.body.publicPath),env,params:{token:mail.body.publicPath.split('/').pop()}
+ });
+ assert.equal(confirmedLink.status,200,'An emailed quote link must already be publicly readable');
+ // Gmail may have received a message even when its API reply fails. The
+ // merchant must check Sent, not interpret the failure as an unsent email.
+ globalThis.fetch=async(url)=>{
+  if(String(url).includes('oauth2.googleapis.com'))return Response.json({access_token:'synthetic-oauth'});
+  if(String(url).includes('gmail.googleapis.com')){
+   gmailAttempts++;
+   return Response.json({error:{message:'Synthetic Gmail gateway response lost'}},{status:502});
+  }
+  throw Error('Unmocked network endpoint');
+ };
+ mail=await directSend();
+ assert.equal(mail.status,200);
+ assert.equal(mail.body.emailed,false);
+ assert.equal(mail.body.deliveryUnconfirmed,true,'Uncertain Gmail delivery needs manual reconciliation');
+ assert(mail.body.publicPath?.startsWith('/quote/'));
+ assert.equal(query('SELECT status FROM quotes').status,'SENT');
+ const stillReadable=await routes.view({
+  request:new Request('https://quote-test.example'+mail.body.publicPath),env,params:{token:mail.body.publicPath.split('/').pop()}
+ });
+ assert.equal(stillReadable.status,200,'Do not revoke a possibly emailed valid URL');
+ globalThis.fetch=async(url)=>{
+  if(String(url).includes('oauth2.googleapis.com'))return Response.json({access_token:'synthetic-oauth'});
+  if(String(url).includes('gmail.googleapis.com')){
+   gmailAttempts++;return Response.json({id:'synthetic-gmail-after-crm-failure'});
+  }
+  throw Error('Unmocked network endpoint');
+ };
+ sqlite.exec(`CREATE TRIGGER fail_post_gmail_tracking BEFORE INSERT ON activities
+  WHEN NEW.activity_type='QUOTE_EMAIL_SENT'
+  BEGIN SELECT RAISE(ABORT,'synthetic CRM tracking failure'); END`);
+ mail=await directSend();
+ assert.equal(mail.status,200);
+ assert.equal(mail.body.emailed,true,'Accepted Gmail message must not be relabeled as unsent due to CRM errors');
+ assert.equal(mail.body.trackingIncomplete,true,'Staff must know when CRM tracking is incomplete');
+ sqlite.exec('DROP TRIGGER fail_post_gmail_tracking');
+ assert.equal(gmailAttempts,3);
+ globalThis.fetch=async()=>{externalCalls++;throw Error('Mock scope ended: external network forbidden')};
+
  assert.equal(externalCalls,0);
  console.log('PASS: real SQL inquiry → authenticated draft → decimal totals → edit/invalidation → staff approval → secure customer quote, no external sends.');
 }finally{globalThis.fetch=originalFetch;sqlite.close();}
