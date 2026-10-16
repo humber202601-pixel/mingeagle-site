@@ -130,6 +130,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
       return Response.json({ ok: false, error: 'Payment, shipping or quote validity terms need seller confirmation before acceptance.' }, { status: 409 });
     }
 
+
+    // Legacy bank-transfer quotes may still be viewable, but new orders may
+    // not be accepted against terms with no enabled payment provider.
+    if(!/\bstripe\b/i.test(String(quote.payment_terms||'')))
+      return Response.json({ok:false,code:'STRIPE_ONLY_QUOTE_TERMS',
+        error:'This quotation cannot be accepted with its former payment terms. Please request a revised Stripe Checkout quotation from MING EAGLE.'},{status:409});
+
     // Stripe-bound orders require an explicit buyer-confirmed delivery state
     // to prevent freight and sales tax decisions from silently changing.
     let shippingAddress:Record<string,string>|null=null;

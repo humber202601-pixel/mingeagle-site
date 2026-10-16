@@ -261,6 +261,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         unverifiedSkuBaselines:review.unverified,
         error:'Record the supplier/source and what was checked (unit cost, MOQ, packing and landed freight/duties) before approving an unverified B2B quote. Never assume a missing baseline means positive profit.'},{status:409});
     }
+
+    // The live website accepts B2B payments only through Stripe.
+    // A bank-transfer-only quote would create a buyer-accepted order with no
+    // supported payment route. Block new/reissued customer links or emails.
+    if(!/\bstripe\b/i.test(String(quote.payment_terms||'')))
+      return Response.json({ok:false,code:'STRIPE_ONLY_QUOTE_TERMS',
+        error:'MING EAGLE accepts wholesale order payments through Stripe Checkout only. Update payment terms and review ship-to state, freight and sales-tax basis before releasing this quotation.'},{status:409});
     await ensureQuoteLinks(db);
     if (quote.public_token_hash) {
       await db.prepare(`INSERT OR IGNORE INTO quote_public_links (id, quote_id, token_hash)

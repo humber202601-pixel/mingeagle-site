@@ -19,6 +19,9 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
   const review=await verifyQuoteProcurement(db,result.results.map(r=>({description:r.description,quantity:r.quantity,unitPrice:r.unit_price})),
    quote.discount??0,String(quote.currency||'USD'),new Date().toISOString().slice(0,10));
   const termsIssues=quoteTermsIssues(quote);
+  // The preview must surface the same Stripe-only payment rule enforced at
+  // quote release, before staff asks a buyer to accept an unpayable quotation.
+  if(!/\bstripe\b/i.test(String(quote.payment_terms||'')))termsIssues.push('STRIPE_ONLY_QUOTE_TERMS');
   const computed=quoteTotals(result.results.map(r=>({quantity:r.quantity,unitPrice:r.unit_price})),
    quote.shipping??0,quote.discount??0,quote.tax??0);
   const amountMatchesQuote=quote.currency==='USD'

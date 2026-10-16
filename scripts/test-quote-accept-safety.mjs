@@ -16,6 +16,8 @@ assert(accept.includes('computedTotalCents'),'server must reconcile subtotal, fr
 assert(source.includes("import {quoteTermsIssues} from '../../../lib/b2b-quote-terms'"),'buyer acceptance must use shared commercial terms guard');
 assert(accept.includes("if (!String(quote.sent_at || '').trim())"),'buyer acceptance requires the seller to issue a quotation');
 assert(accept.includes('const incompleteTerms = quoteTermsIssues({'),'buyer acceptance checks current payment, shipping and validity terms');
+assert(accept.includes("code:'STRIPE_ONLY_QUOTE_TERMS'"),'Old non-Stripe quotes may not convert into unpayable orders');
+assert(accept.indexOf("code:'STRIPE_ONLY_QUOTE_TERMS'")<accept.indexOf('const orderInsert ='),'Stripe-only rejection happens before all order writes');
 assert(accept.includes('if (incompleteTerms.length)'),'incomplete commercial terms block conversion');
 assert(accept.indexOf('const incompleteTerms = quoteTermsIssues(')<accept.indexOf('const orderInsert ='),'terms must be checked before unpaid orders can be created');
 assert(accept.indexOf('const incompleteTerms = quoteTermsIssues(')<accept.indexOf('const items = await db.prepare'),'rejected incomplete terms must not even fetch priced lines for conversion');
