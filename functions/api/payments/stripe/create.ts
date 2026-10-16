@@ -3,6 +3,7 @@ import {stripeApi, stripeCheckoutReadiness, stripeSessionMatchesMode, type Strip
 import {retailTaxTreatment,reviewedStripeTaxStates,remoteStartupState,remoteStartupWithinLimits,type RetailTaxEnv} from '../../../../lib/retail-tax-policy';
 import {registeredStripeTaxState,fixedTaxCustomer,automaticTaxAmount,type DeliveryAddress} from '../../../_shared/retail-stripe-tax';
 import {separateUnitUsAirParcels} from '../../../../lib/us-small-parcel';
+import {requiresClosedOrderPaymentReview} from '../../../../lib/closed-order-payment';
 
 interface Env extends StripeEnv,RetailTaxEnv {
   MINGEAGLE_DB: D1Database;
@@ -11,6 +12,7 @@ interface Env extends StripeEnv,RetailTaxEnv {
   RETAIL_STOCK_FULFILLMENT_APPROVED?:string;
   RETAIL_TAX_POLICY_APPROVED?:string;
   STRIPE_RETAIL_ONLY_ENABLED?:string;
+  STRIPE_B2B_CHECKOUT_ENABLED?:string;
 }
 type RecordRow=Record<string,unknown>;
 const fail=(message:string,status=400)=>Response.json({ok:false,error:message},{status,headers:{'cache-control':'no-store'}});
@@ -42,9 +44,10 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    "ORDER BY o.created_at DESC LIMIT 1"
   ).bind(hash,hash).first<RecordRow>();
   if(!order)return fail('Order not found.',404);
-  if(['CANCELLED','REFUNDED'].includes(String(order.status)))return fail('Order is not payable.',409);
+  if(requiresClosedOrderPaymentReview(order)||String(order.status).toUpperCase()==='REFUNDED')
+   return fail('Closed or refunded orders cannot accept new payments.',409);
   const isRetail=String(order.reference).startsWith('ME-RO-');
-  if(env.STRIPE_RETAIL_ONLY_ENABLED==='true'&&!isRetail)
+  if(!isRetail&&(env.STRIPE_RETAIL_ONLY_ENABLED==='true'||env.STRIPE_B2B_CHECKOUT_ENABLED!=='true'))
    return fail('Online payment currently supports approved retail orders only. Contact MING EAGLE for this quotation.',503);
   if(isRetail&&env.RETAIL_CHECKOUT_ENABLED!=='true')
    return fail('Direct retail payment is not activated.',503);
