@@ -101,8 +101,9 @@ try{
  assert.equal(created.order.payment_status,'UNPAID');
  const orderId=created.order.id;
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM order_items WHERE order_id=?').get(orderId).n,1);
- assert.equal(sqlite.prepare('SELECT shipping_address FROM orders WHERE id=?').get(orderId).shipping_address,
-  JSON.stringify(ship));
+ assert.deepEqual(JSON.parse(sqlite.prepare('SELECT shipping_address FROM orders WHERE id=?').get(orderId).shipping_address),
+  {line1:ship.line1,city:ship.city,state:ship.state,postalCode:ship.postalCode,country:ship.country},
+  'Saved buyer delivery facts match the accepted address');
  const secondAccept=await accept(ship);
  assert.equal(secondAccept.status,200,'A second acceptance must reuse the existing order');
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM orders WHERE quote_id=?').get(quoteId).n,1);
