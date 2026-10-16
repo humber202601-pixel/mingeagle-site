@@ -1,4 +1,5 @@
 import {QUOTE_PUBLIC_TOKEN_PREDICATE} from '../../../lib/quote-public-token';
+import {quoteTermsIssues} from '../../../lib/b2b-quote-terms';
 interface Env {
   MINGEAGLE_DB: D1Database;
 }
@@ -113,6 +114,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
 
     if (!['SENT','VIEWED'].includes(status)) {
       return Response.json({ ok: false, error: `Quote cannot be accepted from status ${status}.` }, { status: 409 });
+    }
+    // A seller-issued quote is not buyer-acceptable until commercial terms
+    // are complete and valid. Do not create an unpaid order from a draft
+    // disguised as SENT, and do not rely solely on a later payment gate.
+    if (!String(quote.sent_at || '').trim()) {
+      return Response.json({ ok: false, error: 'This quotation has not been formally issued. Please request an updated quote.' }, { status: 409 });
+    }
+    const incompleteTerms = quoteTermsIssues({
+      payment_terms: quote.payment_terms,
+      shipping_terms: quote.shipping_terms,
+      valid_until: quote.valid_until,
+    });
+    if (incompleteTerms.length) {
+      return Response.json({ ok: false, error: 'Payment, shipping or quote validity terms need seller confirmation before acceptance.' }, { status: 409 });
     }
 
     const items = await db.prepare(`SELECT product_id, variant_id, description, quantity, unit_price, line_total FROM quote_items WHERE quote_id=? ORDER BY sort_order, id`)
