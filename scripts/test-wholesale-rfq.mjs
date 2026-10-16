@@ -86,13 +86,18 @@ const call=async payload=>{const resp=await onRequestPost({request:new Request('
 const missingBasis=await call({unitPrices:[2,3,4],shippingUSD:20,paymentTerms:'Payment after confirmation',shippingTerms:'FOB by agreement',taxBasis:''});
 assert.equal(missingBasis.status,400,'No quotation can be created without an explicit tax review basis');
 assert.equal(saved.length,0,'Missing tax review must not mutate quotes');
-let x=await call({unitPrices:[2,3,4],shippingUSD:20,paymentTerms:'Payment after confirmation',shippingTerms:'FOB by agreement'});
+const missingTax=await call({unitPrices:[2,3,4],shippingUSD:20,paymentTerms:'Payment after confirmation',shippingTerms:'FOB by agreement',taxUSD:undefined});
+assert.equal(missingTax.status,400,'No quotation can be created without an explicit reviewed tax amount');
+assert.equal(saved.length,0,'Missing tax amount must not mutate quotes');
+let x=await call({unitPrices:[2,3,4],shippingUSD:20,taxUSD:12.34,paymentTerms:'Payment after confirmation',shippingTerms:'FOB by agreement'});
 assert.equal(x.status,200,JSON.stringify(x));assert.equal(x.result.items,3);
 assert.equal(x.result.purchaseCostReview.approvedSkuBaselines,0);
 assert.equal(x.result.purchaseCostReview.unverifiedSkuBaselines,3);
 assert(x.result.purchaseCostReview.estimates.every(x=>x.purchaseUnitUSD===null),
  'No configured purchasing source must not create fictitious supplier costs');
-assert.equal(x.result.subtotalUSD,1200);assert.equal(x.result.totalUSD,1220);
+assert.equal(x.result.subtotalUSD,1200);assert.equal(x.result.taxUSD,12.34);assert.equal(x.result.totalUSD,1232.34);
+assert(saved.some(s=>s.sql.startsWith('INSERT INTO quotes')&&s.params?.includes?.(12.34)),
+ 'Reviewed nonzero tax must be persisted in the quote snapshot');
 assert.deepEqual(x.result.quantityReview,{fullySpecified:0,pending:3},
   'Unverified supplier quantity conditions must be explicit on draft confirmation');
 assert.equal(saved.filter(s=>s.sql.startsWith('INSERT INTO quote_items')).length,3);
