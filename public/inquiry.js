@@ -167,6 +167,12 @@ const policyNote=document.createElement('p');policyNote.id='shippingPolicy';poli
 const shippingRow=document.createElement('div');shippingRow.id='shippingQuoteFields';shippingRow.className='formgrid';
 shippingRow.innerHTML='<div class="field"><label for="shippingMethod">Preferred shipping method</label><select id="shippingMethod"><option value="Recommend best option">Please recommend</option><option value="Air freight / express">Air freight / express</option><option value="Economy / sea freight">Economy / sea freight (if practical)</option></select></div><div class="field"><label for="quoteUnits">Exact quantity (units)</label><input id="quoteUnits" type="number" min="1" step="1" max="999999" placeholder="e.g. 2"></div>';
 $('quoteFields').appendChild(shippingRow);
+const wholesaleMinimumNotice=document.createElement('p');
+wholesaleMinimumNotice.id='wholesaleMinimumNotice';
+wholesaleMinimumNotice.className='fieldHelp';
+wholesaleMinimumNotice.style.gridColumn='1 / -1';
+wholesaleMinimumNotice.textContent='Wholesale pricing starts at 10 units. For 1–9 units, use Sample request or Retail purchase inquiry for an air-shipped evaluation order.';
+$('quoteFields').appendChild(wholesaleMinimumNotice);
 const plannerValid=q.get('buyer_plan')==='sea_accepted'&&q.get('type')==='quote'&&
  wholesalePrefillUnits>=10&&wholesalePrefillUnits<=10000;
 if(plannerValid){
@@ -216,7 +222,7 @@ function enforcePolicy(){
  $('logoQuantity').required=!logoCount.hidden;
 }
 let reference=null,busy=false,prepared='';
-function sync(){enforcePolicy();const r=rules($('request_type').value);const inst=$('institutionalFields');if(inst){const enabled=$('request_type').value==='Wholesale quote';inst.hidden=!enabled;inst.querySelectorAll('input,select,textarea').forEach(el=>{el.disabled=!enabled});}$('quoteFields').hidden=!r.purchase;$('quoteFields').querySelectorAll('input,select').forEach(el=>{el.disabled=!r.purchase;el.required=r.purchase});$('orderFields').hidden=!r.order;$('order_reference').disabled=!r.order;$('order_reference').required=r.order;$('message').required=r.message;$('messageRequired').hidden=!r.message;$('productHelp').textContent=r.purchase?'Select at least one product. Size and color choices appear below each selection.':'Select a product if relevant, or describe your question below.';form.querySelectorAll('.inquiryProduct').forEach(card=>{const selected=card.querySelector('[name="products[]"]').checked;card.classList.toggle('selected',selected);const opts=card.querySelector('.productOptions');opts.hidden=!selected;opts.querySelectorAll('select').forEach(el=>el.disabled=!selected)});$('productError').hidden=true}
+function sync(){enforcePolicy();const minimumNotice=$('wholesaleMinimumNotice');if(minimumNotice)minimumNotice.hidden=$('request_type').value!=='Wholesale quote';const r=rules($('request_type').value);const inst=$('institutionalFields');if(inst){const enabled=$('request_type').value==='Wholesale quote';inst.hidden=!enabled;inst.querySelectorAll('input,select,textarea').forEach(el=>{el.disabled=!enabled});}$('quoteFields').hidden=!r.purchase;$('quoteFields').querySelectorAll('input,select').forEach(el=>{el.disabled=!r.purchase;el.required=r.purchase});$('orderFields').hidden=!r.order;$('order_reference').disabled=!r.order;$('order_reference').required=r.order;$('message').required=r.message;$('messageRequired').hidden=!r.message;$('productHelp').textContent=r.purchase?'Select at least one product. Size and color choices appear below each selection.':'Select a product if relevant, or describe your question below.';form.querySelectorAll('.inquiryProduct').forEach(card=>{const selected=card.querySelector('[name="products[]"]').checked;card.classList.toggle('selected',selected);const opts=card.querySelector('.productOptions');opts.hidden=!selected;opts.querySelectorAll('select').forEach(el=>el.disabled=!selected)});$('productError').hidden=true}
 // Navigation context comes from an explicit on-site video-to-product link.
 // It is not evidence of playback, watch duration, creator attribution or purchase.
 function creatorVideoContext(){
@@ -245,6 +251,14 @@ form.addEventListener('submit',async e=>{
  if(busy||!form.reportValidity())return;
  if(rules($('request_type').value).purchase&&!form.querySelector('[name="products[]"]:checked')){
   $('productError').hidden=false;$('choose-p1').focus();return
+ }
+ if($('request_type').value==='Wholesale quote'){
+  const exactWholesaleUnits=Number($('quoteUnits')?.value);
+  if(!Number.isSafeInteger(exactWholesaleUnits)||exactWholesaleUnits<10){
+   $('formStatus').textContent='Wholesale quotes start at 10 units. For 1–9 units, select Sample request or Retail purchase inquiry.';
+   $('quoteUnits')?.focus();
+   return;
+  }
  }
  if(logoPolicyAvailable&&isLogo()){const minimum=$('logoKind').value==='color'?200:20,qty=Number($('logoQuantity').value);if(!Number.isInteger(qty)||qty<minimum){$('formStatus').textContent='Logo printing requires at least '+minimum+' units. Black logo: 20+; color logo: 200+.';$('logoQuantity').focus();return}}
  const d=read();
