@@ -12,13 +12,13 @@ const pages=[
  'silent-soccer.html','weighted-flocked-basketball.html'
 ];
 const extract=(html,mobile)=>{
- const re=mobile?/<nav\\b[^>]*aria-label="Mobile navigation"[^>]*>([\\s\\S]*?)<\\/nav>/i:
-  /<nav\\b[^>]*class="navlinks"[^>]*>([\\s\\S]*?)<\\/nav>/i;
+ const re=mobile?/<nav\b[^>]*aria-label="Mobile navigation"[^>]*>([\s\S]*?)<\/nav>/i:
+  /<nav\b[^>]*class="navlinks"[^>]*>([\s\S]*?)<\/nav>/i;
  const match=html.match(re);
  assert(match,'Missing '+(mobile?'mobile':'desktop')+' navigation');
  // Only per-page accessibility current-page marker may differ; ordering,
  // destinations and visible labels must all remain identical.
- return match[1].replace(/ aria-current="page"/g,'').replace(/\\s+/g,' ').trim();
+ return match[1].replace(/ aria-current="page"/g,'').replace(/\s+/g,' ').trim();
 };
 const home=fs.readFileSync(path.join(root,'index.html'),'utf8');
 for(const mobile of [false,true]){
