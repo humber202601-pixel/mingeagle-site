@@ -16,6 +16,7 @@ const paths=['inquiries','quote-reference','admin/session','admin/data','admin/q
 const routes=new Map();
 for(const path of paths)routes.set('/api/'+path,await load(path.replaceAll('/','-'),'functions/api/'+path+'.ts'));
 const customer=await load('customer','functions/quote/[token].ts');
+const customerApi=await load('customer-api','functions/api/quote/[token].ts');
 const sqlite=new DatabaseSync(':memory:');
 for(const file of ['0001_core.sql','0002_quote_public_links.sql','0003_airwallex_payment_sessions.sql','0004_shipping_rates.sql','0005_supplier_purchase_terms.sql','0016_b2b_tax_basis.sql'])sqlite.exec(readFileSync('migrations/'+file,'utf8'));
 /* Production discovery candidate data is provisioned by the discovery intake
@@ -47,8 +48,10 @@ const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url,'http://127.0.0.1:8788');
   if(url.pathname==='/__test__/outbound'){res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({externalAttempts}));return;}
   let module=routes.get(url.pathname),params={};
-  const token=/^(?:\/quote|\/api\/quote)\/([a-f0-9]{64})$/.exec(url.pathname);
+  const token=/^\/quote\/([a-f0-9]{64})$/.exec(url.pathname);
   if(token){module=customer;params={token:token[1]};}
+  const apiToken=/^\/api\/quote\/([a-f0-9]{64})$/.exec(url.pathname);
+  if(apiToken){module=customerApi;params={token:apiToken[1]};}
   if(module){
    const chunks=[];for await(const chunk of req)chunks.push(chunk);
    const request=new Request(url,{method:req.method,headers:req.headers,...(!['GET','HEAD'].includes(req.method)?{body:Buffer.concat(chunks)}:{})});
