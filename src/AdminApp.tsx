@@ -20,7 +20,7 @@ import {
 import QuoteBuilder from './QuoteBuilder';
 import OrderManager from './OrderManager';
 import TaskManager from './TaskManager';
-import { prioritizeB2BTasks } from './b2bTaskSort';
+import { prioritizeB2BTasks, overdueB2BTaskSummary } from './b2bTaskSort';
 import { pendingQuoteAttention } from './b2bQuoteAttention';
 import { pendingPaymentReviews } from './b2bPaymentAttention';
 import AdminDetail from './AdminDetail';
@@ -185,6 +185,7 @@ function Dashboard({ data }: { data: AdminData }) {
   const quoteAttentionItems=pendingQuoteAttention(data.quotes);
   const paymentReviewOrders=pendingPaymentReviews(data.orders);
   const urgentTasks=prioritizeB2BTasks(data.tasks).slice(0,8);
+  const overdue=overdueB2BTaskSummary(data.tasks);
   const metrics = [
     ['新增潜客', data.metrics.newLeads, '最近 7 天新建'],
     ['待处理询盘', data.metrics.openInquiries, '需要审核或回复'],
@@ -196,6 +197,12 @@ function Dashboard({ data }: { data: AdminData }) {
     <Top title="仪表盘" description="实时查看销售漏斗、跟进任务、报价、订单和客户动态。"/>
     <section className="metric-grid">{metrics.map(([label, value, note]) => <div className="metric" key={String(label)}><span>{label}</span><strong>{value}</strong><small>{note}</small></div>)}</section>
     {failedNotices>0 && <section className="panel" role="status"><strong>⚠️ {failedNotices} 条询盘的邮件通知未获服务商确认</strong><p>客户需求已经保存到CRM，但邮件通知可能未送达。请立即核实并人工处理。</p><Link to="/app/inquiries">查看相关询盘</Link></section>}
+    {overdue.total>0 && <section className="panel" aria-label="逾期跟进任务提醒" role="status">
+      <div className="panel-head"><h2>逾期跟进任务</h2><span>当前已加载的待办：{overdue.total} 项逾期</span></div>
+      <p>客户主动询盘或报价回复 {overdue.customerOrQuote} 项 · 公开来源开发跟进 {overdue.outreach} 项 · 其他待办 {overdue.other} 项。先处理真实客户和报价，不要让开发任务挤占回复时间。</p>
+      <p>这里是只读提醒，未自动联系客户、延后任务或修改销售状态；如有旧测试任务，请到任务管理中人工核实后再归档。</p>
+      <Link to="/app/tasks">打开跟进任务 · 按优先级查看</Link>
+    </section>}
     {paymentReviewOrders.length>0 && <section className="panel" aria-label="待核实收款订单">
       <div className="panel-head"><h2>待核实收款订单</h2><span>{paymentReviewOrders.length} 笔需要人工检查</span></div>
       <p>报价转订单不代表货款到账。请核对银行、Stripe 或其他实际收款记录，以及订单付款状态；在确认符合发货条件前不要安排发货。此提醒不会自动联系客户或改变付款状态。</p>
