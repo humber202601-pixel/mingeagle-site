@@ -1,6 +1,7 @@
 import {stripeCheckoutTermsSupported} from '../../../lib/b2b-quote-terms';
 import {QUOTE_PUBLIC_TOKEN_PREDICATE} from '../../../lib/quote-public-token';
 import {quoteTermsIssues} from '../../../lib/b2b-quote-terms';
+import {isUsDeliveryState} from '../../../lib/us-delivery-states';
 interface Env {
   MINGEAGLE_DB: D1Database;
 }
@@ -161,7 +162,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
       const line1=String(entry.line1||'').trim(),city=String(entry.city||'').trim(),
         state=String(entry.state||'').trim().toUpperCase(),postalCode=String(entry.postalCode||'').trim(),
         country=String(entry.country||'').trim().toUpperCase();
-      if(country!=='US'||!/^[A-Z]{2}$/.test(state)||line1.length<5||line1.length>180||
+      if(country!=='US'||!isUsDeliveryState(state)||line1.length<5||line1.length>180||
          city.length<2||city.length>100||!/^[0-9]{5}(?:-[0-9]{4})?$/.test(postalCode))
         return Response.json({ok:false,error:'Valid US shipping street, city, state and ZIP code are required.'},{status:409});
       if(String(quote.shipping_terms||'').toUpperCase().match(/SHIP-TO STATE:\s*([A-Z]{2})(?![A-Z])/)?.[1]!==state)
