@@ -57,12 +57,16 @@ const signedEvent=(event,wrong=false)=>{
   headers:{'stripe-signature':'t='+now+',v1='+(wrong?'bad':mac)}});
 };
 const savedFetch=globalThis.fetch, provider=new Map();
+let providerGetOutage=false;
 globalThis.fetch=async(url,init)=>{
  network++;
  const endpoint=String(url);
  assert(endpoint.startsWith('https://api.stripe.com/v1/checkout/sessions'),'Only mock Stripe Checkout endpoints');
  assert(new Headers(init.headers).get('authorization')?.startsWith('Bearer sk_test_'));
- if(init.method!=='POST')return Response.json(provider.get(endpoint.split('/').at(-1)));
+ if(init.method!=='POST'){
+  if(providerGetOutage)return Response.json({error:'synthetic provider outage'},{status:503});
+  return Response.json(provider.get(endpoint.split('/').at(-1)));
+ }
  const params=new URLSearchParams(init.body);
  assert.equal(params.get('mode'),'payment');
  assert.equal(params.get('client_reference_id')?.startsWith('ME-'),true);
@@ -142,7 +146,36 @@ try{
  assert.equal(reused.status,200);
  assert.equal((await reused.json()).reused,true,'Second click must reuse an existing open Checkout');
  assert.equal(provider.size,1);
- const paid={...provider.get(ref.provider_intent_id),status:'complete',payment_status:'paid'};
+ // If Stripe cannot be queried, fail closed instead of POSTing a new Checkout.
+ providerGetOutage=true;
+ const blockedOnOutage=await checkout({env,request:checkoutRequest()});
+ assert.equal(blockedOnOutage.status,503,'Provider outage must not create a second payment attempt');
+ assert.equal(provider.size,1,'Provider outage cannot POST another Checkout');
+ providerGetOutage=false;
+ provider.set(ref.provider_intent_id,{...originalSession,status:'unknown'});
+ const blockedOnUnknown=await checkout({env,request:checkoutRequest()});
+ assert.equal(blockedOnUnknown.status,409,'Unknown prior session status must block another Checkout');
+ assert.equal(provider.size,1);
+ provider.set(ref.provider_intent_id,{...originalSession,url:'https://invalid.example/checkout'});
+ const blockedOnBadUrl=await checkout({env,request:checkoutRequest()});
+ assert.equal(blockedOnBadUrl.status,409,'Open session with untrusted URL may not be replaced');
+ assert.equal(provider.size,1);
+ provider.set(ref.provider_intent_id,{...originalSession,status:'expired',url:null});
+ const afterExpiry=await checkout({env,request:checkoutRequest()});
+ assert.equal(afterExpiry.status,200,'Provider-confirmed expired Checkout should allow controlled replacement');
+ const replacement=await afterExpiry.json();
+ assert.equal(replacement.reused,undefined);
+ assert.equal(provider.size,2,'Expired Checkout must get a fresh provider session');
+ const oldRow=sqlite.prepare("SELECT status FROM payment_provider_sessions WHERE provider_intent_id=?").get(ref.provider_intent_id);
+ assert.equal(oldRow.status,'EXPIRED','Replacement transaction retires the old expired session');
+ const newRef=sqlite.prepare("SELECT provider_intent_id,request_id FROM payment_provider_sessions WHERE order_id=? AND status='OPEN'").get(orderId);
+ assert(newRef.provider_intent_id!==ref.provider_intent_id);
+ assert(newRef.request_id.includes(ref.provider_intent_id),'Replacement uses a fresh stable idempotency key');
+ const reusedAfterExpiry=await checkout({env,request:checkoutRequest()});
+ assert.equal(reusedAfterExpiry.status,200);
+ assert.equal((await reusedAfterExpiry.json()).reused,true,'Replacement checkout must be reusable');
+ assert.equal(provider.size,2);
+ const paid={...provider.get(newRef.provider_intent_id),status:'complete',payment_status:'paid'};
  const event={id:'evt_synthetic_b2b_completed',type:'checkout.session.completed',livemode:false,data:{object:paid}};
  const beforeInvalidWrites=writes;
  assert.equal((await webhook({env,request:signedEvent(event,true)})).status,401);
@@ -169,6 +202,6 @@ try{
  assert.equal(writes,statusBeforeWrites,'Buyer polling stays read-only');
  const afterPaid=await checkout({env,request:checkoutRequest()});
  assert.equal(afterPaid.status,409,'Paid wholesale order must not create another Checkout');
- assert.equal(provider.size,1);
+ assert.equal(provider.size,2,'Two recorded sessions include one expired and one paid; no extra checkout after payment');
  console.log('PASS: isolated B2B quote acceptance → one order → exact item validation → mocked Stripe session → signed paid webhook → PAID → fulfillment once; no live charges.');
 }finally{globalThis.fetch=savedFetch;sqlite.close();}
