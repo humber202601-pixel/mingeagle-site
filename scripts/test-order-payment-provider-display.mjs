@@ -36,7 +36,7 @@ assert.deepEqual(entries.map(row=>[row.online_payment_provider,row.online_paymen
  ['STRIPE','SUCCEEDED'],['AIRWALLEX','PENDING_REVIEW'],[null,null]
 ],'Newest known provider is displayed without inventing payment activity');
 assert.equal(entries[0].online_payment_intent_id,'str-id');
-const reviewMatch=adminSql.match(/\((SELECT COUNT\(\*\) FROM tasks t WHERE t\.order_id=o\.id[\s\S]*?LIMIT 1)?\) AS active_payment_review_count/);
+const reviewMatch=adminSql.match(/\((SELECT COUNT\(\*\) FROM tasks t WHERE t\.order_id=o\.id[\s\S]*?)\) AS active_payment_review_count/);
 assert(reviewMatch,'CRM must expose active Stripe payment review count');
 const flagged=db.prepare('SELECT o.id,('+reviewMatch[1]+') AS active_payment_review_count FROM orders o ORDER BY o.id').all();
 assert.deepEqual(flagged.map(x=>x.active_payment_review_count),[1,1,0],
