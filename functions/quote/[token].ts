@@ -88,6 +88,9 @@ function errorPage(message: string, status = 404) {
 
 function paymentStateNotice(providerStatus: unknown) {
   const status = String(providerStatus || '').toUpperCase();
+  if (status === 'SUCCEEDED') {
+    return `<div class="notice info"><strong>Stripe receipt needs reconciliation.</strong> Please do not pay again while MING EAGLE verifies this payment and the order status. Contact support if this remains unresolved.</div>`;
+  }
   if (status === 'PENDING' || status === 'PENDING_REVIEW') {
     return `<div class="notice info"><strong>Payment is processing.</strong> our payment provider is confirming the transaction. Please do not submit another payment while this status is pending.</div>`;
   }
@@ -179,9 +182,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
         && (!String(order.reference).startsWith('ME-RO-') ||
           (env.RETAIL_CHECKOUT_ENABLED==='true' && env.RETAIL_STOCK_FULFILLMENT_APPROVED==='true' && env.RETAIL_TAX_POLICY_APPROVED==='true'));
       const providerNotice = paymentStateNotice(order.provider_status);
-      const providerPending = ['PENDING','PENDING_REVIEW'].includes(String(order.provider_status || '').toUpperCase());
+      const providerPending = ['PENDING','PENDING_REVIEW','SUCCEEDED'].includes(String(order.provider_status || '').toUpperCase()) &&
+        String(order.payment_status).toUpperCase()!=='PAID';
       const stripePay = stripeReady
-        ? '<div class="payment-choice recommended"><div class="payment-choice-head"><strong>Pay securely with Stripe</strong><span>CARD PAYMENT</span></div><p>Credit and debit card checkout is hosted by Stripe. Your payment is confirmed by a signed notification, never by browser navigation alone.</p><button type="button" class="pay-button" id="stripePayBtn" ' + (providerPending?'disabled':'') + '>' + (providerPending?'Payment processing…':'Pay '+esc(money(outstanding,orderCurrency))+' with card →')+'</button><small>MING EAGLE never stores card numbers.</small><div id="stripePayMessage"></div></div>'
+        ? '<div class="payment-choice recommended"><div class="payment-choice-head"><strong>Pay securely with Stripe</strong><span>CARD PAYMENT</span></div><p>Credit and debit card checkout is hosted by Stripe. Your payment is confirmed by a signed notification, never by browser navigation alone.</p><button type="button" class="pay-button" id="stripePayBtn" ' + (providerPending?'disabled':'') + '>' + (providerPending?'Stripe payment under verification…':'Pay '+esc(money(outstanding,orderCurrency))+' with card →')+'</button><small>MING EAGLE never stores card numbers.</small><div id="stripePayMessage"></div></div>'
         : '';
       const paymentMessage = closedOrder
         ? '<div class="payment-help"><strong>Order closed — payment disabled.</strong><p>This order was cancelled or refunded. Do not send payment. Contact mingeaglecommerce@gmail.com for a new quotation or payment review.</p></div>'
