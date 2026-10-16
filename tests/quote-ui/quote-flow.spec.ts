@@ -135,8 +135,13 @@ test('真实报价界面：精确数量、金额、修改审核、批准与客�
  await page.getByLabel('ZIP code',{exact:true}).fill('78701');
  await page.getByRole('checkbox',{name:/I have reviewed the quotation and authorize MING EAGLE/}).check();
  await expect(page.getByRole('button',{name:'Accept quote & create order',exact:true})).toBeEnabled();
+ const acceptResponse=page.waitForResponse(r=>r.url().includes('/api/quote/')&&r.request().method()==='POST');
  await page.getByRole('button',{name:'Accept quote & create order',exact:true}).click();
- await expect(page.getByText(/Order ME-RO-/)).toBeVisible();
+ const accepted=await acceptResponse;
+ const acceptedBody=await accepted.json();
+ expect(accepted.status()).toBe(201,JSON.stringify(acceptedBody));
+ expect(acceptedBody.ok).toBe(true);
+ await expect(page.getByText(/Order ME-/)).toBeVisible();
  await expect(page.getByText(/Payment: UNPAID/)).toBeVisible();
  await expect(page.getByText('Stripe checkout is currently unavailable for this order.',{exact:true})).toBeVisible();
  await expect(page.getByText('Pay securely with Airwallex',{exact:true})).toHaveCount(0);
