@@ -11,24 +11,21 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
  if(us)return Response.json({ok:true,...us,
   notice:'USA one-item air small-parcel estimate; approximately 12–15 days after dispatch, not guaranteed. Taxes, duties, stock and final amount require confirmation before payment.'},
   {headers:{'cache-control':'no-store','access-control-allow-origin':'*','vary':'Origin'}});
+ if(method==='sea')return Response.json({
+  ok:true,sku,country,method,quantity:qty,wholesale:true,quoteRequired:true,
+  quoteStatus:'FREIGHT_PRODUCT_AND_CARTONS_UNVERIFIED',
+  cbm:null,packagingVerified:false,packagingEstimateOnly:false,
+  productUSD:null,shippingUSD:null,totalBeforeTaxesUSD:null,paymentEnabled:false,
+  ddpConfirmed:false,currency:'USD',deliveryEstimateDaysMin:25,deliveryEstimateDaysMax:30,
+  discountPolicy:'QUANTITY_DEPENDENT_QUOTE_NO_FIXED_PERCENT',
+  notice:'Wholesale RFQ only, not a payable shipping estimate. Supplier carton sizes and count per carton are unverified, so CBM, volume and ocean DDP prices cannot be confirmed. Confirm carton list, buyer destination ZIP, supplier MOQ and price, forwarder clearance/duties/last-mile offer and US sales tax.'
+ },{headers:{'cache-control':'no-store','access-control-allow-origin':'*','vary':'Origin'}});
  if(!env.MINGEAGLE_DB)return error('Shipping quotes unavailable',503);
  try{
  const rate=await env.MINGEAGLE_DB.prepare('SELECT * FROM shipping_rates WHERE country=? AND method=? AND active=1').bind(country,method).first<Record<string,number>>();
  const pack=await env.MINGEAGLE_DB.prepare('SELECT * FROM shipping_packaging WHERE sku=?').bind(sku).first<Record<string,number>>();
  if(!rate||!pack)return error('Shipping rate or packaging not configured for this destination and size',404);
  const cbm=Number(pack.length_cm)*Number(pack.width_cm)*Number(pack.height_cm)*Math.ceil(qty/Number(pack.units_per_package))/1000000;
- // A configured per-CBM reference is not a signed DDP freight quotation,
- // and the retail list price is not a negotiated bulk unit price.
- // Do not assemble a counterfeit "wholesale total" from these values.
- if(method==='sea')return Response.json({
-  ok:true,sku,country,method,quantity:qty,cbm:Number(cbm.toFixed(6)),
-  wholesale:true,quoteRequired:true,quoteStatus:'FREIGHT_AND_PRODUCT_PRICE_UNCONFIRMED',
-  shippingUSD:null,productUSD:null,totalBeforeTaxesUSD:null,
-  currency:'USD',paymentEnabled:false,ddpConfirmed:false,
-  packagingEstimateOnly:true,deliveryEstimateDaysMin:25,deliveryEstimateDaysMax:30,
-  discountPolicy:'QUANTITY_DEPENDENT_QUOTE_NO_FIXED_PERCENT',
-  notice:'Bulk product pricing and US destination-specific ocean DDP freight have not been verified. CBM is an estimate from stored packaging dimensions only. Confirm supplier MOQ/cartons, destination ZIP, freight forwarder quote, US import duty and applicable sales tax before issuing a written wholesale quotation. The 25–30 day delivery estimate is not guaranteed.'
- },{headers:{'cache-control':'no-store','access-control-allow-origin':'*','vary':'Origin'}});
  const charge=cbm*1000000/Number(rate.volume_divisor)*Number(rate.usd_per_unit);
  const freight=Math.round((Math.max(charge,Number(rate.min_charge_usd))+Number(rate.handling_usd))*100)/100;
  const products=Math.round(prices[sku]*qty*100)/100;

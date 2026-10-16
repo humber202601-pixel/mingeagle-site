@@ -107,7 +107,7 @@ for(const spec of [
  {n:9,method:'sea',consent:true,status:409},
  {n:10,method:'air',consent:true,status:409},
  {n:10,method:'sea',consent:false,status:409},
- {n:10,method:'sea',consent:true,status:503}
+ {n:10,method:'sea',consent:true,status:200}
 ]){
  const response=await cart.onRequestPost({request:new Request('https://app.mingeagle.com/api/shipping/cart',{
   method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
@@ -118,21 +118,16 @@ for(const spec of [
  const data=await response.json();
  if(spec.n===10&&spec.method==='sea'&&!spec.consent)
   assert.equal(data.shippingConsentRequired,true);
- if(spec.n===10&&spec.method==='sea'&&spec.consent)
-  assert.equal(data.error,'Database unavailable');
+ if(spec.n===10&&spec.method==='sea'&&spec.consent){
+  assert.equal(data.quoteRequired,true);
+  assert.equal(data.volumeCBM,null);
+  assert.equal(data.packagingVerified,false);
+  assert.equal(data.totalBeforeTaxesUSD,null);
+ }
 }
 // An active sea CBM rate without written DDP source evidence may calculate
 // packing volume but must not manufacture a wholesale price in either API.
-const dbReadOnly={
- prepare(sql){
-  return {bind(...args){
-   const isRate=sql.includes('shipping_rates');
-   const row=isRate?{country:'US',method:'sea',active:1,usd_per_unit:429.4285714,updated_at:'2026-10-10 16:38:20'}:
-    {length_cm:42,width_cm:30,height_cm:20,units_per_package:10};
-   return {async first(){return row}};
-  }};
- }
-};
+const dbReadOnly={prepare(){throw Error('Wholesale quote-only endpoints must not trust placeholder D1 cartons')}};
 for(const quantity of [10,50,100]){
  const params=new URLSearchParams({sku:'P1-S7',country:'US',method:'sea',quantity:String(quantity)});
  const response=await single.onRequestGet({request:new Request('https://app.mingeagle.com/api/shipping/estimate?'+params),env:{MINGEAGLE_DB:dbReadOnly}});
@@ -145,8 +140,9 @@ for(const quantity of [10,50,100]){
  assert.equal(body.productUSD,null);
  assert.equal(body.totalBeforeTaxesUSD,null);
  assert.equal(body.ddpConfirmed,false);
- assert.equal(body.packagingEstimateOnly,true);
- assert(body.cbm>0);
+ assert.equal(body.packagingEstimateOnly,false);
+ assert.equal(body.cbm,null,'Unverified carton configuration must not produce customer CBM');
+ assert.equal(body.packagingVerified,false);
  assert(body.notice.includes('DDP'));
  assert(!JSON.stringify(body).includes('429.4285714'),'Unverified sea rate must not leak as freight quote');
  const cartResponse=await cart.onRequestPost({
@@ -163,7 +159,8 @@ for(const quantity of [10,50,100]){
  assert.equal(result.totalBeforeTaxesUSD,null);
  assert.equal(result.paymentEnabled,false);
  assert.equal(result.ddpConfirmed,false);
- assert(result.volumeCBM>0);
+ assert.equal(result.volumeCBM,null,'No shipping volume may be inferred from placeholder cartons');
+ assert.equal(result.packagingVerified,false);
  assert.deepEqual(result.lines,[{sku:'P1-S7',quantity}],'Customer RFQ should preserve the selected item/qty only');
 }
 const other=await single.onRequestGet({request:new Request('https://app.mingeagle.com/api/shipping/estimate?sku=P1-S3&country=CA&method=air&quantity=1'),env:{}});
