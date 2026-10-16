@@ -57,7 +57,7 @@ const admin=readFileSync('src/AdminApp.tsx','utf8');
 assert(manager.includes('prioritizeB2BTasks(tasks)'));
 assert(admin.includes('prioritizeB2BTasks(data.tasks).slice(0,8)'));
 assert(admin.includes('overdueB2BTaskSummary(data.tasks)'),'CRM homepage should display overdue task overview');
-assert(admin.includes('客户主动询盘或报价回复')&&admin.includes('公开来源开发跟进'),'Customer work and outbound outreach must be separate');
+assert(admin.includes('客户主动询盘或报价回复')&&admin.includes('开发与外联跟进'),'Customer work and outbound outreach must be separate');
 assert(admin.includes('只读提醒，未自动联系客户'),'Overdue reminder must not imply any automated customer contact');
 assert(manager.includes('const relevantInquiry = isQuoteTask && task.lead_id'),'Quote followups link to associated inquiries');
 assert(manager.includes('查看关联询盘'),'Quoted or finalized inquiries remain discoverable from task list');
