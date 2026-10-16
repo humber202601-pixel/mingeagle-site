@@ -36,7 +36,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   if (!quoteId) return Response.json({ ok: false, error: 'Quote id is required.' }, { status: 400 });
 
   try {
-    const quote = await env.MINGEAGLE_DB.prepare(`SELECT id, reference, status, currency, subtotal, discount, shipping, tax, total,
+    const quote = await env.MINGEAGLE_DB.prepare(`SELECT id, reference, status, currency, subtotal, discount, shipping, tax, total, tax_basis,
       payment_terms, shipping_terms, notes, valid_until
       FROM quotes WHERE id=? LIMIT 1`).bind(quoteId).first<Row>();
     if (!quote) return Response.json({ ok: false, error: 'Quote not found.' }, { status: 404 });
