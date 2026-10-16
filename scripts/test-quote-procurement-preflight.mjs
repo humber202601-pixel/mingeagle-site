@@ -9,7 +9,7 @@ try{
  const output=join(tmp,'preflight.mjs');
  await build({entryPoints:['functions/api/admin/quote-procurement-preflight.ts'],outfile:output,bundle:true,platform:'node',format:'esm',logLevel:'silent'});
  const {onRequestGet}=await import(pathToFileURL(output));
- const quote={id:'quote-preflight-test',reference:'ME-Q-SYNTHETIC',status:'DRAFT',currency:'USD',subtotal:803,discount:0,shipping:40,tax:0,total:843,payment_terms:'Full amount payable by secure Stripe card checkout',shipping_terms:'Ocean freight DDP to US receiving site within agreed delivery estimate',valid_until:'2099-12-31 00:00:00'};
+ const quote={id:'quote-preflight-test',reference:'ME-Q-SYNTHETIC',status:'DRAFT',currency:'USD',subtotal:803,discount:0,shipping:40,tax:0,total:843,tax_basis:'Synthetic USD sales-tax review for test fixture',payment_terms:'Full amount payable by secure Stripe card checkout',shipping_terms:'Ocean freight DDP to US receiving site within agreed delivery estimate; Ship-to state: TX',valid_until:'2099-12-31 00:00:00'};
  const lines=[{description:'Flocked Silent Basketball Set | No. 5 | Blue',quantity:100,unit_price:8.03,line_total:803}];
  let vendor=[],failCatalog=false,reads=0,writes=0;
  const db={prepare(sql){
@@ -59,13 +59,22 @@ try{
  r=await invoke();assert.equal(r.data.review.safeForManualRelease,false,'Bank-transfer quote has no enabled payment route');
  assert(r.data.review.issues.includes('STRIPE_ONLY_QUOTE_TERMS'));
  quote.payment_terms='Full amount payable by secure Stripe card checkout';
+ quote.tax_basis=null;
+ r=await invoke();assert.equal(r.data.review.safeForManualRelease,false,'Missing documented sales-tax basis cannot pass preflight');
+ assert(r.data.review.issues.includes('B2B_STRIPE_QUOTE_NOT_PAYABLE'));
+ quote.tax_basis='Synthetic USD sales-tax review for test fixture';
+ quote.shipping_terms='Ocean freight DDP to US receiving site within agreed delivery estimate';
+ r=await invoke();assert.equal(r.data.review.safeForManualRelease,false,'Missing Ship-to state cannot pass preflight');
+ assert(r.data.review.issues.includes('B2B_STRIPE_QUOTE_NOT_PAYABLE'));
+ quote.shipping_terms='Ocean freight DDP to US receiving site within agreed delivery estimate; Ship-to state: TX';
+ r=await invoke();assert.equal(r.data.review.safeForManualRelease,true,'Both destination and tax basis restore seller readiness');
  quote.shipping_terms='Final carrier and delivery schedule will be confirmed before shipment.';
  r=await invoke();assert.equal(r.data.review.safeForManualRelease,false,'Default freight text is not a confirmed delivery term');
  assert(r.data.review.issues.includes('SHIPPING_TERMS_UNCONFIRMED'));
  quote.shipping_terms='Shipping terms to be confirmed before sending.';
  r=await invoke();assert.equal(r.data.review.safeForManualRelease,false);
  assert(r.data.review.issues.includes('SHIPPING_TERMS_UNCONFIRMED'));
- quote.shipping_terms='Ocean freight DDP to US receiving site within agreed delivery estimate';
+ quote.shipping_terms='Ocean freight DDP to US receiving site within agreed delivery estimate; Ship-to state: TX';
  quote.valid_until='2020-01-01 00:00:00';
  r=await invoke();assert.equal(r.data.review.safeForManualRelease,false);
  assert(r.data.review.issues.includes('QUOTE_EXPIRED'));
