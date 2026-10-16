@@ -174,6 +174,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ ok: false, error: `Quote cannot be sent from status ${quote.status}.` }, { status: 409 });
     }
 
+    if(sendEmail){
+      // Known delivery blockers are not "ambiguous Gmail outcomes" and must
+      // reject BEFORE generating any customer link.
+      const recipient=clean(quote.contact_email,320);
+      if(!recipient||!/^\S+@\S+\.\S+$/.test(recipient)||
+         Number(quote.do_not_contact||0)===1||quote.lead_status==='DO_NOT_CONTACT')
+        return Response.json({ok:false,code:'QUOTE_EMAIL_RECIPIENT_BLOCKED',
+          error:'Recipient address is missing/invalid or this contact is marked do not contact. No link or email was created.'},{status:409});
+      if(!env.GMAIL_CLIENT_ID||!env.GMAIL_CLIENT_SECRET||!env.GMAIL_REFRESH_TOKEN)
+        return Response.json({ok:false,code:'GMAIL_NOT_CONFIGURED',
+          error:'Gmail credentials are not configured; no customer quote link or email was created.'},{status:503});
+    }
     const commercialIssues=quoteTermsIssues(quote);
     if(commercialIssues.length){
       return Response.json({
