@@ -30,3 +30,23 @@ export function prioritizeB2BTasks<T extends B2BTask>(tasks:T[]):T[] {
     ||taskDue(a)-taskDue(b)
   );
 }
+
+/** Read-only reminder counts. D1's naive timestamps are UTC; a visitor's
+ * browser timezone must not move a follow-up deadline. */
+export function overdueB2BTaskSummary(tasks:B2BTask[],now=Date.now()){
+ const summary={total:0,customerOrQuote:0,outreach:0,other:0};
+ for(const task of tasks){
+  const status=String(task.status||'OPEN').toUpperCase();
+  if(!['OPEN','IN_PROGRESS'].includes(status))continue;
+  const raw=String(task.due_at||'').trim();
+  const due=/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/.test(raw)?raw.replace(' ','T')+'Z':raw;
+  const epoch=Date.parse(due);
+  if(!Number.isFinite(epoch)||epoch>=now)continue;
+  summary.total++;
+  const type=String(task.type||'').toUpperCase();
+  if(type==='OUTREACH_FOLLOW_UP')summary.outreach++;
+  else if(String(task.lead_source||'').toUpperCase()==='WEBSITE'||b2bTaskBucket(task)<=1)summary.customerOrQuote++;
+  else summary.other++;
+ }
+ return summary;
+}
