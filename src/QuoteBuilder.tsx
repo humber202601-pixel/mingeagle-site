@@ -474,8 +474,9 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           <label className="span-2">付款条款（客户可见）
             <input name="paymentTerms" defaultValue="" placeholder="e.g. Bank transfer 100% before production, or agreed deposit/balance terms" />
           </label>
+          <small>使用 Stripe 批发收款时，运输条款必须明确写入英文 <code>Ship-to state: XX</code>（XX 为客户真实的两位州代码，例如 NY），且税额和税务依据已审核。否则系统会拒绝发送，防止客户收到无法付款的报价。</small>
           <label className="span-2">运输条款（客户可见）
-            <input name="shippingTerms" defaultValue="" placeholder={text(selected?.shipping_postal_code) ? `e.g. DDP freight to ZIP ${text(selected?.shipping_postal_code)}; specify estimated lead time, customs and duties` : "e.g. Ocean freight DDP to named destination; specify lead time and duty responsibility"} key={`shippingTerms-${selectedReference}`} />
+            <input name="shippingTerms" defaultValue="" placeholder={text(selected?.shipping_postal_code) ? `e.g. DDP sea freight to ZIP ${text(selected?.shipping_postal_code)}. Ship-to state: NY. Include 25–30-day estimate, customs and duties.` : "e.g. DDP freight to confirmed customer address. Ship-to state: NY. Include estimated lead time, clearance and duties."} key={`shippingTerms-${selectedReference}`} />
           </label>
           <label className="span-2">报价备注（客户可见）
             <textarea name="notes" rows={3} placeholder="可填写报价补充说明…" />
