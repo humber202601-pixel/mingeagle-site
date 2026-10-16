@@ -46,6 +46,17 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
     " AND p.status='RECEIVED' AND p.currency='USD') >= o.total-0.005").first<{settled:number}>(),
    db.prepare("SELECT COUNT(*) AS sessions FROM payment_provider_sessions s JOIN orders o ON o.id=s.order_id WHERE s.provider='STRIPE' AND "+wholesalePredicate).first<{sessions:number}>()
   ]):[null,null,null];
+  // These are local D1 session snapshots, not real-time Stripe status.
+  // A 24-hour stale OPEN/PENDING checkout requires processor-side review,
+  // never automated recharging or marking the order paid.
+  const stalledB2bSessions=b2bEvidenceSchema?await db.prepare(
+   "SELECT COUNT(*) AS openPending, "+
+   "COALESCE(SUM(CASE WHEN s.created_at<=datetime('now','-24 hours') THEN 1 ELSE 0 END),0) AS aged24h, "+
+   "MIN(CASE WHEN s.created_at<=datetime('now','-24 hours') THEN s.created_at END) AS oldestAgedUTC "+
+   "FROM payment_provider_sessions s JOIN orders o ON o.id=s.order_id "+
+   "WHERE s.provider='STRIPE' AND s.status IN ('OPEN','PENDING') AND "+
+   "o.payment_status IN ('UNPAID','PARTIAL') AND "+wholesalePredicate
+  ).first<{openPending:number;aged24h:number;oldestAgedUTC:string|null}>():null;
   // Only events already accepted into our signed-webhook ledger are counted.
   // Zero unprocessed records is not proof Stripe has delivered all payments.
   const stripeWebhooks=await get<{
@@ -68,6 +79,10 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
     awaitingPaymentOrders:wholesaleOrderCounts?.awaitingPayment??null,
     stripeCheckoutSessions:stripeSessionCounts?.sessions??null,
     reconciledPaidOrders:stripeSettled?.settled??null},
+   b2bStripeSessionHealth:{schemaPresent:b2bEvidenceSchema,
+    openOrPendingSessions:stalledB2bSessions?.openPending??null,
+    olderThan24Hours:stalledB2bSessions?.aged24h??null,
+    oldestAgedUTC:stalledB2bSessions?.oldestAgedUTC??null},
    stripeWebhookHealth:{schemaPresent:names.has('payment_webhook_events'),
     receivedEvents:stripeWebhooks?.total??null,processedEvents:stripeWebhooks?.processed??null,
     unprocessedEvents:stripeWebhooks?.unprocessed??null,
@@ -89,6 +104,7 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
     'An empty supplier catalog means purchase cost and profit are not validated; prices cannot be inferred from public retail.',
     'Stripe configuration readiness does not prove successful card capture, webhook delivery or bank settlement.',
     'Webhook health includes only signed Stripe events inserted into this database. Zero unprocessed events does not prove every Stripe event arrived; reconcile Stripe Dashboard when suspicious.',
+    'Stripe Checkout session age is based on our local D1 snapshot; OPEN/PENDING may be stale when Stripe has already expired or settled a session. Verify Stripe Dashboard and webhook history before any retry or fulfillment.',
     'Reconciled wholesale orders require 10+ quoted units, full Stripe-only RECEIVED records linked to SUCCEEDED sessions, and a PAID order; provider payout is verified separately.',
     'Turnstile configuration does not by itself verify each individual inquiry submission.',
     'The latest observed source date is not proof the scheduled sync ran. No newer visitor data might exist; absent UTC dates remain unknown, not zero.']});
