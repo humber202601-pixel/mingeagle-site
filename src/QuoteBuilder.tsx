@@ -270,6 +270,8 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           quoteId,
           items,
           shipping: data.get('shipping'),
+          taxUSD: data.get('taxUSD'),
+          taxBasis: data.get('taxBasis'),
           discount: data.get('discount'),
           validUntil: data.get('validUntil'),
           paymentTerms: data.get('paymentTerms'),
