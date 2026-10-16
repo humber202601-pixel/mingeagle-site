@@ -91,7 +91,7 @@ export default function CustomerQuote(){
      {!order&&['SENT','VIEWED'].includes(q.status)&&!q.is_expired&&<section className="form-note" aria-label="US delivery address">
       <h3>Confirm US delivery address</h3>
       <p>Before accepting this Stripe quotation, enter the delivery address. We use the state and ZIP to verify the quoted freight and tax treatment.</p>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12}}>
        <label>Street address<input aria-label="Street address" value={shippingAddress.line1} onChange={e=>setShippingAddress(a=>({...a,line1:e.target.value}))} autoComplete="street-address" /></label>
        <label>City<input aria-label="City" value={shippingAddress.city} onChange={e=>setShippingAddress(a=>({...a,city:e.target.value}))} autoComplete="address-level2" /></label>
        <label>State<select aria-label="State" value={shippingAddress.state} onChange={e=>setShippingAddress(a=>({...a,state:e.target.value}))} autoComplete="address-level1"><option value="">Select state</option>{US_STATES.map(([code,name])=><option key={code} value={code}>{name} ({code})</option>)}</select></label>
