@@ -13,4 +13,10 @@ const legacy=accept.match(/for \(const item of items\.results\)[\s\S]*?await db\
 assert.equal(legacy,null,'no separate non-atomic order item writes');
 assert(accept.includes('const validItems = items.results.every'),'all lines must be priced correctly');
 assert(accept.includes('computedTotalCents'),'server must reconcile subtotal, freight and grand total');
+assert(source.includes("import {quoteTermsIssues} from '../../../lib/b2b-quote-terms'"),'buyer acceptance must use shared commercial terms guard');
+assert(accept.includes("if (!String(quote.sent_at || '').trim())"),'buyer acceptance requires the seller to issue a quotation');
+assert(accept.includes('const incompleteTerms = quoteTermsIssues({'),'buyer acceptance checks current payment, shipping and validity terms');
+assert(accept.includes('if (incompleteTerms.length)'),'incomplete commercial terms block conversion');
+assert(accept.indexOf('const incompleteTerms = quoteTermsIssues(')<accept.indexOf('const orderInsert ='),'terms must be checked before unpaid orders can be created');
+assert(accept.indexOf('const incompleteTerms = quoteTermsIssues(')<accept.indexOf('const items = await db.prepare'),'rejected incomplete terms must not even fetch priced lines for conversion');
 console.log('PASS: quote acceptance preserves unpaid order, uniqueness, and atomic order + items conversion.');
