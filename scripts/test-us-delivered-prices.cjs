@@ -31,7 +31,7 @@ try{
   assert.match(s,/estimated delivery 12–15 days after dispatch/i,f);
   assert.match(s,/not guaranteed/i,f);
   assert.match(s,/US state\/local sales tax is separate/i,f);
-  assert.match(s,/price \+ shipping benchmarks/i,f);
+  assert.match(s,/US price \+ shipping|Product \+ US air shipping/i,f);
   assert(!/fabric-cover mini-hoop set starts at \$22\.40 delivered before tax/i.test(s),'Do not call an unconfirmed-duty SKU delivered');
   assert.match(s,/P1-S3 \(\$11\.50 delivery\)/,f);
   assert.match(s,/P1-S7 \(\$14 delivery\)/,f);
