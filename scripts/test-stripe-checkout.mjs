@@ -78,6 +78,7 @@ try{
  let wholesaleTaxBasis='SYNTHETIC_TEST: documented merchant tax review in this isolated test';
  let wholesaleSentAt='2026-10-15 12:00:00';
  let simulatedQuoteAmountDelta=0;
+ let simulatedOrderItemChange='';
  let simulatedOrderStatus='PAYMENT_PENDING',simulatedPaymentStatus='UNPAID';
  let retailSku='P1-S7', retailGoods=14.9, retailShipping=14;
  const processedEvents=new Set();
@@ -87,7 +88,7 @@ try{
    async first(){
     dbReads++;
     if(sql.includes('FROM quotes q JOIN orders o'))return {
-      id:'ord_synthetic',reference:orderReference,status:simulatedOrderStatus,
+      id:'ord_synthetic',quote_id:'quote_synthetic',reference:orderReference,status:simulatedOrderStatus,
       payment_status:simulatedPaymentStatus,total:retailGoods+retailShipping,subtotal:retailGoods,discount:0,
       shipping:retailShipping,tax:0,currency:'USD',quote_status:quoteStatus,
        quote_sent_at:wholesaleSentAt,quote_accepted_at:'2026-10-15 12:10:00',
@@ -111,7 +112,18 @@ try{
     throw Error('Unexpected SQL read '+sql);
    },
    async all(){
-    if(sql.includes('FROM order_items WHERE order_id='))return {results:[{description:retailSku+' / Orange Retail silent ball',quantity:1,unit_price:retailGoods}]};
+    if(sql.includes('FROM quote_items WHERE quote_id='))return {success:true,results:[{
+      product_id:'product_one',variant_id:'variant_one',description:'Synthetic Silent Ball | No. 7 | Orange',
+      quantity:1,unit_price:retailGoods,line_total:retailGoods
+    }]};
+    if(sql.includes('FROM order_items WHERE order_id=')){
+      if(orderReference.startsWith('ME-O-'))return {success:true,results:[{
+        product_id:'product_one',variant_id:simulatedOrderItemChange==='variant'?'variant_swapped':'variant_one',
+        description:simulatedOrderItemChange==='description'?'Different silent basketball':'Synthetic Silent Ball | No. 7 | Orange',
+        quantity:1,unit_price:retailGoods,line_total:retailGoods
+      }]};
+      return {success:true,results:[{description:retailSku+' / Orange Retail silent ball',quantity:1,unit_price:retailGoods}]};
+    }
     throw Error('Unexpected SQL list '+sql);
    },
    async run(){
@@ -172,6 +184,15 @@ try{
    STRIPE_B2B_APPROVED_US_STATES:'OR,NH',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
  assert.equal(unreviewedTaxBasis.status,409,'Wholesale card charges require a documented tax basis');
  wholesaleTaxBasis='SYNTHETIC_TEST: documented merchant tax review in this isolated test';
+ for(const mutation of ['variant','description']){
+  simulatedOrderItemChange=mutation;
+  const changedItem=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',
+   STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',
+   STRIPE_B2B_APPROVED_US_STATES:'OR,NH',MINGEAGLE_DB:db},request:request()});
+  assert.equal(changedItem.status,409,'Accepted quote cannot silently change '+mutation);
+  assert.equal(providerCalls,1,'Tampered B2B line must not contact Stripe');
+ }
+ simulatedOrderItemChange='';
  assert.equal(providerCalls,1);
  wholesaleTerms='Bank transfer before production';
  const wrongAgreedMethod=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',
