@@ -15,7 +15,7 @@ const variants:Record<string,{sizes:string[];colors:string[]}>={
 };
 export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  const db=env.MINGEAGLE_DB;if(!db)return bad('Database unavailable',503);
- let input:{inquiryReference?:string;unitPrices?:Array<number|string>;shippingUSD?:number|string;paymentTerms?:string;shippingTerms?:string;quantityConstraints?:QuantityConstraint[]};
+ let input:{inquiryReference?:string;unitPrices?:Array<number|string>;shippingUSD?:number|string;taxUSD?:number|string;taxBasis?:string;paymentTerms?:string;shippingTerms?:string;quantityConstraints?:QuantityConstraint[]};
  try{input=await request.json()}catch{return bad('Invalid JSON')}
  const ref=String(input.inquiryReference||'').trim();
  if(!/^[A-Z0-9-]{5,100}$/.test(ref))return bad('Invalid inquiry reference');
