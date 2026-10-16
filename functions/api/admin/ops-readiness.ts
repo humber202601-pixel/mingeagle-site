@@ -25,7 +25,7 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
   const [rum,gsc,cost,freight,packages]=await Promise.all([
    get<{days:number;latest:string|null;lastFetchedAt:string|null;partialInitialDay:number}>('web_analytics_daily',"SELECT COUNT(*) AS days,MAX(date_utc) AS latest,MAX(fetched_at) AS lastFetchedAt,COALESCE(SUM(CASE WHEN date_utc='2026-10-12' THEN 1 ELSE 0 END),0) AS partialInitialDay FROM web_analytics_daily"),
    get<{days:number;latest:string|null;lastFetchedAt:string|null}>('gsc_search_daily','SELECT COUNT(*) AS days,MAX(date_pacific) AS latest,MAX(fetched_at) AS lastFetchedAt FROM gsc_search_daily'),
-   get<{total:number;approved:number}>('supplier_purchase_terms',"SELECT COUNT(*) AS total,COALESCE(SUM(CASE WHEN status='APPROVED' THEN 1 ELSE 0 END),0) AS approved FROM supplier_purchase_terms"),
+   get<{total:number;approved:number}>('supplier_purchase_terms',"SELECT COUNT(*) AS total,COALESCE(SUM(CASE WHEN status='APPROVED' AND effective_on<=date('now') AND expires_on>=date('now') THEN 1 ELSE 0 END),0) AS approved FROM supplier_purchase_terms"),
    get<{total:number;active:number}>('shipping_rates','SELECT COUNT(*) AS total,COALESCE(SUM(CASE WHEN active=1 THEN 1 ELSE 0 END),0) AS active FROM shipping_rates'),
    get<{total:number}>('shipping_packaging','SELECT COUNT(*) AS total FROM shipping_packaging'),
   ]);
