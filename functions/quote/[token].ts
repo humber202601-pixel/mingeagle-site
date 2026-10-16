@@ -55,7 +55,14 @@ async function getQuote(db: D1Database, token: string) {
       q.lead_id, q.inquiry_id, q.company_id, q.contact_id,
       COALESCE(c.name, ct.full_name, 'Customer') AS customer,
       ct.full_name AS contact_name, ct.email AS contact_email,
-      CASE WHEN q.valid_until IS NOT NULL AND datetime(q.valid_until) < datetime('now') THEN 1 ELSE 0 END AS is_expired
+      CASE
+        WHEN q.valid_until IS NULL THEN 0
+        -- A date-only quote is valid through 23:59:59 UTC on the shown date,
+        -- matching quoteTermsIssues, rather than expiring at 00:00 that day.
+        WHEN LENGTH(TRIM(q.valid_until))=10 AND date(q.valid_until)<date('now') THEN 1
+        -- Explicit time-bearing expiry keeps its precise UTC cutoff.
+        WHEN LENGTH(TRIM(q.valid_until))<>10 AND datetime(q.valid_until)<datetime('now') THEN 1
+        ELSE 0 END AS is_expired
     FROM quotes q
     LEFT JOIN companies c ON c.id=q.company_id
     LEFT JOIN contacts ct ON ct.id=q.contact_id
