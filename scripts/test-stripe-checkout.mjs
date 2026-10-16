@@ -94,6 +94,7 @@ try{
        quote_total:retailGoods+retailShipping+simulatedQuoteAmountDelta,quote_currency:'USD',
        quote_payment_terms:wholesaleTerms,
        quote_shipping_terms:'China origin sea freight, 25–30 days, duties confirmed in quotation. Ship-to state: OR',
+       quote_tax_basis:'Synthetic checkout fixture only; no legal tax determination.',
        valid_until:'2026-12-31 23:59:59',
       shipping_address:hasB2BShippingAddress?JSON.stringify({state:simulatedShippingState,country:'US',city:'Portland',postalCode:'97201',line1:'123 Example Street'}):null,
       received:0,email:'buyer@example.net'
