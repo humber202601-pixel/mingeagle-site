@@ -75,6 +75,7 @@ try{
  let hasB2BShippingAddress=true;
  let orderReference='ME-RO-SYNTHETIC',quoteStatus='SENT';
  let wholesaleTerms='Full amount payable by secure Stripe card checkout';
+ let wholesaleTaxBasis='SYNTHETIC_TEST: documented merchant tax review in this isolated test';
  let wholesaleSentAt='2026-10-15 12:00:00';
  let simulatedQuoteAmountDelta=0;
  let simulatedOrderStatus='PAYMENT_PENDING',simulatedPaymentStatus='UNPAID';
@@ -92,6 +93,7 @@ try{
        quote_sent_at:wholesaleSentAt,quote_accepted_at:'2026-10-15 12:10:00',
        quote_subtotal:retailGoods,quote_discount:0,quote_shipping:retailShipping,quote_tax:0,
        quote_total:retailGoods+retailShipping+simulatedQuoteAmountDelta,quote_currency:'USD',
+       tax_basis:wholesaleTaxBasis,
        quote_payment_terms:wholesaleTerms,
        quote_shipping_terms:'China origin sea freight, 25–30 days, duties confirmed in quotation. Ship-to state: OR',
        valid_until:'2026-12-31 23:59:59',
@@ -164,6 +166,12 @@ try{
  assert.equal(providerCalls,0,'Unreviewed wholesale tax must not call Stripe');
  const wholesale=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',STRIPE_B2B_APPROVED_US_STATES:'OR,NH',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
  assert.equal(wholesale.status,200,await wholesale.clone().text());
+ wholesaleTaxBasis='';
+ const unreviewedTaxBasis=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',
+   STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',
+   STRIPE_B2B_APPROVED_US_STATES:'OR,NH',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
+ assert.equal(unreviewedTaxBasis.status,409,'Wholesale card charges require a documented tax basis');
+ wholesaleTaxBasis='SYNTHETIC_TEST: documented merchant tax review in this isolated test';
  assert.equal(providerCalls,1);
  wholesaleTerms='Bank transfer before production';
  const wrongAgreedMethod=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',
