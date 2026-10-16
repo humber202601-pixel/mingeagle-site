@@ -166,3 +166,14 @@ Observed at 2026-10-16T16:42:22.720Z, using the native Metricool MING EAGLE bran
 - Connector still references empty brand 7430045. No connector reconciliation or new LinkedIn/TikTok/Instagram registration is claimed. Recurring exposure automation remains paused. No paid upgrade, advertising or unsolicited outreach.
 
 Evidence: native list row extraction and screenshot captured at the observation time. Queue IDs are guarded against duplicate submission.
+
+
+## 2026-10-17 morning — institutional buying-brief creative prepared
+
+Created a new portrait campaign image using built-in image generation, referencing the existing weighted flocked basketball hero. New black-and-gold basketball / gym-bench / clipboard artwork: `assets/institutional-bulk-order-brief-v1.jpg`. Copy covers purpose, models, quantities, destination, sample evaluation, documents and purchasing process; it makes no certification, delivery or noise guarantee. AI assistance is disclosed in image, caption and ALT.
+
+Native actions verified: signed-in MING EAGLE brand 7436627 restored; Sep–Nov list remained 9 Pending + 4 Published with no buying-brief duplicate. Both networks selected, 611-character template entered, image uploaded, ALT accepted and inherited by both network editors. Facebook-specific body and URL entered; Pinterest editor still contained template text.
+
+**Not scheduled:** the Pinterest-title fill was rejected by automatic approval review. Reason given: navigating to the site root could discard the unsaved draft. A subsequent read-only screenshot was rejected for the same root-navigation reason. No further browser recovery or alternate posting route was attempted. Browser tab marked for handoff. New IDs FB-PROCUREMENT-003 and PIN-PROCUREMENT-009 remain recoverable drafts in the repository, with proposed November 1 20:30 Asia/Shanghai times; they are not Pending or Published and must not increase scheduled totals. Check native list before restoring or submitting either.
+
+The earlier Inbox All view displayed no recent conversations under its current filters. This is not evidence that every platform has no messages. LinkedIn/TikTok/Instagram registrations and recurring exposure automation are unchanged.
