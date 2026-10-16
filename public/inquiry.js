@@ -76,7 +76,7 @@ if((q.get('type')==='retail'||q.get('type')==='quote')&&q.get('cart')){
   [...chosen].every(([sku,n])=>n===optionCounts.get(sku));
  // The customer-provided totals/variant details are descriptive only. The
  // server will verify SKU prices and freight before preparing any quote.
- const summary=['Retail cart order request (NOT PAID)',
+ const summary=[mode==='Sea freight'?'Wholesale quote request (NOT AN ORDER / NOT PAID)':'Retail cart order request (NOT PAID)',
   'Products: '+lines.join(', '),
   optionsMatch?'Selected variants (customer supplied): '+details.join('; '):
    'Selected colors: confirmation required',
