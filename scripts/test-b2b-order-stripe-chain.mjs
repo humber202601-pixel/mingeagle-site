@@ -122,6 +122,22 @@ try{
  assert.equal(provider.size,1,'One simulated hosted checkout');
  const ref=sqlite.prepare("SELECT provider_intent_id FROM payment_provider_sessions WHERE order_id=? AND provider='STRIPE'").get(orderId);
  assert.equal(ref.provider_intent_id,'cs_test_syntheticB2BChain1');
+ // Even if our D1 session row still matches the order, Stripe's own live
+ // session response must agree before an existing URL is reissued.
+ const originalSession=provider.get(ref.provider_intent_id);
+ for(const [label,patch] of [
+  ['wrong amount',{amount_total:17999}],
+  ['wrong currency',{currency:'eur'}],
+  ['other order reference',{client_reference_id:'ME-FORGED-ORDER'}],
+  ['different metadata',{metadata:{...originalSession.metadata,order_id:'forged-order-id'}}],
+  ['unexpected Stripe Tax',{automatic_tax:{enabled:true}}]
+ ]){
+  provider.set(ref.provider_intent_id,{...originalSession,...patch});
+  const mismatched=await checkout({env,request:checkoutRequest()});
+  assert.equal(mismatched.status,409,'Never reuse an inconsistent hosted checkout: '+label);
+  assert.equal(provider.size,1,'Mismatched checkout must not create new Stripe sessions');
+ }
+ provider.set(ref.provider_intent_id,originalSession);
  const reused=await checkout({env,request:checkoutRequest()});
  assert.equal(reused.status,200);
  assert.equal((await reused.json()).reused,true,'Second click must reuse an existing open Checkout');

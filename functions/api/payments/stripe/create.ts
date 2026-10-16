@@ -184,6 +184,16 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
      last.metadata?.tax_mode!==taxMode||last.metadata?.order_id!==String(order.id)||
      last.metadata?.order_reference!==String(order.reference)||last.client_reference_id!==String(order.reference)))
      return fail('Previous payment session requires tax review.',409);
+    // Querying D1 by order/amount is not enough to reuse an old provider
+    // Checkout URL. Verify the actual Stripe session identity and amount,
+    // including a prior session from a fixed-tax B2B quotation.
+    if(taxMode==='FIXED'&&last.status==='open'&&(
+      last.amount_total!==due||String(last.currency||'').toLowerCase()!=='usd'||
+      last.client_reference_id!==String(order.reference)||
+      last.metadata?.order_id!==String(order.id)||
+      last.metadata?.order_reference!==String(order.reference)||
+      last.automatic_tax?.enabled===true
+    ))return fail('Existing Stripe Checkout does not match the approved order. Contact MING EAGLE for review.',409);
     if(last.status==='open'&&typeof last.url==='string'&&new URL(last.url).hostname==='checkout.stripe.com'&&new URL(last.url).protocol==='https:')
      return Response.json({ok:true,url:last.url,reused:true},{headers:{'cache-control':'no-store'}});
    }
