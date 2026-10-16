@@ -9,8 +9,12 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     const stripeSandboxPost = context.request.method === 'POST' && [
       '/api/payments/stripe/sandbox','/api/payments/stripe/acceptance','/api/payments/stripe/acceptance-webhook'
     ].includes(pathname);
+    // Buyer quote acceptance writes only to the preview D1 and remains guarded
+    // by the public token, same-origin check, quoted state and Stripe-only terms.
+    const isolatedQuoteAccept = context.request.method === 'POST' &&
+      /^\/api\/quote\/[a-f0-9]{64}$/i.test(pathname);
     // Preview accepts the isolated quote workflow and independently guarded tests.
-    if(!['GET','HEAD','OPTIONS'].includes(context.request.method) && !previewWrites.has(pathname) && !stripeSandboxPost){
+    if(!['GET','HEAD','OPTIONS'].includes(context.request.method) && !previewWrites.has(pathname) && !stripeSandboxPost && !isolatedQuoteAccept){
       return Response.json({ok:false,code:'PREVIEW_OPERATION_DISABLED',error:'This operation is disabled in the isolated quote preview.'},{status:403});
     }
   }
