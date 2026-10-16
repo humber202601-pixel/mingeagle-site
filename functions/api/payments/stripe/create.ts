@@ -94,7 +94,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     return fail('Accepted wholesale quotation must explicitly authorize Stripe card payment.',409);
    let ship:Record<string,unknown>;
    try{ship=JSON.parse(String(order.shipping_address||'null'))}catch{return fail('Confirmed wholesale delivery address is required before Stripe payment.',409)}
-   if(!ship||typeof ship!=='object'||ship.country!=='US'||!^[A-Z]{2}$/.test(String(ship.state||''))||
+   if(!ship||typeof ship!=='object'||ship.country!=='US'||!/^[A-Z]{2}$/.test(String(ship.state||''))||
       String(ship.city||'').trim().length<2||
       String(ship.postalCode||ship.postal_code||'').trim().length<5||
       String(ship.line1||ship.address1||'').trim().length<5)
