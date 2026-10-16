@@ -35,7 +35,7 @@ form.addEventListener('submit',async e=>{
    status.textContent='A confirmed delivered price is not available. Add to cart or request a written quote; no payment is due here.';
    return;
   }
-  pick('shippingGoods').textContent='
+  pick('shippingGoods').textContent='$'+Number(data.productUSD).toFixed(2);
   pick('shippingFee').textContent='$'+Number(data.shippingUSD).toFixed(2);
   pick('shippingTotal').textContent='$'+Number(data.totalBeforeTaxesUSD).toFixed(2);
   details.hidden=false;status.textContent='Estimate only. Taxes, customs duties and availability require confirmation before payment.'+(data.deliveryEstimateDaysMin===12&&data.deliveryEstimateDaysMax===15?' US single-item air parcel: delivery estimated 12–15 days after dispatch, not guaranteed.':'');
