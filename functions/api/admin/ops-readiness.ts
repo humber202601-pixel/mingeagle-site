@@ -29,13 +29,20 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
    get<{total:number;active:number}>('shipping_rates','SELECT COUNT(*) AS total,COALESCE(SUM(CASE WHEN active=1 THEN 1 ELSE 0 END),0) AS active FROM shipping_rates'),
    get<{total:number}>('shipping_packaging','SELECT COUNT(*) AS total FROM shipping_packaging'),
   ]);
+  // Expose only destination/method/minimum, never negotiated freight prices.
+  // A destination without an active route requires an individual shipping quote.
+  const shippingRoutes=names.has('shipping_rates')
+   ?await db.prepare("SELECT country,method,min_units FROM shipping_rates WHERE active=1 ORDER BY country,method LIMIT 30")
+     .all<{country:string;method:string;min_units:number}>()
+   :null;
   const turnstileCredentials=Boolean(env.TURNSTILE_SITE_KEY&&env.TURNSTILE_SECRET_KEY);
   const turnstileRequested=env.TURNSTILE_ENABLED==='1'||env.TURNSTILE_ENABLED==='true';
   const payment=stripeCheckoutReadiness(env);
   return json({ok:true,checkedAt:new Date().toISOString(),
    analytics:{cloudflare:{schemaPresent:names.has('web_analytics_daily'),observedDates:rum?.days??null,latestDateUTC:rum?.latest||null,lastFetchedAtUTC:rum?.lastFetchedAt||null,partialInitialDayObserved:Number(rum?.partialInitialDay||0)>0,observedDateCoverage:utcCoverage(rum?.latest,names.has('web_analytics_daily'),rum?.days??null)},google:{schemaPresent:names.has('gsc_search_daily'),observedDates:gsc?.days??null,latestDatePacific:gsc?.latest||null,lastFetchedAtUTC:gsc?.lastFetchedAt||null}},
    procurement:{catalogPresent:names.has('supplier_purchase_terms'),supplierSources:cost?.total??null,approvedSourceCount:cost?.approved??null,
-    shippingRates:freight?.total??null,activeShippingRates:freight?.active??null,packagingSkus:packages?.total??null},
+    shippingRates:freight?.total??null,activeShippingRates:freight?.active??null,packagingSkus:packages?.total??null,
+    activeShippingRoutes:shippingRoutes?.results?.map(r=>({country:String(r.country),method:String(r.method),minimumUnits:Number(r.min_units)}))??null},
    security:{turnstileConfigured:turnstileCredentials,turnstileEnabled:turnstileRequested&&turnstileCredentials,turnstileMisconfigured:turnstileRequested&&!turnstileCredentials},
    payments:{checkoutRequested:payment.checkoutRequested,providerCredentialsConfigured:payment.keyConfigured,
     webhookConfigured:payment.webhookConfigured,environment:payment.mode,
