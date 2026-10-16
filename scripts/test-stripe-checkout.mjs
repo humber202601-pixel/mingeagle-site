@@ -73,6 +73,8 @@ try{
  let stored=false;
  let simulatedShippingState='NY';
  let orderReference='ME-RO-SYNTHETIC',quoteStatus='SENT';
+ let wholesaleTerms='Full amount payable by secure Stripe card checkout';
+ let wholesaleSentAt='2026-10-15 12:00:00';
  let simulatedOrderStatus='PAYMENT_PENDING',simulatedPaymentStatus='UNPAID';
  let retailSku='P1-S7', retailGoods=14.9, retailShipping=14;
  const processedEvents=new Set();
@@ -85,6 +87,10 @@ try{
       id:'ord_synthetic',reference:orderReference,status:simulatedOrderStatus,
       payment_status:simulatedPaymentStatus,total:retailGoods+retailShipping,subtotal:retailGoods,discount:0,
       shipping:retailShipping,tax:0,currency:'USD',quote_status:quoteStatus,
+       quote_sent_at:wholesaleSentAt,quote_accepted_at:'2026-10-15 12:10:00',
+       quote_payment_terms:wholesaleTerms,
+       quote_shipping_terms:'China origin sea freight, 25–30 days, duties confirmed in quotation',
+       valid_until:'2026-12-31 23:59:59',
       shipping_address:JSON.stringify({state:simulatedShippingState,country:'US'}),
       received:0,email:'buyer@example.net'
     };
@@ -151,6 +157,18 @@ try{
  const wholesale=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',STRIPE_B2B_CHECKOUT_ENABLED:'true',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
  assert.equal(wholesale.status,200,await wholesale.clone().text());
  assert.equal(providerCalls,1);
+ wholesaleTerms='Payment terms to be confirmed before sending.';
+ const unconfirmed=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',
+  STRIPE_B2B_CHECKOUT_ENABLED:'true',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
+ assert.equal(unconfirmed.status,409,'Accepted B2B quotes with unconfirmed payment terms are not payable');
+ assert.equal(providerCalls,1,'Unconfirmed terms must not call Stripe');
+ wholesaleTerms='Full amount payable by secure Stripe card checkout';
+ wholesaleSentAt='';
+ const neverSent=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',
+  STRIPE_B2B_CHECKOUT_ENABLED:'true',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
+ assert.equal(neverSent.status,409,'Quote must have been formally issued by seller');
+ assert.equal(providerCalls,1);
+ wholesaleSentAt='2026-10-15 12:00:00';
  orderReference='ME-RO-SYNTHETIC';quoteStatus='SENT';
  providerCalls=0;dbWrites=0;stored=false;
  for(const closed of [{status:'CANCELLED',payment:'UNPAID'},{status:'REFUNDED',payment:'UNPAID'},{status:'PAYMENT_PENDING',payment:'REFUNDED'}]){
