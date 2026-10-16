@@ -62,38 +62,24 @@ export default function SupplierPricingManager({accessKey}:{accessKey:string}){
  async function importIntakeDrafts(){
   if(!intakeRaw||!intakeReview||busy)return;
   setBusy(true);setError('');setMessage('');
-  let written=0;
   try{
-   // Refresh provider state immediately before starting to guard against
-   // stale preview overwriting a newly reviewed SKU. Never overwrite terms.
-   const res=await fetch('/api/admin/supplier-pricing',{
-    headers:{'x-admin-key':accessKey},cache:'no-store'
+   // The server independently validates the original CSV and existing SKUs
+   // immediately before one transactional, draft-only batch.
+   if(intakeReview.errors.length||!intakeReview.drafts.length)
+    throw Error('预检未通过或没有可导入草稿，请先修改 CSV。');
+   if(!window.confirm('将 '+intakeReview.drafts.length+' 个供应商核实数据作为一个整体保存为待审核草稿。\\n任一 SKU 冲突将拒绝整批，不批准成本、不修改报价或付款。确定继续吗？'))return;
+   const reply=await fetch('/api/admin/supplier-pricing',{
+    method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},
+    body:JSON.stringify({action:'IMPORT_CSV_DRAFTS',csv:intakeRaw})
    });
-   const data=await res.json() as {ok?:boolean;terms?:Term[];error?:string};
-   if(!res.ok||!data.ok)throw Error(data.error||'供应商目录无法重新核对');
-   const review=reviewSupplierCsv(intakeRaw,(data.terms||[]).map(t=>t.sku));
-   setIntakeReview(review);
-   if(review.errors.length||!review.drafts.length)throw Error('重新预检后存在错误或无可导入草稿。请修正文件并重试。');
-   if(!window.confirm('将 '+review.drafts.length+' 个供应商核实数据保存为待审核草稿。\n不会批准成本、修改报价或创建付款。\n如果某个 SKU 已存在，导入会被拒绝。确定继续吗？'))return;
-   for(const {sku:code,terms:info} of review.drafts){
-    const reply=await fetch('/api/admin/supplier-pricing',{
-     method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},
-     body:JSON.stringify({action:'SAVE_DRAFT',sku:code,expectedVersion:0,
-      supplierName:info.supplierName,supplierSku:info.supplierSku,
-      moq:info.moq,casePack:info.casePack,effectiveOn:info.effectiveOn,
-      expiresOn:info.expiresOn,sourceNote:info.sourceNote,
-      tiers:info.tiers.map(t=>({minimumQuantity:t.minimumQuantity,
-       unitCostUSD:(t.purchaseCents/100).toFixed(2)}))})
-    });
-    const response=await reply.json() as {ok?:boolean;error?:string;status?:string};
-    if(!reply.ok||!response.ok||response.status!=='DRAFT')
-     throw Error('SKU '+code+'：'+(response.error||'未能确认为待审核草稿'));
-    written++;
-   }
-   setMessage('已保存 '+written+' 条待审核供应商草稿，自动批准 0 条。请逐项查对供应商凭证后再单独审批。');
+   const response=await reply.json() as {ok?:boolean;error?:string;status?:string;imported?:number;approved?:number;issues?:string[]};
+   if(!reply.ok||!response.ok||response.status!=='DRAFT'||response.approved!==0||
+      response.imported!==intakeReview.drafts.length)
+    throw Error([response.error,...(response.issues||[])].filter(Boolean).join('；')||'供应商采购草稿整体导入失败');
+   setMessage('已一次性保存 '+response.imported+' 条待审核供应商草稿，自动批准 0 条。请逐项核对原始供应商报价后单独审批。');
    setIntakeRaw('');setIntakeReview(null);
   }catch(e){
-   setError('批量导入已完成 '+written+' 条草稿后停止：'+(e instanceof Error?e.message:'未知错误')+'。请刷新目录再核查未完成的 SKU。');
+   setError('批量导入未被确认为成功：'+(e instanceof Error?e.message:'未知错误')+'。请刷新目录核对，再决定是否重新导入。');
   }finally{
    try{await refresh()}catch(e){setError(prev=>prev+' 目录刷新失败：'+String(e))}
    setBusy(false);
@@ -164,7 +150,7 @@ export default function SupplierPricingManager({accessKey}:{accessKey:string}){
      <button type="button" className="button secondary" disabled={busy||!!intakeReview.errors.length||!intakeReview.drafts.length}
       onClick={()=>void importIntakeDrafts()}>{busy?'正在核对 / 导入…':'确认导入为待审核草稿'}</button>
     </div>}
-    <p style={{fontSize:12,color:'#667085'}}>不会覆盖已有 SKU（包括已审核版本），也不会把历史口述价、海运或关税自动当成已批准成本。导入中途失败时可能保留先前成功的草稿，须刷新目录核对。</p>
+    <p style={{fontSize:12,color:'#667085'}}>不会覆盖已有 SKU（包括已审核版本），也不会把历史口述价、海运或关税自动当成已批准成本。后台会重新核验整个 CSV 并事务保存；任何 SKU 冲突或写入异常都不会接受部分成功。</p>
    </section>
    <form onSubmit={e=>void save(e)} className="quote-form">
     <div className="quote-form-grid">

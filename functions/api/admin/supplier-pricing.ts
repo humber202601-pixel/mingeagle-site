@@ -1,4 +1,5 @@
 import {normalizeSupplierTerms,mayApproveSupplierTerms,type SupplierTerms} from '../../../lib/supplier-pricing';
+import {reviewSupplierCsv} from '../../../lib/supplier-cost-import';
 interface Env{MINGEAGLE_DB?:D1Database}
 type Stored={sku:string;supplier_name:string;supplier_sku:string|null;moq:number;case_pack:number;currency:string;
  tiers_json:string;source_note:string;effective_on:string;expires_on:string;status:string;version:number;approved_at:string|null;updated_at:string};
@@ -27,6 +28,49 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  try{const v=await request.json();if(!v||typeof v!=='object'||Array.isArray(v))throw Error();x=v as Record<string,unknown>}
  catch{return response({ok:false,error:'Invalid JSON.'},400)}
  const action=x.action;
+ // One atomic D1 batch, never eleven independent writes. The server re-parses
+ // the original CSV and rechecks existing SKUs instead of trusting browser review.
+ if(action==='IMPORT_CSV_DRAFTS'){
+  if(typeof x.csv!=='string'||x.csv.length>120000)
+   return response({ok:false,error:'CSV text is required and must not exceed 120 KB.'},400);
+  let drafts:ReturnType<typeof reviewSupplierCsv>['drafts'];
+  try{
+   const existing=await db.prepare('SELECT sku FROM supplier_purchase_terms ORDER BY sku LIMIT 30')
+    .all<{sku:string}>();
+   if(!Array.isArray(existing.results))throw Error('SUPPLIER_CATALOG_UNAVAILABLE');
+   const review=reviewSupplierCsv(x.csv,existing.results.map(row=>row.sku));
+   if(review.errors.length)
+    return response({ok:false,code:'SUPPLIER_CSV_REJECTED',error:'Supplier CSV was rejected; no purchasing data saved.',issues:review.errors.slice(0,11)},409);
+   if(!review.drafts.length)
+    return response({ok:false,code:'SUPPLIER_CSV_EMPTY',error:'No supplier-confirmed cost rows to import.'},400);
+   drafts=review.drafts;
+  }catch(e){
+   const detail=e instanceof Error?e.message:'UNKNOWN';
+   if(detail.startsWith('CSV_'))
+    return response({ok:false,code:'SUPPLIER_CSV_INVALID',error:'Invalid supplier CSV: '+detail},400);
+   return response({ok:false,error:'Supplier catalog could not be verified. No import attempted.'},503);
+  }
+  // Cloudflare D1 batch runs transactionally: a primary-key collision or
+  // any failed insert rolls the entire import back, including audit records.
+  // INSERT (not INSERT OR REPLACE) guarantees pre-existing terms/approval survive.
+  const writes=drafts.flatMap(({sku,terms})=>[
+   db.prepare("INSERT INTO supplier_purchase_terms(sku,supplier_name,supplier_sku,moq,case_pack,currency,tiers_json,source_note,effective_on,expires_on,status,version) VALUES(?,?,?,?,?,'USD',?,?,?,?,'DRAFT',1)")
+    .bind(sku,terms.supplierName,terms.supplierSku,terms.moq,terms.casePack,
+     JSON.stringify(terms.tiers),terms.sourceNote,terms.effectiveOn,terms.expiresOn),
+   db.prepare("INSERT INTO supplier_purchase_audit(id,sku,version,action) VALUES(?,?,1,'SAVE_DRAFT')")
+    .bind(crypto.randomUUID(),sku)
+  ]);
+  try{
+   const results=await db.batch(writes);
+   if(results.length!==writes.length||results.some(row=>!row.success||Number(row.meta?.changes)!==1))
+    return response({ok:false,error:'Import verification failed. Refresh the catalog before retrying.'},503);
+  }catch{
+   return response({ok:false,code:'SUPPLIER_CSV_CONFLICT',
+    error:'Supplier CSV import failed or conflicted with another update. No partial batch is accepted. Refresh the catalog and review its current contents.'},409);
+  }
+  return response({ok:true,status:'DRAFT',imported:drafts.length,approved:0,
+   message:'Supplier prices imported as draft-only records; no purchasing terms were approved.'});
+ }
  if(!['SAVE_DRAFT','APPROVE','DISABLE'].includes(String(action)))return response({ok:false,error:'Unknown operation.'},400);
  const sku=String(x.sku||'').trim().toUpperCase();
  if(!/^P[1-4]-S[3-7]$/.test(sku))return response({ok:false,error:'Invalid SKU.'},400);

@@ -105,8 +105,8 @@ try{
  assert(parsed.errors.some(e=>e.includes('SKU 重复')),'Duplicate source lines must reject import');
  assert.throws(()=>parseSupplierCsv('"Unclosed'),/CSV_UNTERMINATED_QUOTE/);
  assert.throws(()=>reviewSupplierCsv('SKU,Fake\r\nP1-S7,19.50\r\n',[]),/CSV_INVALID_COLUMN_COUNT|CSV_INVALID_HEADER/);
- assert(readFileSync('src/SupplierPricingManager.tsx','utf8').includes("action:'SAVE_DRAFT'"),
-  'Bulk import must be restricted to draft-only API actions');
+ assert(readFileSync('src/SupplierPricingManager.tsx','utf8').includes("action:'IMPORT_CSV_DRAFTS'"),
+  'Bulk import must go through one transactional draft-only action');
  assert(!readFileSync('src/SupplierPricingManager.tsx','utf8').includes("action:'APPROVE',sku:code"),
   'Bulk import should never submit an approval action');
  const supplierUi=readFileSync('src/SupplierPricingManager.tsx','utf8');
@@ -192,7 +192,66 @@ try{
  result=await invoke('POST',{action:'APPROVE',sku:'P1-S5',expectedVersion:5,confirmed:true});
  assert.equal(result.status,409,'Expired supplier terms cannot be approved');
  assert.equal(costRows(),1);assert.equal(auditRows(),5);
- const ordered=sqlite.prepare('SELECT action,version FROM supplier_purchase_audit ORDER BY version').all();
+ // Server-side CSV intake is atomic; a browser preview is never approval.
+ const csvRows=supplierCostIntakeRows();
+ const sample=(sku,cost)=>{
+  const row=csvRows.find(x=>x[0]===sku);
+  row[3]=cost;row[4]='Synthetic supplier for isolated test';row[5]='TEST-'+sku;
+  row[6]='100';row[7]='20';row[8]='2026-10-15';
+  row[9]='2026-10-15';row[10]='2099-12-31';row[15]='TEST-QUOTE-'+sku;
+  return row;
+ };
+ const first=sample('P2-S3','12.25'),second=sample('P2-S5','13.75');
+ const completeCsv=()=>makeCsv(csvRows);
+ let bulk=await invoke('POST',{action:'IMPORT_CSV_DRAFTS',csv:completeCsv()},false);
+ assert.equal(bulk.status,401,'Anonymous CSV import must not access supplier terms');
+ assert.equal(costRows(),1);
+ second[3]='-9';
+ bulk=await invoke('POST',{action:'IMPORT_CSV_DRAFTS',csv:completeCsv()});
+ assert.equal(bulk.status,409,'Any invalid cost rejects the whole file');
+ assert.equal(costRows(),1);assert.equal(auditRows(),5);
+ second[3]='13.75';
+ bulk=await invoke('POST',{action:'IMPORT_CSV_DRAFTS',csv:completeCsv()});
+ assert.equal(bulk.status,200,JSON.stringify(bulk));
+ assert.equal(bulk.json.imported,2);assert.equal(bulk.json.approved,0);
+ assert.equal(costRows(),3);assert.equal(auditRows(),7);
+ assert.deepEqual(sqlite.prepare("SELECT status FROM supplier_purchase_terms WHERE sku LIKE 'P2-%' ORDER BY sku").all().map(x=>x.status),
+  ['DRAFT','DRAFT'],'CSV cannot approve supplier records');
+ const auditAfter=()=>auditRows(),costAfter=()=>costRows();
+ bulk=await invoke('POST',{action:'IMPORT_CSV_DRAFTS',csv:completeCsv()});
+ assert.equal(bulk.status,409,'Existing SKU must reject a whole repeated CSV');
+ assert.equal(costAfter(),3);assert.equal(auditAfter(),7,'Rejected repeat import cannot write audit rows');
+ second[17]='APPROVED';
+ bulk=await invoke('POST',{action:'IMPORT_CSV_DRAFTS',csv:completeCsv()});
+ assert.equal(bulk.status,409,'CSV must not sneak in APPROVED status');
+ assert.equal(costAfter(),3);assert.equal(auditAfter(),7);
+ second[17]='';
+ // Race simulation: a concurrent user inserts the second SKU after our
+ // existing-SKU SELECT but before D1 batch; the first SKU must roll back.
+ const raceRows=supplierCostIntakeRows();
+ const raceFill=(sku,cost)=>{
+  const r=raceRows.find(v=>v[0]===sku);
+  r[3]=cost;r[4]='Synthetic supplier';r[6]='100';r[7]='20';
+  r[8]='2026-10-15';r[9]='2026-10-15';r[10]='2099-12-31';
+  r[15]='RACE-QUOTE-'+sku;
+ };
+ raceFill('P1-S3','11.50');raceFill('P1-S7','20.50');
+ const batchBefore=db.batch;
+ db.batch=async cmds=>{
+  // The race creates a real row only for the second candidate.
+  sqlite.prepare("INSERT INTO supplier_purchase_terms(sku,supplier_name,supplier_sku,moq,case_pack,currency,tiers_json,source_note,effective_on,expires_on,status,version) VALUES('P1-S7','Racing supplier',NULL,100,20,'USD','[]','Concurrent synthetic update','2026-10-15','2099-12-31','DRAFT',1)").run();
+  db.batch=batchBefore;
+  return batchBefore(cmds);
+ };
+ bulk=await invoke('POST',{action:'IMPORT_CSV_DRAFTS',csv:makeCsv(raceRows)});
+ assert.equal(bulk.status,409,'Primary key collision should reject entire batch after preview');
+ assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM supplier_purchase_terms WHERE sku='P1-S3'").get().n,0,
+  'First imported row must roll back when a later SKU conflicts');
+ assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM supplier_purchase_audit WHERE sku='P1-S3'").get().n,0,
+  'No orphan first-row audit after transaction rollback');
+ assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM supplier_purchase_terms WHERE sku='P1-S7'").get().n,1,
+  'Concurrent writer row is preserved');
+ const ordered=sqlite.prepare("SELECT action,version FROM supplier_purchase_audit WHERE sku='P1-S5' ORDER BY version").all();
  assert.deepEqual(ordered.map(r=>r.action),['SAVE_DRAFT','APPROVE','SAVE_DRAFT','DISABLE','SAVE_DRAFT']);
  assert.deepEqual(ordered.map(r=>r.version),[1,2,3,4,5]);
  console.log('PASS: migration required, admin-only, validated USD source, tier ordering, no fictional price seeding, revision conflict, explicit approval, review reset, expiry lock, disabled state, durable audit and safe costs.');
