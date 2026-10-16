@@ -37,3 +37,22 @@ export const quoteTermsIssueDescriptions:Record<string,string>={
   QUOTE_VALIDITY_MISSING:'Enter a valid quotation expiration date before releasing to the customer.',
   QUOTE_EXPIRED:'Quotation has expired. Revise and re-confirm prices and terms before releasing.'
 };
+
+/**
+ * Fail closed when a commercial payment clause merely mentions Stripe but
+ * actually directs the buyer to a different or disabled payment route.
+ * This is conservative text screening, not proof of buyer acceptance or tax.
+ */
+export function stripeCheckoutTermsSupported(value:unknown):boolean{
+ const term=String(value??'').trim().replace(/\s+/g,' ');
+ if(term.length<12||term.length>500||!/\bstripe\b/i.test(term)||
+    !/\b(?:pay|payment|checkout|card|cards)\b/i.test(term))return false;
+ // No alternative payment rail is enabled on this merchant's website.
+ if(/\b(?:bank\s+(?:transfer|wire)|wire\s+transfer|ach|wise|payoneer|airwallex|paypal|cash)\b/i.test(term))
+  return false;
+ if(/\b(?:no|not|never|without|cannot|can't|do\s+not|don't|unavailable|disabled|forbidden|prohibited)\b.{0,40}\bstripe\b/i.test(term))
+  return false;
+ if(/\bstripe\b.{0,40}\b(?:not\s+(?:accepted|supported|allowed)|unavailable|disabled|forbidden|prohibited)\b/i.test(term))
+  return false;
+ return true;
+}
