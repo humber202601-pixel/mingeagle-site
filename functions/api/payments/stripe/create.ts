@@ -189,7 +189,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     // Querying D1 by order/amount is not enough to reuse an old provider
     // Checkout URL. Verify the actual Stripe session identity and amount,
     // including a prior session from a fixed-tax B2B quotation.
-    if(taxMode==='FIXED'&&last.status==='open'&&(
+    if(taxMode==='FIXED'&&(
       last.amount_total!==due||String(last.currency||'').toLowerCase()!=='usd'||
       last.client_reference_id!==String(order.reference)||
       last.metadata?.order_id!==String(order.id)||
