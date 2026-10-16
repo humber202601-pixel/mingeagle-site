@@ -41,7 +41,20 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   if(!pack)return result({ok:false,error:'Packaging not configured for '+line.sku},404);
   cbm+=Number(pack.length_cm)*Number(pack.width_cm)*Number(pack.height_cm)*Math.ceil(line.quantity/Number(pack.units_per_package))/1e6;
  }
- const raw=method==='air'?cbm*1e6/Number(rate.volume_divisor)*Number(rate.usd_per_unit):cbm*Number(rate.usd_per_unit);
+ // Existing active sea rates are only reference configurations and
+ // are not independently sourced, ZIP-specific US DDP forwarder quotes.
+ // Do not claim a fixed wholesale price or numeric freight from them.
+ if(method==='sea')return result({
+  ok:true,lines:lines.map(x=>({sku:x.sku,quantity:x.quantity})),
+  quantity,country,method,volumeCBM:Number(cbm.toFixed(6)),currency:'USD',
+  wholesale:true,quoteRequired:true,quoteStatus:'FREIGHT_AND_PRODUCT_PRICE_UNCONFIRMED',
+  productsUSD:null,shippingUSD:null,totalBeforeTaxesUSD:null,paymentEnabled:false,
+  ddpConfirmed:false,packagingEstimateOnly:true,seaFreightAccepted:true,
+  deliveryEstimateDaysMin:25,deliveryEstimateDaysMax:30,
+  discountPolicy:'QUANTITY_DEPENDENT_QUOTE_NO_FIXED_PERCENT',
+  notice:'This is a bulk RFQ, not a payable price. CBM uses stored package dimensions. Supplier quantity pricing and the destination-specific US ocean DDP freight (including clearance, import duties and last-mile delivery) require current written verification; US sales tax is separate. Delivery 25–30 days after dispatch is an estimate.'
+ });
+ const raw=cbm*1e6/Number(rate.volume_divisor)*Number(rate.usd_per_unit);
  if(!Number.isFinite(raw)||raw<0)return result({ok:false,error:'Invalid shipping configuration'},503);
  const shippingCents=Math.round((Math.max(raw,Number(rate.min_charge_usd))+Number(rate.handling_usd))*100);
  return result({ok:true,lines:lines.map(x=>({sku:x.sku,quantity:x.quantity,unitPriceUSD:prices[x.sku],lineTotalUSD:Number((prices[x.sku]*x.quantity).toFixed(2))})),quantity,country,method,volumeCBM:Number(cbm.toFixed(6)),productsUSD:subtotalCents/100,shippingUSD:shippingCents/100,totalBeforeTaxesUSD:(subtotalCents+shippingCents)/100,currency:'USD',paymentEnabled:false,taxesNotIncluded:true,estimateOnly:true,rateUpdatedAt:rate.updated_at,wholesale:quantity>=10,deliveryEstimateDaysMin:quantity>=10?25:undefined,deliveryEstimateDaysMax:quantity>=10?30:undefined,discountPolicy:quantity>=10?'QUANTITY_DEPENDENT_QUOTE_NO_FIXED_PERCENT':undefined,seaFreightAccepted:quantity>=10?true:undefined});
