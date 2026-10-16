@@ -35,7 +35,7 @@ const database={
  prepare(sql){const s={args:[],bind(...args){s.args=args;return s;},async first(){return sqlite.prepare(sql).get(...s.args)||null;},async all(){return {success:true,results:sqlite.prepare(sql).all(...s.args)};},async run(){return {success:true,meta:{changes:Number(sqlite.prepare(sql).run(...s.args).changes)}};}};return s;},
  async batch(statements){sqlite.exec('BEGIN');try{const result=[];for(const s of statements)result.push(await s.run());sqlite.exec('COMMIT');return result;}catch(error){sqlite.exec('ROLLBACK');throw error;}}
 };
-const env={MINGEAGLE_DB:database,ADMIN_ACCESS_KEY:FIXTURE_KEY,TEST_ENVIRONMENT:'preview',OUTBOUND_EMAIL_DISABLED:'true',AUTO_EMAIL_ENABLED:'false'};
+const env={MINGEAGLE_DB:database,ADMIN_ACCESS_KEY:FIXTURE_KEY,TEST_ENVIRONMENT:'preview',OUTBOUND_EMAIL_DISABLED:'true',AUTO_EMAIL_ENABLED:'false',STRIPE_B2B_APPROVED_US_STATES:'TX,OR,NH',STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',STRIPE_RETAIL_ONLY_ENABLED:'false'};
 // A mistaken email/provider call fails this fixture, even if future code changes.
 let externalAttempts=0;
 globalThis.fetch=async()=>{externalAttempts++;throw Error('External requests are forbidden in the isolated browser fixture');};
