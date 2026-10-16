@@ -61,6 +61,13 @@ test('真实报价界面：精确数量、金额、修改审核、批准与客�
  const createdResponse=page.waitForResponse(r=>r.url().endsWith('/api/admin/quotes')&&r.request().method()==='POST');
  await page.getByRole('button',{name:'创建报价草稿',exact:true}).click();
  const created=await (await createdResponse).json();expect(created.total).toBe(822.9);
+ const wholesalePreview=await request.get('/api/admin/quote-procurement-preflight?quoteId='+created.quoteId,{headers:auth});
+ expect(wholesalePreview.status()).toBe(200);
+ const wholesaleReview=(await wholesalePreview.json()).review;
+ expect(wholesaleReview.commercialChecksPassed).toBe(true);
+ expect(wholesaleReview.safeForManualRelease).toBe(false);
+ expect(wholesaleReview.remainingReleaseGates).toContain('LANDED_COST_PROOF_REQUIRED');
+ expect(wholesaleReview.remainingReleaseGates).toContain('SUPPLIER_COST_ACK_REQUIRED');
  const row=page.getByRole('row').filter({hasText:created.reference});
  await expect(row).toContainText('USD 822.90');
  await row.getByRole('button',{name:'内部成本试算',exact:true}).click();
@@ -98,8 +105,9 @@ test('真实报价界面：精确数量、金额、修改审核、批准与客�
  expect(preview.status()).toBe(200);
  const review=(await preview.json()).review;
  expect(review.commercialChecksPassed).toBe(true);
- expect(review.safeForManualRelease).toBe(false,'Wholesale quotes require landed cost review before release');
- expect(review.remainingReleaseGates).toContain('LANDED_COST_PROOF_REQUIRED');
+ expect(review.safeForManualRelease).toBe(false,'3-unit sample still requires explicit supplier sourcing confirmation');
+ expect(review.requiresLandedCostReview).toBe(false,'Under-10 sample must not require the wholesale six-cost release form');
+ expect(review.remainingReleaseGates).not.toContain('LANDED_COST_PROOF_REQUIRED');
  expect(review.remainingReleaseGates).toContain('SUPPLIER_COST_ACK_REQUIRED');
  expect(review.unverifiedSkuBaselines).toBe(1);
  expect(review.supplierConfirmationRequired).toBe(true);
