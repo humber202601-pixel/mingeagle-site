@@ -5,6 +5,14 @@ import {mkdtempSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
+const wrangler=readFileSync('wrangler.toml','utf8');
+assert.match(wrangler,/^STRIPE_RETAIL_ONLY_ENABLED = "false"$/m,'Published config must not silently restore retail-only restriction');
+assert.match(wrangler,/^STRIPE_B2B_CHECKOUT_ENABLED = "true"$/m,'Reviewed B2B activation must be durable');
+assert.match(wrangler,/^STRIPE_B2B_TAX_POLICY_APPROVED = "true"$/m);
+assert.match(wrangler,/^STRIPE_B2B_APPROVED_US_STATES = "OR,NH"$/m,
+ 'Initial wholesale live scope is restricted to reviewed no-general-sales-tax states');
+assert(!/^STRIPE_SECRET_KEY\s*=/m.test(wrangler)&&!/^STRIPE_WEBHOOK_SECRET\s*=/m.test(wrangler),
+ 'Never ship encrypted Stripe credentials in Wrangler source');
 const panel=readFileSync('src/ReadinessPanel.tsx','utf8');
 assert(panel.includes('已核验自动运价目的地')&&panel.includes('未列出的目的地必须人工询价'),'No unchecked international shipping claims');
 assert(panel.includes('Stripe 在线收款配置'));
