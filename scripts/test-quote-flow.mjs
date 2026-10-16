@@ -276,12 +276,19 @@ try{
  assert.equal(mail.status,200);
  assert.equal(mail.body.emailed,false);
  assert.equal(mail.body.deliveryUnconfirmed,true,'Uncertain Gmail delivery needs manual reconciliation');
+ assert.equal(mail.body.followUpRecorded,true,'Uncertain delivery must persist an urgent staff task');
+ assert.equal(query("SELECT COUNT(*) n FROM tasks WHERE type='QUOTE_EMAIL_REVIEW' AND priority='URGENT'").n,1);
+ assert.equal(query("SELECT COUNT(*) n FROM activities WHERE activity_type='QUOTE_EMAIL_REVIEW_REQUIRED'").n,1);
  assert(mail.body.publicPath?.startsWith('/quote/'));
  assert.equal(query('SELECT status FROM quotes').status,'SENT');
  const stillReadable=await routes.view({
   request:new Request('https://quote-test.example'+mail.body.publicPath),env,params:{token:mail.body.publicPath.split('/').pop()}
  });
  assert.equal(stillReadable.status,200,'Do not revoke a possibly emailed valid URL');
+ mail=await directSend();
+ assert.equal(mail.body.deliveryUnconfirmed,true);
+ assert.equal(query("SELECT COUNT(*) n FROM tasks WHERE type='QUOTE_EMAIL_REVIEW'").n,1,
+  'A repeated uncertain send cannot create another identical open staff task');
  globalThis.fetch=async(url)=>{
   if(String(url).includes('oauth2.googleapis.com'))return Response.json({access_token:'synthetic-oauth'});
   if(String(url).includes('gmail.googleapis.com')){
@@ -296,8 +303,12 @@ try{
  assert.equal(mail.status,200);
  assert.equal(mail.body.emailed,true,'Accepted Gmail message must not be relabeled as unsent due to CRM errors');
  assert.equal(mail.body.trackingIncomplete,true,'Staff must know when CRM tracking is incomplete');
+ assert.equal(query("SELECT COUNT(*) n FROM tasks WHERE type='QUOTE_EMAIL_REVIEW' AND priority='URGENT'").n,2,
+  'CRM tracking failure must create a separate urgent manual reconciliation task');
+ assert.equal(query("SELECT COUNT(*) n FROM activities WHERE activity_type='QUOTE_EMAIL_REVIEW_REQUIRED'").n,3,
+  'Both uncertain delivery incidents and tracking failure retain internal incident audits');
  sqlite.exec('DROP TRIGGER fail_post_gmail_tracking');
- assert.equal(gmailAttempts,3);
+ assert.equal(gmailAttempts,4);
  globalThis.fetch=async()=>{externalCalls++;throw Error('Mock scope ended: external network forbidden')};
 
  assert.equal(externalCalls,0);
