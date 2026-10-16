@@ -108,6 +108,9 @@ try{
  expired=await quoteGet();
  assert.equal((await expired.json()).quote.status,'EXPIRED',
   'Date-only yesterday must expire');
+ const expiredUnaccepted=await accept({country:'US',state:'TX',city:'Austin',postalCode:'78701',line1:'123 Synthetic B2B Street'});
+ assert.equal(expiredUnaccepted.status,409,'Expired unaccepted quote still cannot produce a new order');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM orders').get().n,0);
  sqlite.prepare("UPDATE quotes SET status='SENT',valid_until=date('now') WHERE id=?").run(quoteId);
  const todayApi=await quoteGet();
  assert.equal(todayApi.status,200);
@@ -151,6 +154,18 @@ try{
  const secondAccept=await accept(ship);
  assert.equal(secondAccept.status,200,'A second acceptance must reuse the existing order');
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM orders WHERE quote_id=?').get(quoteId).n,1);
+ // Once accepted, its order remains available through the same private token
+ // even if the original seller quotation expires. Never create a second order.
+ sqlite.prepare("UPDATE quotes SET valid_until=datetime('now','-1 hour') WHERE id=?").run(quoteId);
+ const writesBeforeExpiredRetry=writes;
+ const expiredAcceptedRetry=await accept(ship);
+ assert.equal(expiredAcceptedRetry.status,200,'An existing accepted order survives quotation expiry');
+ assert.equal((await expiredAcceptedRetry.json()).order.id,orderId);
+ assert.equal(writes,writesBeforeExpiredRetry,'Idempotent expired acceptance must not change D1');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM orders WHERE quote_id=?').get(quoteId).n,1);
+ assert.equal(sqlite.prepare('SELECT status FROM quotes WHERE id=?').get(quoteId).status,'CONVERTED');
+ // Subsequent payment tests use an otherwise still-valid accepted quotation.
+ sqlite.prepare("UPDATE quotes SET valid_until=date('now') WHERE id=?").run(quoteId);
  const quoteView=await quotePage({env,params:{token:bearer},request:new Request(orderPage)});
  assert.equal(quoteView.status,200);
  assert((await quoteView.text()).includes('Pay securely with Stripe'));
