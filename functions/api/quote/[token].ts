@@ -242,7 +242,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
     } catch (insertError) {
       // A separate request may have created this order first. Only return
       // the actual persisted order from that concurrent acceptance.
-      const raced=await getOrder(db,quoteId);
+      const raced = await getOrder(db, quoteId);
       if(raced)return Response.json({ok:true,accepted:true,order:raced});
       throw insertError;
     }
