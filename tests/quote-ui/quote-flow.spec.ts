@@ -63,6 +63,22 @@ test('真实报价界面：精确数量、金额、修改审核、批准与客�
  const created=await (await createdResponse).json();expect(created.total).toBe(822.9);
  const row=page.getByRole('row').filter({hasText:created.reference});
  await expect(row).toContainText('USD 822.90');
+ await row.getByRole('button',{name:'内部成本试算',exact:true}).click();
+ const scenario=page.getByRole('region',{name:'批发内部成本情景试算'});
+ await expect(scenario).toContainText('尚不能计算有效已审核的完整采购基准');
+ await expect(scenario).toContainText('尚不显示收支差额');
+ await scenario.getByLabel('实际采购金额合计 USD（核对颜色/包装后）').fill('100');
+ await scenario.getByLabel('运输与到门运费 USD（不可与关税重复）').fill('20');
+ await scenario.getByLabel('进口关税与海关手续费 USD').fill('0');
+ await scenario.getByLabel('包装、保险及其他材料 USD').fill('2');
+ await scenario.getByLabel('Stripe 手续费 / 外币转换费 USD').fill('3');
+ await scenario.getByLabel('其他履约及售后成本 USD').fill('1');
+ await expect(scenario).toContainText('情景收支差额 $696.90');
+ await scenario.getByRole('button',{name:'清除本次试算'}).click();
+ await expect(scenario).toContainText('尚不显示收支差额');
+ await scenario.getByRole('button',{name:'关闭试算'}).click();
+ await expect(scenario).toHaveCount(0);
+
  await row.getByRole('button',{name:'编辑草稿',exact:true}).click();
  const edit=page.locator('#quote-edit-panel');
  await edit.getByLabel('数量',{exact:true}).fill('3');

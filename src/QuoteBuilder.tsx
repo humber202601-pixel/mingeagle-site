@@ -5,6 +5,7 @@ import {calculate, type Comparison} from '../lib/quote-math-core.mjs';
 import {quoteTotals} from '../lib/quote-totals';
 import {quoteInquiryDefaults} from './quoteInquiry';
 import { pendingQuoteAttention, quoteAttention } from './b2bQuoteAttention';
+import B2BCostScenario from './B2BCostScenario';
 
 type Row = Record<string, unknown>;
 
@@ -90,6 +91,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   const [customerLink, setCustomerLink] = useState<{ reference: string; url: string; emailed?: boolean; to?: string } | null>(null);
   const [quoteDeliveryMessage, setQuoteDeliveryMessage] = useState('');
   const [editDetail, setEditDetail] = useState<EditDetail | null>(null);
+  const [costScenario,setCostScenario]=useState<{id:string;reference:string}|null>(null);
   const [editMessage, setEditMessage] = useState('');
   const [retailReviews,setRetailReviews]=useState<Record<string,{retail:string;source:string;confirmed:boolean}>>({});
   const [retailReviewMessage,setRetailReviewMessage]=useState('');
@@ -611,6 +613,8 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       </div>)}
       {followupItems.length>8&&<p>还有 {followupItems.length-8} 项，请查看下方全部报价单。</p>}
     </section>
+    {costScenario&&<B2BCostScenario key={costScenario.id} quoteId={costScenario.id}
+      reference={costScenario.reference} accessKey={accessKey} onClose={()=>setCostScenario(null)}/>}
     <section className="panel table-panel">
       {quotesError&&<div className="form-status error" role="alert"><p>{quotesError}</p></div>}
       <div className="table-tools"><strong>{quotesLoading?'正在加载报价单…':`共 ${quotes.length} 张报价单`}</strong><button type="button" className="button secondary small" disabled={quotesLoading} onClick={()=>void loadQuotes()}>刷新报价列表</button><span>草稿 → 审核修改 → Gmail / 安全链接 → 客户查看 → 修订 → 接受 → 自动生成订单</span></div>
@@ -625,6 +629,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
             <td>{text(quote.reference)}</td><td>{text(quote.customer)}</td><td>{money(quote.total, quote.currency)}</td><td>{statusLabel(status)}<small style={{display:'block'}}>{quoteAttention(quote,followupClock).label}</small></td><td>{text(quote.valid_until)}</td>
             <td><div className="secure-link-actions">
               {status === 'DRAFT' && <button type="button" className="table-action" disabled={busyQuoteId === id} onClick={() => void openEdit(quote)}>{busyQuoteId === id ? '加载中…' : '编辑草稿'}</button>}
+              <button type="button" className="table-action" disabled={Boolean(busyQuoteId)} onClick={()=>setCostScenario({id,reference:text(quote.reference)})}>内部成本试算</button>
               {canSend && <button type="button" className="table-action primary" disabled={busyQuoteId === id} onClick={() => void deliverQuote(quote, true)}>{busyQuoteId === id ? '处理中…' : status === 'DRAFT' ? 'Gmail发送报价' : '重新邮件发送'}</button>}
               {canSend && <button type="button" className="table-action" disabled={busyQuoteId === id} onClick={() => void deliverQuote(quote, false)}>{busyQuoteId === id ? '处理中…' : status === 'DRAFT' ? '仅生成安全链接' : '重新生成链接'}</button>}
               {['SENT','VIEWED','ACCEPTED','CONVERTED'].includes(status) && <button type="button" className="table-action" disabled={Boolean(busyQuoteId)} onClick={() => void downloadCommercialDocument(quote,'quotation')}>下载英文 Quotation PDF</button>}
