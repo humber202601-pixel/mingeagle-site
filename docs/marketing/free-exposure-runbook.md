@@ -152,3 +152,17 @@ Published the existing FB-SAMPLE-001 draft as a revised institutional sample-eva
 Submitted distinct PIN-SAMPLE-007 via Publish now with school board 1149192098607199389, title, 493-character description, custom ALT and separate Pinterest UTM. Uploading files was shown. Instagram secure-login waiting subsequently timed out, and the browser session expired before the Pin's final receipt was checked. Its status is SUBMITTED_PUBLICATION_UNVERIFIED, not Published. Reconcile the actual native list before any retry. The Pinterest public profile returned a site-served Forbidden page in this browser; no alternative route was attempted.
 
 Instagram login result remains unknown after the secure prompt timed out. LinkedIn and TikTok were inspected at signup but no new account, password or agreement was submitted. No credential or personal verification material is recorded here. Existing YouTube access-review limitations remain unchanged. No paid upgrade, ads or unsolicited messages were used. The previously paused background exposure automation was not resumed by this session; native saved schedules are separate.
+
+
+## 2026-10-17 — reseller scheduling and publication reconciliation
+
+Observed at 2026-10-16T16:42:22.720Z, using the native Metricool MING EAGLE brand 7436627, Sep–Nov list, timezone Asia/Shanghai. Owner restored the expired session; the signed-in list was verified before writes.
+
+- Verified FB-CATALOG-002 Published: https://facebook.com/122101312845471895/posts/122102762427471895
+- Reconciled PIN-SAMPLE-007 from unverified submission to Published: https://www.pinterest.es/pin/1149192029968452061. Original submission evidence retained; no repeat submission.
+- Scheduled FB-RESELLER-001 and PIN-RESELLER-008 for **2026-10-28 20:30 Asia/Shanghai**. Both final native rows show Pending. Pinterest title, Team Logo Basketball & Bulk Buying board, separate per-network catalog UTM URLs, existing product-family artwork and ALT were saved. Caption discloses AI-assisted illustration; platform-specific AI labeling was not verified.
+- Native list now contains **13 rows: 9 Pending (4 Facebook, 5 Pinterest), 4 Published**. Earlier manually published posts outside this list are additional; this is not the brand lifetime post total. Existing seven pending rows were retained.
+- New schedules have no public post URL yet. Publication receipt URLs above were verified in Metricool; standalone public pages were not rechecked.
+- Connector still references empty brand 7430045. No connector reconciliation or new LinkedIn/TikTok/Instagram registration is claimed. Recurring exposure automation remains paused. No paid upgrade, advertising or unsolicited outreach.
+
+Evidence: native list row extraction and screenshot captured at the observation time. Queue IDs are guarded against duplicate submission.

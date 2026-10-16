@@ -4,7 +4,7 @@
   "website": "https://www.mingeagle.com",
   "publicEmail": "mingeaglecommerce@gmail.com",
   "strategy": "Wholesale-first; retail for samples and small trials",
-  "verifiedAt": "2026-10-15T11:53:11.214Z",
+  "verifiedAt": "2026-10-16T16:42:22.720Z",
   "accounts": [
     {
       "network": "pinterest",
@@ -14,7 +14,9 @@
       "metricoolConnected": true,
       "publishedPostIds": [
         "1149192029968368240",
-        "1149192029968368476"
+        "1149192029968368476",
+        "1149192029968437579",
+        "1149192029968452061"
       ],
       "websiteClaimed": "www.mingeagle.com",
       "websiteClaimConfirmedOn": "2026-10-15",
@@ -35,13 +37,19 @@
         }
       ],
       "scheduledQueueIds": [
-        "PIN-BULK-002",
         "PIN-CATALOG-003",
         "PIN-APARTMENT-004",
         "PIN-SCHOOL-005",
-        "PIN-TEAM-006"
+        "PIN-TEAM-006",
+        "PIN-RESELLER-008"
       ],
-      "scheduleVerifiedAt": "2026-10-15T11:53:11.214Z"
+      "scheduleVerifiedAt": "2026-10-16T16:42:22.720Z",
+      "publishedQueueIds": [
+        "PIN-SCHOOL-001",
+        "PIN-TEAM-001",
+        "PIN-BULK-002",
+        "PIN-SAMPLE-007"
+      ]
     },
     {
       "network": "youtube",
@@ -86,7 +94,9 @@
       "metricoolStatus": "CONNECTED_NATIVE_UI_VERIFIED",
       "whatsappLinked": false,
       "publishedQueueIds": [
-        "FB-BULK-001"
+        "FB-BULK-001",
+        "FB-SAMPLE-001",
+        "FB-CATALOG-002"
       ],
       "verifiedAt": "2026-10-15T07:08:08.676689+00:00",
       "metricoolBrandId": "7436627",
@@ -105,12 +115,12 @@
         "pages_show_list"
       ],
       "scheduledQueueIds": [
-        "FB-CATALOG-002",
+        "FB-RESELLER-001",
         "FB-APARTMENT-002",
         "FB-SCHOOL-002",
         "FB-TEAM-002"
       ],
-      "scheduleVerifiedAt": "2026-10-15T11:53:11.214Z"
+      "scheduleVerifiedAt": "2026-10-16T16:42:22.720Z"
     },
     {
       "network": "linkedin",
@@ -137,7 +147,7 @@
     "automatedPublishingMode": "Native Metricool calendar for verified schedules only",
     "connectorAutomationEnabled": false,
     "nativeScheduledPostCount": 9,
-    "nativeScheduleVerifiedAt": "2026-10-15T11:53:11.214Z",
+    "nativeScheduleVerifiedAt": "2026-10-16T16:42:22.720Z",
     "nativeConnectionVerifiedAt": "2026-10-15T07:08:08.676689+00:00",
     "connectedNetworks": [
       "facebook",
@@ -146,7 +156,8 @@
     "nativeScheduledByNetwork": {
       "facebook": 4,
       "pinterest": 5
-    }
+    },
+    "nativePublishedListCount": 4
   },
   "socialVisualDirection": "docs/marketing/social-visual-direction-20261015.md",
   "socialVisualReference": "public/assets/hero-weighted-flocked-silent-basketball.webp"
