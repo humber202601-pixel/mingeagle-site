@@ -123,12 +123,28 @@ try{
  const incorrect=await accept({...ship,state:'CA'});
  assert.equal(incorrect.status,409,'Wrong delivery state must not create an order');
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM orders').get().n,0);
+ // Inject a failure in the final payment follow-up task. The accepted
+ // order, all copied lines and quote conversion must roll back together.
+ sqlite.exec(`CREATE TRIGGER reject_payment_task BEFORE INSERT ON tasks
+  WHEN NEW.type='PAYMENT' BEGIN SELECT RAISE(ABORT,'synthetic late task failure'); END;`);
+ const failedAccept=await accept(ship);
+ assert.equal(failedAccept.status,500,'Late staff task failure cannot report acceptance');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM orders').get().n,0,
+  'No orphan payable order if the payment follow-up task fails');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM order_items').get().n,0,
+  'No partial product lines if staff task fails');
+ assert.equal(sqlite.prepare('SELECT status FROM quotes WHERE id=?').get(quoteId).status,'VIEWED',
+  'Source quote remains unconverted after rolled-back acceptance');
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM activities WHERE activity_type='QUOTE_ACCEPTED'").get().n,0);
+ sqlite.exec('DROP TRIGGER reject_payment_task');
  const accepted=await accept(ship);
  assert.equal(accepted.status,201,await accepted.clone().text());
  const created=await accepted.json();
  assert.equal(created.order.payment_status,'UNPAID');
  const orderId=created.order.id;
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM order_items WHERE order_id=?').get(orderId).n,1);
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM tasks WHERE order_id=? AND type='PAYMENT'").get(orderId).n,1);
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM activities WHERE entity_id=? AND activity_type='QUOTE_ACCEPTED'").get(orderId).n,1);
  assert.deepEqual(JSON.parse(sqlite.prepare('SELECT shipping_address FROM orders WHERE id=?').get(orderId).shipping_address),
   {line1:ship.line1,city:ship.city,state:ship.state,postalCode:ship.postalCode,country:ship.country},
   'Saved buyer delivery facts match the accepted address');
