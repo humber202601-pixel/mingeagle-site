@@ -27,7 +27,9 @@ try{
  const db={prepare(sql){if(/\b(INSERT|UPDATE|DELETE|ALTER|CREATE|DROP)\b/i.test(sql))writes++;return {async all(){return {results:sqlite.prepare(sql).all()}},async first(){return sqlite.prepare(sql).get()||null}}}};
  const read=async(env={})=>{const r=await onRequestGet({env:{MINGEAGLE_DB:db,...env}});return {status:r.status,body:await r.json()}};
  let r=await read();assert.equal(r.status,200);assert.equal(r.body.analytics.cloudflare.observedDates,null);
- assert.equal(r.body.analytics.google.observedDates,null);assert.equal(r.body.procurement.supplierSources,null);
+ assert.equal(r.body.analytics.google.observedDates,null);
+ assert.equal(r.body.b2bStripeEvidence.schemaPresent,false);
+ assert.equal(r.body.b2bStripeEvidence.reconciledPaidOrders,null,'Missing payment ledger tables means unknown, not zero');assert.equal(r.body.procurement.supplierSources,null);
  assert.equal(r.body.procurement.activeShippingRoutes,null,'Absent route table must remain unknown rather than zero coverage');
  assert.equal(r.body.payments.checkoutConfigurationReady,false);
  assert.equal(r.body.payments.b2bCheckoutRequested,false);
@@ -92,6 +94,28 @@ try{
  assert.equal(r.body.payments.b2bTaxReviewed,true);
  assert.deepEqual(r.body.payments.b2bApprovedDestinationStates,['OR','NH']);
  assert.equal(r.body.payments.b2bConfigurationReady,true,'All B2B-specific permissions and verified Stripe credentials required');
+ // Verified paid B2B orders require live-like Stripe ledger consistency, not a manual PAID marker.
+ sqlite.exec(`CREATE TABLE orders(id TEXT,quote_id TEXT,total REAL,currency TEXT,payment_status TEXT);
+ CREATE TABLE quote_items(quote_id TEXT,quantity INTEGER);
+ CREATE TABLE payment_provider_sessions(order_id TEXT,provider TEXT,provider_intent_id TEXT,status TEXT);
+ CREATE TABLE payments(order_id TEXT,provider TEXT,provider_reference TEXT,amount REAL,currency TEXT,status TEXT);
+ INSERT INTO orders VALUES('b2b-paid-stripe','q1',180,'USD','PAID');
+ INSERT INTO orders VALUES('b2b-paid-manual','q2',200,'USD','PAID');
+ INSERT INTO orders VALUES('b2b-unpaid','q3',140,'USD','UNPAID');
+ INSERT INTO orders VALUES('retail-not-counted','q4',30,'USD','UNPAID');
+ INSERT INTO quote_items VALUES('q1',10),('q2',12),('q3',5),('q3',5),('q4',1);
+ INSERT INTO payment_provider_sessions VALUES('b2b-paid-stripe','STRIPE','cs_test_fake_success','SUCCEEDED');
+ INSERT INTO payment_provider_sessions VALUES('b2b-unpaid','STRIPE','cs_test_fake_open','OPEN');
+ INSERT INTO payments VALUES('b2b-paid-stripe','STRIPE','cs_test_fake_success',180,'USD','RECEIVED');
+ INSERT INTO payments VALUES('b2b-paid-manual',NULL,'bank_receipt',200,'USD','RECEIVED');`);
+ r=await read();
+ assert.equal(r.body.b2bStripeEvidence.schemaPresent,true);
+ assert.equal(r.body.b2bStripeEvidence.wholesaleOrders,3);
+ assert.equal(r.body.b2bStripeEvidence.awaitingPaymentOrders,1);
+ assert.equal(r.body.b2bStripeEvidence.stripeCheckoutSessions,2);
+ assert.equal(r.body.b2bStripeEvidence.reconciledPaidOrders,1,'Manual paid order must not count as Stripe');
+ sqlite.exec("UPDATE payments SET amount=179.99 WHERE provider='STRIPE'");
+ r=await read();assert.equal(r.body.b2bStripeEvidence.reconciledPaidOrders,0,'Underpaid Stripe receipt must not count');
  assert(!JSON.stringify(r.body).includes('test-only'),'never leak credential values');assert.equal(writes,0);
  sqlite.close();console.log('PASS: read-only readiness uses real aggregate counts, unknown vs zero, no secrets or business record mutation.');
 }finally{rmSync(temp,{recursive:true,force:true})}
