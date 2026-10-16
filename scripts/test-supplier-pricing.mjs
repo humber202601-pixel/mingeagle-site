@@ -59,7 +59,60 @@ try{
  assert.equal(csv.trim().split(/\r?\n/).length,12,'One CSV header and eleven SKU records');
  assert(csv.includes('Owner_Reported_Factory_USD_UNVERIFIED'));
  assert(csv.includes('Sea_Freight_DDP_USD_Per_Unit')&&csv.includes('Supplier_Confirmed_Unit_Cost_USD'));
+ await build({entryPoints:['lib/supplier-cost-import.ts'],outfile:join(temp,'csv-import.mjs'),
+   bundle:true,platform:'node',format:'esm',logLevel:'silent'});
+ const {reviewSupplierCsv,parseSupplierCsv}=await import(pathToFileURL(join(temp,'csv-import.mjs')));
+ const exported=reviewSupplierCsv(supplierCostIntakeCsv(),[]);
+ assert.equal(exported.drafts.length,0,'Owner estimates are never supplier-confirmed prices');
+ assert.equal(exported.skipped.length,11);
+ assert.equal(exported.errors.length,0);
+ const makeCsv=(rows)=>{
+  const header=parseSupplierCsv(supplierCostIntakeCsv())[0];
+  return [header,...rows].map(row=>row.map(x=>'"'+String(x).replaceAll('"','""')+'"').join(',')).join('\\r\\n')+'\\r\\n';
+ };
+ const complete=supplierCostIntakeRows();
+ const p=complete.find(x=>x[0]==='P1-S7');
+ p[3]='19.50';p[4]='Example factory from synthetic CI';p[5]='TEST-SKU-7';
+ p[6]='100';p[7]='20';p[8]='2026-10-15';
+ p[9]='2026-10-15';p[10]='2027-01-01';
+ p[11]='No. 7 flocked\\nOrange, two carton variants';
+ p[12]='5.25';p[13]='1.50';p[14]='0.25';
+ p[15]='TEST-QUOTE-20261015';p[16]='Simulated reviewer';
+ let parsed=reviewSupplierCsv('\\uFEFF'+makeCsv(complete),[]);
+ assert.equal(parsed.drafts.length,1,'One verified supplier amount becomes one DRAFT candidate');
+ assert.equal(parsed.skipped.length,10);
+ assert.equal(parsed.errors.length,0);
+ assert.equal(parsed.drafts[0].terms.tiers[0].purchaseCents,1950);
+ assert.match(parsed.drafts[0].terms.sourceNote,/DDP freight USD\\/unit/);
+ assert.match(parsed.drafts[0].terms.sourceNote,/No\\. 7 flocked/);
+ assert.equal(p[2],'21.00','Owner reference cost remains separate from supplier quote');
+ parsed=reviewSupplierCsv(makeCsv(complete),['P1-S7']);
+ assert.equal(parsed.errors.length,1,'Existing supplier SKU must not be silently overwritten');
+ assert.equal(parsed.drafts.length,0);
+ p[17]='APPROVED';
+ parsed=reviewSupplierCsv(makeCsv(complete),[]);
+ assert(parsed.errors.some(e=>e.includes('不能请求采购审批')));
+ p[17]='';
+ p[3]='';
+ parsed=reviewSupplierCsv(makeCsv(complete),[]);
+ assert(parsed.errors.some(e=>e.includes('缺少供应商确认采购单价')));
+ p[3]='19.50';p[12]='-1';
+ parsed=reviewSupplierCsv(makeCsv(complete),[]);
+ assert(parsed.errors.some(e=>e.includes('DDP 运费')));
+ p[12]='5.25';
+ const duplicate=[...complete, [...p]];
+ parsed=reviewSupplierCsv(makeCsv(duplicate),[]);
+ assert(parsed.errors.some(e=>e.includes('SKU 重复')),'Duplicate source lines must reject import');
+ assert.throws(()=>parseSupplierCsv('"Unclosed'),/CSV_UNTERMINATED_QUOTE/);
+ assert.throws(()=>reviewSupplierCsv('SKU,Fake\\r\\nP1-S7,19.50\\r\\n',[]),/CSV_INVALID_COLUMN_COUNT|CSV_INVALID_HEADER/);
+ assert(readFileSync('src/SupplierPricingManager.tsx','utf8').includes("action:'SAVE_DRAFT'"),
+  'Bulk import must be restricted to draft-only API actions');
+ assert(!readFileSync('src/SupplierPricingManager.tsx','utf8').includes("action:'APPROVE',sku:code"),
+  'Bulk import should never submit an approval action');
  const supplierUi=readFileSync('src/SupplierPricingManager.tsx','utf8');
+ assert(supplierUi.includes('reviewSupplierCsv')&&supplierUi.includes('确认导入为待审核草稿'),
+  'Operator must preview and explicitly confirm import as DRAFT only');
+
  assert(supplierUi.includes('downloadIntakeSheet')&&supplierUi.includes('经营者参考出厂价（未核实）'),
   'Admin should offer a clearly unverified reference worksheet, not import or preapprove costs');
  const catalogLabels=readFileSync('lib/supplier-pricing.ts','utf8');
