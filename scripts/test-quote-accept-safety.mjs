@@ -19,4 +19,11 @@ assert(accept.includes('const incompleteTerms = quoteTermsIssues({'),'buyer acce
 assert(accept.includes('if (incompleteTerms.length)'),'incomplete commercial terms block conversion');
 assert(accept.indexOf('const incompleteTerms = quoteTermsIssues(')<accept.indexOf('const orderInsert ='),'terms must be checked before unpaid orders can be created');
 assert(accept.indexOf('const incompleteTerms = quoteTermsIssues(')<accept.indexOf('const items = await db.prepare'),'rejected incomplete terms must not even fetch priced lines for conversion');
+assert(accept.includes("shippingAddress?JSON.stringify(shippingAddress):null"),'Accepted card order must snapshot buyer shipping destination');
+assert(accept.includes('Confirm the delivery address before accepting this Stripe quotation.'),'No automatic acceptance of Stripe order without buyer delivery state');
+assert(accept.includes('SHIP-TO STATE:'),'Buyer ship-to must match the seller-quoted destination');
+assert(accept.indexOf('let shippingAddress:')<accept.indexOf('const orderInsert ='),'Shipping validated before creating unpaid order');
+const page=await readFile(new URL('../functions/quote/[token].ts',import.meta.url),'utf8');
+assert(page.includes('id="shipLine1"')&&page.includes('id="shipState"')&&page.includes('id="shipZip"'),'Buyer must be able to enter a real ship-to address');
+assert(page.includes("b2bTaxReview")===false,'Do not expose internal tax decisions to quote token page');
 console.log('PASS: quote acceptance preserves unpaid order, uniqueness, and atomic order + items conversion.');
