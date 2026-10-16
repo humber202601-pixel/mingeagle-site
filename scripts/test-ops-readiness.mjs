@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {build} from 'esbuild';
-import {mkdtempSync,rmSync} from 'node:fs';
+import {mkdtempSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
+const panel=readFileSync('src/ReadinessPanel.tsx','utf8');
+assert(panel.includes('Stripe 在线收款配置'));
+assert(panel.includes('B2B 报价订单 Stripe 收款'));
+assert(!panel.includes('<strong>Airwallex 在线收款</strong>'),'Retired online gateway must not be the dashboard heading');
 const temp=mkdtempSync(join(tmpdir(),'readiness-'));
 try{
  const outfile=join(temp,'api.mjs');await build({entryPoints:['functions/api/admin/ops-readiness.ts'],outfile,bundle:true,platform:'node',format:'esm',logLevel:'silent'});
