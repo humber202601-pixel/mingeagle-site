@@ -237,7 +237,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     // activity audit when any supplier baseline is unverified.
     if(review.unverified>0&&(
       reviewedSourceNote.length<20||reviewedSourceNote.length>500||
-      /[\\x00-\\x1f\\x7f]/.test(reviewedSourceNote)
+      /[\x00-\x1f\x7f]/.test(reviewedSourceNote)
     )){
       return Response.json({ok:false,code:'SUPPLIER_REVIEW_BASIS_REQUIRED',
         unverifiedSkuBaselines:review.unverified,
