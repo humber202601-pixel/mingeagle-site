@@ -189,6 +189,21 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (status === 'CANCELLED') return Response.json({ ok: false, error: 'Cancelled orders cannot be updated.' }, { status: 409 });
     if (paymentStatus === 'REFUNDED' && action === 'MARK_PAID') return Response.json({ ok: false, error: 'Refunded orders cannot be marked paid again. Reconcile the refund separately.' }, { status: 409 });
 
+    // A settled Stripe event can leave an earlier PAID status intact while
+    // raising an urgent reconciliation task (duplicate/overpaid/mixed receipts).
+    // Do not let a prior PAID label alone bypass that payment hold.
+    if (['START_PROCESSING','READY_TO_SHIP','SHIP'].includes(String(action))) {
+      const unresolvedPaymentReview = await db.prepare(`SELECT id FROM tasks
+        WHERE order_id=? AND type='PAYMENT' AND status IN ('OPEN','IN_PROGRESS')
+        AND (title LIKE 'Review disputed Stripe receipts%'
+          OR title LIKE 'Review payment on closed order%')
+        LIMIT 1`).bind(orderId).first<{id:string}>();
+      if (unresolvedPaymentReview) {
+        return Response.json({ok:false,code:'PAYMENT_RECONCILIATION_HOLD',
+          error:'This order has an unresolved Stripe payment review. Reconcile funds and close the urgent payment review before processing or shipping.'},{status:409});
+      }
+    }
+
     if (action === 'MARK_PAID') {
       // Ordinary B2B payments must come from a signed Stripe webhook.
       // Historic offline receipts stay read-only; deliberately opt in to the
@@ -278,6 +293,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     if (action === 'START_PROCESSING') {
+      if (status === 'PROCESSING') return Response.json({ok:true,unchanged:true,order:{reference:orderReference,status,payment_status:paymentStatus}});
       if (paymentStatus !== 'PAID') return Response.json({ ok: false, error: 'Payment must be confirmed before processing.' }, { status: 409 });
       if (!['PAID','PROCESSING'].includes(status)) return Response.json({ ok: false, error: `Order cannot start processing from status ${status}.` }, { status: 409 });
       await db.prepare(`UPDATE orders SET status='PROCESSING', updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(orderId).run();
@@ -290,6 +306,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     if (action === 'READY_TO_SHIP') {
+      if (status === 'READY_TO_SHIP') return Response.json({ok:true,unchanged:true,order:{reference:orderReference,status,payment_status:paymentStatus}});
       if (paymentStatus !== 'PAID') return Response.json({ ok: false, error: 'Payment must be confirmed before shipment.' }, { status: 409 });
       if (!['PAID','PROCESSING','READY_TO_SHIP'].includes(status)) return Response.json({ ok: false, error: `Order cannot be readied for shipment from status ${status}.` }, { status: 409 });
       await db.prepare(`UPDATE orders SET status='READY_TO_SHIP', updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(orderId).run();
@@ -341,6 +358,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     if (action === 'DELIVER') {
+      if (status === 'DELIVERED') return Response.json({ok:true,unchanged:true,order:{reference:orderReference,status,payment_status:paymentStatus}});
       if (!['SHIPPED','DELIVERED'].includes(status)) return Response.json({ ok: false, error: `Order cannot be delivered from status ${status}.` }, { status: 409 });
       const shipment = await db.prepare(`SELECT id, carrier, tracking_number FROM shipments WHERE order_id=? ORDER BY created_at DESC LIMIT 1`).bind(orderId).first<Record<string, unknown>>();
       if (!shipment) return Response.json({ ok: false, error: 'No shipment is attached to this order.' }, { status: 409 });
@@ -367,6 +385,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     if (action === 'COMPLETE') {
+      if (status === 'COMPLETED') return Response.json({ok:true,unchanged:true,order:{reference:orderReference,status,payment_status:paymentStatus}});
       if (!['DELIVERED','COMPLETED'].includes(status)) return Response.json({ ok: false, error: 'Only delivered orders can be completed.' }, { status: 409 });
       await db.prepare(`UPDATE orders SET status='COMPLETED', completed_at=COALESCE(completed_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(orderId).run();
       await addActivity(db, orderId, 'ORDER_COMPLETED', 'Order completed', `${orderReference} moved to COMPLETED`);
