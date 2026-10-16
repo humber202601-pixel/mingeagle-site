@@ -68,23 +68,23 @@ try{
  assert.equal(exported.errors.length,0);
  const makeCsv=(rows)=>{
   const header=parseSupplierCsv(supplierCostIntakeCsv())[0];
-  return [header,...rows].map(row=>row.map(x=>'"'+String(x).replaceAll('"','""')+'"').join(',')).join('\\r\\n')+'\\r\\n';
+  return [header,...rows].map(row=>row.map(x=>'"'+String(x).replaceAll('"','""')+'"').join(',')).join('\r\n')+'\r\n';
  };
  const complete=supplierCostIntakeRows();
  const p=complete.find(x=>x[0]==='P1-S7');
  p[3]='19.50';p[4]='Example factory from synthetic CI';p[5]='TEST-SKU-7';
  p[6]='100';p[7]='20';p[8]='2026-10-15';
  p[9]='2026-10-15';p[10]='2027-01-01';
- p[11]='No. 7 flocked\\nOrange, two carton variants';
+ p[11]='No. 7 flocked\nOrange, two carton variants';
  p[12]='5.25';p[13]='1.50';p[14]='0.25';
  p[15]='TEST-QUOTE-20261015';p[16]='Simulated reviewer';
- let parsed=reviewSupplierCsv('\\uFEFF'+makeCsv(complete),[]);
+ let parsed=reviewSupplierCsv('\uFEFF'+makeCsv(complete),[]);
  assert.equal(parsed.drafts.length,1,'One verified supplier amount becomes one DRAFT candidate');
  assert.equal(parsed.skipped.length,10);
  assert.equal(parsed.errors.length,0);
  assert.equal(parsed.drafts[0].terms.tiers[0].purchaseCents,1950);
- assert.match(parsed.drafts[0].terms.sourceNote,/DDP freight USD\\/unit/);
- assert.match(parsed.drafts[0].terms.sourceNote,/No\\. 7 flocked/);
+ assert.match(parsed.drafts[0].terms.sourceNote,/DDP freight USD\/unit/);
+ assert.match(parsed.drafts[0].terms.sourceNote,/No\. 7 flocked/);
  assert.equal(p[2],'21.00','Owner reference cost remains separate from supplier quote');
  parsed=reviewSupplierCsv(makeCsv(complete),['P1-S7']);
  assert.equal(parsed.errors.length,1,'Existing supplier SKU must not be silently overwritten');
@@ -104,7 +104,7 @@ try{
  parsed=reviewSupplierCsv(makeCsv(duplicate),[]);
  assert(parsed.errors.some(e=>e.includes('SKU 重复')),'Duplicate source lines must reject import');
  assert.throws(()=>parseSupplierCsv('"Unclosed'),/CSV_UNTERMINATED_QUOTE/);
- assert.throws(()=>reviewSupplierCsv('SKU,Fake\\r\\nP1-S7,19.50\\r\\n',[]),/CSV_INVALID_COLUMN_COUNT|CSV_INVALID_HEADER/);
+ assert.throws(()=>reviewSupplierCsv('SKU,Fake\r\nP1-S7,19.50\r\n',[]),/CSV_INVALID_COLUMN_COUNT|CSV_INVALID_HEADER/);
  assert(readFileSync('src/SupplierPricingManager.tsx','utf8').includes("action:'SAVE_DRAFT'"),
   'Bulk import must be restricted to draft-only API actions');
  assert(!readFileSync('src/SupplierPricingManager.tsx','utf8').includes("action:'APPROVE',sku:code"),
