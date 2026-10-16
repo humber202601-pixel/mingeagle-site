@@ -7,10 +7,10 @@ const homeHtml=fs.readFileSync(path.join(__dirname,'../public/index.html'),'utf8
 const customLogoHtml=fs.readFileSync(path.join(__dirname,'../public/custom-logo.html'),'utf8');
 const extractNav=(html,kind)=>{
   const re=kind==='desktop'
-    ? /<nav class="navlinks" aria-label="Main navigation"[^>]*>([\\s\\S]*?)<\\/nav>/
-    : /<nav aria-label="Mobile navigation"[^>]*>([\\s\\S]*?)<\\/nav>/;
+    ? /<nav class="navlinks" aria-label="Main navigation"[^>]*>([\s\S]*?)<\/nav>/
+    : /<nav aria-label="Mobile navigation"[^>]*>([\s\S]*?)<\/nav>/;
   const m=html.match(re);assert(m,kind+' main navigation must exist');
-  return m[1].replace(/\\s+/g,' ').trim().replace(/ aria-current="page"/g,'');
+  return m[1].replace(/\s+/g,' ').trim().replace(/ aria-current="page"/g,'');
 };
 assert.equal(extractNav(customLogoHtml,'desktop'),extractNav(homeHtml,'desktop'),'Custom Logo desktop navigation must stay aligned with homepage');
 assert.equal(extractNav(customLogoHtml,'mobile'),extractNav(homeHtml,'mobile'),'Custom Logo mobile navigation must stay aligned with homepage');
