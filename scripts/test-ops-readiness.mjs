@@ -30,6 +30,8 @@ try{
  assert.equal(r.body.analytics.google.observedDates,null);
  assert.equal(r.body.stripeWebhookHealth.schemaPresent,false);
  assert.equal(r.body.stripeWebhookHealth.unprocessedEvents,null,'Missing event ledger cannot be shown as zero');
+ assert.equal(r.body.quoteExpiryHealth.schemaPresent,false);
+ assert.equal(r.body.quoteExpiryHealth.expiringWithinTwoCalendarDays,null);
  assert.equal(r.body.b2bStripeSessionHealth.schemaPresent,false);
  assert.equal(r.body.b2bStripeSessionHealth.olderThan24Hours,null,'Absent session schema is unknown rather than zero');
  assert.equal(r.body.b2bStripeEvidence.schemaPresent,false);
@@ -141,6 +143,21 @@ try{
  assert.equal(r.body.b2bStripeSessionHealth.oldestAgedUTC,null);
  sqlite.exec("UPDATE payments SET amount=179.99 WHERE provider='STRIPE'");
  r=await read();assert.equal(r.body.b2bStripeEvidence.reconciledPaidOrders,0,'Underpaid Stripe receipt must not count');
+ // Seller follow-up only: no buyer emails or record changes.
+ sqlite.exec(`CREATE TABLE quotes(status TEXT,valid_until TEXT);
+ INSERT INTO quotes VALUES('SENT',date('now','+1 day'));
+ INSERT INTO quotes VALUES('VIEWED',date('now','-1 day'));
+ INSERT INTO quotes VALUES('SENT',date('now','+12 days'));
+ INSERT INTO quotes VALUES('ACCEPTED',date('now','+1 day'));
+ INSERT INTO quotes VALUES('DRAFT',date('now','-1 day'));`);
+ r=await read();
+ assert.equal(r.body.quoteExpiryHealth.schemaPresent,true);
+ assert.equal(r.body.quoteExpiryHealth.outstandingSentOrViewed,3);
+ assert.equal(r.body.quoteExpiryHealth.expiringWithinTwoCalendarDays,1);
+ assert.equal(r.body.quoteExpiryHealth.pastValidityDate,1);
+ sqlite.exec("UPDATE quotes SET status='EXPIRED' WHERE valid_until<date('now')");
+ r=await read();
+ assert.equal(r.body.quoteExpiryHealth.pastValidityDate,0,'Expired status no longer counts as sent buyer quote');
  // Synthetic accepted Stripe events: one processed, one fresh, one stuck.
  // The health panel is read-only and must not leak payment metadata.
  sqlite.exec(`CREATE TABLE payment_webhook_events(provider TEXT,event_id TEXT,event_name TEXT,received_at TEXT,processed_at TEXT);

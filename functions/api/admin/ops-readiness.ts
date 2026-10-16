@@ -20,7 +20,7 @@ function utcCoverage(date:string|null|undefined,hasSchema:boolean,days:number|nu
 export const onRequestGet:PagesFunction<Env>=async({env})=>{
  const db=env.MINGEAGLE_DB;if(!db)return json({ok:false,error:'Production database unavailable'},503);
  try{
-  const found=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('web_analytics_daily','gsc_search_daily','supplier_purchase_terms','shipping_rates','shipping_packaging','orders','quote_items','payments','payment_provider_sessions','payment_webhook_events')").all<{name:string}>();
+  const found=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('web_analytics_daily','gsc_search_daily','supplier_purchase_terms','shipping_rates','shipping_packaging','orders','quote_items','payments','payment_provider_sessions','payment_webhook_events','quotes')").all<{name:string}>();
   const names=new Set((found.results||[]).map(x=>x.name));
   const get=async<T>(name:string,sql:string)=>names.has(name)?await db.prepare(sql).first<T>():null;
   const [rum,gsc,cost,freight,packages]=await Promise.all([
@@ -78,6 +78,13 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
    COALESCE(SUM(CASE WHEN processed_at IS NULL AND received_at<=datetime('now','-10 minutes') THEN 1 ELSE 0 END),0) AS agedUnprocessed,
    MIN(CASE WHEN processed_at IS NULL THEN received_at END) AS oldestUnprocessedUTC
    FROM payment_webhook_events WHERE provider='STRIPE'`);
+  // SENT/VIEWED are still buyer-facing, unlike drafts or already accepted
+  // quotes. Count seller follow-up opportunities without client identifiers.
+  const expiringQuotes=await get<{unaccepted:number;dueWithin48h:number;expiredUnaccepted:number}>('quotes',
+   "SELECT COUNT(*) AS unaccepted, "+
+   "COALESCE(SUM(CASE WHEN valid_until>=date('now') AND valid_until<=date('now','+2 days') THEN 1 ELSE 0 END),0) AS dueWithin48h, "+
+   "COALESCE(SUM(CASE WHEN valid_until<date('now') THEN 1 ELSE 0 END),0) AS expiredUnaccepted "+
+   "FROM quotes WHERE status IN ('SENT','VIEWED')");
   const turnstileCredentials=Boolean(env.TURNSTILE_SITE_KEY&&env.TURNSTILE_SECRET_KEY);
   const turnstileRequested=env.TURNSTILE_ENABLED==='1'||env.TURNSTILE_ENABLED==='true';
   const payment=stripeCheckoutReadiness(env);
@@ -95,6 +102,9 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
     awaitingPaymentOrders:wholesaleOrderCounts?.awaitingPayment??null,
     stripeCheckoutSessions:stripeSessionCounts?.sessions??null,
     reconciledPaidOrders:stripeSettled?.settled??null},
+   quoteExpiryHealth:{schemaPresent:names.has('quotes'),outstandingSentOrViewed:expiringQuotes?.unaccepted??null,
+    expiringWithinTwoCalendarDays:expiringQuotes?.dueWithin48h??null,
+    pastValidityDate:expiringQuotes?.expiredUnaccepted??null},
    b2bStripeSessionHealth:{schemaPresent:b2bEvidenceSchema,
     openOrPendingSessions:stalledB2bSessions?.openPending??null,
     olderThan24Hours:stalledB2bSessions?.aged24h??null,
@@ -121,6 +131,7 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
     'Retail reference vs supplier unit cost is only a price risk indicator: wholesale MOQ tiers and product variants differ from one-unit samples, and freight, duties, tax and fees are excluded.',
     'Stripe configuration readiness does not prove successful card capture, webhook delivery or bank settlement.',
     'Webhook health includes only signed Stripe events inserted into this database. Zero unprocessed events does not prove every Stripe event arrived; reconcile Stripe Dashboard when suspicious.',
+    'Quote expiry metrics use UTC calendar dates as a follow-up guide, not an authorization to send a revised quote or change customer pricing.',
     'Stripe Checkout session age is based on our local D1 snapshot; OPEN/PENDING may be stale when Stripe has already expired or settled a session. Verify Stripe Dashboard and webhook history before any retry or fulfillment.',
     'Reconciled wholesale orders require 10+ quoted units, full Stripe-only RECEIVED records linked to SUCCEEDED sessions, and a PAID order; provider payout is verified separately.',
     'Turnstile configuration does not by itself verify each individual inquiry submission.',
