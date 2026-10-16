@@ -6,7 +6,14 @@ pages_build_output_dir = "./dist"
 RETAIL_STOCK_FULFILLMENT_APPROVED = "true"
 TURNSTILE_SITE_KEY = "0x4AAAAAAFU4fZe_EszmlRsc"
 TURNSTILE_ENABLED = "true"
-STRIPE_RETAIL_ONLY_ENABLED = "true"
+# Controlled live wholesale launch: ONLY explicitly signed and seller-quoted
+# USA OR/NH destinations with complete buyer delivery address and 0 sales tax.
+# These states do not impose a general sales tax (Oregon DOR, NH DRA).
+# These flags do NOT exempt customs duties, import charges, or other states.
+STRIPE_RETAIL_ONLY_ENABLED = "false"
+STRIPE_B2B_CHECKOUT_ENABLED = "true"
+STRIPE_B2B_TAX_POLICY_APPROVED = "true"
+STRIPE_B2B_APPROVED_US_STATES = "OR,NH"
 STRIPE_TAX_POLICY_APPROVED = "true"
 RETAIL_TAX_POLICY_APPROVED = "true"
 RETAIL_US_TAX_POLICY_JSON = '{"reviewed_on":"2026-10-14","review_reference":"OFFICIAL_OR_NH_GENERAL_SALES_USE_TAX_20261014","basis":"NO_GENERAL_SALES_USE_TAX","states":{"OR":"NO_COLLECTION_REQUIRED","NH":"NO_COLLECTION_REQUIRED"}}'
