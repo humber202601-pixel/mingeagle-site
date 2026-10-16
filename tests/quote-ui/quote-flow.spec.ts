@@ -97,7 +97,10 @@ test('真实报价界面：精确数量、金额、修改审核、批准与客�
  const preview=await request.get(preflightUrl,{headers:auth});
  expect(preview.status()).toBe(200);
  const review=(await preview.json()).review;
- expect(review.safeForManualRelease).toBe(true);
+ expect(review.commercialChecksPassed).toBe(true);
+ expect(review.safeForManualRelease).toBe(false,'Wholesale quotes require landed cost review before release');
+ expect(review.remainingReleaseGates).toContain('LANDED_COST_PROOF_REQUIRED');
+ expect(review.remainingReleaseGates).toContain('SUPPLIER_COST_ACK_REQUIRED');
  expect(review.unverifiedSkuBaselines).toBe(1);
  expect(review.supplierConfirmationRequired).toBe(true);
  expect((await request.get(preflightUrl)).status()).toBe(401,'Anonymous caller cannot read supplier review');
