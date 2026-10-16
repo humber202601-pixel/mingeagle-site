@@ -3,7 +3,7 @@ type Snapshot={ok:boolean;checkedAt:string;
  analytics:{cloudflare:{schemaPresent:boolean;observedDates:number|null;latestDateUTC:string|null;lastFetchedAtUTC:string|null;partialInitialDayObserved:boolean;observedDateCoverage:{status:'SCHEMA_MISSING'|'NO_VERIFIED_DATA'|'LATEST_COMPLETED_UTC_DAY'|'OLDER_OBSERVED_DATE'|'INVALID_OBSERVED_DATE';daysBehind:number|null}};google:{schemaPresent:boolean;observedDates:number|null;latestDatePacific:string|null;lastFetchedAtUTC:string|null}};
  procurement:{catalogPresent:boolean;supplierSources:number|null;approvedSourceCount:number|null;shippingRates:number|null;activeShippingRates:number|null;packagingSkus:number|null;activeShippingRoutes:Array<{country:string;method:string;minimumUnits:number}>|null};
  security:{turnstileConfigured:boolean;turnstileEnabled:boolean;turnstileMisconfigured:boolean};
- payments:{checkoutRequested:boolean;providerCredentialsConfigured:boolean;webhookConfigured:boolean;environment:string|null;checkoutConfigurationReady:boolean;retailOnlyRestriction:boolean;b2bCheckoutRequested:boolean;b2bTaxReviewed:boolean;b2bConfigurationReady:boolean};
+ payments:{checkoutRequested:boolean;providerCredentialsConfigured:boolean;webhookConfigured:boolean;environment:string|null;checkoutConfigurationReady:boolean;retailOnlyRestriction:boolean;b2bCheckoutRequested:boolean;b2bTaxReviewed:boolean;b2bApprovedDestinationStates:string[];b2bConfigurationReady:boolean};
  caveats:string[];error?:string};
 const count=(n:number|null):string=>n===null?'尚无法核验':String(n);
 export default function ReadinessPanel({accessKey}:{accessKey:string}){
@@ -34,7 +34,7 @@ export default function ReadinessPanel({accessKey}:{accessKey:string}){
    <div className="list-row"><div><strong>已核验自动运价目的地</strong><small>只显示已启用的国家、运输方式及最低件数；未列出的目的地必须人工询价，不能套用美国运价。</small></div><span>{data.procurement.activeShippingRoutes===null?'尚无法核验':data.procurement.activeShippingRoutes.length===0?'暂无启用运价':data.procurement.activeShippingRoutes.map(r=>r.country+' '+(r.method==='sea'?'海运':'空运')+'≥'+r.minimumUnits+'件').join('；')}</span></div>
    <div className="list-row"><div><strong>网站 Turnstile</strong><small>防止机器人滥用询盘接口；配置必须有站点和服务端双密钥</small></div><span>{data.security.turnstileEnabled?'已启用':data.security.turnstileMisconfigured?'启用配置不完整':'未启用'}</span></div>
    <div className="list-row"><div><strong>Stripe 在线收款配置</strong><small>仅代表 API 凭证和签名 Webhook 的配置状态；不代表真实到账或税务义务已经核实</small></div><span>{data.payments.checkoutConfigurationReady?'基础配置就绪，待真实交易验收':data.payments.checkoutRequested?'Stripe 启用请求存在但配置不完整':'未启用'}</span></div>
-   <div className="list-row"><div><strong>B2B 报价订单 Stripe 收款</strong><small>须卖方正式发出完整报价、买方接受，且满足税务及收款安全条件；不是所有询盘均可直接付款</small></div><span>{data.payments.b2bConfigurationReady?'配置允许：仍须逐单审核':data.payments.retailOnlyRestriction?'当前仅限零售样品付款':data.payments.b2bCheckoutRequested&&!data.payments.b2bTaxReviewed?'待审核 B2B 税务及运输费用':'B2B 收款尚未开放或条件未满足'}</span></div>
+   <div className="list-row"><div><strong>B2B 报价订单 Stripe 收款</strong><small>须卖方正式发出完整报价、买方接受，且满足税务及收款安全条件；不是所有询盘均可直接付款</small></div><span>{data.payments.b2bConfigurationReady?'已配置受控收款：'+data.payments.b2bApprovedDestinationStates.join(' / ')+'（仅符合条件的订单可付款）':data.payments.retailOnlyRestriction?'当前仅限零售样品付款':data.payments.b2bCheckoutRequested&&!data.payments.b2bTaxReviewed?'待审核 B2B 税务及运输费用':'B2B 收款尚未开放或条件未满足'}</span></div>
    <p style={{fontSize:12,color:'#667085'}}>核查 UTC {data.checkedAt}。当前面板只展示正式状态、聚合记录数和凭证是否存在，不会创建报价、发送邮件或执行付款。</p>
   </>}
  </section>;
