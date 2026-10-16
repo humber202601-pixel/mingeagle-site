@@ -296,6 +296,44 @@ try{
  assert.equal((await duplicate.json()).duplicate,true,'Exact replay is recognized as processed');
  assert.equal(receivedInserts,paymentWritesAfterFirst,'Replay must not create another payment');
  
+ // Merchant-approved standalone $0.50 Live payment link is a real charge,
+ // but intentionally has no order record. It must be acknowledged, audited
+ // and NEVER treated as an ordinary CRM order or fulfillment trigger.
+ const liveProof={id:'evt_synthetic_live_payment_link',type:'checkout.session.completed',data:{object:{
+   id:'cs_live_synthetic_external_only',
+   payment_link:'plink_1UR4X56ggh6j2Fv09VrTJNum',
+   payment_status:'paid',currency:'usd',amount_total:50,
+   client_reference_id:null,
+   metadata:{purpose:'live_payment_verification_20261016_3',charge:'USER_REQUESTED_050_USD'}
+ }}};
+ const liveProofEnv={...ready,STRIPE_MODE:'live',MINGEAGLE_DB:db};
+ const signedProof=async(value)=>{
+   const raw=JSON.stringify(value);
+   const sig=createHmac('sha256',ready.STRIPE_WEBHOOK_SECRET).update(now+'.'+raw).digest('hex');
+   return webhook({env:liveProofEnv,request:new Request('https://app.mingeagle.com/api/payments/stripe/webhook',{
+     method:'POST',headers:{'stripe-signature':'t='+now+',v1='+sig},body:raw
+   })});
+ };
+ const proof=await signedProof(liveProof);
+ assert.equal(proof.status,200,await proof.clone().text());
+ assert.equal((await proof.json()).standaloneLiveVerification,true);
+ assert(processedEvents.has(liveProof.id),'Standalone test event is audit-processed');
+ assert.equal(receivedInserts,paymentWritesAfterFirst,'Standalone payment must not create any order payment');
+ assert.equal((await (await signedProof(liveProof)).json()).duplicate,true,'Standalone proof is idempotent');
+ for(const [name,changes] of [
+   ['unknown link',{payment_link:'plink_synthetic_unrelated'}],
+   ['wrong amount',{amount_total:51}],
+   ['wrong purpose',{metadata:{purpose:'something_else',charge:'USER_REQUESTED_050_USD'}}],
+   ['linked customer order',{client_reference_id:'ME-O-REAL'}]
+ ]){
+   const other={...liveProof,id:'evt_synthetic_reject_'+name.replaceAll(' ','_'),
+     data:{object:{...liveProof.data.object,...changes}}};
+   const rejected=await signedProof(other);
+   assert.equal(rejected.status,409,'Unrecognized Stripe session must fail closed: '+name);
+   assert(!processedEvents.has(other.id),'Unexpected event must remain unprocessed: '+name);
+   assert.equal(receivedInserts,paymentWritesAfterFirst);
+ }
+
  const invalid=await webhook({env:{...ready,MINGEAGLE_DB:db},
   request:new Request('https://app.mingeagle.com/api/payments/stripe/webhook',{
    method:'POST',headers:{'stripe-signature':'t='+now+',v1=wrong'},body:eventText
