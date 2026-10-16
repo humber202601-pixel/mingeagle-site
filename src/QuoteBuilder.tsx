@@ -504,7 +504,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
             <input name="validDays" type="number" min="1" max="90" defaultValue="14" />
           </label>
           <label className="span-2">付款条款（客户可见）
-            <input name="paymentTerms" defaultValue="" placeholder="e.g. Bank transfer 100% before production, or agreed deposit/balance terms" />
+            <input name="paymentTerms" defaultValue="Full amount payable by secure Stripe card checkout after both parties accept the quotation." placeholder="Stripe card checkout after quote approval" required />
           </label>
           <small>使用 Stripe 批发收款时，运输条款必须明确写入英文 <code>Ship-to state: XX</code>（XX 为客户真实的两位州代码，例如 NY），且税额和税务依据已审核。否则系统会拒绝发送，防止客户收到无法付款的报价。</small>
           <label className="span-2">运输条款（客户可见）
@@ -577,7 +577,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
             <input value={editPreviewTotal===null?'待确认':money(editPreviewTotal,editDetail.quote.currency)} readOnly />
           </label>
           <label className="span-2">付款条款（客户可见）
-            <input name="paymentTerms" defaultValue={text(editDetail.quote.payment_terms)} />
+            <input name="paymentTerms" defaultValue={text(editDetail.quote.payment_terms,'Full amount payable by secure Stripe card checkout after both parties accept the quotation.')} required />
           </label>
           <label className="span-2">运输条款（客户可见）
             <input name="shippingTerms" defaultValue={text(editDetail.quote.shipping_terms)} />

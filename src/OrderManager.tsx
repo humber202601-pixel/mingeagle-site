@@ -103,22 +103,6 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
     }
   }
 
-  function paymentSubmit(event: FormEvent<HTMLFormElement>, reference: string, maxAmount: number) {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const amount = Number(data.get('amount') || 0);
-    if (amount <= 0 || amount > maxAmount + 0.005) {
-      setMessage(prev => ({ ...prev, [reference]: { type: 'error', text: `本次到账金额必须大于 0 且不能超过剩余应付 ${maxAmount.toFixed(2)}。` } }));
-      return;
-    }
-    void runAction(reference, 'MARK_PAID', {
-      paymentMethod: data.get('paymentMethod'),
-      paymentReference: data.get('paymentReference'),
-      fundsReceivedConfirmed: data.get('fundsReceivedConfirmed')==='true',
-      amount,
-    });
-  }
-
   function shipmentSubmit(event: FormEvent<HTMLFormElement>, reference: string) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
@@ -176,17 +160,11 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
           </table></div>}
         </div>
 
-        {paymentStatus !== 'PAID' && !['CANCELLED','COMPLETED'].includes(status) && <form className="order-action-form" onSubmit={e => paymentSubmit(e, reference, outstanding || total)}>
-          <div className="order-form-grid">
-            <label>线下 / 银行到账方式<select name="paymentMethod" defaultValue="BANK_TRANSFER"><option value="BANK_TRANSFER">银行转账</option><option value="WISE">Wise</option><option value="PAYONEER">Payoneer</option><option value="ACH">ACH</option><option value="WIRE">国际电汇</option><option value="OTHER">其他</option></select></label>
-            <label>本次到账金额<input name="amount" type="number" min="0.01" max={(outstanding || total).toFixed(2)} step="0.01" defaultValue={(outstanding || total).toFixed(2)} required /></label>
-            <label className="span-2">付款凭证 / 流水号<input name="paymentReference" required placeholder={`请填写已核实的银行/收款平台流水号（客户付款备注号：${paymentReference}）`} /></label>
-            <label className="span-2"><input type="checkbox" name="fundsReceivedConfirmed" value="true" required /> 我已独立核对银行或收款平台账单，确认这笔款项确实到账且没有重复登记。</label>
-          </div>
-          <small>仅用于人工记录并已核对银行/收款服务商到账凭证的线下收款。网站在线付款仅通过 Stripe 处理，其支付成功状态由签名 Webhook 核对；请先核对支付记录，避免重复登记。</small>
-          {paymentStatus === 'PARTIAL' && <div className="payment-progress">已到账 {money(received, order.currency)} · 待收 {money(outstanding, order.currency)}</div>}
-          <button className="button small" disabled={busy !== ''}>{busy === `${reference}:MARK_PAID` ? '正在保存…' : paymentStatus === 'PARTIAL' ? '记录下一笔付款' : '记录银行到账'}</button>
-        </form>}
+        {paymentStatus !== 'PAID' && !['CANCELLED','COMPLETED'].includes(status) && <div className="form-status">
+          <strong>仅通过 Stripe 确认在线收款</strong>
+          <p>报价经双方确认后，由客户通过专属安全报价链接完成 Stripe 支付。后台不会人工将订单标记为已付款；请核对真实的 Stripe 支付记录及 Webhook 回执。</p>
+          <p>待收金额：<strong>{money(outstanding, order.currency)}</strong>。已收到的历史线下记录仅供核对，不代表 Stripe 付款已完成。</p>
+        </div>}
 
         {paymentStatus === 'PAID' && status === 'PAID' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'START_PROCESSING')}>开始处理订单</button></div>}
         {paymentStatus === 'PAID' && status === 'PROCESSING' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'READY_TO_SHIP')}>标记为待发货</button></div>}

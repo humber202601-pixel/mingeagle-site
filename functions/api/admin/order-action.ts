@@ -1,5 +1,7 @@
 interface Env {
   MINGEAGLE_DB: D1Database;
+  // Default-off legacy correction scope; Stripe remains the sole normal payment channel.
+  LEGACY_OFFLINE_RECEIPT_ENTRY_ENABLED?: string;
   GMAIL_CLIENT_ID?: string;
   GMAIL_CLIENT_SECRET?: string;
   GMAIL_REFRESH_TOKEN?: string;
@@ -188,6 +190,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (paymentStatus === 'REFUNDED' && action === 'MARK_PAID') return Response.json({ ok: false, error: 'Refunded orders cannot be marked paid again. Reconcile the refund separately.' }, { status: 409 });
 
     if (action === 'MARK_PAID') {
+      // Ordinary B2B payments must come from a signed Stripe webhook.
+      // Historic offline receipts stay read-only; deliberately opt in to the
+      // exceptional reconciliation workflow only with explicit configuration.
+      if (env.LEGACY_OFFLINE_RECEIPT_ENTRY_ENABLED !== 'true')
+        return Response.json({ ok: false, code: 'STRIPE_ONLY_PAYMENTS',
+          error: 'Manual payment recording is disabled. Use the approved Stripe customer checkout link; paid status follows verified Stripe webhook reconciliation.' }, { status: 403 });
       if (paymentStatus === 'PAID') return Response.json({ ok: true, unchanged: true, order: { reference: orderReference, status, payment_status: paymentStatus } });
       const total = Number(order.total || 0);
       const previous = await db.prepare(`SELECT COALESCE(SUM(amount),0) AS value FROM payments WHERE order_id=? AND status='RECEIVED'`)

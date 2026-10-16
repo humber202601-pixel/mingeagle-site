@@ -33,7 +33,8 @@ assert(ui.includes("method==='ONLINE_PAYMENT'"),'Unidentified online payment is 
 assert(ui.includes('线上支付服务商（未记录）'));
 assert(ui.includes('paymentProviderLabel(onlineProvider)'));
 assert(ui.includes('支付服务商报告成功（仍需核实订单入账）'));
-assert(ui.includes('请先核对支付记录，避免重复登记'));
+assert(ui.includes('仅通过 Stripe 确认在线收款'),'Normal admin actions must not simulate payment confirmation');
+assert(!ui.includes('paymentSubmit('),'Legacy manual payment form is intentionally hidden');
 assert(!ui.includes('Airwallex 在线付款由 Webhook 自动入账'),'Cannot promise a particular payment channel for new orders');
 assert(!ui.includes("<strong>Airwallex 在线支付："),'Online status must use a bound provider');
 console.log('PASS: admin payment session source and order UI stay provider-specific without implying cash settlement.');
