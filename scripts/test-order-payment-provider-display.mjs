@@ -5,6 +5,9 @@ import {DatabaseSync} from 'node:sqlite';
 const adminSql=readFileSync('functions/api/admin/data.ts','utf8');
 const ui=readFileSync('src/OrderManager.tsx','utf8');
 assert(adminSql.includes('AS online_payment_provider'),'The CRM must expose the payment provider, not guess it');
+assert(adminSql.includes('AS quote_payment_route')&&adminSql.includes('LEFT JOIN quotes q ON q.id=o.quote_id'),
+ 'Outstanding order list must carry original quote payment route without a write');
+assert(adminSql.includes("'NON_STRIPE'"),'Legacy bank-route signal must be explicit');
 assert(!adminSql.includes("pps.provider='AIRWALLEX'"),'Online payment sessions must not be restricted to a legacy provider');
 
 const names=['online_payment_provider','online_payment_status','online_payment_intent_id','online_payment_updated_at'];
@@ -34,6 +37,9 @@ assert(ui.includes('线上支付服务商（未记录）'));
 assert(ui.includes('paymentProviderLabel(onlineProvider)'));
 assert(ui.includes('支付服务商报告成功（仍需核实订单入账）'));
 assert(ui.includes('仅通过 Stripe 确认在线收款'),'Normal admin actions must not simulate payment confirmation');
+assert(ui.includes("quote_payment_route,'UNKNOWN'")&&ui.includes('需重新报价：旧付款条款不支持 Stripe'),
+ 'Unpayable legacy orders require a distinct staff warning');
+assert(ui.includes('href="/app/quotes"'),'Staff need a direct route to prepare a new accepted quote');
 assert(!ui.includes('paymentSubmit('),'Legacy manual payment form is intentionally hidden');
 assert(!ui.includes('Airwallex 在线付款由 Webhook 自动入账'),'Cannot promise a particular payment channel for new orders');
 assert(!ui.includes("<strong>Airwallex 在线支付："),'Online status must use a bound provider');

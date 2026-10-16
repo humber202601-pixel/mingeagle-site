@@ -86,6 +86,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
         ORDER BY q.created_at DESC LIMIT 100`).all(),
       db.prepare(`SELECT o.id, o.reference, o.quote_id, COALESCE(c.name, ct.full_name, ct.email, 'Unknown') AS customer,
         o.total, o.currency, o.status, o.payment_status,
+        q.reference AS quote_reference, q.status AS quote_status,
+        CASE WHEN q.id IS NULL OR q.payment_terms IS NULL THEN 'UNKNOWN'
+          WHEN instr(lower(q.payment_terms),'stripe')>0 THEN 'STRIPE_MENTIONED'
+          ELSE 'NON_STRIPE' END AS quote_payment_route,
         (SELECT COALESCE(SUM(p.amount),0) FROM payments p WHERE p.order_id=o.id AND p.status='RECEIVED') AS amount_received,
         (SELECT pps.provider FROM payment_provider_sessions pps WHERE pps.order_id=o.id ORDER BY datetime(pps.updated_at) DESC, datetime(pps.created_at) DESC LIMIT 1) AS online_payment_provider,
         (SELECT pps.status FROM payment_provider_sessions pps WHERE pps.order_id=o.id ORDER BY datetime(pps.updated_at) DESC, datetime(pps.created_at) DESC LIMIT 1) AS online_payment_status,
@@ -117,6 +121,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
         (SELECT delivered_at FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS delivered_at,
         o.created_at
         FROM orders o
+        LEFT JOIN quotes q ON q.id=o.quote_id
         LEFT JOIN companies c ON c.id = o.company_id
         LEFT JOIN contacts ct ON ct.id = o.contact_id
         ORDER BY o.created_at DESC LIMIT 100`).all(),
