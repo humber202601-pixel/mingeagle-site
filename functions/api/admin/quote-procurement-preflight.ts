@@ -4,6 +4,7 @@ import {verifyQuoteProcurement} from '../../../lib/quote-procurement-review';
 import {quoteTermsIssues,stripeCheckoutTermsSupported} from '../../../lib/b2b-quote-terms';
 import {quoteTotals} from '../../../lib/quote-totals';
 import {quoteReleaseFingerprint} from '../../../lib/b2b-quote-release-fingerprint';
+import {isUsDeliveryState} from '../../../lib/us-delivery-states';
 interface Env{MINGEAGLE_DB?:D1Database}
 type Quote={id:string;reference:string;status:string;currency:string|null;subtotal:number;discount:number|null;shipping:number;tax:number;total:number;tax_basis:string|null;payment_terms:string|null;shipping_terms:string|null;valid_until:string|null};
 type Item={id:string;product_id:string|null;variant_id:string|null;sort_order:number;description:string;quantity:number;unit_price:number;line_total:number};
@@ -29,7 +30,7 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
   if(stripeCheckoutTermsSupported(quote.payment_terms)){
    const state=String(quote.shipping_terms||'').toUpperCase()
     .match(/SHIP-TO STATE:\s*([A-Z]{2})(?![A-Z])/)?.[1];
-   if(!state||!String(quote.tax_basis||'').trim()||
+   if(!isUsDeliveryState(state)||!String(quote.tax_basis||'').trim()||
      !Number.isFinite(Number(quote.tax))||Number(quote.tax)<0)
     termsIssues.push('B2B_STRIPE_QUOTE_NOT_PAYABLE');
   }

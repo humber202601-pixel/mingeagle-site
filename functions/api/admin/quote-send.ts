@@ -3,6 +3,7 @@ import {quoteTermsIssues,quoteTermsIssueDescriptions,stripeCheckoutTermsSupporte
 import {quoteTotals} from '../../../lib/quote-totals';
 import {checkWholesaleReleaseProof,type WholesaleReleaseProof} from '../../../lib/b2b-quote-release-cost';
 import {quoteReleaseFingerprint} from '../../../lib/b2b-quote-release-fingerprint';
+import {isUsDeliveryState} from '../../../lib/us-delivery-states';
 interface Env {
   MINGEAGLE_DB: D1Database;
   GMAIL_CLIENT_ID?: string;
@@ -234,7 +235,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if(stripeCheckoutTermsSupported(quote.payment_terms)){
       const shipState=String(quote.shipping_terms||'').toUpperCase()
         .match(/SHIP-TO STATE:\s*([A-Z]{2})(?![A-Z])/)?.[1];
-      if(!shipState||!String(quote.tax_basis||'').trim()||
+      if(!isUsDeliveryState(shipState)||!String(quote.tax_basis||'').trim()||
          !Number.isFinite(Number(quote.tax))||Number(quote.tax)<0){
         return Response.json({ok:false,code:'B2B_STRIPE_QUOTE_NOT_PAYABLE',
           error:'Before sending a Stripe payment quote, document the destination as Ship-to state: XX, the US sales-tax amount and the reviewed sales-tax basis. Verify freight, import duties and the customer tax treatment.'},{status:409});
