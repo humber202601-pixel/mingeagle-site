@@ -1,5 +1,5 @@
 import {verifyQuoteProcurement} from '../../../lib/quote-procurement-review';
-import {quoteTermsIssues,quoteTermsIssueDescriptions} from '../../../lib/b2b-quote-terms';
+import {quoteTermsIssues,quoteTermsIssueDescriptions,stripeCheckoutTermsSupported} from '../../../lib/b2b-quote-terms';
 import {quoteTotals} from '../../../lib/quote-totals';
 interface Env {
   MINGEAGLE_DB: D1Database;
@@ -186,7 +186,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     // A Stripe quotation must have enough agreed destination and tax detail
     // for the customer to accept and complete card payment. Never publish a
     // non-payable public link then ask the buyer to fix seller pricing.
-    if(/\bstripe\b/i.test(String(quote.payment_terms||''))){
+    if(stripeCheckoutTermsSupported(quote.payment_terms)){
       const shipState=String(quote.shipping_terms||'').toUpperCase()
         .match(/SHIP-TO STATE:\s*([A-Z]{2})(?![A-Z])/)?.[1];
       if(!shipState||!String(quote.tax_basis||'').trim()||
@@ -265,7 +265,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     // The live website accepts B2B payments only through Stripe.
     // A bank-transfer-only quote would create a buyer-accepted order with no
     // supported payment route. Block new/reissued customer links or emails.
-    if(!/\bstripe\b/i.test(String(quote.payment_terms||'')))
+    if(!stripeCheckoutTermsSupported(quote.payment_terms))
       return Response.json({ok:false,code:'STRIPE_ONLY_QUOTE_TERMS',
         error:'MING EAGLE accepts wholesale order payments through Stripe Checkout only. Update payment terms and review ship-to state, freight and sales-tax basis before releasing this quotation.'},{status:409});
     await ensureQuoteLinks(db);
