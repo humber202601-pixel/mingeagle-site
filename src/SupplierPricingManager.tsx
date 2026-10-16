@@ -1,5 +1,6 @@
 import {useCallback,useEffect,useState,type FormEvent} from 'react';
 import {SKU_LABELS} from '../lib/supplier-pricing';
+import {OWNER_REPORTED_FACTORY_COSTS_USD,OWNER_COST_NOTE_DATE,supplierCostIntakeCsv} from '../lib/supplier-cost-intake';
 type Tier={minimumQuantity:number;purchaseCents:number};
 type Term={sku:string;supplierName:string;supplierSku:string;moq:number;casePack:number;
  currency:string;tiers:Tier[];sourceNote:string;effectiveOn:string;expiresOn:string;
@@ -37,6 +38,15 @@ export default function SupplierPricingManager({accessKey}:{accessKey:string}){
   setSource(r?.sourceNote||'');setEffective(r?.effectiveOn||'');setExpiry(r?.expiresOn||'');
   setTiers((r?.tiers||[]).map(t=>String(t.minimumQuantity)+','+(t.purchaseCents/100).toFixed(2)).join('\n'));
  },[sku,terms]);
+ // A local worksheet download only. It does not insert or approve supplier
+ // data in D1, and the three owner-reported factory prices stay unverified.
+ function downloadIntakeSheet(){
+  const blob=new Blob(['\uFEFF',supplierCostIntakeCsv()],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a');
+  link.href=url;link.download='mingeagle-supplier-cost-intake-20261016.csv';
+  document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+ }
  async function save(e:FormEvent<HTMLFormElement>){
   e.preventDefault();setBusy(true);setError('');setMessage('');
   try{
@@ -77,9 +87,12 @@ export default function SupplierPricingManager({accessKey}:{accessKey:string}){
    {message&&<p role="status" className="form-status success">{message}</p>}
    <section aria-label="供应商SKU采购成本覆盖情况" className="panel" style={{padding:12,margin:'12px 0'}}>
     <h3>供应商真实采购价覆盖：{readyCount} / {coverage.length} 个 SKU</h3>
+    <p><strong>经营者曾提供的参考出厂成本：</strong>{OWNER_COST_NOTE_DATE} 口述记录，7 号植绒套装 $21、7 号布套套装 $23、7 号加重植绒篮球 $32。<strong>未核对供应商原始报价，不代表当前有效成本或到门总成本，也不会自动填入采购条款或计入“已审核”数量。</strong></p>
+    <button type="button" className="button secondary small" onClick={downloadIntakeSheet}>下载 11 SKU 采购成本核实表（CSV）</button>
+    <p style={{fontSize:12,color:'#667085'}}>表格仅在这 3 个 SKU 的“经营者参考价”栏填写已提供数字；实际供应商价、MOQ、装箱、日期、海运 DDP、关税、凭证和审批字段一律留空，必须凭真实单据完成。</p>
     <p>下表只判断 SKU/尺寸是否存在已审核且在有效期内的实际供应商报价。绿色状态不代表颜色、包装、头程、清关、关税或利润已经审核。点击“填写”可选择对应 SKU 并录入真实来源。</p>
-    <div className="table-wrap"><table><thead><tr><th>SKU</th><th>型号</th><th>成本依据状态</th><th>操作</th></tr></thead><tbody>
-     {coverage.map(row=><tr key={row.code}><td>{row.code}</td><td>{row.name}</td><td>{row.label}</td>
+    <div className="table-wrap"><table><thead><tr><th>SKU</th><th>型号</th><th>经营者参考出厂价（未核实）</th><th>成本依据状态</th><th>操作</th></tr></thead><tbody>
+     {coverage.map(row=><tr key={row.code}><td>{row.code}</td><td>{row.name}</td><td>{OWNER_REPORTED_FACTORY_COSTS_USD[row.code]===undefined?'尚无参考':`${OWNER_REPORTED_FACTORY_COSTS_USD[row.code].toFixed(2)} · 待供应商核对`}</td><td>{row.label}</td>
        <td><button type="button" className="table-action" disabled={busy} onClick={()=>setSku(row.code)}>填写 / 核对</button></td></tr>)}
     </tbody></table></div>
    </section>
