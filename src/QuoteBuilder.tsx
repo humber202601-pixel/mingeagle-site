@@ -6,6 +6,7 @@ import {quoteTotals} from '../lib/quote-totals';
 import {quoteInquiryDefaults} from './quoteInquiry';
 import { pendingQuoteAttention, quoteAttention } from './b2bQuoteAttention';
 import B2BCostScenario from './B2BCostScenario';
+import type {WholesaleReleaseProof} from '../lib/b2b-quote-release-cost';
 
 type Row = Record<string, unknown>;
 
@@ -33,7 +34,7 @@ type QuoteSendResult = {
 };
 
 type QuotePreflight={ok?:boolean;error?:string;review?:{
- safeForManualRelease:boolean;approvedSkuBaselines:number;unverifiedSkuBaselines:number;
+ safeForManualRelease:boolean;requiresLandedCostReview:boolean;approvedSkuBaselines:number;unverifiedSkuBaselines:number;
  supplierConfirmationRequired:boolean;issues:string[];note:string;
  commercialEstimate?:{
   basis:'NOT_CALCULABLE'|'SKU_SIZE_COST_FLOOR_ONLY';
@@ -92,6 +93,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   const [quoteDeliveryMessage, setQuoteDeliveryMessage] = useState('');
   const [editDetail, setEditDetail] = useState<EditDetail | null>(null);
   const [costScenario,setCostScenario]=useState<{id:string;reference:string}|null>(null);
+  const [landedReviews,setLandedReviews]=useState<Record<string,WholesaleReleaseProof>>({});
   const [editMessage, setEditMessage] = useState('');
   const [retailReviews,setRetailReviews]=useState<Record<string,{retail:string;source:string;confirmed:boolean}>>({});
   const [retailReviewMessage,setRetailReviewMessage]=useState('');
@@ -356,6 +358,10 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
         };
         throw Error('报价暂不能发布：'+(review.issues.map(issue=>labels[issue]||issue).join('、')||'报价状态不允许发布')+'。请先补全采购商业条款并重新预审。');
       }
+      const costEvidence=landedReviews[quoteId];
+      if(review.requiresLandedCostReview&&
+        (!costEvidence||costEvidence.quotedTotalUSD!==review.commercialEstimate?.totalQuotedUSD))
+        throw Error('10件及以上批发报价必须先打开“内部成本试算”，填写六项实际成本、核实日期和来源，并点击“带入发布审核”。未核实成本不能按零填写。');
       const counts='匹配已审核 SKU/尺寸采购成本：'+review.approvedSkuBaselines+' 行；仍待供应商核实：'+review.unverifiedSkuBaselines+' 行。';
       const est=review.commercialEstimate;
       const commercialSummary=est?.basis==='SKU_SIZE_COST_FLOOR_ONLY'&&
@@ -372,27 +378,24 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
         :'已匹配的成本也不是完整到岸成本，仍须人工复核颜色、包装、运费、税费和商业条款。';
       const confirmed=window.confirm(`批准报价 ${text(quote.reference)}，总额 ${money(quote.total,quote.currency)}。\n${counts}\n${commercialSummary}\n${financialWarning}\n${warning}\n${sendEmail?'批准后将通过 Gmail 向该客户真实发送。':'批准后只生成客户可查看的安全链接，不会发送邮件。'}`);
       if(!confirmed)return;
-      let supplierReviewBasis='';
-      if(review.supplierConfirmationRequired){
-        const evidence=window.prompt(
-          '该报价存在未核实的供应商采购成本。请填写实际供应商/报价来源、核实日期、MOQ、包装，以及海运清关税费的核实依据（最少 20 个字符）。\\n未完成供应商核对请取消，不要将猜测当作已核验。',
-          ''
-        );
+      let supplierReviewBasis=costEvidence?.evidence.slice(0,500)||'';
+      if(review.supplierConfirmationRequired&&!supplierReviewBasis){
+        const evidence=window.prompt('未核实SKU的供应商报价来源、MQO/包装、海运DDP费用与核实日期（至少20字）。未核实请取消。','');
         if(evidence===null)return;
         supplierReviewBasis=evidence.trim();
-        if(supplierReviewBasis.length<20||supplierReviewBasis.length>500){
-          throw Error('采购核实依据必须写明实际来源和检查内容（20–500字符）。未保存，也未向客户发送。');
-        }
       }
+      if(review.supplierConfirmationRequired&&(supplierReviewBasis.length<20||supplierReviewBasis.length>500))
+        throw Error('请记录实际供应商及成本核查依据，不能只勾选确认。');
       const response = await fetch('/api/admin/quote-send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
-        body: JSON.stringify({ quoteId, sendEmail, approved: true, supplierCostAcknowledged: review.supplierConfirmationRequired, supplierReviewBasis }),
+        body: JSON.stringify({ quoteId, sendEmail, approved: true, supplierCostAcknowledged: review.supplierConfirmationRequired, supplierReviewBasis, landedReview:review.requiresLandedCostReview?costEvidence:undefined }),
       });
       const body = await response.json() as QuoteSendResult;
       if (!response.ok || !body.ok || !body.reference || !body.publicPath) {
         throw new Error(body.error || (sendEmail ? '报价邮件发送失败。' : '无法生成客户安全链接。'));
       }
+      setLandedReviews(prev=>{const next={...prev};delete next[quoteId];return next;});
       const url = `${window.location.origin}${body.publicPath}`;
       setCustomerLink({ reference: body.reference, url, emailed: Boolean(body.emailed), to: text(body.to) });
       setQuoteDeliveryMessage(body.emailed
@@ -616,7 +619,9 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       {followupItems.length>8&&<p>还有 {followupItems.length-8} 项，请查看下方全部报价单。</p>}
     </section>
     {costScenario&&<B2BCostScenario key={costScenario.id} quoteId={costScenario.id}
-      reference={costScenario.reference} accessKey={accessKey} onClose={()=>setCostScenario(null)}/>}
+      reference={costScenario.reference} accessKey={accessKey} onClose={()=>setCostScenario(null)}
+      onApply={proof=>{setLandedReviews(prev=>({...prev,[costScenario.id]:proof}));setCostScenario(null)}}/>}
+    {Object.keys(landedReviews).length>0&&<p role="status" className="form-status">已准备 {Object.keys(landedReviews).length} 份当前页面的批发成本核对资料；仅在正式发布时存入后台私人审计。如报价改变请重新试算。</p>}
     <section className="panel table-panel">
       {quotesError&&<div className="form-status error" role="alert"><p>{quotesError}</p></div>}
       <div className="table-tools"><strong>{quotesLoading?'正在加载报价单…':`共 ${quotes.length} 张报价单`}</strong><button type="button" className="button secondary small" disabled={quotesLoading} onClick={()=>void loadQuotes()}>刷新报价列表</button><span>草稿 → 审核修改 → Gmail / 安全链接 → 客户查看 → 修订 → 接受 → 自动生成订单</span></div>
