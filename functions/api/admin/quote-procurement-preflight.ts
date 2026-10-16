@@ -47,8 +47,18 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
   const baseline=amountMatchesQuote?review.baselineMerchandiseCostCents:null;
   const difference=baseline===null?null:(computed.subtotalCents-computed.discountCents-baseline);
   const quoteFingerprint=await quoteReleaseFingerprint(quote,result.results);
+  const commercialChecksPassed=review.ok&&issues.length===0&&['DRAFT','SENT','VIEWED'].includes(quote.status);
+  // This GET is read-only and cannot verify the six-cost release proof that staff
+  // must submit with the subsequent POST. Do not advertise wholesale quotes as
+  // fully releasable merely because their commercial terms passed preflight.
+  const remainingReleaseGates=[
+   ...(wholesaleUnits>=10?['LANDED_COST_PROOF_REQUIRED']:[]),
+   ...(review.unverified>0?['SUPPLIER_COST_ACK_REQUIRED']:[])
+  ];
   return reply({ok:true,quoteReference:quote.reference,quoteStatus:quote.status,quoteFingerprint,
-   review:{requiresLandedCostReview:wholesaleUnits>=10,safeForManualRelease:review.ok&&issues.length===0&&['DRAFT','SENT','VIEWED'].includes(quote.status),
+   review:{requiresLandedCostReview:wholesaleUnits>=10,commercialChecksPassed,
+    safeForManualRelease:commercialChecksPassed&&remainingReleaseGates.length===0,
+    remainingReleaseGates,
     issues,approvedSkuBaselines:review.matched,
     unverifiedSkuBaselines:review.unverified,
     supplierConfirmationRequired:review.unverified>0,
