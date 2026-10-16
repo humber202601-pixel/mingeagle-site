@@ -1,3 +1,4 @@
+import {stripeCheckoutTermsSupported} from '../../../lib/b2b-quote-terms';
 import {QUOTE_PUBLIC_TOKEN_PREDICATE} from '../../../lib/quote-public-token';
 import {quoteTermsIssues} from '../../../lib/b2b-quote-terms';
 interface Env {
@@ -133,14 +134,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
 
     // Legacy bank-transfer quotes may still be viewable, but new orders may
     // not be accepted against terms with no enabled payment provider.
-    if(!/\bstripe\b/i.test(String(quote.payment_terms||'')))
+    if(!stripeCheckoutTermsSupported(quote.payment_terms))
       return Response.json({ok:false,code:'STRIPE_ONLY_QUOTE_TERMS',
         error:'This quotation cannot be accepted with its former payment terms. Please request a revised Stripe Checkout quotation from MING EAGLE.'},{status:409});
 
     // Stripe-bound orders require an explicit buyer-confirmed delivery state
     // to prevent freight and sales tax decisions from silently changing.
     let shippingAddress:Record<string,string>|null=null;
-    if(String(quote.payment_terms||'').toLowerCase().includes('stripe')){
+    if(stripeCheckoutTermsSupported(quote.payment_terms)){
       const raw=body.shippingAddress;
       if(!raw||typeof raw!=='object'||Array.isArray(raw))
         return Response.json({ok:false,error:'Confirm the delivery address before accepting this Stripe quotation.'},{status:409});
