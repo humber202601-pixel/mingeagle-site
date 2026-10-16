@@ -31,6 +31,14 @@ try{
  r=await invoke('another-quote-id');assert.equal(r.status,404);
  r=await invoke();assert.equal(r.status,200,JSON.stringify(r.data));
  assert.equal(r.data.review.safeForManualRelease,true);
+ assert.match(r.data.quoteFingerprint,/^[a-f0-9]{64}$/,'Preflight must return server-calculated snapshot');
+ const firstFingerprint=r.data.quoteFingerprint;
+ lines[0].description='Flocked Silent Basketball Set | No. 5 | Orange';
+ r=await invoke();
+ assert.notEqual(r.data.quoteFingerprint,firstFingerprint,'Changing color must invalidate proof with unchanged total');
+ lines[0].description='Flocked Silent Basketball Set | No. 5 | Blue';
+ r=await invoke();
+ assert.equal(r.data.quoteFingerprint,firstFingerprint,'Unmodified server snapshot is stable');
  assert.equal(r.data.review.approvedSkuBaselines,0);
  assert.equal(r.data.review.unverifiedSkuBaselines,1);
  assert.equal(r.data.review.supplierConfirmationRequired,true);
