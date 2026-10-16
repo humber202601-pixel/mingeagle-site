@@ -65,7 +65,7 @@ for(const [id,filename] of Object.entries(pages)){
  save(filename,s=>{
   const open=s.indexOf('<section class="productHero">'),close=s.indexOf('</section>',open);
   if(open<0||close<0)throw Error('Missing product hero on '+filename);
-  return s.slice(0,close+10)+panel(chosen,{title:'US delivered price for one '+safe(catalog[id].name),id:'us-single-parcel',includeName:false})+s.slice(close+10);
+  return s.slice(0,close+10)+panel(chosen,{title:'US price + shipping benchmark for one '+safe(catalog[id].name),id:'us-single-parcel',includeName:false})+s.slice(close+10);
  });
 }
 save('products.html',s=>{
