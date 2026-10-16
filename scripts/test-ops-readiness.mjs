@@ -15,6 +15,8 @@ try{
  let r=await read();assert.equal(r.status,200);assert.equal(r.body.analytics.cloudflare.observedDates,null);
  assert.equal(r.body.analytics.google.observedDates,null);assert.equal(r.body.procurement.supplierSources,null);
  assert.equal(r.body.payments.checkoutConfigurationReady,false);
+ assert.equal(r.body.payments.b2bCheckoutRequested,false);
+ assert.equal(r.body.payments.b2bConfigurationReady,false);
  assert.equal(r.body.security.turnstileEnabled,false);assert.equal(writes,0);
  sqlite.exec('CREATE TABLE web_analytics_daily(date_utc TEXT,fetched_at TEXT);CREATE TABLE gsc_search_daily(date_pacific TEXT,fetched_at TEXT);CREATE TABLE supplier_purchase_terms(status TEXT);CREATE TABLE shipping_rates(active INTEGER);CREATE TABLE shipping_packaging(sku TEXT);');
  sqlite.exec("INSERT INTO supplier_purchase_terms VALUES('APPROVED');INSERT INTO supplier_purchase_terms VALUES('PENDING');INSERT INTO shipping_rates VALUES(1);INSERT INTO shipping_packaging VALUES('P1-S3');");
@@ -49,6 +51,15 @@ try{
  r=await read({TURNSTILE_ENABLED:'true',TURNSTILE_SITE_KEY:'test-only',TURNSTILE_SECRET_KEY:'test-only',STRIPE_CHECKOUT_ENABLED:'true',STRIPE_MODE:'test',STRIPE_SECRET_KEY:'sk_test_synthetic_key_for_readiness',STRIPE_WEBHOOK_SECRET:'whsec_synthetic_signature_secret_for_readiness'});
  assert.equal(r.body.security.turnstileEnabled,true);assert.equal(r.body.payments.webhookConfigured,true);assert.equal(r.body.payments.checkoutConfigurationReady,true);
   assert.equal(r.body.payments.environment,'test');assert.equal(r.body.payments.providerCredentialsConfigured,true);
+ assert.equal(r.body.payments.b2bConfigurationReady,false,'B2B Stripe must fail closed by default');
+ r=await read({STRIPE_CHECKOUT_ENABLED:'true',STRIPE_MODE:'test',
+  STRIPE_SECRET_KEY:'sk_test_synthetic_key_for_readiness',STRIPE_WEBHOOK_SECRET:'whsec_synthetic_signature_secret_for_readiness',
+  STRIPE_TAX_POLICY_APPROVED:'true',STRIPE_RETAIL_ONLY_ENABLED:'true',STRIPE_B2B_CHECKOUT_ENABLED:'true'});
+ assert.equal(r.body.payments.b2bConfigurationReady,false,'Retail-only flag must block B2B even when opted in');
+ r=await read({STRIPE_CHECKOUT_ENABLED:'true',STRIPE_MODE:'test',
+  STRIPE_SECRET_KEY:'sk_test_synthetic_key_for_readiness',STRIPE_WEBHOOK_SECRET:'whsec_synthetic_signature_secret_for_readiness',
+  STRIPE_TAX_POLICY_APPROVED:'true',STRIPE_RETAIL_ONLY_ENABLED:'false',STRIPE_B2B_CHECKOUT_ENABLED:'true'});
+ assert.equal(r.body.payments.b2bConfigurationReady,true,'Both explicit B2B controls and valid Stripe credentials required');
  assert(!JSON.stringify(r.body).includes('test-only'),'never leak credential values');assert.equal(writes,0);
  sqlite.close();console.log('PASS: read-only readiness uses real aggregate counts, unknown vs zero, no secrets or business record mutation.');
 }finally{rmSync(temp,{recursive:true,force:true})}
