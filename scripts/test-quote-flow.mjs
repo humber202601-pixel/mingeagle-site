@@ -14,7 +14,7 @@ const routes={
 const auth=(await load('functions/api/admin/_middleware.ts')).onRequest;
 const root=(await load('functions/_middleware.ts')).onRequest;
 const sqlite=new DatabaseSync(':memory:');
-for(const file of ['0001_core.sql','0002_quote_public_links.sql','0003_airwallex_payment_sessions.sql','0004_shipping_rates.sql','0005_supplier_purchase_terms.sql','0006_quote_retail_approvals.sql'])sqlite.exec(readFileSync('migrations/'+file,'utf8'));
+for(const file of ['0001_core.sql','0002_quote_public_links.sql','0003_airwallex_payment_sessions.sql','0004_shipping_rates.sql','0005_supplier_purchase_terms.sql','0006_quote_retail_approvals.sql','0016_b2b_tax_basis.sql'])sqlite.exec(readFileSync('migrations/'+file,'utf8'));
 const database={
  prepare(sql){const statement={sql,args:[],bind(...args){statement.args=args;return statement;},async first(){return sqlite.prepare(sql).get(...statement.args)||null;},async all(){return {success:true,results:sqlite.prepare(sql).all(...statement.args)};},async run(){const result=sqlite.prepare(sql).run(...statement.args);return {success:true,meta:{changes:Number(result.changes)}};}};return statement;},
  async batch(statements){sqlite.exec('BEGIN');try{const results=[];for(const s of statements)results.push(await s.run());sqlite.exec('COMMIT');return results;}catch(error){sqlite.exec('ROLLBACK');throw error;}}
@@ -34,7 +34,7 @@ try{
  const inquiry=await call('inquiry','/api/inquiries',{originalReference:reference,firstName:'Synthetic',lastName:'Quote Test',email:'quote-test@example.invalid',country:'US',postalCode:'75201',estimatedQuantity:'100',products:['Flocked Silent Basketball Set'],privacyAck:true,message:'Synthetic isolated test inquiry. Exact requested units: 100'});
  assert.equal(inquiry.status,200,JSON.stringify(inquiry));assert.equal(inquiry.body.reference,reference);
  assert.equal(query('SELECT count(*) AS n FROM inquiries').n,1);assert.equal(externalCalls,0);
- const input={inquiryReference:reference,description:'Flocked Silent Basketball Set | No. 5 | Blue',quantity:'100',unitPrice:'8.03',shipping:'19.90',discount:'0',paymentTerms:'Test terms',shippingTerms:'Test freight'};
+ const input={inquiryReference:reference,description:'Flocked Silent Basketball Set | No. 5 | Blue',quantity:'100',unitPrice:'8.03',shipping:'19.90',taxUSD:'0',taxBasis:'Synthetic test: no tax collection in isolated test',discount:'0',paymentTerms:'Test terms',shippingTerms:'Test freight'};
  let response=await call('create','/api/admin/quotes',input,false);assert.equal(response.status,401);
  for(const patch of [{unitPrice:'8.031'},{quantity:'50–100'},{shipping:''},{discount:'1000'},{unitPrice:true}]){response=await call('create','/api/admin/quotes',{...input,...patch});assert.equal(response.status,400);assert.equal(query('SELECT count(*) AS n FROM quotes').n,0);}
  response=await call('create','/api/admin/quotes',input);assert.equal(response.status,201,JSON.stringify(response));assert.equal(response.body.total,822.9);
@@ -72,7 +72,7 @@ try{
  assert(response.body.issues.includes('QUOTE_EXPIRED'));
  assert.equal(query('SELECT count(*) AS n FROM quote_public_links').n,0);
  sqlite.prepare("UPDATE quotes SET valid_until='2099-12-31 00:00:00' WHERE id=?").run(quoteId);
- const edit={quoteId,items:[{id:item.id,description:item.description,quantity:3,unitPrice:'8.07'}],shipping:'19.90',discount:'0.29',validUntil:'2026-12-31',paymentTerms:'Test terms',shippingTerms:'Test freight'};
+ const edit={quoteId,items:[{id:item.id,description:item.description,quantity:3,unitPrice:'8.07'}],shipping:'19.90',taxUSD:'1.10',taxBasis:'Synthetic test: explicit tax amount',discount:'0.29',validUntil:'2026-12-31',paymentTerms:'Test terms',shippingTerms:'Test freight'};
  response=await call('edit','/api/admin/quote-edit',{...edit,items:[{...edit.items[0],quantity:3.5}]});assert.equal(response.status,400);assert.equal(query('SELECT quantity FROM quote_items').quantity,100);
  response=await call('edit','/api/admin/quote-edit',{...edit,items:[{...edit.items[0],unitPrice:'6.99'}]});
  assert.equal(response.status,409,'Draft edits at/below approved procurement floor blocked');
