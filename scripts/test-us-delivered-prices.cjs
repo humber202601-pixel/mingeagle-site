@@ -64,5 +64,5 @@ try{
  delete broken.productSizeShippingUSD.p4['5'];
  fs.writeFileSync(path.join(tmp,'us-single-parcel-shipping.json'),JSON.stringify(broken));
  assert.throws(run,/Command failed|size mismatch/,'Fail closed if approved shipping SKU omitted');
- console.log('PASS: all 11 approved US one-item totals, homepage/catalog/product visibility, truthful ETA/disclaimer, verified SKU coverage and stable idempotent build.');
+ console.log('PASS: all 11 approved US one-item price + shipping benchmarks, homepage/catalog/product visibility, truthful ETA/disclaimer, verified SKU coverage and stable idempotent build.');
 }finally{fs.rmSync(tmp,{recursive:true,force:true})}
