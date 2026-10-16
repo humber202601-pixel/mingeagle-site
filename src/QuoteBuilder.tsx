@@ -348,6 +348,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
         const labels:Record<string,string>={
           PAYMENT_TERMS_UNCONFIRMED:'付款方式及付款时间尚未确认',
           STRIPE_ONLY_QUOTE_TERMS:'本网站只接受 Stripe 在线收款，请将报价付款条款改为 Stripe Checkout 并核实收货州税务及运费',
+          B2B_STRIPE_QUOTE_NOT_PAYABLE:'必须明确 Ship-to state: XX、美国销售税金额及对应的已核实税务依据后才能发布 Stripe 报价',
           SHIPPING_TERMS_UNCONFIRMED:'运费、运输方式及交付责任尚未确认',
           QUOTE_VALIDITY_MISSING:'报价有效期未填写',
           QUOTE_EXPIRED:'报价已过期，需要重新核价',
