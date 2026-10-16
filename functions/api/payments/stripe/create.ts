@@ -99,7 +99,10 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       String(ship.postalCode||ship.postal_code||'').trim().length<5||
       String(ship.line1||ship.address1||'').trim().length<5)
     return fail('Confirm the full US delivery destination and quote freight before wholesale card payment.',409);
-   const state=String(ship.state),approved=(env.STRIPE_B2B_APPROVED_US_STATES||'')
+   const state=String(ship.state),quotedDelivery=String(order.quote_shipping_terms||'').toUpperCase();
+   if(!quotedDelivery.includes('SHIP-TO STATE: '+state))
+    return fail('Delivery state differs from the buyer-accepted freight quotation. Request a corrected quote.',409);
+   const approved=(env.STRIPE_B2B_APPROVED_US_STATES||'')
      .split(',').map(x=>x.trim().toUpperCase()).filter(x=>/^[A-Z]{2}$/.test(x));
    if(!approved.includes(state))
     return fail('Business-order sales tax review for this delivery state is not yet authorized.',409);
