@@ -13,6 +13,16 @@ export default function SupplierPricingManager({accessKey}:{accessKey:string}){
  const [effective,setEffective]=useState(''),[expiry,setExpiry]=useState('');
  const [tiers,setTiers]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
  const selected=terms.find(x=>x.sku===sku);
+ // Coverage means only an approved and currently dated SKU/size baseline.
+ // It is not verification of color, freight, customs, duties or profit.
+ const todayUTC=new Date().toISOString().slice(0,10);
+ const coverage=Object.entries(SKU_LABELS).map(([code,name])=>{
+  const row=terms.find(t=>t.sku===code);
+  const current=row?.status==='APPROVED'&&row.effectiveOn<=todayUTC&&row.expiresOn>=todayUTC;
+  const label=current?'已审核且有效':!row?'尚未录入':row.status==='APPROVED'?'已过期或未生效':row.status==='DRAFT'?'待审核':'已停用';
+  return {code,name,current,label};
+ });
+ const readyCount=coverage.filter(x=>x.current).length;
  const refresh=useCallback(async()=>{
   const r=await fetch('/api/admin/supplier-pricing',{headers:{'x-admin-key':accessKey}});
   const data=await r.json() as {ok?:boolean;terms?:Term[];audit?:Audit[];error?:string};
@@ -65,6 +75,14 @@ export default function SupplierPricingManager({accessKey}:{accessKey:string}){
    <p>只记录由供应商提供并由员工确认的采购成本，不能以官网零售价推算。不支持币种换算（当前仅 USD），也不会自动修改对外销售价格、客户报价或支付数据。产品 SKU 为产品系列+尺寸，具体颜色和配置仍需逐单核对。</p>
    {error&&<p role="alert" className="form-status error">{error}</p>}
    {message&&<p role="status" className="form-status success">{message}</p>}
+   <section aria-label="供应商SKU采购成本覆盖情况" className="panel" style={{padding:12,margin:'12px 0'}}>
+    <h3>供应商真实采购价覆盖：{readyCount} / {coverage.length} 个 SKU</h3>
+    <p>下表只判断 SKU/尺寸是否存在已审核且在有效期内的实际供应商报价。绿色状态不代表颜色、包装、头程、清关、关税或利润已经审核。点击“填写”可选择对应 SKU 并录入真实来源。</p>
+    <div className="table-wrap"><table><thead><tr><th>SKU</th><th>型号</th><th>成本依据状态</th><th>操作</th></tr></thead><tbody>
+     {coverage.map(row=><tr key={row.code}><td>{row.code}</td><td>{row.name}</td><td>{row.label}</td>
+       <td><button type="button" className="table-action" disabled={busy} onClick={()=>setSku(row.code)}>填写 / 核对</button></td></tr>)}
+    </tbody></table></div>
+   </section>
    <form onSubmit={e=>void save(e)} className="quote-form">
     <div className="quote-form-grid">
      <label className="span-2">内部产品 SKU<select value={sku} onChange={e=>setSku(e.target.value)}>
