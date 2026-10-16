@@ -73,6 +73,9 @@ try{
  let stored=false;
  let simulatedShippingState='NY';
  let orderReference='ME-RO-SYNTHETIC',quoteStatus='SENT';
+ let wholesaleTerms='Full amount payable by secure Stripe card checkout';
+ let wholesaleSentAt='2026-10-15 12:00:00';
+ let simulatedOrderStatus='PAYMENT_PENDING',simulatedPaymentStatus='UNPAID';
  let retailSku='P1-S7', retailGoods=14.9, retailShipping=14;
  const processedEvents=new Set();
  let receivedInserts=0;
@@ -81,9 +84,13 @@ try{
    async first(){
     dbReads++;
     if(sql.includes('FROM quotes q JOIN orders o'))return {
-      id:'ord_synthetic',reference:orderReference,status:'PAYMENT_PENDING',
-      payment_status:'UNPAID',total:retailGoods+retailShipping,subtotal:retailGoods,discount:0,
+      id:'ord_synthetic',reference:orderReference,status:simulatedOrderStatus,
+      payment_status:simulatedPaymentStatus,total:retailGoods+retailShipping,subtotal:retailGoods,discount:0,
       shipping:retailShipping,tax:0,currency:'USD',quote_status:quoteStatus,
+       quote_sent_at:wholesaleSentAt,quote_accepted_at:'2026-10-15 12:10:00',
+       quote_payment_terms:wholesaleTerms,
+       quote_shipping_terms:'China origin sea freight, 25–30 days, duties confirmed in quotation',
+       valid_until:'2026-12-31 23:59:59',
       shipping_address:JSON.stringify({state:simulatedShippingState,country:'US'}),
       received:0,email:'buyer@example.net'
     };
@@ -139,16 +146,39 @@ try{
   assert.equal(dbWrites,writesBefore,'Disabled retail must not write payment sessions');
   assert.equal(dbReads,readsBefore+1,'Only the order lookup may run before the retail gate');
  }
- // Disabling retail does not disable separately accepted wholesale quotations.
+ // Wholesale requires a separate opt-in in addition to the retail-only restriction.
  orderReference='ME-O-SYNTHETIC';quoteStatus='ACCEPTED';
- const limited=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'true',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
- assert.equal(limited.status,503,'Retail launch must not enable unreviewed wholesale payments');
+ const limited=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'true',STRIPE_B2B_CHECKOUT_ENABLED:'true',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
+ assert.equal(limited.status,503,'Retail-only restriction must override B2B opt-in');
  assert.equal(providerCalls,0);
- const wholesale=await createCheckout({env:{...ready,RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
+ const notOptedIn=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
+ assert.equal(notOptedIn.status,503,'Removing retail restriction alone must not activate wholesale charges');
+ assert.equal(providerCalls,0);
+ const wholesale=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',STRIPE_B2B_CHECKOUT_ENABLED:'true',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
  assert.equal(wholesale.status,200,await wholesale.clone().text());
  assert.equal(providerCalls,1);
+ wholesaleTerms='Payment terms to be confirmed before sending.';
+ const unconfirmed=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',
+  STRIPE_B2B_CHECKOUT_ENABLED:'true',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
+ assert.equal(unconfirmed.status,409,'Accepted B2B quotes with unconfirmed payment terms are not payable');
+ assert.equal(providerCalls,1,'Unconfirmed terms must not call Stripe');
+ wholesaleTerms='Full amount payable by secure Stripe card checkout';
+ wholesaleSentAt='';
+ const neverSent=await createCheckout({env:{...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',
+  STRIPE_B2B_CHECKOUT_ENABLED:'true',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db},request:request()});
+ assert.equal(neverSent.status,409,'Quote must have been formally issued by seller');
+ assert.equal(providerCalls,1);
+ wholesaleSentAt='2026-10-15 12:00:00';
  orderReference='ME-RO-SYNTHETIC';quoteStatus='SENT';
  providerCalls=0;dbWrites=0;stored=false;
+ for(const closed of [{status:'CANCELLED',payment:'UNPAID'},{status:'REFUNDED',payment:'UNPAID'},{status:'PAYMENT_PENDING',payment:'REFUNDED'}]){
+  simulatedOrderStatus=closed.status;simulatedPaymentStatus=closed.payment;
+  const deniedClosed=await createCheckout({env:{...ready,MINGEAGLE_DB:db},request:request()});
+  assert.equal(deniedClosed.status,409,'Closed/refunded order cannot create a Stripe session');
+  assert.equal(providerCalls,0,'No Stripe API call for closed/refunded order');
+  assert.equal(dbWrites,0,'No payment session write for closed/refunded order');
+ }
+ simulatedOrderStatus='PAYMENT_PENDING';simulatedPaymentStatus='UNPAID';
  const denied=await createCheckout({env:{...ready,RETAIL_US_TAX_POLICY_JSON:JSON.stringify({reviewed_on:new Date().toISOString().slice(0,10),review_reference:'TEST_REVIEW_FOR_CA_ONLY',states:{CA:'NO_COLLECTION_REQUIRED'}}),MINGEAGLE_DB:db},request:request()});
  assert.equal(denied.status,409,'No Checkout for a state excluded from the verified tax review');
  assert.equal(providerCalls,0,'Tax-denied state must not call Stripe');

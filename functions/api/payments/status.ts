@@ -2,6 +2,8 @@ import {airwallexCheckoutReadiness} from '../../_shared/airwallex';
 import {stripeCheckoutReadiness,type StripeEnv} from '../../_shared/stripe';
 interface Env extends StripeEnv {
  STRIPE_TAX_POLICY_APPROVED?:string;
+ STRIPE_RETAIL_ONLY_ENABLED?:string;
+ STRIPE_B2B_CHECKOUT_ENABLED?:string;
   AIRWALLEX_CLIENT_ID?: string;
   AIRWALLEX_API_KEY?: string;
   AIRWALLEX_ENV?: string;
@@ -32,6 +34,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
       webhookConfigured:stripe.webhookConfigured,
       checkoutRequested:stripe.checkoutRequested,
       taxPolicyApproved:env.STRIPE_TAX_POLICY_APPROVED==='true',
+      retailOnlyRestriction:env.STRIPE_RETAIL_ONLY_ENABLED==='true',
+      b2bCheckoutRequested:env.STRIPE_B2B_CHECKOUT_ENABLED==='true',
+      b2bConfigurationReady:stripe.checkoutReady&&env.STRIPE_TAX_POLICY_APPROVED==='true'
+        &&env.STRIPE_RETAIL_ONLY_ENABLED!=='true'&&env.STRIPE_B2B_CHECKOUT_ENABLED==='true',
     },
     bankTransfer: {
       enabled: bankTransferEnabled,

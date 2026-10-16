@@ -3,6 +3,8 @@ import {stripeApi, stripeCheckoutReadiness, stripeSessionMatchesMode, type Strip
 import {retailTaxTreatment,reviewedStripeTaxStates,remoteStartupState,remoteStartupWithinLimits,type RetailTaxEnv} from '../../../../lib/retail-tax-policy';
 import {registeredStripeTaxState,fixedTaxCustomer,automaticTaxAmount,type DeliveryAddress} from '../../../_shared/retail-stripe-tax';
 import {separateUnitUsAirParcels} from '../../../../lib/us-small-parcel';
+import {requiresClosedOrderPaymentReview} from '../../../../lib/closed-order-payment';
+import {acceptedB2bQuotePayable} from '../../../../lib/b2b-stripe-eligibility';
 
 interface Env extends StripeEnv,RetailTaxEnv {
   MINGEAGLE_DB: D1Database;
@@ -11,6 +13,7 @@ interface Env extends StripeEnv,RetailTaxEnv {
   RETAIL_STOCK_FULFILLMENT_APPROVED?:string;
   RETAIL_TAX_POLICY_APPROVED?:string;
   STRIPE_RETAIL_ONLY_ENABLED?:string;
+  STRIPE_B2B_CHECKOUT_ENABLED?:string;
 }
 type RecordRow=Record<string,unknown>;
 const fail=(message:string,status=400)=>Response.json({ok:false,error:message},{status,headers:{'cache-control':'no-store'}});
@@ -35,16 +38,19 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   const hash=await tokenHash(token);
   const order=await db.prepare(
    "SELECT o.id,o.reference,o.status,o.payment_status,o.total,o.subtotal,o.discount,o.shipping,o.tax,o.currency,o.shipping_address,"+
-   "q.status AS quote_status,q.valid_until,q.reference AS quote_reference,ct.email AS email,"+
+   "q.status AS quote_status,q.sent_at AS quote_sent_at,q.accepted_at AS quote_accepted_at,"+
+   "q.payment_terms AS quote_payment_terms,q.shipping_terms AS quote_shipping_terms,"+
+   "q.valid_until,q.reference AS quote_reference,ct.email AS email,"+
    "(SELECT COALESCE(SUM(amount),0) FROM payments WHERE order_id=o.id AND status='RECEIVED') AS received "+
    "FROM quotes q JOIN orders o ON o.quote_id=q.id LEFT JOIN contacts ct ON ct.id=o.contact_id "+
    "WHERE "+QUOTE_PUBLIC_TOKEN_PREDICATE+" "+
    "ORDER BY o.created_at DESC LIMIT 1"
   ).bind(hash,hash).first<RecordRow>();
   if(!order)return fail('Order not found.',404);
-  if(['CANCELLED','REFUNDED'].includes(String(order.status)))return fail('Order is not payable.',409);
+  if(requiresClosedOrderPaymentReview(order)||String(order.status).toUpperCase()==='REFUNDED')
+   return fail('Closed or refunded orders cannot accept new payments.',409);
   const isRetail=String(order.reference).startsWith('ME-RO-');
-  if(env.STRIPE_RETAIL_ONLY_ENABLED==='true'&&!isRetail)
+  if(!isRetail&&(env.STRIPE_RETAIL_ONLY_ENABLED==='true'||env.STRIPE_B2B_CHECKOUT_ENABLED!=='true'))
    return fail('Online payment currently supports approved retail orders only. Contact MING EAGLE for this quotation.',503);
   if(isRetail&&env.RETAIL_CHECKOUT_ENABLED!=='true')
    return fail('Direct retail payment is not activated.',503);
@@ -75,8 +81,11 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       Math.round(Number(order.tax)*100)!==0||Math.round(Number(order.discount)*100)!==0)
     return fail('Duty-paid delivery is not verified for the requested products.',409);
   }
-  if(!isRetail&&!['ACCEPTED','CONVERTED'].includes(String(order.quote_status)))
-   return fail('Please accept the quotation before paying.',409);
+  if(!isRetail&&!acceptedB2bQuotePayable({
+   status:order.quote_status,sent_at:order.quote_sent_at,accepted_at:order.quote_accepted_at,
+   payment_terms:order.quote_payment_terms,shipping_terms:order.quote_shipping_terms,
+   valid_until:order.valid_until
+  }))return fail('Wholesale quote requires confirmed seller terms and buyer acceptance before Stripe payment.',409);
   const received=cents(order.received);
   const total=cents(order.total),due=total-received;
   if(String(order.payment_status)==='PAID'||due<=0)return fail('Already paid.',409);
