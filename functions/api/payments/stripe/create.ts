@@ -1,3 +1,4 @@
+import {stripeCheckoutTermsSupported} from '../../../../lib/b2b-quote-terms';
 import {QUOTE_PUBLIC_TOKEN_PREDICATE} from '../../../../lib/quote-public-token';
 import {stripeApi, stripeCheckoutReadiness, stripeSessionMatchesMode, type StripeEnv} from '../../../_shared/stripe';
 import {retailTaxTreatment,reviewedStripeTaxStates,remoteStartupState,remoteStartupWithinLimits,type RetailTaxEnv} from '../../../../lib/retail-tax-policy';
@@ -91,7 +92,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   if(!isRetail){
    // Explicitly accepted card/Stripe terms prevent charging a bank-transfer
    // quotation through a payment channel the customer never agreed to.
-   if(!/\bstripe\b/i.test(String(order.quote_payment_terms||'')))
+   if(!stripeCheckoutTermsSupported(order.quote_payment_terms))
     return fail('Accepted wholesale quotation must explicitly authorize Stripe card payment.',409);
    let ship:Record<string,unknown>;
    try{ship=JSON.parse(String(order.shipping_address||'null'))}catch{return fail('Confirmed wholesale delivery address is required before Stripe payment.',409)}
