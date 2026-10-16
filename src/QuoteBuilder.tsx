@@ -350,10 +350,22 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
         :'已匹配的成本也不是完整到岸成本，仍须人工复核颜色、包装、运费、税费和商业条款。';
       const confirmed=window.confirm(`批准报价 ${text(quote.reference)}，总额 ${money(quote.total,quote.currency)}。\n${counts}\n${warning}\n${sendEmail?'批准后将通过 Gmail 向该客户真实发送。':'批准后只生成客户可查看的安全链接，不会发送邮件。'}`);
       if(!confirmed)return;
+      let supplierReviewBasis='';
+      if(review.supplierConfirmationRequired){
+        const evidence=window.prompt(
+          '该报价存在未核实的供应商采购成本。请填写实际供应商/报价来源、核实日期、MOQ、包装，以及海运清关税费的核实依据（最少 20 个字符）。\\n未完成供应商核对请取消，不要将猜测当作已核验。',
+          ''
+        );
+        if(evidence===null)return;
+        supplierReviewBasis=evidence.trim();
+        if(supplierReviewBasis.length<20||supplierReviewBasis.length>500){
+          throw Error('采购核实依据必须写明实际来源和检查内容（20–500字符）。未保存，也未向客户发送。');
+        }
+      }
       const response = await fetch('/api/admin/quote-send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
-        body: JSON.stringify({ quoteId, sendEmail, approved: true, supplierCostAcknowledged: review.supplierConfirmationRequired }),
+        body: JSON.stringify({ quoteId, sendEmail, approved: true, supplierCostAcknowledged: review.supplierConfirmationRequired, supplierReviewBasis }),
       });
       const body = await response.json() as QuoteSendResult;
       if (!response.ok || !body.ok || !body.reference || !body.publicPath) {
