@@ -17,6 +17,7 @@ interface Env {
   RETAIL_STOCK_FULFILLMENT_APPROVED?:string;
   RETAIL_TAX_POLICY_APPROVED?:string;
   STRIPE_RETAIL_ONLY_ENABLED?:string;
+  STRIPE_B2B_CHECKOUT_ENABLED?:string;
 }
 
 type Row = Record<string, unknown>;
@@ -151,7 +152,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
         ? `<a class="track-link" target="_blank" rel="noreferrer" href="${esc(order.tracking_url)}">Open carrier tracking ↗</a>` : '';
       const closedOrder = String(order.status||'').toUpperCase()==='CANCELLED' || String(order.payment_status||'').toUpperCase()==='REFUNDED';
       const stripeReady = !closedOrder && stripeCheckoutReadiness(env).checkoutReady && env.STRIPE_TAX_POLICY_APPROVED==='true'
-        && (env.STRIPE_RETAIL_ONLY_ENABLED!=='true'||String(order.reference).startsWith('ME-RO-'))
+        && (String(order.reference).startsWith('ME-RO-') || (env.STRIPE_RETAIL_ONLY_ENABLED!=='true' && env.STRIPE_B2B_CHECKOUT_ENABLED==='true'))
         && (!String(order.reference).startsWith('ME-RO-') ||
           (env.RETAIL_CHECKOUT_ENABLED==='true' && env.RETAIL_STOCK_FULFILLMENT_APPROVED==='true' && env.RETAIL_TAX_POLICY_APPROVED==='true'));
       const providerNotice = paymentStateNotice(order.provider_status);
