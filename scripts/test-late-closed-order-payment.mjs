@@ -4,6 +4,11 @@ import {DatabaseSync} from 'node:sqlite';
 import {createHmac,webcrypto} from 'node:crypto';
 import {build,transform} from 'esbuild';
 if(!globalThis.crypto)globalThis.crypto=webcrypto;
+// The secure buyer page must not offer a second pay button when a
+// signed Stripe receipt is succeeded but administrative reconciliation remains.
+const publicPage=readFileSync('functions/quote/[token].ts','utf8');
+assert(publicPage.includes("['PENDING','PENDING_REVIEW','SUCCEEDED']"),'Succeeded provider payment awaiting reconciliation suppresses duplicate pay action');
+assert(publicPage.includes('Stripe receipt needs reconciliation.'),'Buyer sees manual review guidance without a paid claim');
 const src=readFileSync('lib/closed-order-payment.ts','utf8');
 const helper=(await transform(src,{loader:'ts',format:'esm'})).code;
 const {requiresClosedOrderPaymentReview}=await import('data:text/javascript;base64,'+Buffer.from(helper).toString('base64'));
@@ -67,6 +72,50 @@ for(const [i,o] of scenarios.entries()){
  assert.equal((await retry.json()).duplicate,true,'Repeated signed event is idempotent');
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM payments WHERE order_id=?').get(o.orderId).n,1);
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM tasks WHERE order_id=? AND type=\'PAYMENT\'').get(o.orderId).n,review.n);
+}
+// A verified Stripe receipt must NOT silently combine with legacy bank
+// payments, exceed the quote, or launch a second fulfillment on an order
+// already shown as PAID. Preserve evidence, make an urgent staff task.
+for(const [j,scenario] of [
+ {kind:'mixed',total:28.9,oldPayment:'UNPAID',manual:true},
+ {kind:'overpaid',total:20,oldPayment:'UNPAID',manual:false},
+ {kind:'previously-paid',total:28.9,oldPayment:'PAID',manual:false}
+].entries()){
+ const orderId='order-risk-'+j,ref='ME-RO-RISK-'+j,sessionId='cs_test_risk'+j;
+ sqlite.prepare("INSERT INTO orders(id,reference,status,payment_status,total,currency) VALUES (?,?,'PAYMENT_PENDING',?,?,'USD')")
+  .run(orderId,ref,scenario.oldPayment,scenario.total);
+ if(scenario.manual)sqlite.prepare(
+  "INSERT INTO payments(id,order_id,method,provider,provider_reference,amount,currency,status) "+
+  "VALUES (?,?,'BANK_TRANSFER','BANK_TRANSFER',?,2,'USD','RECEIVED')"
+ ).run('manual-risk-'+j,orderId,'synthetic-manual-'+j);
+ sqlite.prepare("INSERT INTO payment_provider_sessions(id,order_id,provider,provider_intent_id,request_id,amount,currency,status) "+
+  "VALUES (?,?,'STRIPE',?, ?,28.9,'USD','PENDING')")
+  .run('risk-session-'+j,orderId,sessionId,'risk-request-'+j);
+ const event={id:'evt-risk-'+j,type:'checkout.session.completed',data:{object:{
+  id:sessionId,client_reference_id:ref,payment_status:'paid',
+  currency:'usd',amount_total:2890,metadata:{order_id:orderId,order_reference:ref}
+ }}};
+ const payload=JSON.stringify(event),timestamp=Math.floor(Date.now()/1000);
+ const sig=createHmac('sha256',secret).update(timestamp+'.'+payload).digest('hex');
+ const call=()=>onRequestPost({env,request:new Request('https://synthetic.example/api/payments/stripe/webhook',{
+  method:'POST',body:payload,headers:{'stripe-signature':'t='+timestamp+',v1='+sig}
+ })});
+ const outcome=await call(),data=await outcome.json();
+ assert.equal(outcome.status,200,'Signed anomalous payment must be acknowledged: '+scenario.kind);
+ assert.equal(data.fulfillmentBlocked,true,'Block automatic fulfillment on '+scenario.kind);
+ assert.equal(data.requiresManualReview,true);
+ assert.equal(sqlite.prepare("SELECT payment_status FROM orders WHERE id=?").get(orderId).payment_status,
+  scenario.oldPayment,'Reconciliation case must not automatically change payment status');
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM payments WHERE order_id=? AND provider='STRIPE' AND status='RECEIVED'").get(orderId).n,1,
+  'Record the genuine signed Stripe receipt for later reconciliation');
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM tasks WHERE order_id=? AND type='FULFILLMENT'").get(orderId).n,0);
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM tasks WHERE order_id=? AND priority='URGENT' AND title LIKE 'Review disputed Stripe receipts%'").get(orderId).n,1);
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM activities WHERE entity_id=? AND activity_type='PAYMENT_RECONCILIATION_REQUIRED'").get(orderId).n,1);
+ const duplicate=await call();
+ assert.equal(duplicate.status,200);
+ assert.equal((await duplicate.json()).duplicate,true);
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM payments WHERE order_id=? AND provider='STRIPE'").get(orderId).n,1);
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM tasks WHERE order_id=? AND priority='URGENT'").get(orderId).n,1);
 }
 const airwallexBundle=await build({entryPoints:['functions/api/payments/airwallex/webhook.ts'],bundle:true,platform:'node',format:'esm',write:false,logLevel:'silent'});
 const {onRequestPost:airwallexWebhook}=await import('data:text/javascript;base64,'+Buffer.from(airwallexBundle.outputFiles[0].text).toString('base64'));

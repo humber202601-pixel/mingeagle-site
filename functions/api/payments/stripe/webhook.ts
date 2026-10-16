@@ -173,8 +173,45 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    await processed();
    return Response.json({ok:true,requiresManualReview:true,fulfillmentBlocked:true});
   }
+  // An authenticated Stripe event is evidence of a receipt, but manual
+  // bank/legacy receipts cannot be combined with it to authorize shipping.
+  // A second settlement beyond the quoted total must also be reviewed.
+  const nonStripeReceipts=await db.prepare(
+    "SELECT COUNT(*) AS entries FROM payments WHERE order_id=? AND status='RECEIVED' "+
+    "AND (provider IS NULL OR upper(provider)<>'STRIPE')"
+  ).bind(matched.order_id).first<{entries:number}>();
   const fullyPaid=received>=orderTotal;
   const overpaid=received>orderTotal;
+  const mixedReceipts=Number(nonStripeReceipts?.entries||0)>0;
+  const alreadyMarkedPaid=String(order.payment_status||'').toUpperCase()==='PAID';
+  const newlyRecorded=Number(inserted.meta?.changes||0)>0;
+  if(mixedReceipts||overpaid||(alreadyMarkedPaid&&newlyRecorded)){
+   const reason=mixedReceipts
+    ?'Mixed Stripe and historical/manual received payments'
+    :overpaid?'Stripe-related receipts exceed the agreed order total'
+    :'Another Stripe receipt was recorded after the order had been marked paid';
+   await db.prepare(
+    "INSERT INTO tasks(id,lead_id,company_id,contact_id,order_id,type,title,description,status,priority,due_at) "+
+    "SELECT ?,?,?,?,?,'PAYMENT',?,?,'OPEN','URGENT',CURRENT_TIMESTAMP "+
+    "WHERE NOT EXISTS(SELECT 1 FROM tasks WHERE order_id=? AND type='PAYMENT' "+
+    "AND title LIKE 'Review disputed Stripe receipts%' AND status IN ('OPEN','IN_PROGRESS'))"
+   ).bind(crypto.randomUUID(),order.lead_id||null,order.company_id||null,
+     order.contact_id||null,matched.order_id,
+     'Review disputed Stripe receipts for '+String(order.reference),
+     reason+'. Confirm with Stripe Dashboard and the original sales records. Hold automatic fulfillment and avoid duplicate charges/refunds.',matched.order_id).run();
+   if(newlyRecorded)await db.prepare(
+    "INSERT INTO activities(id,entity_type,entity_id,activity_type,title,description,metadata_json) "+
+    "VALUES(?,'ORDER',?,'PAYMENT_RECONCILIATION_REQUIRED',?,?,?)"
+   ).bind(crypto.randomUUID(),matched.order_id,'Stripe payment needs manual reconciliation',
+    reason+'. Verified Stripe receipt saved; fulfillment not automatically released.',
+    JSON.stringify({provider:'STRIPE',sessionId:session.id,eventId:event.id,
+      mixedReceipts,overpaid,alreadyMarkedPaid})).run();
+   // Preserve any existing PAID/REFUNDED status for audit, but do not
+   // convert a previously UNPAID order to PAID from mixed receipts.
+   await processed();
+   return Response.json({ok:true,requiresManualReview:true,fulfillmentBlocked:true,
+     paymentStatus:String(order.payment_status)});
+  }
   if(fullyPaid){
    await db.prepare(
     "UPDATE orders SET payment_status='PAID',"+
@@ -208,15 +245,6 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    ).bind(crypto.randomUUID(),matched.order_id,'Stripe payment confirmed',
     String(order.reference)+' '+amount.toFixed(2)+' USD',
     JSON.stringify({provider:'STRIPE',sessionId:session.id,eventId:event.id})).run();
-  }
-  if(overpaid){
-   await db.prepare(
-    "INSERT INTO tasks (id,lead_id,company_id,contact_id,order_id,type,title,description,status,priority,due_at) "+
-    "SELECT ?,?,?,?,?,'PAYMENT',?,?,'OPEN','URGENT',CURRENT_TIMESTAMP "+
-    "WHERE NOT EXISTS(SELECT 1 FROM tasks WHERE order_id=? AND type='PAYMENT' AND title LIKE 'Review overpayment%' AND status IN ('OPEN','IN_PROGRESS'))"
-   ).bind(crypto.randomUUID(),order.lead_id||null,order.company_id||null,order.contact_id||null,
-    matched.order_id,'Review overpayment for '+String(order.reference),
-    'Review duplicate Stripe/Airwallex payments and refund the excess.',matched.order_id).run();
   }
   await processed();
   return Response.json({ok:true,paymentStatus:fullyPaid?'PAID':'PARTIAL'});
