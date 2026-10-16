@@ -13,7 +13,9 @@ const utcTimestamp=(value:unknown):number|null=>{
  if(typeof value!=='string')return null;
  const text=value.trim();
  if(!/^\d{4}-\d\d-\d\d(?:[ T]\d\d:\d\d:\d\d(?:\.\d+)?(?:Z)?)?$/.test(text))return null;
- const stamp=Date.parse(text.endsWith('Z')?text.replace(' ','T'):text.replace(' ','T')+(text.includes('T')?'Z':'T00:00:00Z'));
+ const normalized=text.replace(' ','T');
+ const stamp=Date.parse(normalized.endsWith('Z')?normalized:
+  normalized+(normalized.includes('T')?'Z':'T00:00:00Z'));
  return Number.isFinite(stamp)?stamp:null;
 };
 export function acceptedB2bQuotePayable(quote:AcceptedB2bQuote):boolean{
