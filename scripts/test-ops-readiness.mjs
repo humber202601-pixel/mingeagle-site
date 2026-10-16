@@ -9,8 +9,8 @@ const wrangler=readFileSync('wrangler.toml','utf8');
 assert.match(wrangler,/^STRIPE_RETAIL_ONLY_ENABLED = "false"$/m,'Published config must not silently restore retail-only restriction');
 assert.match(wrangler,/^STRIPE_B2B_CHECKOUT_ENABLED = "true"$/m,'Reviewed B2B activation must be durable');
 assert.match(wrangler,/^STRIPE_B2B_TAX_POLICY_APPROVED = "true"$/m);
-assert.match(wrangler,/^STRIPE_B2B_APPROVED_US_STATES = "OR,NH"$/m,
- 'Initial wholesale live scope is restricted to reviewed no-general-sales-tax states');
+assert.match(wrangler,/^STRIPE_B2B_APPROVED_US_STATES = "AL,AK,AZ,AR,CA,CO,CT,DE,FL,GA,HI,ID,IL,IN,IA,KS,KY,LA,ME,MD,MA,MI,MN,MS,MO,MT,NE,NV,NH,NJ,NM,NY,NC,ND,OH,OK,OR,PA,RI,SC,SD,TN,TX,UT,VT,VA,WA,WV,WI,WY,DC"$/m,
+ 'Wholesale live scope covers all 50 states plus DC');
 assert(!/^STRIPE_SECRET_KEY\s*=/m.test(wrangler)&&!/^STRIPE_WEBHOOK_SECRET\s*=/m.test(wrangler),
  'Never ship encrypted Stripe credentials in Wrangler source');
 const panel=readFileSync('src/ReadinessPanel.tsx','utf8');
