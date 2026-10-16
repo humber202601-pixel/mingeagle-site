@@ -139,3 +139,79 @@ assert.equal(bulk.win.__mingEagleCartOrder.mode,'Sea freight');
 let wrong=simulate('retail','air',1,'P1-S3 | Counterfeit | 1');
 assert(wrong.fields.message.value.includes('Selected colors: confirmation required'));
 console.log('PASS: all six pages load cart selectors; 11 SKU prices; real size/color/quantity persistence, multi-color freight grouping; working add button; old carts; retail and wholesale inquiry handoff with correct newlines.');
+
+
+// Regression: production wholesale RFQ APIs deliberately return null USD/CBM.
+// The PUBLIC cart must never render Number(null)==0 or route wholesale to card
+// checkout. Simulate the actual DOM event and handoff without network calls.
+(async()=>{
+ class Widget{
+  constructor(tag='div'){this.tagName=tag;this.handlers={};this.children=[];this.value='';this.checked=false;this.hidden=false;this.disabled=false;this.textContent='';this.style={};this.attrs={};}
+  addEventListener(k,fn){this.handlers[k]=fn}
+  append(...parts){this.children.push(...parts)}
+  add(item){this.children.push(item)}
+  replaceChildren(...parts){this.children=[...parts]}
+  setAttribute(k,v){this.attrs[k]=v}
+ }
+ const js=fs.readFileSync('public/retail-cart.js','utf8');
+ const ids=[...js.matchAll(/\$\('([^']+)'\)/g)].map(m=>m[1]);
+ const elements=Object.fromEntries([...new Set(ids)].map(id=>[id,new Widget()]));
+ elements.cartCountry.value='US';
+ const local={getItem(){return JSON.stringify([{sku:'P1-S3',color:'Orange',quantity:10}])},setItem(){}};
+ const fakeDocument={getElementById(id){return elements[id]||null},createElement(tag){return new Widget(tag)}};
+ const navigation={href:''};
+ let requests=0;
+ const fakeFetch=async(url,init)=>{
+  requests++;
+  assert.equal(url,'https://app.mingeagle.com/api/shipping/cart','Wholesale must not launch Stripe');
+  const input=JSON.parse(init.body);
+  assert.equal(input.method,'sea');
+  assert.equal(input.seaFreightAccepted,true);
+  assert.equal(input.lines[0].quantity,10);
+  return {ok:true,async json(){return {ok:true,wholesale:true,quoteRequired:true,
+   paymentEnabled:false,method:'sea',country:'US',quantity:10,
+   productsUSD:null,shippingUSD:null,totalBeforeTaxesUSD:null,volumeCBM:null,
+   packagingVerified:false,ddpConfirmed:false}}};
+ };
+ vm.runInNewContext(js,{window:{},localStorage:local,document:fakeDocument,
+  Option:function(label,value){this.textContent=label;this.value=value;},
+  location:navigation,fetch:fakeFetch,URLSearchParams,console});
+ assert.equal(elements.cartSubtotal.textContent,'Price on request');
+ assert.equal(elements.cartSummaryGoods.textContent,'Price on request');
+ assert(!elements.cartLines.children.some(row=>row.children.some(cell=>cell.textContent==='$99.00')),
+  'Never mislabel retail reference prices as an approved wholesale line');
+ elements.cartSeaConsent.checked=true;
+ await elements.cartEstimateForm.handlers.submit({preventDefault(){}});
+ assert.equal(requests,1);
+ assert.equal(elements.cartSummaryShipping.textContent,'Written DDP quote required');
+ assert.equal(elements.cartSummaryTotal.textContent,'To be confirmed');
+ assert.equal(elements.cartCheckout.disabled,false,'Bulk RFQ submission must remain possible');
+ assert.equal(elements.cartCheckout.textContent,'Submit wholesale RFQ →');
+ assert.equal(elements.cartEstimate.hidden,true,'Do not show pricing from null API fields');
+ assert(!JSON.stringify([elements.cartSummaryGoods.textContent,elements.cartSummaryShipping.textContent,
+  elements.cartSummaryTotal.textContent]).includes('$0.00'));
+ await elements.cartCheckout.handlers.click();
+ assert(navigation.href.startsWith('inquiry.html?'),'No direct Stripe or checkout link on a bulk quote');
+ const target=new URL(navigation.href,'https://www.mingeagle.com');
+ assert.equal(target.searchParams.get('cart'),'P1-S3 x 10');
+ assert.equal(target.searchParams.get('cart_method'),'sea');
+ assert.equal(target.searchParams.get('cart_total'),null);
+ assert.equal(target.searchParams.get('cart_shipping'),null);
+ // Legacy or forged wholesale URI amounts must not be propagated as sourced
+ // freight or published as a final amount in the lead description.
+ const untrusted=new URLSearchParams(target.searchParams);
+ untrusted.set('cart_total','0');untrusted.set('cart_shipping','0');
+ const inputFields={message:{value:''},country:{value:''},estimated_quantity:{value:''}};
+ const obj={};
+ vm.runInNewContext(parser,{q:{get:k=>untrusted.get(k)},window:obj,
+  $:k=>inputFields[k]||null,console,URLSearchParams});
+ assert(inputFields.message.value.includes('written quotation required'));
+ assert(!inputFields.message.value.includes('Estimated freight USD'));
+ assert(!inputFields.message.value.includes('Estimated total before tax USD'));
+ // A single-product detail must point bulk shoppers toward the quote cart.
+ const productScript=fs.readFileSync('public/retail-shipping.js','utf8');
+ assert(productScript.includes("if(qty>=10)"));
+ assert(productScript.includes("typeof data.productUSD!=='number'"),
+  'Quote-only response must never become $0.00 on detail view');
+ console.log('PASS: buyer-facing wholesale price/CBM fields remain quote-only and checkout handoff preserves SKU/quantity without false $0.00.');
+})().catch(err=>{console.error(err);process.exitCode=1});
