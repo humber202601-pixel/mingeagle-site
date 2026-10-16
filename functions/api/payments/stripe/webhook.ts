@@ -8,9 +8,9 @@ interface Env {
  STRIPE_MODE?:string;
 }
 type CheckoutSession={
- id?:string;client_reference_id?:string;payment_status?:string;status?:string;
+ id?:string;client_reference_id?:string;payment_link?:string|null;payment_status?:string;status?:string;
  amount_total?:number;currency?:string;customer?:string;automatic_tax?:{enabled?:boolean;status?:string};
- total_details?:{amount_tax?:number};metadata?:{order_id?:string;order_reference?:string;purpose?:string;tax_mode?:string;tax_state?:string};
+ total_details?:{amount_tax?:number};metadata?:{order_id?:string;order_reference?:string;purpose?:string;charge?:string;tax_mode?:string;tax_state?:string};
 };
 type Event={id?:string;type?:string;data?:{object?:CheckoutSession}};
 const invalid=(reason:string,status=400)=>new Response(reason,{status,headers:{'cache-control':'no-store'}});
@@ -67,6 +67,22 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   if(event.type==='checkout.session.expired'&&session.client_reference_id==='ME-LAUNCH-CHECK-NOT-AN-ORDER'
     &&session.metadata?.purpose==='MING_EAGLE_LAUNCH_PROBE_NO_PAYMENT'&&!session.metadata.order_id){
    await processed();return Response.json({ok:true,ignored:true,launchProbe:true});
+  }
+  // Owner-approved one-off live $0.50 connectivity payment came through a
+  // standalone Stripe Payment Link, not our order-specific Checkout API.
+  // Acknowledge only this precisely identified signed test event, so Stripe
+  // does not retry forever. Never create a CRM order/payment or fulfilment.
+  if(event.type==='checkout.session.completed' &&
+     env.STRIPE_MODE==='live' &&
+     session.payment_link==='plink_1UR4X56ggh6j2Fv09VrTJNum' &&
+     !session.client_reference_id &&
+     !session.metadata?.order_id && !session.metadata?.order_reference &&
+     session.metadata?.purpose==='live_payment_verification_20261016_3' &&
+     session.metadata?.charge==='USER_REQUESTED_050_USD' &&
+     session.payment_status==='paid' &&
+     session.currency?.toLowerCase()==='usd' && session.amount_total===50){
+    await processed();
+    return Response.json({ok:true,ignored:true,standaloneLiveVerification:true});
   }
   const matched=await db.prepare(
    "SELECT order_id,amount,currency,status,tax_mode,base_amount_cents,tax_amount_cents,tax_state,tax_customer_id FROM payment_provider_sessions "+
