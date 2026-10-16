@@ -40,6 +40,15 @@ try{
  response=await call('create','/api/admin/quotes',input);assert.equal(response.status,201,JSON.stringify(response));assert.equal(response.body.total,822.9);
  const quoteId=response.body.quoteId;
  let quote=query('SELECT * FROM quotes');let item=query('SELECT * FROM quote_items');
+ // Server-side final quote publishing must never trust a mismatched stored
+ // grand total, even if a preflight UI is bypassed.
+ sqlite.prepare('UPDATE quotes SET total=total+1 WHERE id=?').run(quoteId);
+ const badSum=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true});
+ assert.equal(badSum.status,409,'Mismatched quotation total cannot create a buyer link');
+ assert.equal(badSum.body.code,'QUOTE_TOTALS_MISMATCH');
+ assert.equal(query('SELECT count(*) AS n FROM quote_public_links').n,0);
+ assert.equal(externalCalls,0);
+ sqlite.prepare('UPDATE quotes SET total=? WHERE id=?').run(quote.total,quoteId);
  // Normal quote approval must not also count as supplier cost verification.
  let unverified=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true});
  assert.equal(unverified.status,409,'Missing supplier cost needs separate staff acknowledgement');
