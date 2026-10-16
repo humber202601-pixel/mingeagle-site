@@ -199,7 +199,7 @@ function Dashboard({ data }: { data: AdminData }) {
     {failedNotices>0 && <section className="panel" role="status"><strong>⚠️ {failedNotices} 条询盘的邮件通知未获服务商确认</strong><p>客户需求已经保存到CRM，但邮件通知可能未送达。请立即核实并人工处理。</p><Link to="/app/inquiries">查看相关询盘</Link></section>}
     {overdue.total>0 && <section className="panel" aria-label="逾期跟进任务提醒" role="status">
       <div className="panel-head"><h2>逾期跟进任务</h2><span>当前已加载的待办：{overdue.total} 项逾期</span></div>
-      <p>客户主动询盘或报价回复 {overdue.customerOrQuote} 项 · 公开来源开发跟进 {overdue.outreach} 项 · 其他待办 {overdue.other} 项。先处理真实客户和报价，不要让开发任务挤占回复时间。</p>
+      <p>客户主动询盘或报价回复 {overdue.customerOrQuote} 项 · 开发与外联跟进 {overdue.outreach} 项 · 其他待办 {overdue.other} 项。先处理真实客户和报价，不要让开发任务挤占回复时间。</p>
       <p>这里是只读提醒，未自动联系客户、延后任务或修改销售状态；如有旧测试任务，请到任务管理中人工核实后再归档。</p>
       <Link to="/app/tasks">打开跟进任务 · 按优先级查看</Link>
     </section>}
