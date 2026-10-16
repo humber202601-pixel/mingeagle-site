@@ -1,6 +1,7 @@
 import {verifyQuoteProcurement} from '../../../lib/quote-procurement-review';
 import {quoteTermsIssues,quoteTermsIssueDescriptions,stripeCheckoutTermsSupported} from '../../../lib/b2b-quote-terms';
 import {quoteTotals} from '../../../lib/quote-totals';
+import {checkWholesaleReleaseProof,type WholesaleReleaseProof} from '../../../lib/b2b-quote-release-cost';
 interface Env {
   MINGEAGLE_DB: D1Database;
   GMAIL_CLIENT_ID?: string;
@@ -10,7 +11,7 @@ interface Env {
   OUTBOUND_EMAIL_DISABLED?: string;
 }
 
-type Input = { quoteId?: string; sendEmail?: boolean; approved?: boolean; supplierCostAcknowledged?: boolean; supplierReviewBasis?: string };
+type Input = { quoteId?: string; sendEmail?: boolean; approved?: boolean; supplierCostAcknowledged?: boolean; supplierReviewBasis?: string; landedReview?: WholesaleReleaseProof };
 
 type QuoteRow = {
   id: string;
@@ -151,7 +152,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.MINGEAGLE_DB) return Response.json({ ok: false, error: 'Database is not configured.' }, { status: 503 });
 
   try {
-    const { quoteId = '', sendEmail = false, approved = false, supplierCostAcknowledged = false, supplierReviewBasis = '' } = await request.json() as Input;
+    const { quoteId = '', sendEmail = false, approved = false, supplierCostAcknowledged = false, supplierReviewBasis = '', landedReview } = await request.json() as Input;
     if (sendEmail && env.OUTBOUND_EMAIL_DISABLED === 'true') return Response.json({ok:false,code:'OUTBOUND_DISABLED',error:'Customer email sending is disabled in this test environment.'},{status:403});
     if (!quoteId) return Response.json({ ok: false, error: 'Quote id is required.' }, { status: 400 });
 
@@ -268,6 +269,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if(!stripeCheckoutTermsSupported(quote.payment_terms))
       return Response.json({ok:false,code:'STRIPE_ONLY_QUOTE_TERMS',
         error:'MING EAGLE accepts wholesale order payments through Stripe Checkout only. Update payment terms and review ship-to state, freight and sales-tax basis before releasing this quotation.'},{status:409});
+    const totalQuoteUnits=(items.results||[]).reduce((sum,line)=>sum+Number(line.quantity||0),0);
+    const costAudit=totalQuoteUnits>=10?checkWholesaleReleaseProof({
+      netMerchandiseUSD:Number(quote.subtotal)-Number(quote.discount),
+      shippingCollectedUSD:Number(quote.shipping),
+      salesTaxCollectedUSD:Number(quote.tax),
+      totalQuotedUSD:Number(quote.total),
+    },landedReview,review.baselineMerchandiseCostCents):null;
+    if(costAudit&&!costAudit.ok){
+      return Response.json({ok:false,code:costAudit.code,error:costAudit.error},{status:409});
+    }
     await ensureQuoteLinks(db);
     if (quote.public_token_hash) {
       await db.prepare(`INSERT OR IGNORE INTO quote_public_links (id, quote_id, token_hash)
@@ -281,9 +292,25 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const publicPath = `/quote/${token}`;
     const absoluteUrl = `${new URL(request.url).origin}${publicPath}`;
 
-    await db.prepare(`INSERT INTO quote_public_links (id, quote_id, token_hash)
-      VALUES (?, ?, ?)`)
-      .bind(linkId, quote.id, tokenHash).run();
+    const linkInsert=db.prepare(`INSERT INTO quote_public_links (id, quote_id, token_hash)
+      VALUES (?, ?, ?)`).bind(linkId, quote.id, tokenHash);
+    // For wholesale, the new bearer link and private accounting evidence must
+    // be written atomically. Customer quote notes never include costs/sources.
+    if(costAudit?.ok){
+      const audit=db.prepare(`INSERT INTO activities
+        (id,entity_type,entity_id,activity_type,title,description,metadata_json)
+        VALUES (?,'QUOTE',?,'QUOTE_LANDED_COST_REVIEW','Internal landed cost review',?,?)`)
+        .bind(crypto.randomUUID(),quote.id,
+         `Staff reviewed six landed cost categories for ${quote.reference}`,
+         JSON.stringify({...costAudit.record,sourceType:'STAFF_ATTESTED_NOT_AUDITED',
+           reviewedAtUTC:new Date().toISOString(),
+           unverifiedSupplierLines:review.unverified}));
+      const recorded=await db.batch([linkInsert,audit]);
+      if(recorded.length!==2||recorded.some(x=>!x.success||Number(x.meta?.changes)!==1))
+        throw Error('COST_AUDIT_TRANSACTION_FAILED');
+    }else{
+      await linkInsert.run();
+    }
 
     let emailResult: Awaited<ReturnType<typeof sendQuoteEmail>> | null = null;
     if (sendEmail) {

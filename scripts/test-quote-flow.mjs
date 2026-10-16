@@ -164,6 +164,43 @@ try{
  assert.equal(JSON.parse(audit.metadata_json).unverifiedSupplierLines,1);
  assert.equal(JSON.parse(audit.metadata_json).supplierReviewBasis,reviewNote,'Source review evidence must persist in private quote activity');
 
+ // Wholesale-only release now requires separate, itemized, positive
+ // landed-cost evidence; retail/sample quotes remain unaffected.
+ sqlite.prepare("UPDATE supplier_purchase_terms SET status='APPROVED' WHERE sku='P1-S5'").run();
+ sqlite.prepare("UPDATE quote_items SET quantity=10,line_total=80.70 WHERE id=?").run(item.id);
+ sqlite.prepare("UPDATE quotes SET subtotal=80.70,total=101.41 WHERE id=?").run(quoteId);
+ const costEvidence='SYNTHETIC TEST ONLY: Supplier offer dated 2026-10-16 checked MOQ 1, carton 1 and quoted DDP freight/duties; mocked card fees are not live evidence.';
+ const reviewed={quotedTotalUSD:101.41,
+  costs:{factoryUSD:'70',freightUSD:'15',dutiesUSD:'0',packingUSD:'1',stripeFeesUSD:'3',otherUSD:'0'},
+  evidence:costEvidence};
+ const linksBeforeCost=query('SELECT COUNT(*) n FROM quote_public_links').n;
+ let costResult=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true});
+ assert.equal(costResult.status,409,'10+ unit wholesale quotes must not release without full cost proof');
+ assert.equal(costResult.body.code,'LANDED_COST_PROOF_REQUIRED');
+ assert.equal(query('SELECT COUNT(*) n FROM quote_public_links').n,linksBeforeCost);
+ const lowFactory={...reviewed,costs:{...reviewed.costs,factoryUSD:'60'}};
+ costResult=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true,landedReview:lowFactory});
+ assert.equal(costResult.status,409,'Factory value below current approved purchase floor must block link');
+ assert.equal(costResult.body.code,'LANDED_COST_BELOW_BASELINE');
+ const loss={...reviewed,costs:{...reviewed.costs,freightUSD:'50'}};
+ costResult=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true,landedReview:loss});
+ assert.equal(costResult.status,409,'All-inclusive negative scenario cannot be published');
+ assert.equal(costResult.body.code,'LANDED_COST_LOSS_RISK');
+ const missingFee={...reviewed,costs:{...reviewed.costs,stripeFeesUSD:''}};
+ costResult=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true,landedReview:missingFee});
+ assert.equal(costResult.status,409);
+ assert.equal(costResult.body.code,'LANDED_COST_PROOF_REQUIRED');
+ assert.equal(query('SELECT COUNT(*) n FROM quote_public_links').n,linksBeforeCost,'No link on failed landed cost reviews');
+ costResult=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true,landedReview:reviewed});
+ assert.equal(costResult.status,200,JSON.stringify(costResult));
+ assert.equal(query("SELECT COUNT(*) n FROM activities WHERE activity_type='QUOTE_LANDED_COST_REVIEW'").n,1);
+ const logged=JSON.parse(query("SELECT metadata_json FROM activities WHERE activity_type='QUOTE_LANDED_COST_REVIEW'").metadata_json);
+ assert.equal(logged.evidence,costEvidence,'Supplier costing evidence must remain private audit metadata');
+ assert.equal(logged.scenarioDifferenceUSD,11.31,'No sales tax is counted as revenue');
+ const wholesaleToken=costResult.body.publicPath.split('/').pop();
+ const wholesaleHtml=await (await routes.view({request:new Request('https://quote-test.example'+costResult.body.publicPath),env,params:{token:wholesaleToken}})).text();
+ assert(!wholesaleHtml.includes(costEvidence),'Buyer must never see internal cost proof');
+ assert.equal(externalCalls,0);
  assert.equal(externalCalls,0);
  console.log('PASS: real SQL inquiry → authenticated draft → decimal totals → edit/invalidation → staff approval → secure customer quote, no external sends.');
 }finally{globalThis.fetch=originalFetch;sqlite.close();}

@@ -1,11 +1,12 @@
 import {useEffect,useMemo,useState} from 'react';
 import {calculateB2BScenario,COST_FIELDS,type ScenarioCostKey,type ScenarioInputs,
  type QuoteScenarioTotals} from '../lib/b2b-cost-scenario';
+import type {WholesaleReleaseProof} from '../lib/b2b-quote-release-cost';
 
 type Preflight={
  ok?:boolean;error?:string;quoteReference?:string;
  review?:{
-  issues:string[];approvedSkuBaselines:number;unverifiedSkuBaselines:number;
+  issues:string[];requiresLandedCostReview:boolean;approvedSkuBaselines:number;unverifiedSkuBaselines:number;
   commercialEstimate?:QuoteScenarioTotals&{
    basis:'NOT_CALCULABLE'|'SKU_SIZE_COST_FLOOR_ONLY';
    approvedFactoryCostBaselineUSD:number|null;
@@ -26,8 +27,8 @@ const format=(value:number)=>'$'+value.toFixed(2);
 const emptyValues=():ScenarioInputs=>({
  factoryUSD:'',freightUSD:'',dutiesUSD:'',packingUSD:'',stripeFeesUSD:'',otherUSD:''
 });
-export default function B2BCostScenario({quoteId,reference,accessKey,onClose}:{
- quoteId:string;reference:string;accessKey:string;onClose:()=>void
+export default function B2BCostScenario({quoteId,reference,accessKey,onClose,onApply}:{
+ quoteId:string;reference:string;accessKey:string;onClose:()=>void;onApply?:(proof:WholesaleReleaseProof)=>void
 }){
  const [preflight,setPreflight]=useState<Preflight|null>(null);
  const [error,setError]=useState('');
@@ -59,7 +60,7 @@ export default function B2BCostScenario({quoteId,reference,accessKey,onClose}:{
   <div className="panel-head"><h2>内部成本情景试算 · {reference}</h2>
    <button type="button" className="button secondary small" onClick={onClose}>关闭试算</button>
   </div>
-  <p><strong>仅供内部比较，不写入数据库，不发送客户，不改变报价或供应商审批。</strong> 所有金额必须来自自行核对的实际条件；本表不是已审计利润，也不是自动定价。</p>
+  <p><strong>试算过程仅在当前页面，正式批准发布前不写入数据库；若用于报价发布，六项成本与核查依据会存入后台私人审计而不展示给客户。</strong> 所有金额必须来自自行核对的实际条件；本表不是已审计利润，也不是自动定价。</p>
   {loading&&<p role="status">正在读取该报价的实时采购预审与金额…</p>}
   {error&&<p role="alert">{error}</p>}
   {estimate&&<div>
@@ -81,9 +82,9 @@ export default function B2BCostScenario({quoteId,reference,accessKey,onClose}:{
        inputMode="decimal" placeholder="未核实请留空"
        value={values[key]} onChange={e=>input(key,e.target.value)} />
      </label>)}
-     <label className="span-2">核算依据与假设（仅在本页面显示）
+     <label className="span-2">供应商、包装、海运DDP及关税的核验依据（发布时仅存后台）
       <textarea rows={2} value={assumptions} onChange={e=>setAssumptions(e.target.value)}
-       placeholder="供应商报价编号、物流报价日期、关税已包含/单列的依据；不保存在系统。" />
+       placeholder="注明供应商真实报价与日期、MOQ/箱规、物流报价日期、DDP海运费用及关税是否已包含。未核实请保持空白。" />
      </label>
     </div>
     <p>如 DDP 海运费已经包含进口关税/清关费用，不要重复计费；只有核实确实已包含时，关税栏才可主动填写 0。<strong>空白代表未知，并非零成本。</strong> 手续费需按实际收款方式核对，不采用默认比例。</p>
@@ -99,6 +100,19 @@ export default function B2BCostScenario({quoteId,reference,accessKey,onClose}:{
       </div>
       :<p role="status">尚不显示收支差额：请将所有 6 项实际成本填写完整（未知保持空白）。
         {scenario?.invalid?.length?' 金额格式错误：'+scenario.invalid.map(key=>labels[key]).join('、'):''}</p>}
+    {preflight?.review?.requiresLandedCostReview&&onApply&&<>
+      <button type="button" className="button small"
+       disabled={!scenario?.complete||(scenario.estimatedDifferenceUSD??0)<=0||
+        Number(values.factoryUSD)<=0||Number(values.stripeFeesUSD)<=0||
+        assumptions.trim().length<40||assumptions.trim().length>700||
+        Boolean(preflight.review.issues.length)||
+        (estimate.approvedFactoryCostBaselineUSD!==null&&
+         Number(values.factoryUSD)<estimate.approvedFactoryCostBaselineUSD)}
+       onClick={()=>onApply({quotedTotalUSD:estimate.totalQuotedUSD,costs:values,evidence:assumptions.trim()})}>
+       将六项已核实成本带入本次发布审核
+      </button>
+      <p>请逐项核对真实来源，特别是DDP运费是否包含进口税费。该操作只准备当前报价的审核资料，不会直接发布、付款或联系客户。</p>
+     </>}
     <button type="button" className="button secondary small"
      onClick={()=>{setValues(emptyValues());setAssumptions('')}}>清除本次试算</button>
    </>}
