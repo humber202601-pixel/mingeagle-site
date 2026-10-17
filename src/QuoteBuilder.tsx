@@ -49,6 +49,23 @@ type QuotePreflight={ok?:boolean;error?:string;quoteFingerprint?:string;review?:
  };
 }};
 
+type StripeLiveReadiness = {
+  b2bLiveConfigurationReady?:boolean;
+  b2bActivationBlockers?:string[];
+  b2bTaxScopeWarning?:string;
+};
+const stripeBlockerLabels:Record<string,string>={
+  LIVE_STRIPE_MODE_NOT_SET:'Stripe 正式模式尚未选择（STRIPE_MODE）',
+  STRIPE_KEY_UNAVAILABLE_OR_MODE_MISMATCH:'付款密钥缺失或与正式模式不匹配',
+  SIGNED_WEBHOOK_NOT_CONFIGURED:'Stripe Webhook 签名密钥尚未就绪',
+  GLOBAL_CHECKOUT_NOT_ENABLED:'全局 Stripe 结账开关尚未启用',
+  GLOBAL_TAX_POLICY_NOT_APPROVED:'全局销售税审核尚未批准',
+  RETAIL_ONLY_RESTRICTION:'当前限制为零售收款',
+  B2B_CHECKOUT_NOT_ENABLED:'B2B 批发付款开关尚未启用',
+  B2B_TAX_POLICY_NOT_APPROVED:'B2B 销售税审核开关尚未批准',
+  NO_B2B_DESTINATION_STATES_CONFIGURED:'批发目的州范围尚未配置',
+};
+
 type EditDetail = {
   quote: Row;
   items: Row[];
@@ -93,6 +110,8 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   const [followupClock,setFollowupClock] = useState(() => Date.now());
   const followupItems=useMemo(()=>pendingQuoteAttention(quotes,followupClock),[quotes,followupClock]);
   const [quotesLoading,setQuotesLoading]=useState(true),[quotesError,setQuotesError]=useState('');
+  const [stripeLiveReadiness,setStripeLiveReadiness]=useState<StripeLiveReadiness|null>(null);
+  const [stripeLiveReadinessError,setStripeLiveReadinessError]=useState(false);
   const [customerLink, setCustomerLink] = useState<{ reference: string; url: string; emailed?: boolean; to?: string } | null>(null);
   const [quoteDeliveryMessage, setQuoteDeliveryMessage] = useState('');
   const [editDetail, setEditDetail] = useState<EditDetail | null>(null);
@@ -145,6 +164,19 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   }
 
   useEffect(() => { void loadQuotes(); }, [accessKey]);
+  useEffect(()=>{
+    let cancelled=false;
+    fetch('/api/payments/status',{cache:'no-store'})
+      .then(async response=>{
+        if(!response.ok)throw Error('Payment status service unavailable');
+        const data=await response.json() as {ok?:boolean;stripe?:StripeLiveReadiness};
+        if(!data.ok||!data.stripe)throw Error('Incomplete payment status');
+        if(!cancelled){setStripeLiveReadiness(data.stripe);setStripeLiveReadinessError(false)}
+      })
+      .catch(()=>{if(!cancelled)setStripeLiveReadinessError(true)});
+    return ()=>{cancelled=true};
+  },[]);
+
 
   function previewCreate(form: HTMLFormElement) {
     const data = new FormData(form);
@@ -455,6 +487,22 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       <div className="panel-head">
         <h2>创建报价草稿</h2>
         <span>客户回复 → MEQ 询盘 → 人工确认价格 → 商务报价</span>
+      </div>
+      <div className={'form-status'+(stripeLiveReadiness?.b2bLiveConfigurationReady?' success':' error')}
+           role="status" aria-label="批发 Stripe 收款就绪诊断">
+        <strong>{stripeLiveReadiness?.b2bLiveConfigurationReady
+          ? '批发 Stripe Live 前置配置已就绪（尚非真实交易验收）'
+          : '批发 Stripe Live 尚未完成配置验收'}</strong>
+        {stripeLiveReadinessError
+          ? <p>无法从线上读取 Stripe 就绪状态。请先核实 Cloudflare 环境设置，不要假设已具备收款条件。</p>
+          : stripeLiveReadiness
+          ? <>
+            <p>{(stripeLiveReadiness.b2bActivationBlockers||[]).length
+              ? (stripeLiveReadiness.b2bActivationBlockers||[]).map(k=>stripeBlockerLabels[k]||k).join('；')
+              : '基本开关、密钥模式及 Webhook 已具备前置条件，仍需逐笔核对报价、真实付款和税务依据。'}</p>
+            <small>目的州名单不代表州销售税注册或免税批准；不能依据此处“就绪”直接认定已完成真实 B2B 收款验收。</small>
+          </>
+          : <p>正在只读核查 Stripe 生产结账配置。</p>}
       </div>
       {available.length === 0 ? <div className="empty-row">当前没有待创建报价的询盘。已报价询盘请在下方编辑原报价或创建修订版。</div> : <form key={selectedReference} ref={createForm} onSubmit={submit} onInput={updateCreatePreview} className="quote-form">
         {selected && <div className="form-status success">
