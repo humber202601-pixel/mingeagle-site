@@ -36,8 +36,8 @@ assert(!availabilityPath.includes("linkToInquiry('retail')"),
  'Failed secure checkout readiness must relabel the button, not automatically redirect');
 assert(cart.includes("if(last.ddpConfirmed!==true||!checkoutAvailable)"),
  'Quote handoff occurs only from explicit quote-labeled CTA');
-assert(cart.includes("checkoutAvailable=Boolean(data?.ok&&data.retailCheckoutReady===true&&n<=(data.maxDirectCheckoutUnits??1)"),
- 'Payment readiness is checked while building order estimate');
+assert(cart.includes("checkoutAvailable=Boolean(checkoutGate?.ok&&checkoutGate.retailCheckoutReady===true&&n<=(checkoutGate.maxDirectCheckoutUnits??1)"),
+ 'Payment readiness is checked while building order estimate using the retained non-secret gate response');
 assert(cart.includes("checkoutAvailable=false;"),'Readiness must default to fail-closed');
 assert(cart.includes("read().every(x=>allowed(x.sku,x.color)&&data.eligibleSkus?.includes(x.sku))"),
  'Valid different-color cart lines must not be rejected merely for sharing a SKU');
