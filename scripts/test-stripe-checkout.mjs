@@ -400,7 +400,7 @@ try{
  assert.equal(receivedInserts,b2bPaymentsAfter,'B2B replay does not create a second payment');
  assert.equal(paidOrderUpdates,b2bPaidUpdatesAfter,'B2B replay does not repeat paid-state transition');
  assert.equal(fulfillmentTaskInserts,b2bFulfillmentAfter,'B2B replay does not create duplicate fulfillment task');
- orderReference='ME-RO-SYNTHETIC';
+ orderReference='ME-RO-SYNTHETIC';simulatedShippingState='NY';
 
  // Merchant-approved standalone $0.50 Live payment link is a real charge,
  // but intentionally has no order record. It must be acknowledged, audited
