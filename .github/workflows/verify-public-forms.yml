@@ -7,6 +7,7 @@ on:
       - 'scripts/check-b2b-acquisition-resource.cjs'
       - 'scripts/enable-web-analytics.cjs'
       - 'scripts/check-web-analytics.cjs'
+      - 'scripts/check-custom-logo.cjs'
       - 'public/inquiry.js'
       - 'public/sales-assistant.js'
       - 'public/sales-assistant-i18n.js'
@@ -151,4 +152,5 @@ jobs:
           node --check public/sales-assistant.js
           node scripts/check-chat-i18n.cjs
           node scripts/check-locale-completeness.cjs
+          node scripts/check-custom-logo.cjs
           node scripts/check-product-direct-rfq.cjs

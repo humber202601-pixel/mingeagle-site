@@ -15,6 +15,10 @@ const extractNav=(html,kind)=>{
 assert.equal(extractNav(customLogoHtml,'desktop'),extractNav(homeHtml,'desktop'),'Custom Logo desktop navigation must stay aligned with homepage');
 assert.equal(extractNav(customLogoHtml,'mobile'),extractNav(homeHtml,'mobile'),'Custom Logo mobile navigation must stay aligned with homepage');
 
+const homeProductOrder=[...homeHtml.matchAll(/<h3\b[^>]*data-i18n="p([1-4])\.title"/g)].map(m=>'p'+m[1]);
+const customLogoProductOrder=[...customLogoHtml.matchAll(/<option value="(p[1-4])"(?:\s|>)/g)].map(m=>m[1]);
+assert.deepEqual(customLogoProductOrder,homeProductOrder,'Custom Logo product selector order must match homepage product order, including unavailable products');
+
 
 const localeScript=fs.readFileSync(path.join(__dirname,'../public/custom-logo-i18n.js'),'utf8');
 const source=scripts.join('\n');
