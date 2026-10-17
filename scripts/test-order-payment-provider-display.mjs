@@ -41,7 +41,28 @@ assert(reviewMatch,'CRM must expose active Stripe payment review count');
 const flagged=db.prepare('SELECT o.id,('+reviewMatch[1]+') AS active_payment_review_count FROM orders o ORDER BY o.id').all();
 assert.deepEqual(flagged.map(x=>x.active_payment_review_count),[1,1,0],
  'Count open/in-progress Stripe reconciliation only, ignoring completed tasks and ordinary payment reminders');
+const privateQuote=readFileSync('functions/api/quote/[token].ts','utf8');
+const publicReview=privateQuote.match(/\((SELECT COUNT\(\*\) FROM tasks t WHERE t\.order_id=o\.id[\s\S]*?)\) AS active_payment_review_count/);
+assert(publicReview,'Private quote JSON must expose the same active payment review guard as staff API');
+const publicReviewCounts=db.prepare('SELECT o.id,('+publicReview[1]+') AS active_payment_review_count FROM orders o ORDER BY o.id').all();
+assert.deepEqual(publicReviewCounts.map(x=>x.active_payment_review_count),[1,1,0],
+ 'A customer may not see a generic PAID banner when Stripe review tasks are still open');
 db.close();
+const reactQuote=readFileSync('src/CustomerQuote.tsx','utf8');
+assert(reactQuote.includes('const paymentHeld=Number(order?.active_payment_review_count||0)>0'),
+ 'React quote must fail closed during active disputed Stripe receipt review');
+assert(reactQuote.includes('const checkoutReadyForOrder=Boolean(order&&'),
+ 'React quote must use order-channel payment readiness');
+assert(reactQuote.includes('payment?.stripe?.b2bConfigurationReady'),
+ 'Wholesale must require the separate B2B tax and checkout policy gates');
+assert(reactQuote.includes('payment?.stripe?.retailConfigurationReady'),
+ 'Retail sample checkout must use retail readiness, not wholesale flags');
+assert(!reactQuote.includes('order&&payment?.stripe?.checkoutReady?'),
+ 'Global Stripe flag may not advertise an unapproved order as payable');
+assert(reactQuote.includes('paymentHeld?<p role="alert"'),
+ 'Buyer must see manual reconciliation warning before any generic PAID success banner');
+assert(reactQuote.includes('!checkoutReadyForOrder||paymentHeld||closedOrder'),
+ 'Direct React click handler cannot bypass hidden payment controls');
 assert(ui.includes("channel==='STRIPE'||channel==='AIRWALLEX'"),'Known providers are mapped by recorded identifier');
 assert(ui.includes("method==='ONLINE_PAYMENT'"),'Unidentified online payment is not silently attributed to Airwallex');
 assert(ui.includes('线上支付服务商（未记录）'));

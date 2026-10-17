@@ -62,6 +62,22 @@ assert.equal(mismatch.stripe.mode,'test');assert.equal(mismatch.stripe.keyMode,'
 assert.equal(mismatch.stripe.keyConfigured,false);assert.equal(mismatch.stripe.checkoutReady,false);
 assert(!JSON.stringify(mismatch).includes('rk_live_synthetic_private_key'));
 assert(!JSON.stringify(mismatch).includes(ready.STRIPE_WEBHOOK_SECRET));
+const enabledRetailEnv={...ready,STRIPE_TAX_POLICY_APPROVED:'true',RETAIL_CHECKOUT_ENABLED:'true',
+ RETAIL_STOCK_FULFILLMENT_APPROVED:'true',RETAIL_TAX_POLICY_APPROVED:'true'};
+const enabledB2bEnv={...ready,STRIPE_TAX_POLICY_APPROVED:'true',STRIPE_RETAIL_ONLY_ENABLED:'false',
+ STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',STRIPE_B2B_APPROVED_US_STATES:'OR'};
+const retailReadiness=(await (await paymentReadiness({env:enabledRetailEnv})).json()).stripe;
+assert.equal(retailReadiness.retailConfigurationReady,true,'Completed retail prerequisites permit retail UI');
+assert.equal(retailReadiness.b2bConfigurationReady,false,'Retail approval must not unlock wholesale UI');
+const b2bReadiness=(await (await paymentReadiness({env:{...enabledB2bEnv,RETAIL_CHECKOUT_ENABLED:'false'}})).json()).stripe;
+assert.equal(b2bReadiness.b2bConfigurationReady,true,'Approved B2B config unlocks wholesale payment UI');
+assert.equal(b2bReadiness.retailConfigurationReady,false,'B2B permission must not enable unreviewed retail flow');
+const globallyReady=(await (await paymentReadiness({env:{...ready,RETAIL_CHECKOUT_ENABLED:'false'}})).json()).stripe;
+assert.equal(globallyReady.checkoutReady,true);
+assert.equal(globallyReady.retailConfigurationReady,false,'Global Stripe readiness alone cannot enable retail UI');
+assert.equal(globallyReady.b2bConfigurationReady,false,'Global Stripe readiness alone cannot enable B2B UI');
+const closedGate=(await (await paymentReadiness({env:{...enabledB2bEnv,STRIPE_CHECKOUT_ENABLED:''}})).json()).stripe;
+assert.equal(closedGate.b2bConfigurationReady,false,'Unset global Stripe switch must keep B2B UI disabled');
 const saved=globalThis.fetch;
 let providerCalls=0,dbReads=0,dbWrites=0;
 const request=()=>new Request('https://app.mingeagle.com/api/payments/stripe/create',{

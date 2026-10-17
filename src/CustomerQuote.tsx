@@ -3,9 +3,9 @@ import {useParams,useSearchParams} from 'react-router-dom';
 type Quote={reference:string;status:string;currency:string;subtotal:number;
  shipping:number;tax:number;discount:number;total:number;shipping_terms?:string;payment_terms?:string;notes?:string;is_expired?:number};
 type Item={description:string;quantity:number;unit_price:number;line_total:number};
-type Order={reference:string;status:string;payment_status:string};
+type Order={reference:string;status:string;payment_status:string;active_payment_review_count?:number};
 type Info={ok:boolean;error?:string;quote?:Quote;items?:Item[];order?:Order};
-type PayStatus={ok:boolean;stripe?:{checkoutReady:boolean;mode:'test'|'live'|null}};
+type PayStatus={ok:boolean;stripe?:{checkoutReady:boolean;b2bConfigurationReady?:boolean;retailConfigurationReady?:boolean;mode:'test'|'live'|null}};
 const US_STATES=[['AL','Alabama'],['AK','Alaska'],['AZ','Arizona'],['AR','Arkansas'],['CA','California'],['CO','Colorado'],['CT','Connecticut'],['DE','Delaware'],['DC','District of Columbia'],['FL','Florida'],['GA','Georgia'],['HI','Hawaii'],['ID','Idaho'],['IL','Illinois'],['IN','Indiana'],['IA','Iowa'],['KS','Kansas'],['KY','Kentucky'],['LA','Louisiana'],['ME','Maine'],['MD','Maryland'],['MA','Massachusetts'],['MI','Michigan'],['MN','Minnesota'],['MS','Mississippi'],['MO','Missouri'],['MT','Montana'],['NE','Nebraska'],['NV','Nevada'],['NH','New Hampshire'],['NJ','New Jersey'],['NM','New Mexico'],['NY','New York'],['NC','North Carolina'],['ND','North Dakota'],['OH','Ohio'],['OK','Oklahoma'],['OR','Oregon'],['PA','Pennsylvania'],['RI','Rhode Island'],['SC','South Carolina'],['SD','South Dakota'],['TN','Tennessee'],['TX','Texas'],['UT','Utah'],['VT','Vermont'],['VA','Virginia'],['WA','Washington'],['WV','West Virginia'],['WI','Wisconsin'],['WY','Wyoming']];
 const money=(v:number)=>'$'+Number(v).toFixed(2);
 export default function CustomerQuote(){
@@ -38,7 +38,7 @@ export default function CustomerQuote(){
   return ()=>{active=false;tag.remove();ref.remove()};
  },[token,valid]);
  async function payStripe(){
-  if(!valid||!payment?.stripe?.checkoutReady||!data?.order||busy)return;
+  if(!valid||!checkoutReadyForOrder||paymentHeld||closedOrder||!data?.order||busy)return;
   setBusy(true);setError('');
   try{
    const response=await fetch('/api/payments/stripe/create',{
@@ -68,6 +68,13 @@ export default function CustomerQuote(){
   finally{setBusy(false)}
  }
  const q=data?.quote,order=data?.order;
+ const paymentHeld=Number(order?.active_payment_review_count||0)>0;
+ const closedOrder=order?.status==='CANCELLED'||order?.payment_status==='REFUNDED';
+ // Global Stripe configuration does not authorize a wholesale charge.
+ // The backend still performs per-order tax, address and receipt verification.
+ const checkoutReadyForOrder=Boolean(order&&(order.reference.startsWith('ME-RO-')
+   ?payment?.stripe?.retailConfigurationReady
+   :payment?.stripe?.b2bConfigurationReady));
  const taxPending=q?.notes?.startsWith('STRIPE_AUTOMATIC_TAX_PENDING:')&&order?.payment_status!=='PAID';
  return <div className="public-shell"><main className="form-page">
   <div className="form-intro"><span className="eyebrow">PRIVATE COMMERCIAL ORDER</span>
@@ -104,11 +111,15 @@ export default function CustomerQuote(){
       {returned&&<p>We received your return from the payment page. We only mark the order paid after server-side confirmation. Please refresh if your payment is processing.</p>}
      </div>:<p>No order has been created for this quotation yet.</p>}
      {error&&<p role="alert" className="form-status error">{error}</p>}
-     {order?.payment_status==='PAID'?<p role="status" className="form-status success">
+     {paymentHeld?<p role="alert" className="form-status error">
+      Stripe payment requires manual reconciliation. Do not pay again; order preparation and shipping are on hold until MING EAGLE completes review.</p>:
+      closedOrder?<p role="status" className="form-status error">
+      This order is closed or refunded. Please contact MING EAGLE rather than attempting another payment.</p>:
+      order?.payment_status==='PAID'?<p role="status" className="form-status success">
       Payment confirmed. Thank you for your order.</p>:
       !order&&['SENT','VIEWED'].includes(q.status)&&!q.is_expired?
        <button className="button" disabled={busy} onClick={accept}>{busy?'Processing…':'Accept quote to create unpaid order'}</button>:
-       order&&payment?.stripe?.checkoutReady?
+       order&&checkoutReadyForOrder?
        <button className="button" disabled={busy} onClick={payStripe}>{busy?'Preparing…':'Pay securely with Stripe'}</button>:
        <p className="form-note">Stripe online payment is not yet activated for this order. Contact MING EAGLE for the approved Stripe payment link.</p>}
      <p className="form-note">Do not send credit card details by email, chat or WhatsApp.</p>
