@@ -424,7 +424,7 @@ try{
  assert.equal(proof.status,200,await proof.clone().text());
  assert.equal((await proof.json()).standaloneLiveVerification,true);
  assert(processedEvents.has(liveProof.id),'Standalone test event is audit-processed');
- assert.equal(receivedInserts,paymentWritesAfterFirst,'Standalone payment must not create any order payment');
+ assert.equal(receivedInserts,b2bPaymentsAfter,'Standalone payment must not create any order payment');
  assert.equal((await (await signedProof(liveProof)).json()).duplicate,true,'Standalone proof is idempotent');
  for(const [name,changes] of [
    ['unknown link',{payment_link:'plink_synthetic_unrelated'}],
@@ -437,7 +437,7 @@ try{
    const rejected=await signedProof(other);
    assert.equal(rejected.status,409,'Unrecognized Stripe session must fail closed: '+name);
    assert(!processedEvents.has(other.id),'Unexpected event must remain unprocessed: '+name);
-   assert.equal(receivedInserts,paymentWritesAfterFirst);
+   assert.equal(receivedInserts,b2bPaymentsAfter);
  }
 
  const invalid=await webhook({env:{...ready,MINGEAGLE_DB:db},
@@ -466,6 +466,6 @@ try{
    method:'POST',headers:{'stripe-signature':'t='+now+',v1='+otherModeSig},body:otherModeText
   })});
  assert.equal(wrongModeWebhook.status,409,'Signed live session must be rejected by a test-mode webhook');
- assert.equal(receivedInserts,paymentWritesAfterFirst,'Cross-mode event must not record payment');
+ assert.equal(receivedInserts,b2bPaymentsAfter,'Cross-mode event must not record payment');
  console.log('PASS: Stripe fail-closed gate, owner-approved tax, signature verification, server price, hosted URL and signed payment reconciliation.');
 }finally{globalThis.fetch=saved}
