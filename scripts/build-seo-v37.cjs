@@ -31,7 +31,7 @@ const settings={
  },
  'silent-basketball.html':{
   title:'Flocked Silent Basketball Set with Mini Hoop | MING EAGLE',
-  description:'Soft flocked silent basketball set with adhesive mini hoop. Available sizes 3, 5 and 7 in four colors for quieter family indoor play.',
+  description:"Explore MING EAGLE's flocked basketball set for quieter indoor practice, with sizes 3, 5 and 7. Compare colors, mini-hoop details, sample shipping and bulk quotes.",
   product:{name:'Flocked Silent Basketball Set',image:'assets/hero-flocked-silent-basketball-set.webp',
    description:'Flocked non-inflatable basketball and adhesive mini hoop set for quieter indoor family play. Sizes 3, 5 and 7.'}
  },
@@ -43,13 +43,13 @@ const settings={
  },
  'weighted-flocked-basketball.html':{
   title:'Weighted Flocked Silent Basketball for Indoor Drills | MING EAGLE',
-  description:'Training-oriented weighted flocked silent basketball. Sizes 3, 4, 6 and 7 with orange, brown, black and aqua blue options.',
+  description:"Explore the weighted flocked basketball for indoor practice, available in sizes 3, 4, 6 and 7. Review color options, product details and wholesale quote options.",
   product:{name:'Weighted Flocked Silent Basketball',image:'assets/hero-weighted-flocked-silent-basketball.webp',
    description:'Training-oriented weighted flocked basketball for quieter indoor ball-handling drills. Sizes 3, 4, 6 and 7.'}
  },
  'silent-soccer.html':{
   title:'Flocked Silent Soccer Ball for Indoor Play | MING EAGLE',
-  description:'Size 5 flocked quiet-touch indoor soccer ball for kids and teen home footwork, family play and indoor recreation. Five colorways.',
+  description:"Explore the flocked indoor soccer ball for quieter small-space footwork. Size 5 in five colorways; review product details, sample shipping and institutional quotes.",
   product:{name:'Flocked Silent Soccer Ball',image:'assets/hero-flocked-silent-soccer-ball.webp',
    description:'Size 5 flocked quiet-touch soccer ball for indoor kids and teens, home footwork and family play.'}
  }
@@ -79,6 +79,19 @@ for(const [filename,config] of Object.entries(settings)){
  if(!html.includes('name="description"'))throw new Error('Missing description: '+filename);
  if(!/rel=["']canonical["']/i.test(html))throw new Error('Missing canonical: '+filename);
  const key=productKeys[filename];
+ if(key){
+  // Product-page share metadata follows the same reviewed title/description as search metadata.
+  const replaceOrAdd=(property,value)=>{
+   const pattern=new RegExp('<meta\\b(?=[^>]*\\bproperty=["\\']'+property+'["\\'])[^>]*>','i');
+   const tag='<meta property="'+property+'" content="'+esc(value)+'">';
+   if(pattern.test(html))html=html.replace(pattern,tag);
+   else html=html.replace(/<\\/head>/i,tag+'</head>');
+  };
+  replaceOrAdd('og:title',config.title);
+  replaceOrAdd('og:description',config.description);
+  html=html.replace(/<meta\\b(?=[^>]*\\bname=["\\']robots["\\'])[^>]*>\\s*/i,'');
+  html=html.replace(/<\\/head>/i,'<meta name="robots" content="index,follow,max-image-preview:large"></head>');
+ }
  const variants=key?Object.entries(retail.products[key]).map(([size,price])=>({
   '@type':'Product',name:config.product.name+' - Size '+size,
   sku:key.toUpperCase()+'-S'+size,size:'Size '+size,
