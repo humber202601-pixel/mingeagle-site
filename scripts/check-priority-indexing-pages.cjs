@@ -30,27 +30,38 @@ for(const model of ['silent-basketball.html','fabric-silent-basketball.html','we
 const fabric=fs.readFileSync('public/fabric-silent-basketball.html','utf8');
 assert(fabric.includes('orange or green in sizes 3, 5 and 7'));
 
+
 for(const [filename,url,title] of [
  ['wholesale.html','https://www.mingeagle.com/wholesale.html','Wholesale Sports Equipment for Schools, Institutions & Business | MING EAGLE'],
- ['procurement.html','https://www.mingeagle.com/procurement.html','Institutional & Public-Sector Sports Equipment Procurement | MING EAGLE'],
- ['silent-basketball.html','https://www.mingeagle.com/silent-basketball.html','Flocked Silent Basketball Set | MING EAGLE'],
- ['fabric-silent-basketball.html','https://www.mingeagle.com/fabric-silent-basketball.html','Fabric-Cover Soft Silent Basketball & Mini Hoop Set | MING EAGLE'],
- ['weighted-flocked-basketball.html','https://www.mingeagle.com/weighted-flocked-basketball.html','Weighted Flocked Silent Basketball | MING EAGLE'],
- ['silent-soccer.html','https://www.mingeagle.com/silent-soccer.html','Flocked Silent Soccer Ball | MING EAGLE']
+ ['procurement.html','https://www.mingeagle.com/procurement.html','Institutional & Public-Sector Sports Equipment Procurement | MING EAGLE']
 ]){
  const html=fs.readFileSync('public/'+filename,'utf8'),head=html.split('</head>')[0];
  assert.equal((head.match(/<meta[^>]*name="robots"/g)||[]).length,1,filename+' must have one robots directive');
  assert(head.includes('<meta name="description" content="'),filename+' needs a page-specific meta description');
- assert(!head.includes('MING EAGLE sporting goods, quieter indoor play, wholesale and community stories.'),filename+' must not use the generic site description');
  assert(head.includes('<meta property="og:title"'),filename+' needs Open Graph title');
  assert(head.includes('<meta property="og:description"'),filename+' needs Open Graph description');
  assert(head.includes('<meta property="og:url" content="'+url+'"'),filename+' needs canonical Open Graph URL');
- const blocks=[...head.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)];
+ const blocks=[...head.matchAll(/<script[^>]*type="application\\/ld\\+json"[^>]*>([\\s\\S]*?)<\\/script>/gi)];
  const graph=blocks.map(x=>JSON.parse(x[1])).flatMap(x=>x['@graph']||[x]);
  assert(graph.some(x=>x['@type']==='WebPage'&&x.url===url&&x.name===title),filename+' needs page-specific WebPage schema');
  const crumb=graph.find(x=>x['@type']==='BreadcrumbList'&&x['@id']===url+'#breadcrumb');
  assert(crumb&&crumb.itemListElement?.length===2,filename+' needs a two-step canonical breadcrumb');
  assert(graph.some(x=>x['@type']==='Organization'&&x.url==='https://www.mingeagle.com/'),filename+' needs the verified brand organization entity');
+}
+const productMeta=[
+ ['silent-basketball.html','https://www.mingeagle.com/silent-basketball.html','Flocked Silent Basketball Set with Mini Hoop | MING EAGLE',"Explore MING EAGLE's flocked basketball set for quieter indoor practice, with sizes 3, 5 and 7. Compare colors, mini-hoop details, sample shipping and bulk quotes."],
+ ['fabric-silent-basketball.html','https://www.mingeagle.com/fabric-silent-basketball.html','Fabric-Cover Soft Silent Basketball & Mini Hoop Set | MING EAGLE','Explore the fabric-cover indoor basketball plus adhesive mini hoop. Sizes 3, 5 and 7 in orange or green, surface comparison and US parcel shipping estimates.'],
+ ['weighted-flocked-basketball.html','https://www.mingeagle.com/weighted-flocked-basketball.html','Weighted Flocked Silent Basketball for Indoor Drills | MING EAGLE',"Explore the weighted flocked basketball for indoor practice, available in sizes 3, 4, 6 and 7. Review color options, product details and wholesale quote options."],
+ ['silent-soccer.html','https://www.mingeagle.com/silent-soccer.html','Flocked Silent Soccer Ball for Indoor Play | MING EAGLE',"Explore the flocked indoor soccer ball for quieter small-space footwork. Size 5 in five colorways; review product details, sample shipping and institutional quotes."]
+];
+for(const [filename,url,title,description] of productMeta){
+ const head=fs.readFileSync('public/'+filename,'utf8').split('</head>')[0];
+ assert(head.includes('<meta name="description" content="'+description.replace(/&/g,'&amp;')+'"')||head.includes('<meta name="description" content="'+description+'"'),filename+' needs a unique source description');
+ assert(!head.includes('MING EAGLE sporting goods, quieter indoor play, wholesale and community stories.'),filename+' must not use the generic site description');
+ assert.equal((head.match(/<meta[^>]*name="robots"/g)||[]).length,1,filename+' must have exactly one index directive');
+ assert(head.includes('<meta property="og:title" content="'+title.replace(/&/g,'&amp;')+'"'),filename+' OG title must align with the SEO builder');
+ assert(head.includes('<meta property="og:description" content="'+description+'"'),filename+' OG description must align with the SEO builder');
+ assert(head.includes('<meta property="og:url" content="'+url+'"'),filename+' OG URL must match canonical');
 }
 
 console.log('PASS: buyer-guide and product-page metadata, structured data, crawlable model links and truthful video limitations.');
