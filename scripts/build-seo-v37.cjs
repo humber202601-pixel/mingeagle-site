@@ -85,14 +85,14 @@ for(const [filename,config] of Object.entries(settings)){
    const pattern=new RegExp(`<meta\\b(?=[^>]*\\b${attribute}=["']${value}["'])[^>]*>`,'i');
    const tag='<meta '+attribute+'="'+value+'" content="'+esc(content)+'">';
    if(pattern.test(html))html=html.replace(pattern,tag);
-   else html=html.replace(/<\\/head>/i,tag+'</head>');
+    else html=html.replace(/<\/head>/i,tag+'</head>');
   };
   replaceMeta('property','og:title',config.title);
   replaceMeta('property','og:description',config.description);
   replaceMeta('name','twitter:title',config.title);
   replaceMeta('name','twitter:description',config.description);
-  html=html.replace(/<meta\\b(?=[^>]*\\bname=["']robots["'])[^>]*>\\s*/i,'');
-  html=html.replace(/<\\/head>/i,'<meta name="robots" content="index,follow,max-image-preview:large"></head>');
+   html=html.replace(/<meta\b(?=[^>]*\bname=["']robots["'])[^>]*>\s*/i,'');
+   html=html.replace(/<\/head>/i,'<meta name="robots" content="index,follow,max-image-preview:large"></head>');
  }
  const variants=key?Object.entries(retail.products[key]).map(([size,price])=>({
   '@type':'Product',name:config.product.name+' - Size '+size,
