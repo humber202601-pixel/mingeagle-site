@@ -6,6 +6,9 @@ interface Env extends StripeEnv {
  STRIPE_B2B_CHECKOUT_ENABLED?:string;
  STRIPE_B2B_TAX_POLICY_APPROVED?:string;
  STRIPE_B2B_APPROVED_US_STATES?:string;
+ RETAIL_CHECKOUT_ENABLED?:string;
+ RETAIL_STOCK_FULFILLMENT_APPROVED?:string;
+ RETAIL_TAX_POLICY_APPROVED?:string;
   AIRWALLEX_CLIENT_ID?: string;
   AIRWALLEX_API_KEY?: string;
   AIRWALLEX_ENV?: string;
@@ -37,6 +40,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
       checkoutRequested:stripe.checkoutRequested,
       taxPolicyApproved:env.STRIPE_TAX_POLICY_APPROVED==='true',
       retailOnlyRestriction:env.STRIPE_RETAIL_ONLY_ENABLED==='true',
+      // Retail and wholesale approval must not be inferred from the same global Stripe flag.
+      retailConfigurationReady:stripe.checkoutReady&&env.STRIPE_TAX_POLICY_APPROVED==='true'
+        &&env.RETAIL_CHECKOUT_ENABLED==='true'&&env.RETAIL_STOCK_FULFILLMENT_APPROVED==='true'
+        &&env.RETAIL_TAX_POLICY_APPROVED==='true',
       b2bCheckoutRequested:env.STRIPE_B2B_CHECKOUT_ENABLED==='true',
       b2bTaxReviewConfigured:env.STRIPE_B2B_TAX_POLICY_APPROVED==='true',
       b2bConfigurationReady:stripe.checkoutReady&&env.STRIPE_TAX_POLICY_APPROVED==='true'
