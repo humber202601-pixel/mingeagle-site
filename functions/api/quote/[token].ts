@@ -40,6 +40,10 @@ async function getQuote(db: D1Database, token: string) {
 
 async function getOrder(db: D1Database, quoteId: string) {
   return db.prepare(`SELECT o.id, o.reference, o.status, o.payment_status,
+      (SELECT COUNT(*) FROM tasks t WHERE t.order_id=o.id AND t.type='PAYMENT'
+       AND t.status IN ('OPEN','IN_PROGRESS')
+       AND (t.title LIKE 'Review disputed Stripe receipts%'
+         OR t.title LIKE 'Review payment on closed order%')) AS active_payment_review_count,
       (SELECT carrier FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS carrier,
       (SELECT service FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS service,
       (SELECT tracking_number FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS tracking_number,
