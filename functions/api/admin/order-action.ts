@@ -192,7 +192,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     // A settled Stripe event can leave an earlier PAID status intact while
     // raising an urgent reconciliation task (duplicate/overpaid/mixed receipts).
     // Do not let a prior PAID label alone bypass that payment hold.
-    if (['START_PROCESSING','READY_TO_SHIP','SHIP'].includes(String(action))) {
+    if (['START_PROCESSING','READY_TO_SHIP','SHIP','DELIVER','COMPLETE'].includes(String(action))) {
       const unresolvedPaymentReview = await db.prepare(`SELECT id FROM tasks
         WHERE order_id=? AND type='PAYMENT' AND status IN ('OPEN','IN_PROGRESS')
         AND (title LIKE 'Review disputed Stripe receipts%'
@@ -200,7 +200,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         LIMIT 1`).bind(orderId).first<{id:string}>();
       if (unresolvedPaymentReview) {
         return Response.json({ok:false,code:'PAYMENT_RECONCILIATION_HOLD',
-          error:'This order has an unresolved Stripe payment review. Reconcile funds and close the urgent payment review before processing or shipping.'},{status:409});
+          error:'This order has an unresolved Stripe payment review. Reconcile funds and close the urgent payment review before processing, shipping, delivery confirmation or completion.'},{status:409});
       }
     }
 

@@ -144,8 +144,8 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
         </div>
 
         {paymentHeld && <div className="form-status error" role="alert">
-          <strong>Stripe 收款异常待核对 · 暂停发货</strong>
-          <p>这笔订单存在未完成的付款人工复核任务。即使显示 PAID，也不能继续备货、标记待发货或确认发货；请先在后台核实 Stripe 收款、历史付款记录及订单金额。</p>
+          <strong>Stripe 收款异常待核对 · 暂停履约及订单完成</strong>
+          <p>这笔订单存在未完成的付款人工复核任务。即使显示 PAID，也不能继续备货、标记待发货、确认发货、送达或完成订单；请先在后台核实 Stripe 收款、历史付款记录及订单金额。</p>
         </div>}
         {onlineStatus && <div className={`form-status ${['SUCCEEDED'].includes(onlineStatus) ? 'success' : ['CANCELLED','PAYMENT_FAILED'].includes(onlineStatus) ? 'error' : ''}`}>
           <strong>{paymentProviderLabel(onlineProvider)}：{onlineStatusLabel(onlineStatus)}</strong>
@@ -193,9 +193,9 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
           <button className="button small" disabled={busy !== ''}>{busy === `${reference}:SHIP` ? '正在保存…' : '确认已发货'}</button>
         </form>}
 
-        {status === 'SHIPPED' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'DELIVER')}>确认已送达</button>{Boolean(order.tracking_url) && <a className="button secondary small" href={text(order.tracking_url)} target="_blank" rel="noreferrer">打开物流查询</a>}</div>}
-        {status === 'DELIVERED' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'COMPLETE')}>完成订单</button><button className="button secondary small" disabled={busy !== ''} onClick={() => void createReorderQuote(reference)}>{busy === `${reference}:REORDER` ? '正在生成…' : '生成复购报价'}</button><span className="order-hint">系统已自动安排后续复购跟进任务。</span></div>}
-        {status === 'COMPLETED' && <div className="order-actions"><div className="order-complete">订单已完成 · 复购跟进流程仍会继续执行。</div><button className="button secondary small" disabled={busy !== ''} onClick={() => void createReorderQuote(reference)}>{busy === `${reference}:REORDER` ? '正在生成…' : '一键生成复购报价'}</button></div>}
+        {status === 'SHIPPED' && <div className="order-actions">{!paymentHeld && <button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'DELIVER')}>确认已送达</button>}{Boolean(order.tracking_url) && <a className="button secondary small" href={text(order.tracking_url)} target="_blank" rel="noreferrer">打开物流查询</a>}</div>}
+        {status === 'DELIVERED' && !paymentHeld && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'COMPLETE')}>完成订单</button><button className="button secondary small" disabled={busy !== ''} onClick={() => void createReorderQuote(reference)}>{busy === `${reference}:REORDER` ? '正在生成…' : '生成复购报价'}</button><span className="order-hint">系统已自动安排后续复购跟进任务。</span></div>}
+        {status === 'COMPLETED' && !paymentHeld && <div className="order-actions"><div className="order-complete">订单已完成 · 复购跟进流程仍会继续执行。</div><button className="button secondary small" disabled={busy !== ''} onClick={() => void createReorderQuote(reference)}>{busy === `${reference}:REORDER` ? '正在生成…' : '一键生成复购报价'}</button></div>}
 
         {note && <div className={`form-status ${note.type}`}><strong>{note.type === 'success' ? '保存成功' : '操作失败'}</strong><p>{note.text}</p></div>}
       </section>;

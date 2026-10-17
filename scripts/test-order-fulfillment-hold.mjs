@@ -68,6 +68,22 @@ const shippedAgain=await call('SHIP',track);
 assert.equal(shippedAgain.status,200);assert.equal(shippedAgain.body.unchanged,true);
 assert.equal(writes,before,'Identical tracking must not produce repeat shipment and email activity');
 assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM tasks WHERE order_id=? AND type='DELIVERY_CHECK'").get(orderId).n,1);
+// A payment dispute may be discovered only after shipping. It must still
+// halt delivery confirmation and downstream reorder messaging/tasks.
+sqlite.prepare("UPDATE tasks SET status='OPEN' WHERE id=?").run(reviewId);
+for(const action of ['DELIVER','COMPLETE']){
+ const priorWrites=writes;
+ const denied=await call(action);
+ assert.equal(denied.status,409,'Post-shipment payment hold must block '+action);
+ assert.equal(denied.body.code,'PAYMENT_RECONCILIATION_HOLD');
+ assert.equal(writes,priorWrites,'No D1 writes under post-shipment review: '+action);
+ assert.equal(sqlite.prepare('SELECT status FROM orders WHERE id=?').get(orderId).status,'SHIPPED');
+}
+assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM tasks WHERE order_id=? AND type='REORDER'").get(orderId).n,0,
+ 'No reorder campaign should begin while shipped payment is disputed');
+sqlite.prepare("UPDATE tasks SET status='IN_PROGRESS' WHERE id=?").run(reviewId);
+assert.equal((await call('DELIVER')).status,409,'IN_PROGRESS review blocks delivery confirmation');
+sqlite.prepare("UPDATE tasks SET status='DONE' WHERE id=?").run(reviewId);
 const delivered=await call('DELIVER');
 assert.equal(delivered.status,200,JSON.stringify(delivered.body));
 before=writes;
@@ -75,6 +91,15 @@ const deliveredAgain=await call('DELIVER');
 assert.equal(deliveredAgain.status,200);assert.equal(deliveredAgain.body.unchanged,true);
 assert.equal(writes,before,'Repeated delivery event must not schedule duplicate reorder prompts');
 assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM tasks WHERE order_id=? AND type='REORDER'").get(orderId).n,1);
+// A dispute raised after proof-of-delivery must also block final completion.
+sqlite.prepare("UPDATE tasks SET status='OPEN' WHERE id=?").run(reviewId);
+const completeHoldWrites=writes;
+const deniedCompletion=await call('COMPLETE');
+assert.equal(deniedCompletion.status,409,'Payment hold blocks completed status after delivery');
+assert.equal(deniedCompletion.body.code,'PAYMENT_RECONCILIATION_HOLD');
+assert.equal(writes,completeHoldWrites);
+assert.equal(sqlite.prepare('SELECT status FROM orders WHERE id=?').get(orderId).status,'DELIVERED');
+sqlite.prepare("UPDATE tasks SET status='DONE' WHERE id=?").run(reviewId);
 const completed=await call('COMPLETE');
 assert.equal(completed.status,200,JSON.stringify(completed.body));
 before=writes;
@@ -82,5 +107,5 @@ const completedAgain=await call('COMPLETE');
 assert.equal(completedAgain.status,200);assert.equal(completedAgain.body.unchanged,true);
 assert.equal(writes,before,'Repeated completion must not re-log activities');
 assert.equal(sqlite.prepare('SELECT status FROM orders WHERE id=?').get(orderId).status,'COMPLETED');
-console.log('PASS: active Stripe dispute blocks processing/shipping; repeated lifecycle actions create no duplicate tasks or emails.');
+console.log('PASS: active Stripe disputes block processing, shipping, delivery and completion; repeated lifecycle actions remain idempotent.');
 sqlite.close();

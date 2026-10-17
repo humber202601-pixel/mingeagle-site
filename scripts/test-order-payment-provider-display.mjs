@@ -69,12 +69,20 @@ assert(ui.includes('线上支付服务商（未记录）'));
 assert(ui.includes('paymentProviderLabel(onlineProvider)'));
 assert(ui.includes('支付服务商报告成功（仍需核实订单入账）'));
 assert(ui.includes('仅通过 Stripe 确认在线收款'),'Normal admin actions must not simulate payment confirmation');
-assert(ui.includes('Stripe 收款异常待核对 · 暂停发货'),'Admin must disclose unresolved payment hold');
+assert(ui.includes('Stripe 收款异常待核对 · 暂停履约及订单完成'),'Admin must disclose full lifecycle payment hold');
 assert(ui.includes('const paymentHeld = Number(order.active_payment_review_count || 0) > 0'),
  'Admin hold must use live server-calculated review count');
 for(const target of ['PAID','PROCESSING','READY_TO_SHIP'])
  assert(ui.includes("paymentStatus === 'PAID' && !paymentHeld && status === '"+target+"'"),
  'Unsafe fulfillment control must remain hidden under active receipt review: '+target);
+assert(ui.includes('!paymentHeld && <button className="button small"')&&ui.includes("runAction(reference, 'DELIVER')"),
+ 'Post-shipment delivery confirmation must be hidden during Stripe review');
+assert(ui.includes("status === 'DELIVERED' && !paymentHeld")&&ui.includes("runAction(reference, 'COMPLETE')"),
+ 'Order completion and reorder actions must not be presented under an active review');
+assert(ui.includes("status === 'COMPLETED' && !paymentHeld"),
+ 'Completed order reorder shortcut must be suppressed during payment review');
+assert(ui.includes('Boolean(order.tracking_url)'),
+ 'Tracking visibility must remain available while admin buttons are held');
 assert(ui.includes("quote_payment_route,'UNKNOWN'")&&ui.includes('需重新报价：旧付款条款不支持 Stripe'),
  'Unpayable legacy orders require a distinct staff warning');
 assert(ui.includes('href="/app/quotes"'),'Staff need a direct route to prepare a new accepted quote');
