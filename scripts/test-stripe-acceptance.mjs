@@ -106,8 +106,8 @@ try{
  assert.equal(page.status,200);const html=await page.text();assert(html.includes('Payment received in full.'));
  assert(html.includes("'/api/payments/stripe/status?token='"),'Only Stripe checkout status may be polled');
   assert(!html.includes('airwallexPayBtn')&&!html.includes('static.airwallex.com'),'No Airwallex online checkout is displayed');assert(!html.includes('when Airwallex confirms the payment'));
- // National startup uses real order SQL and the same exact provider/callback
- // reconciliation, under synthetic facts and mocked providers only.
+ // Startup facts are monitoring inputs only. They must not create a
+ // nationwide no-collection route when Stripe Automatic Tax is unavailable.
  const providerFixture=globalThis.fetch;
  globalThis.fetch=async(url,init)=>url==='https://challenges.cloudflare.com/turnstile/v0/siteverify'
   ?Response.json({success:true,hostname:'app.mingeagle.com',action:'mingeagle_inquiry'})
@@ -116,18 +116,7 @@ try{
   TURNSTILE_ENABLED:'true',TURNSTILE_SITE_KEY:'synthetic-only',TURNSTILE_SECRET_KEY:'synthetic-only',
   RETAIL_REMOTE_STARTUP_FACTS_JSON:JSON.stringify({basis:'REMOTE_SELLER_STARTUP',source:'OWNER_FACTUAL_DECLARATION',confirmed_on:new Date().toISOString().slice(0,10),reference:'SYNTHETIC_FACTS_NO_REAL_DECLARATION',fulfillment_country:'CN',no_us_business_presence:true,us_direct_marketplace_related_sales_usd:0,us_direct_marketplace_related_orders:0})};
  const retail=await createRetail({env:national,request:new Request('https://app.mingeagle.com/api/retail/checkout',{method:'POST',headers:{origin:'https://app.mingeagle.com','content-type':'application/json'},body:JSON.stringify({requestId:randomUUID(),country:'US',method:'air',lines:[{sku:'P1-S3',quantity:1,color:'Blue'}],name:'Synthetic CA Customer',email:'synthetic-ca@example.net',phone:'+12025550101',street1:'Synthetic address - do not ship',city:'Los Angeles',state:'CA',postalCode:'90012',privacyAck:true,turnstileToken:'synthetic-only'})})});
- assert.equal(retail.status,200,await retail.clone().text());
- const nationalOrder=await retail.json();assert.equal(nationalOrder.totalBeforeTaxesUSD,21.4);
- const nationalToken=new URL(nationalOrder.paymentPage).pathname.split('/').at(-1);
- assert(sqlite.prepare('SELECT q.notes FROM quotes q JOIN orders o ON o.quote_id=q.id WHERE o.reference=?').get(nationalOrder.orderReference).notes.startsWith('REMOTE_STARTUP:'));
- const start=await createCheckout({env:national,request:new Request('https://app.mingeagle.com/api/payments/stripe/create',{method:'POST',headers:{origin:'https://app.mingeagle.com','content-type':'application/json'},body:JSON.stringify({token:nationalToken})})});
- assert.equal(start.status,200,await start.clone().text());
- const nationalSession=sessions.get('cs_test_2');assert.equal(nationalSession.amount_total,2140);
- const nationalEvent={id:'evt_synthetic_ca_startup',type:'checkout.session.completed',livemode:false,data:{object:{...nationalSession,status:'complete',payment_status:'paid'}}};
- const nationalPaid=await productionWebhook({env:national,request:signed(nationalEvent)});
- assert.equal(nationalPaid.status,200,await nationalPaid.clone().text());
- assert.equal(sqlite.prepare('SELECT payment_status FROM orders WHERE reference=?').get(nationalOrder.orderReference).payment_status,'PAID');
- assert.equal((await productionWebhook({env:national,request:signed(nationalEvent)})).status,200);
- assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM payments').get().n,2,'National callback replay must not create another receipt');
+ assert.equal(retail.status,503,await retail.clone().text());
+ assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM payments').get().n,1,'Fail-closed startup facts must not create another order or payment');
  console.log('PASS: real SQLite test order → provider session → signed callback → PAID, one receipt/task on replay; Stripe-specific read-only status and quote page.');
 }finally{globalThis.fetch=saved;sqlite.close()}
