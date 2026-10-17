@@ -65,6 +65,7 @@ on:
       - 'scripts/check-wholesale-product-deep-links.cjs'
       - 'scripts/check-public-canonicals.cjs'
       - 'scripts/check-sitemap-lastmod-evidence.cjs'
+      - 'scripts/check-b2b-acquisition-resource.cjs'
       - 'scripts/test-public-canonicals.cjs'
       - 'scripts/build-ai-product-facts.cjs'
       - 'scripts/check-ai-product-facts.cjs'
@@ -134,6 +135,7 @@ jobs:
           node scripts/check-wholesale-product-deep-links.cjs
           node scripts/check-public-canonicals.cjs
           node scripts/check-sitemap-lastmod-evidence.cjs
+          node scripts/check-b2b-acquisition-resource.cjs
           node scripts/test-indexnow-notify-changed.cjs
           node scripts/test-public-canonicals.cjs
           node scripts/build-ai-product-facts.cjs
