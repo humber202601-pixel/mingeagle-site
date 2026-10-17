@@ -6,7 +6,7 @@ const xml=fs.readFileSync(path.join(dir,'sitemap.xml'),'utf8');
 const entries=[...xml.matchAll(/<url>\s*<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>\s*<\/url>/g)].map(m=>({url:m[1],date:m[2]}));
 const all=[...xml.matchAll(/<url>/g)].length;
 assert.equal(entries.length,all,'Every sitemap URL needs one explicit verified lastmod');
-assert.equal(entries.length,26,'Sitemap and current buyer benchmark contain 25 pages');
+assert.equal(entries.length,27,'Main sitemap must list the 27 live canonical buyer-facing pages');
 const seen=new Set(),dates=new Map(),today=new Date().toISOString().slice(0,10);
 for(const entry of entries){
  assert(!seen.has(entry.url),'Duplicate sitemap URL: '+entry.url);seen.add(entry.url);
@@ -19,10 +19,10 @@ for(const entry of entries){
  assert(/^[a-z0-9-]+\.html$/.test(filename)&&fs.existsSync(path.join(dir,filename)),'Missing approved HTML page '+filename);
  dates.set(filename,entry.date);
 }
-const revised=['for-schools.html','wholesale.html','index.html','silent-basketball.html','fabric-silent-basketball.html','weighted-flocked-basketball.html','silent-soccer.html','products.html','wholesale-product-catalog.html','for-coaches.html','basketball-camp-equipment-supplier.html'];
+const revised=['school-basketball-bulk-order-rfq-checklist.html','procurement.html','for-schools.html','wholesale.html','index.html','silent-basketball.html','fabric-silent-basketball.html','weighted-flocked-basketball.html','silent-soccer.html','products.html','wholesale-product-catalog.html','for-coaches.html','basketball-camp-equipment-supplier.html'];
 for(const p of revised)assert(dates.get(p)>='2026-10-13','Meaningfully revised content cannot be represented by its obsolete 2026-10-12 sitemap lastmod: '+p);
 for(const p of ['order-status.html']){
  assert.equal(dates.get(p),'2026-10-12','Do not rewrite untouched pages merely to appear fresh: '+p);
 }
 assert.equal(dates.get('videos.html'),'2026-10-13','Genuine video gallery editorial update needs evidence-backed sitemap lastmod');
-console.log('PASS: 26 unique www canonical URLs, real ISO lastmod dates, four revised buyer pages current, untouched pages not mass-updated.');
+console.log('PASS: 27 unique www canonical URLs, evidenced lastmod dates and preserved untouched page dates.');

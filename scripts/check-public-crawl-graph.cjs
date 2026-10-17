@@ -5,7 +5,7 @@ const root=path.resolve(process.argv[2]||'public');
 const host='https://www.mingeagle.com/';
 const sitemap=fs.readFileSync(path.join(root,'sitemap.xml'),'utf8');
 const urls=[...sitemap.matchAll(/<loc>\s*(https:\/\/www\.mingeagle\.com\/[^<\s]*)\s*<\/loc>/g)].map(m=>m[1]);
-assert.equal(urls.length,26,'Public sitemap expected 25 approved URLs; update benchmarks if pages change');
+assert.equal(urls.length,27,'Public sitemap must list 27 verified buyer pages, not orphan files');
 const byUrl=new Map();
 const paths=new Set();
 function route(href,base){

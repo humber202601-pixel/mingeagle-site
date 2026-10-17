@@ -5,7 +5,7 @@ const root=path.resolve(process.argv[2]||'public');
 const base='https://www.mingeagle.com/';
 const sitemap=fs.readFileSync(path.join(root,'sitemap.xml'),'utf8');
 const urls=[...sitemap.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)].map(x=>x[1]);
-assert.equal(urls.length,26,'Approved public catalog currently has 25 canonical pages');
+assert.equal(urls.length,27,'Public catalog now contains 27 canonical buyer-facing pages');
 assert.equal(new Set(urls).size,urls.length,'Sitemap cannot contain duplicate canonical URLs');
 const robots=fs.readFileSync(path.join(root,'robots.txt'),'utf8');
 assert(robots.includes('Sitemap: '+base+'sitemap.xml'));
