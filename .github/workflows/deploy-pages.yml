@@ -91,6 +91,7 @@ jobs:
           node scripts/check-wholesale-product-deep-links.cjs
           node scripts/check-public-canonicals.cjs
           node scripts/check-sitemap-lastmod-evidence.cjs
+          node scripts/check-b2b-acquisition-resource.cjs
           node scripts/test-public-canonicals.cjs
           node scripts/check-geo-source-capture.cjs
           node scripts/check-ai-discovery-benchmark.cjs
