@@ -102,7 +102,9 @@ jobs:
           python scripts/check-live-public-crawl.py --self-test
 
       - name: Verify priority catalog, fabric and creator indexing context
-        run: node scripts/check-priority-indexing-pages.cjs
+        run: |
+          node scripts/check-priority-indexing-pages.cjs
+          node scripts/test-school-buyer-rfq.cjs
 
       - name: Optimize first-party native image loading
         run: |
