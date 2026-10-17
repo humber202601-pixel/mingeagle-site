@@ -41,7 +41,7 @@ for(const [filename,url,title] of [
  assert(head.includes('<meta property="og:title"'),filename+' needs Open Graph title');
  assert(head.includes('<meta property="og:description"'),filename+' needs Open Graph description');
  assert(head.includes('<meta property="og:url" content="'+url+'"'),filename+' needs canonical Open Graph URL');
- const blocks=[...head.matchAll(/<script[^>]*type="application\\/ld\\+json"[^>]*>([\\s\\S]*?)<\\/script>/gi)];
+ const blocks=[...head.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)];
  const graph=blocks.map(x=>JSON.parse(x[1])).flatMap(x=>x['@graph']||[x]);
  assert(graph.some(x=>x['@type']==='WebPage'&&x.url===url&&x.name===title),filename+' needs page-specific WebPage schema');
  const crumb=graph.find(x=>x['@type']==='BreadcrumbList'&&x['@id']===url+'#breadcrumb');
