@@ -35,6 +35,7 @@ for(const [filename,url,title] of [
  ['procurement.html','https://www.mingeagle.com/procurement.html','Institutional & Public-Sector Sports Equipment Procurement | MING EAGLE']
 ]){
  const html=fs.readFileSync('public/'+filename,'utf8'),head=html.split('</head>')[0];
+ assert.equal((head.match(/<meta[^>]*name="robots"/g)||[]).length,1,filename+' must have one robots directive');
  assert(head.includes('<meta property="og:title"'),filename+' needs Open Graph title');
  assert(head.includes('<meta property="og:description"'),filename+' needs Open Graph description');
  assert(head.includes('<meta property="og:url" content="'+url+'"'),filename+' needs canonical Open Graph URL');
