@@ -46,9 +46,10 @@ export function remoteStartupFactsCurrent(env:RetailTaxEnv,now=new Date()):boole
  }catch{return false}
 }
 export function reviewedZeroTaxStates(env:RetailTaxEnv,now=new Date()):Set<string>{
- const states=reviewedGovernmentOrMerchantStates(env,now);
- if(remoteStartupFactsCurrent(env,now))for(const state of Object.keys(US_DELIVERY_STATES))states.add(state);
- return states;
+ // Startup facts are operational evidence only. Zero sales, China-direct
+ // fulfillment and no known US presence must never create a nationwide
+ // no-collection decision. Only an explicit reviewed state policy may do so.
+ return reviewedGovernmentOrMerchantStates(env,now);
 }
 // A collection decision is distinct from a no-collection decision. The reference
 // records the merchant's actual registration; runtime also verifies Stripe.
