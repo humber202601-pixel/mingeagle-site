@@ -32,10 +32,16 @@ assert(fabric.includes('orange or green in sizes 3, 5 and 7'));
 
 for(const [filename,url,title] of [
  ['wholesale.html','https://www.mingeagle.com/wholesale.html','Wholesale Sports Equipment for Schools, Institutions & Business | MING EAGLE'],
- ['procurement.html','https://www.mingeagle.com/procurement.html','Institutional & Public-Sector Sports Equipment Procurement | MING EAGLE']
+ ['procurement.html','https://www.mingeagle.com/procurement.html','Institutional & Public-Sector Sports Equipment Procurement | MING EAGLE'],
+ ['silent-basketball.html','https://www.mingeagle.com/silent-basketball.html','Flocked Silent Basketball Set | MING EAGLE'],
+ ['fabric-silent-basketball.html','https://www.mingeagle.com/fabric-silent-basketball.html','Fabric-Cover Soft Silent Basketball & Mini Hoop Set | MING EAGLE'],
+ ['weighted-flocked-basketball.html','https://www.mingeagle.com/weighted-flocked-basketball.html','Weighted Flocked Silent Basketball | MING EAGLE'],
+ ['silent-soccer.html','https://www.mingeagle.com/silent-soccer.html','Flocked Silent Soccer Ball | MING EAGLE']
 ]){
  const html=fs.readFileSync('public/'+filename,'utf8'),head=html.split('</head>')[0];
  assert.equal((head.match(/<meta[^>]*name="robots"/g)||[]).length,1,filename+' must have one robots directive');
+ assert(head.includes('<meta name="description" content="'),filename+' needs a page-specific meta description');
+ assert(!head.includes('MING EAGLE sporting goods, quieter indoor play, wholesale and community stories.'),filename+' must not use the generic site description');
  assert(head.includes('<meta property="og:title"'),filename+' needs Open Graph title');
  assert(head.includes('<meta property="og:description"'),filename+' needs Open Graph description');
  assert(head.includes('<meta property="og:url" content="'+url+'"'),filename+' needs canonical Open Graph URL');
@@ -47,4 +53,4 @@ for(const [filename,url,title] of [
  assert(graph.some(x=>x['@type']==='Organization'&&x.url==='https://www.mingeagle.com/'),filename+' needs the verified brand organization entity');
 }
 
-console.log('PASS: three page-specific titles, unique descriptions, crawlable model links and truthful video limitations.');
+console.log('PASS: buyer-guide and product-page metadata, structured data, crawlable model links and truthful video limitations.');
