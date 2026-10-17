@@ -103,7 +103,7 @@ try{
  let simulatedActiveStripeReview=false;
  let retailSku='P1-S7', retailGoods=14.9, retailShipping=14;
  const processedEvents=new Set();
- let receivedInserts=0;
+ let receivedInserts=0,paidOrderUpdates=0,fulfillmentTaskInserts=0;
  const db={prepare(sql){
   const state={sql,bind(...values){this.values=values;return this},
    async first(){
@@ -127,7 +127,7 @@ try{
     if(sql.includes("WHERE provider='STRIPE' AND provider_intent_id=?"))return stored?{order_id:'ord_synthetic',amount:28.9,currency:'USD',status:'OPEN'}:null;
     if(sql.includes('FROM payment_webhook_events'))return {processed_at:processedEvents.has(this.values?.[0])?'2026-10-14 00:00:00':null};
     if(sql.includes('FROM orders WHERE id='))return {
-      id:'ord_synthetic',reference:'ME-RO-SYNTHETIC',lead_id:null,company_id:null,contact_id:null,
+      id:'ord_synthetic',reference:orderReference,lead_id:null,company_id:null,contact_id:null,
       total:28.9,currency:'USD',payment_status:'UNPAID'
     };
     if(sql.includes('FROM payments WHERE order_id='))return {received:28.9};
@@ -153,6 +153,8 @@ try{
     if(sql.includes('INSERT OR IGNORE INTO payment_provider_sessions'))stored=true;
     if(sql.includes('UPDATE payment_webhook_events SET processed_at='))processedEvents.add(this.values[0]);
     if(sql.includes('INSERT OR IGNORE INTO payments '))receivedInserts++;
+    if(sql.includes("UPDATE orders SET payment_status='PAID'"))paidOrderUpdates++;
+    if(sql.includes("INSERT INTO tasks")&&sql.includes("'FULFILLMENT'"))fulfillmentTaskInserts++;
     return {success:true,meta:{changes:1}};
    }};
   return state;
@@ -347,7 +349,59 @@ try{
  assert.equal(duplicate.status,200,'Retrying same Stripe event should be accepted');
  assert.equal((await duplicate.json()).duplicate,true,'Exact replay is recognized as processed');
  assert.equal(receivedInserts,paymentWritesAfterFirst,'Replay must not create another payment');
- 
+
+ // Exercise the complete accepted-B2B-quote path: an accepted, formally sent
+ // wholesale quote can create a hosted Stripe session only with explicit B2B
+ // and tax-review gates. Its signed payment webhook must then mark the order
+ // PAID and create exactly one fulfillment task; replay must do neither again.
+ orderReference='ME-O-SYNTHETIC-B2B';
+ quoteStatus='ACCEPTED';
+ simulatedShippingState='OR';
+ simulatedOrderStatus='PAYMENT_PENDING';
+ simulatedPaymentStatus='UNPAID';
+ wholesaleTerms='Full amount payable by secure Stripe card checkout';
+ wholesaleTaxBasis='SYNTHETIC_TEST: documented merchant tax review in this isolated test';
+ wholesaleSentAt='2026-10-15 12:00:00';
+ providerSessionIdOverride='cs_test_syntheticB2B';
+ const b2bEnv={...ready,STRIPE_RETAIL_ONLY_ENABLED:'false',
+  STRIPE_B2B_CHECKOUT_ENABLED:'true',STRIPE_B2B_TAX_POLICY_APPROVED:'true',
+  STRIPE_B2B_APPROVED_US_STATES:'OR,NH',RETAIL_CHECKOUT_ENABLED:'false',MINGEAGLE_DB:db};
+ const b2bCheckout=await createCheckout({env:b2bEnv,request:request()});
+ assert.equal(b2bCheckout.status,200,await b2bCheckout.clone().text());
+ assert.equal((await b2bCheckout.json()).url,'https://checkout.stripe.com/c/pay/cs_test_synthetic');
+ assert.equal(providerCalls,2,'One Stripe Checkout session created for accepted B2B quote');
+ assert.equal(stored,true,'B2B Checkout session persisted before returning its URL');
+ providerSessionIdOverride=null;
+ const b2bEvent={id:'evt_paid_b2b_test',type:'checkout.session.completed',data:{object:{
+  id:'cs_test_syntheticB2B',client_reference_id:orderReference,
+  metadata:{order_id:'ord_synthetic',order_reference:orderReference},
+  payment_status:'paid',amount_total:2890,currency:'usd'
+ }}};
+ const b2bEventText=JSON.stringify(b2bEvent);
+ const b2bSignature=createHmac('sha256',ready.STRIPE_WEBHOOK_SECRET)
+  .update(now+'.'+b2bEventText).digest('hex');
+ const paidBeforeB2B=paidOrderUpdates,fulfillmentBeforeB2B=fulfillmentTaskInserts;
+ const b2bWebhook=await webhook({env:{...ready,MINGEAGLE_DB:db},
+  request:new Request('https://app.mingeagle.com/api/payments/stripe/webhook',{
+   method:'POST',headers:{'stripe-signature':'t='+now+',v1='+b2bSignature},body:b2bEventText
+  })});
+ assert.equal(b2bWebhook.status,200,await b2bWebhook.clone().text());
+ assert.equal((await b2bWebhook.json()).paymentStatus,'PAID');
+ assert.equal(paidOrderUpdates,paidBeforeB2B+1,'B2B order is marked paid only after signed webhook');
+ assert.equal(fulfillmentTaskInserts,fulfillmentBeforeB2B+1,'Successful B2B payment creates a fulfillment task');
+ const b2bPaymentsAfter=receivedInserts;
+ const b2bPaidUpdatesAfter=paidOrderUpdates,b2bFulfillmentAfter=fulfillmentTaskInserts;
+ const b2bReplay=await webhook({env:{...ready,MINGEAGLE_DB:db},
+  request:new Request('https://app.mingeagle.com/api/payments/stripe/webhook',{
+   method:'POST',headers:{'stripe-signature':'t='+now+',v1='+b2bSignature},body:b2bEventText
+  })});
+ assert.equal(b2bReplay.status,200);
+ assert.equal((await b2bReplay.json()).duplicate,true,'B2B webhook event replay is idempotent');
+ assert.equal(receivedInserts,b2bPaymentsAfter,'B2B replay does not create a second payment');
+ assert.equal(paidOrderUpdates,b2bPaidUpdatesAfter,'B2B replay does not repeat paid-state transition');
+ assert.equal(fulfillmentTaskInserts,b2bFulfillmentAfter,'B2B replay does not create duplicate fulfillment task');
+ orderReference='ME-RO-SYNTHETIC';
+
  // Merchant-approved standalone $0.50 Live payment link is a real charge,
  // but intentionally has no order record. It must be acknowledged, audited
  // and NEVER treated as an ordinary CRM order or fulfillment trigger.
