@@ -22,6 +22,19 @@ try{
   assert(!s.includes('aggregateRating'),'cannot publish unverified ratings');
   const title=s.match(/<title>([^<]*)<\/title>/i)?.[1]||'';
   assert(title.includes('MING EAGLE')&&title.length>30);
+  if(/^(?:silent-basketball|fabric-silent-basketball|weighted-flocked-basketball|silent-soccer)\.html$/.test(f)){
+   const description=s.match(/<meta name="description" content="([^"]*)"/i)?.[1]||'';
+   const ogTitle=s.match(/<meta property="og:title" content="([^"]*)"/i)?.[1]||null;
+   const ogDescription=s.match(/<meta property="og:description" content="([^"]*)"/i)?.[1]||null;
+   const twitterTitle=s.match(/<meta name="twitter:title" content="([^"]*)"/i)?.[1]||null;
+   const twitterDescription=s.match(/<meta name="twitter:description" content="([^"]*)"/i)?.[1]||null;
+   assert(description.length>70&&!description.includes('MING EAGLE sporting goods, quieter indoor play'),f+' needs a unique product description');
+   assert.equal(ogTitle,title,f+' Open Graph title must match the generated page title');
+   assert.equal(ogDescription,description,f+' Open Graph description must match the generated page description');
+   assert.equal(twitterTitle,title,f+' Twitter title must match the generated page title');
+   assert.equal(twitterDescription,description,f+' Twitter description must match the generated page description');
+   assert.equal((s.match(/<meta\b[^>]*name="robots"/gi)||[]).length,1,f+' must have exactly one robots directive');
+  }
   if(/basketball\.html|silent-soccer\.html/.test(f)){
    const block=s.match(/<script type="application\/ld\+json">([^<]*)<\/script>/);
    assert(block,f+' needs grounded schema');
