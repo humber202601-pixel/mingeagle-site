@@ -43,7 +43,7 @@ assert.throws(()=>manifestFromStrings([xml([source[0]]),xml([source[0]])]),/dupl
 assert.throws(()=>sourceFiles('invalid-sha'),/preceding commit/);
 // Verify the real deployment sitemap inventory is unique and stays within safe IndexNow bounds.
 const deployed=manifestFromStrings(['public/sitemap.xml','public/sitemap-localized.xml'].map(p=>fs.readFileSync(p,'utf8')));
-assert.equal(deployed.size,30,'Exactly 26 public pages + 4 native-language school guides');
+assert.equal(deployed.size,31,'Exactly 27 canonical buyer pages + 4 native-language school guides');
 for(const uri of deployed.keys()){
  const p=new URL(uri).pathname;
  assert(fs.existsSync(path.join('public',p==='/'?'index.html':p.slice(1))));
