@@ -61,11 +61,11 @@ window.MingEagleCart={
 };
 if(!document.getElementById('retailCart'))return;
 const $=id=>document.getElementById(id);
-let last=null,version=0,loading=false,checkoutAvailable=false;
+let last=null,version=0,loading=false,checkoutAvailable=false,checkoutGate=null;
 const country=()=>String($('cartCountry').value||'').trim().toUpperCase();
 const isWholesale=()=>quantity(read())>=10;
 function clearEstimate(){
- version++;last=null;checkoutAvailable=false;$('cartEstimate').hidden=true;$('cartCheckout').disabled=true;$('cartInquiry').hidden=true;
+ version++;last=null;checkoutAvailable=false;checkoutGate=null;$('cartEstimate').hidden=true;$('cartCheckout').disabled=true;$('cartInquiry').hidden=true;
  $('cartSummaryShipping').textContent='Not calculated';$('cartSummaryTotal').textContent='—';
 }
 function sourceConsent(){
@@ -223,8 +223,9 @@ $('cartEstimateForm').addEventListener('submit',async e=>{
     const gate=await fetch('https://app.mingeagle.com/api/retail/checkout-status',{cache:'no-store'});
     const data=gate.ok?await gate.json():null;
     if(current!==version)return;
-    checkoutAvailable=Boolean(data?.ok&&data.retailCheckoutReady===true&&n<=(data.maxDirectCheckoutUnits??1)&&lines.every(x=>data.eligibleSkus?.includes(x.sku)));
-   }catch{checkoutAvailable=false}
+    checkoutGate=data&&typeof data==='object'?data:null;
+    checkoutAvailable=Boolean(checkoutGate?.ok&&checkoutGate.retailCheckoutReady===true&&n<=(checkoutGate.maxDirectCheckoutUnits??1)&&lines.every(x=>checkoutGate.eligibleSkus?.includes(x.sku)));
+   }catch{checkoutAvailable=false;checkoutGate=null}
   }
   if(current!==version)return;
   $('cartCheckout').disabled=false;
@@ -232,11 +233,22 @@ $('cartEstimateForm').addEventListener('submit',async e=>{
   $('cartCheckout').textContent=bulk?'Request tiered wholesale quote →':
    result.ddpConfirmed!==true?'Request confirmed delivered-price quote →':
    checkoutAvailable?'Continue to secure checkout →':'Request confirmed retail quote →';
+  const eligibleForDirectCheckout=Boolean(checkoutGate?.ok&&Array.isArray(checkoutGate.eligibleSkus)&&lines.every(x=>checkoutGate.eligibleSkus.includes(x.sku)));
+  const maxDirectCheckoutUnits=Number(checkoutGate?.maxDirectCheckoutUnits??1);
+  const checkoutBlockedStatus=!checkoutGate||checkoutGate.ok!==true?
+    'Could not verify online card checkout for this order. No payment will be taken. You can request a confirmed retail quote instead.':
+   checkoutGate.retailCheckoutReady!==true?
+    'Online card checkout is not activated for this order yet. No payment will be taken. You can request a confirmed retail quote instead.':
+   !eligibleForDirectCheckout?
+    'This model or size is not currently enabled for direct card checkout. No payment will be taken. You can request a confirmed retail quote instead.':
+   n>maxDirectCheckoutUnits?
+    'This basket exceeds the current direct-checkout quantity limit. No payment will be taken. You can request a confirmed retail quote instead.':
+    'This basket does not meet the current direct-checkout requirements. No payment will be taken. You can request a confirmed retail quote instead.';
   $('cartStatus').textContent=result.ddpConfirmed!==true?
     'Import duties have not been confirmed for this basket. Request a delivered-price quote before payment.':
    checkoutAvailable?
     'Import duties are included. Each set ships in its own parcel, with shipping charged per set; parcels may arrive separately. Continue to checkout for final sales tax before payment.':
-    'Import clearance and US duties are included in each separate parcel’s shipping price. Online card payment is not yet activated; no payment will be taken. You can request a confirmed retail quote instead.';
+    checkoutBlockedStatus;
  }catch(err){$('cartStatus').textContent='Cannot calculate shipping: '+String(err?.message||err)}
  finally{loading=false}
 });
