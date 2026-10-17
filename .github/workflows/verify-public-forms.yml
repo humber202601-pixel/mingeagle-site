@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'public/**'
+      - 'scripts/check-b2b-acquisition-resource.cjs'
       - 'scripts/enable-web-analytics.cjs'
       - 'scripts/check-web-analytics.cjs'
       - 'public/inquiry.js'
@@ -136,6 +137,7 @@ jobs:
           node scripts/check-wholesale-product-deep-links.cjs
           node scripts/check-public-canonicals.cjs
           node scripts/check-sitemap-lastmod-evidence.cjs
+          node scripts/check-b2b-acquisition-resource.cjs
           node scripts/test-b2b-outreach-pages.cjs
           node scripts/test-indexnow-notify-changed.cjs
           node scripts/test-public-canonicals.cjs
