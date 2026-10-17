@@ -17,7 +17,9 @@ STRIPE_B2B_TAX_POLICY_APPROVED = "true"
 STRIPE_B2B_APPROVED_US_STATES = "AL,AK,AZ,AR,CA,CO,CT,DE,FL,GA,HI,ID,IL,IN,IA,KS,KY,LA,ME,MD,MA,MI,MN,MS,MO,MT,NE,NV,NH,NJ,NM,NY,NC,ND,OH,OK,OR,PA,RI,SC,SD,TN,TX,UT,VT,VA,WA,WV,WI,WY,DC"
 STRIPE_TAX_POLICY_APPROVED = "true"
 RETAIL_TAX_POLICY_APPROVED = "true"
-RETAIL_US_TAX_POLICY_JSON = '{"reviewed_on":"2026-10-14","review_reference":"OFFICIAL_OR_NH_GENERAL_SALES_USE_TAX_20261014","basis":"NO_GENERAL_SALES_USE_TAX","states":{"OR":"NO_COLLECTION_REQUIRED","NH":"NO_COLLECTION_REQUIRED"}}'
+# No default NO_COLLECTION_REQUIRED policy is embedded in deployment config.
+# If nationwide Stripe Automatic Tax is unavailable, checkout fails closed unless
+# a separately reviewed current state policy and provider registration authorize it.
 RETAIL_CHECKOUT_ENABLED = "true"
 # Merchant operating facts are held only in encrypted deployment bindings.
 # Do not declare a plaintext variable with the same name as that secret.
