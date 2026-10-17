@@ -29,4 +29,21 @@ const catalog=fs.readFileSync('public/products.html','utf8');
 for(const model of ['silent-basketball.html','fabric-silent-basketball.html','weighted-flocked-basketball.html','silent-soccer.html'])assert(catalog.includes('href="'+model+'"'),'Catalog must link each model');
 const fabric=fs.readFileSync('public/fabric-silent-basketball.html','utf8');
 assert(fabric.includes('orange or green in sizes 3, 5 and 7'));
+
+for(const [filename,url,title] of [
+ ['wholesale.html','https://www.mingeagle.com/wholesale.html','Wholesale Sports Equipment for Schools, Institutions & Business | MING EAGLE'],
+ ['procurement.html','https://www.mingeagle.com/procurement.html','Institutional & Public-Sector Sports Equipment Procurement | MING EAGLE']
+]){
+ const html=fs.readFileSync('public/'+filename,'utf8'),head=html.split('</head>')[0];
+ assert(head.includes('<meta property="og:title"'),filename+' needs Open Graph title');
+ assert(head.includes('<meta property="og:description"'),filename+' needs Open Graph description');
+ assert(head.includes('<meta property="og:url" content="'+url+'"'),filename+' needs canonical Open Graph URL');
+ const blocks=[...head.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)];
+ const graph=blocks.map(x=>JSON.parse(x[1])).flatMap(x=>x['@graph']||[x]);
+ assert(graph.some(x=>x['@type']==='WebPage'&&x.url===url&&x.name===title),filename+' needs page-specific WebPage schema');
+ const crumb=graph.find(x=>x['@type']==='BreadcrumbList'&&x['@id']===url+'#breadcrumb');
+ assert(crumb&&crumb.itemListElement?.length===2,filename+' needs a two-step canonical breadcrumb');
+ assert(graph.some(x=>x['@type']==='Organization'&&x.url==='https://www.mingeagle.com/'),filename+' needs the verified brand organization entity');
+}
+
 console.log('PASS: three page-specific titles, unique descriptions, crawlable model links and truthful video limitations.');
