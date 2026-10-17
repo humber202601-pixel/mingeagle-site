@@ -164,7 +164,9 @@ try{
   'Customer quote UI must not expose legacy Airwallex payment');
  assert(!quoteUi.includes('Pay securely with Airwallex'),
   'Customer quote UI must not offer Airwallex');
- assert(quoteUi.includes('order&&payment?.stripe?.checkoutReady?'),
-  'Stripe payment remains available only after readiness validation');
+ assert(quoteUi.includes('order&&checkoutReadyForOrder?')&&quoteUi.includes('payment?.stripe?.retailConfigurationReady'),
+  'Retail sample payment remains available only after retail-specific readiness validation');
+ assert(quoteUi.includes('payment?.stripe?.b2bConfigurationReady'),
+  'Wholesale quote must never inherit retail-only Stripe readiness');
  console.log('PASS: Stripe-only readiness gates, quantity & origin bounds, Turnstile, verified 1-unit price, atomic pending order and idempotency.');
 }finally{globalThis.fetch=saved}
