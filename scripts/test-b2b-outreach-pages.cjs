@@ -25,7 +25,8 @@ for(const [name,html,anchor] of checks){
 assert(school.includes('Copy-ready message for your purchasing team'),'School RFQ worksheet must be shareable');
 assert(school.includes('no independently measured decibel reduction is claimed'),
  'School buyer advice must not invent acoustic measurements');
-assert(school.includes('state sales tax'),'US sales tax must be treated separately from customs/duties');
+assert(school.includes('applicable sales tax')&&school.includes('import duties'),
+ 'US sales tax must be identified separately from customs and import duties');
 assert(academy.includes('for-schools.html#school-bulk-rfq-worksheet'),
  'Academy has direct link into school purchasing worksheet');
 assert(procurement.includes('for-schools.html#school-bulk-rfq-worksheet'),
