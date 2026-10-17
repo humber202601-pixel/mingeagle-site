@@ -102,7 +102,9 @@ jobs:
           python scripts/check-live-public-crawl.py --self-test
 
       - name: Verify priority catalog, fabric and creator indexing context
-        run: node scripts/check-priority-indexing-pages.cjs
+        run: |
+          node scripts/check-priority-indexing-pages.cjs
+          node scripts/test-school-buyer-rfq.cjs
 
       - name: Optimize first-party native image loading
         run: |
@@ -456,10 +458,10 @@ jobs:
                       assert b'calculateFromCatalog' in body
           PY
 
-      - name: Audit all 30 live public sitemap URLs after deployment
+      - name: Audit all 31 live public sitemap URLs after deployment
         run: python scripts/check-live-public-crawl.py
 
-      - name: Preserve 30-page HTTP crawl and synthetic UA diagnostic evidence
+      - name: Preserve 31-page HTTP crawl and synthetic UA diagnostic evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -468,7 +470,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      - name: Notify IndexNow only after live 30-page audit passes
+      - name: Notify IndexNow only after live 31-page audit passes
         if: ${{ github.event_name == 'push' }}
         continue-on-error: true  # Search-engine outage must not undo a verified website deployment
         env:
