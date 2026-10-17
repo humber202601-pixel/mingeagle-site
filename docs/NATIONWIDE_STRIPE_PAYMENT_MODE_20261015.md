@@ -25,8 +25,10 @@ and deletes only its own purpose/nonce-tagged diagnostic customer. Use the
 single-purpose temporary scope, then close the entry point and delete its token.
 
 Payment availability must not be reported as completed US tax registration.
-The existing no-collection/startup policy remains available when this explicit
-mode is disabled. The merchant's stock and DDP limits are unchanged.
+When this explicit mode is disabled, zero-sales or China-direct startup facts do
+not create a nationwide no-collection fallback. Checkout fails closed unless a
+separately reviewed current state policy and provider registration authorize it.
+The merchant's stock and DDP limits are unchanged.
 
 Primary references:
 - https://docs.stripe.com/tax/checkout/page
