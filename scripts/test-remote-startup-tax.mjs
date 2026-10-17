@@ -9,8 +9,8 @@ const facts={basis:'REMOTE_SELLER_STARTUP',source:'OWNER_FACTUAL_DECLARATION',co
 const env={RETAIL_REMOTE_STARTUP_FACTS_JSON:JSON.stringify(facts)};
 assert.equal(remoteStartupFactsCurrent(env,now),true);
 const states=reviewedZeroTaxStates(env,now);
-assert.equal(states.size,51);
-for(const state of ['CA','TX','NY','KY','AK','HI','DC'])assert(states.has(state));
+assert.equal(states.size,0,'Zero sales and China-direct fulfillment must not authorize no-collection in any state');
+for(const state of ['CA','TX','NY','KY','AK','HI','DC'])assert(!states.has(state));
 assert(!states.has('PR')&&!states.has('ZZ'));
 for(const change of [{source:'INFERRED'},{no_us_business_presence:false},{us_direct_marketplace_related_sales_usd:1},{us_direct_marketplace_related_orders:1},{fulfillment_country:'US'},{confirmed_on:'2026-11-01'},{confirmed_on:'2026-08-01'}])assert.equal(remoteStartupFactsCurrent({RETAIL_REMOTE_STARTUP_FACTS_JSON:JSON.stringify({...facts,...change})},now),false,JSON.stringify(change));
 assert.equal(remoteStartupFactsCurrent({},now),false,'General authorization cannot fill missing merchant facts');
@@ -50,4 +50,4 @@ assert.equal(await remoteStartupWithinLimits(db,2140,1),true);
 sql.exec('DROP TRIGGER remote_startup_collection_guard');
 assert.equal(await remoteStartupWithinLimits(db,2140,1),false,'Missing deployed atomic guard blocks national checkout');
 sql.close();
-console.log('PASS: nationwide startup requires explicit current owner facts; real SQLite reserves pending totals atomically and rejects gross/count overruns, stale facts and missing records.');
+console.log('PASS: startup facts never authorize zero-tax checkout; operational limits remain atomic and reject gross/count overruns, stale facts and missing records.');

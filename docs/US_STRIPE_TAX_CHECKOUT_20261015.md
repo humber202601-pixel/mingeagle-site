@@ -29,8 +29,9 @@ total. Provider retries cannot create another receipt or fulfillment task.
 Apply migration `0015_stripe_automatic_tax.sql` before deploying the new webhook.
 Special registration types (such as local-only registrations) need a separate
 review before inclusion. Stripe registration configuration is not a substitute
-for government registration. Existing no-collection and bounded startup routes
-are unchanged. Actual US business/sales facts remain pending review.
+for government registration. A bounded startup record may support monitoring, but zero sales, China-direct
+fulfillment, or no known US presence does not create a nationwide no-collection
+route. Actual US business/sales facts remain pending review.
 
 Primary implementation references:
 - https://docs.stripe.com/tax/checkout/page
