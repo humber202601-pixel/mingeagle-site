@@ -81,15 +81,17 @@ for(const [filename,config] of Object.entries(settings)){
  const key=productKeys[filename];
  if(key){
   // Product-page share metadata follows the same reviewed title/description as search metadata.
-  const replaceOrAdd=(property,value)=>{
-   const pattern=new RegExp('<meta\\b(?=[^>]*\\bproperty=["\\']'+property+'["\\'])[^>]*>','i');
-   const tag='<meta property="'+property+'" content="'+esc(value)+'">';
+  const replaceMeta=(attribute,value,content)=>{
+   const pattern=new RegExp(`<meta\\b(?=[^>]*\\b${attribute}=["']${value}["'])[^>]*>`,'i');
+   const tag='<meta '+attribute+'="'+value+'" content="'+esc(content)+'">';
    if(pattern.test(html))html=html.replace(pattern,tag);
    else html=html.replace(/<\\/head>/i,tag+'</head>');
   };
-  replaceOrAdd('og:title',config.title);
-  replaceOrAdd('og:description',config.description);
-  html=html.replace(/<meta\\b(?=[^>]*\\bname=["\\']robots["\\'])[^>]*>\\s*/i,'');
+  replaceMeta('property','og:title',config.title);
+  replaceMeta('property','og:description',config.description);
+  replaceMeta('name','twitter:title',config.title);
+  replaceMeta('name','twitter:description',config.description);
+  html=html.replace(/<meta\\b(?=[^>]*\\bname=["']robots["'])[^>]*>\\s*/i,'');
   html=html.replace(/<\\/head>/i,'<meta name="robots" content="index,follow,max-image-preview:large"></head>');
  }
  const variants=key?Object.entries(retail.products[key]).map(([size,price])=>({
