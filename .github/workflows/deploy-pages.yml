@@ -128,6 +128,9 @@ jobs:
       - name: Verify canonical B2B header navigation across public pages
         run: node scripts/check-site-navigation.cjs
 
+      - name: Verify school and institutional buyer RFQ outreach paths
+        run: node scripts/test-b2b-outreach-pages.cjs
+
       - name: Verify confirmation build
         run: |
           test -f public/index.html
