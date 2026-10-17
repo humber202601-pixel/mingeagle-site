@@ -62,6 +62,8 @@ for(const [filename,url,title,description] of productMeta){
  assert(head.includes('<meta property="og:title" content="'+title.replace(/&/g,'&amp;')+'"'),filename+' OG title must align with the SEO builder');
  assert(head.includes('<meta property="og:description" content="'+description+'"'),filename+' OG description must align with the SEO builder');
  assert(head.includes('<meta property="og:url" content="'+url+'"'),filename+' OG URL must match canonical');
+ assert(head.includes('<meta name="twitter:title" content="'+title.replace(/&/g,'&amp;')+'"'),filename+' Twitter title must align with the SEO builder');
+ assert(head.includes('<meta name="twitter:description" content="'+description+'"'),filename+' Twitter description must align with the SEO builder');
 }
 
 console.log('PASS: buyer-guide and product-page metadata, structured data, crawlable model links and truthful video limitations.');
