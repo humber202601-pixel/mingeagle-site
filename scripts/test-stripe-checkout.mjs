@@ -78,6 +78,20 @@ assert.equal(globallyReady.retailConfigurationReady,false,'Global Stripe readine
 assert.equal(globallyReady.b2bConfigurationReady,false,'Global Stripe readiness alone cannot enable B2B UI');
 const closedGate=(await (await paymentReadiness({env:{...enabledB2bEnv,STRIPE_CHECKOUT_ENABLED:''}})).json()).stripe;
 assert.equal(closedGate.b2bConfigurationReady,false,'Unset global Stripe switch must keep B2B UI disabled');
+assert.equal(closedGate.b2bLiveConfigurationReady,false);
+assert(closedGate.b2bActivationBlockers.includes('GLOBAL_CHECKOUT_NOT_ENABLED'));
+const missingLiveMode=(await (await paymentReadiness({env:{...enabledB2bEnv,
+ STRIPE_MODE:'',STRIPE_CHECKOUT_ENABLED:''}})).json()).stripe;
+assert.equal(missingLiveMode.b2bLiveConfigurationReady,false);
+assert(missingLiveMode.b2bActivationBlockers.includes('LIVE_STRIPE_MODE_NOT_SET'));
+assert(missingLiveMode.b2bActivationBlockers.includes('GLOBAL_CHECKOUT_NOT_ENABLED'));
+const liveReady=(await (await paymentReadiness({env:{...enabledB2bEnv,
+ STRIPE_MODE:'live',STRIPE_SECRET_KEY:'rk_live_syntheticRestrictedKey'}})).json()).stripe;
+assert.equal(liveReady.b2bLiveConfigurationReady,true,'Live config may pass prerequisites but not tax nexus or money movement');
+assert.deepEqual(liveReady.b2bActivationBlockers,[]);
+assert.match(liveReady.b2bTaxScopeWarning,/do not establish nexus/);
+assert(!JSON.stringify(liveReady).includes('rk_live_syntheticRestrictedKey'));
+assert(!JSON.stringify(liveReady).includes(ready.STRIPE_WEBHOOK_SECRET));
 const saved=globalThis.fetch;
 let providerCalls=0,dbReads=0,dbWrites=0;
 const request=()=>new Request('https://app.mingeagle.com/api/payments/stripe/create',{
