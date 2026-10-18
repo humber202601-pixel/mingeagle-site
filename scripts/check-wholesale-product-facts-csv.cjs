@@ -46,6 +46,10 @@ for(const line of lines.slice(1)){
  assert(fs.existsSync(path.join(root,url.split('/').pop())),'Missing product detail file');
 }
 assert.deepEqual([...ids].sort(),Object.keys(master).sort());
+const sourceDirectory=fs.readFileSync(path.join(root,'llms.txt'),'utf8');
+assert(sourceDirectory.includes('https://www.mingeagle.com/wholesale-product-facts.csv'),'LLM source directory must point to approved buyer CSV');
+assert(sourceDirectory.includes('supplier-provided information, not an independent test or a wholesale price offer'),'AI source must disclose the supplier-only nature of the CSV');
+assert.equal(facts.publisher.wholesaleProductFactsCsv,'https://www.mingeagle.com/wholesale-product-facts.csv','AI JSON source index must link same CSV');
 for(const file of ['wholesale-product-catalog.html','for-schools.html','procurement.html','wholesale.html']){
  const s=fs.readFileSync(path.join(root,file),'utf8');
  assert(s.includes('href="wholesale-product-facts.csv"'),'No customer-visible CSV download on '+file);
