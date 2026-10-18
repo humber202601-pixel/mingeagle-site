@@ -18,12 +18,22 @@ for(const file of readdirSync('migrations').filter(x=>x.endsWith('.sql')).sort()
  sqlite.exec(readFileSync('migrations/'+file,'utf8'));
 let writes=0,network=0;
 let simulateSellerRevisionBeforeCommit=false;
+let publicQuoteGetRace=null;
 const db={
  prepare(sql){
   const stmt={args:[],bind(...args){this.args=args;return this},
    async first(){return sqlite.prepare(sql).get(...this.args)||null},
    async all(){return {success:true,results:sqlite.prepare(sql).all(...this.args)}},
-   async run(){writes++;const x=sqlite.prepare(sql).run(...this.args);return {success:true,meta:{changes:Number(x.changes)}}}};
+   async run(){
+    if(publicQuoteGetRace &&
+      ((publicQuoteGetRace.kind==='VIEW'&&sql.includes("UPDATE quotes SET status='VIEWED'"))||
+       (publicQuoteGetRace.kind==='EXPIRE'&&sql.includes("UPDATE quotes SET status='EXPIRED'")))){
+      const race=publicQuoteGetRace;publicQuoteGetRace=null;
+      sqlite.prepare("UPDATE quotes SET status=? WHERE id=?").run(race.status,quoteId);
+    }
+    writes++;const x=sqlite.prepare(sql).run(...this.args);
+    return {success:true,meta:{changes:Number(x.changes)}};
+   }};
   return stmt;
  },
  async batch(stmts){
@@ -118,6 +128,26 @@ try{
  const expiredUnaccepted=await accept({country:'US',state:'TX',city:'Austin',postalCode:'78701',line1:'123 Synthetic B2B Street'});
  assert.equal(expiredUnaccepted.status,409,'Expired unaccepted quote still cannot produce a new order');
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM orders').get().n,0);
+ // Both buyer views must reject a stale status transition after a buyer
+ // has already accepted and the persisted quote is CONVERTED.
+ const viewsBefore=sqlite.prepare("SELECT COUNT(*) n FROM activities WHERE activity_type='QUOTE_VIEWED'").get().n;
+ for(const kind of ['VIEW','EXPIRE']){
+  for(const format of ['api','html']){
+   sqlite.prepare("UPDATE quotes SET status='SENT',valid_until=? WHERE id=?")
+     .run(kind==='VIEW'?new Date().toISOString().slice(0,10):'2001-01-01',quoteId);
+   publicQuoteGetRace={kind,status:'CONVERTED'};
+   const response=format==='api'?await quoteGet():
+     await quotePage({env,params:{token:bearer},request:new Request(orderPage)});
+   assert.equal(response.status,200,'Concurrent '+kind+' '+format+' must load the current quotation');
+   if(format==='api')assert.equal((await response.json()).quote.status,'CONVERTED');
+   else await response.text();
+   assert.equal(sqlite.prepare("SELECT status FROM quotes WHERE id=?").get(quoteId).status,'CONVERTED',
+     'A stale quote page must not overwrite buyer acceptance');
+   assert.equal(publicQuoteGetRace,null);
+  }
+ }
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM activities WHERE activity_type='QUOTE_VIEWED'").get().n,viewsBefore,
+  'A race-losing quote GET cannot create a phantom QUOTE_VIEWED audit entry');
  sqlite.prepare("UPDATE quotes SET status='SENT',valid_until=date('now') WHERE id=?").run(quoteId);
  const todayApi=await quoteGet();
  assert.equal(todayApi.status,200);

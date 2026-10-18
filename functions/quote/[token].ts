@@ -123,20 +123,41 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
 
   try {
     const db = env.MINGEAGLE_DB;
-    const quote = await getQuote(db, token);
+    let quote = await getQuote(db, token);
     if (!quote) return errorPage('Quote not found. This link is invalid or has been revoked.');
 
     const quoteId = String(quote.id);
     if (Number(quote.is_expired) === 1 && !['ACCEPTED', 'CONVERTED'].includes(String(quote.status))) {
       if (String(quote.status) !== 'EXPIRED') {
-        await db.prepare(`UPDATE quotes SET status='EXPIRED', updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(quoteId).run();
-        quote.status = 'EXPIRED';
+        const result=await db.prepare(`UPDATE quotes SET status='EXPIRED',updated_at=CURRENT_TIMESTAMP
+          WHERE id=? AND status IN ('DRAFT','SENT','VIEWED')
+          AND ((LENGTH(TRIM(valid_until))=10 AND date(valid_until)<date('now')) OR
+             (LENGTH(TRIM(valid_until))<>10 AND datetime(valid_until)<datetime('now')))`).bind(quoteId).run();
+        if(Number(result.meta?.changes)===1)quote.status='EXPIRED';
+        else{
+          // Buyer acceptance, seller revision, or extended validity won this race.
+          quote=await getQuote(db,token);
+          if(!quote)return errorPage('Quote is no longer available.',404);
+        }
       }
     } else if (String(quote.status) === 'SENT') {
-      await db.prepare(`UPDATE quotes SET status='VIEWED', first_viewed_at=COALESCE(first_viewed_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(quoteId).run();
-      quote.status = 'VIEWED';
-      await db.prepare(`INSERT INTO activities (id, entity_type, entity_id, activity_type, title, description)
-        VALUES (?, 'QUOTE', ?, 'QUOTE_VIEWED', 'Quote viewed', ?)`).bind(crypto.randomUUID(), quoteId, `${String(quote.reference)} viewed by customer`).run();
+      const updated=await db.prepare(`UPDATE quotes SET status='VIEWED',
+        first_viewed_at=COALESCE(first_viewed_at,CURRENT_TIMESTAMP),updated_at=CURRENT_TIMESTAMP
+        WHERE id=? AND status='SENT' AND
+          (valid_until IS NULL OR
+           (LENGTH(TRIM(valid_until))=10 AND date(valid_until)>=date('now')) OR
+           (LENGTH(TRIM(valid_until))<>10 AND datetime(valid_until)>=datetime('now')))`)
+        .bind(quoteId).run();
+      if(Number(updated.meta?.changes)===1){
+        quote.status='VIEWED';
+        
+        await db.prepare(`INSERT INTO activities (id, entity_type, entity_id, activity_type, title, description)
+          VALUES (?, 'QUOTE', ?, 'QUOTE_VIEWED', 'Quote viewed', ?)`)
+          .bind(crypto.randomUUID(),quoteId,`${String(quote.reference)} viewed by customer`).run();
+      }else{
+        quote=await getQuote(db,token);
+        if(!quote)return errorPage('Quote is no longer available.',404);
+      }
     }
 
     const itemsResult = await db.prepare(`SELECT id, description, quantity, unit_price, line_total, sort_order
