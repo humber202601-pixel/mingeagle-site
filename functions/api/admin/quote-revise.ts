@@ -18,6 +18,22 @@ async function ensureRevisionTable(db: D1Database) {
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_quote_revision_root ON quote_revision_links(root_quote_id, revision_number)`).run();
+  // Exactly one direct child per source quote, including concurrent requests.
+  await db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_quote_revision_source ON quote_revision_links(source_quote_id)`).run();
+}
+async function existingRevisionReply(db:D1Database,source:Row,sourceStatus:string):Promise<Response|null>{
+ const child=await db.prepare(`SELECT q.id,q.reference,q.status,q.currency,q.total,l.revision_number
+   FROM quote_revision_links l JOIN quotes q ON q.id=l.revised_quote_id
+   WHERE l.source_quote_id=? ORDER BY l.revision_number ASC LIMIT 1`)
+   .bind(String(source.id)).first<Row>();
+ if(!child)return null;
+ return Response.json({
+   ok:true,reused:true,
+   source:{id:source.id,reference:source.reference,status:sourceStatus},
+   quote:{id:child.id,reference:child.reference,status:child.status,
+    currency:child.currency,total:child.total,
+    revisionNumber:child.revision_number,sourceReference:source.reference}
+ },{status:200,headers:{'cache-control':'no-store'}});
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -47,6 +63,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ ok: false, error: `Quote cannot be revised from status ${sourceStatus}.` }, { status: 409 });
     }
 
+    // A retry must return the same revision rather than inventing R2/R3.
+    // Never rewrite buyer-visible commercial terms on this safe read path.
+    const previous=await existingRevisionReply(db,source,sourceStatus);
+    if(previous)return previous;
     const sourceItems = await db.prepare(`SELECT product_id, variant_id, description, quantity, unit_price, line_total, sort_order
       FROM quote_items WHERE quote_id=? ORDER BY sort_order, id`).bind(quoteId).all<Row>();
     if (!sourceItems.results.length) return Response.json({ ok: false, error: 'Quote has no line items.' }, { status: 409 });
@@ -143,9 +163,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     );
     // D1 batch is a single transaction: no partially copied quote and no
     // premature source invalidation if a later audit/task insert fails.
-    const outcome=await db.batch(commands);
-    if(outcome.length!==commands.length||outcome.some(row=>!row.success))
+    let outcome:D1Result[];
+    try{outcome=await db.batch(commands);}
+    catch(error){
+      // A simultaneous owner retry may have won the source-unique index.
+      // Look up the committed child, but never suppress unrelated batch errors.
+      const raced=await existingRevisionReply(db,source,sourceStatus);
+      if(raced)return raced;
+      throw error;
+    }
+    if(outcome.length!==commands.length||outcome.some(row=>!row.success)){
+      const raced=await existingRevisionReply(db,source,sourceStatus);
+      if(raced)return raced;
       throw Error('QUOTE_REVISION_TRANSACTION_UNCONFIRMED');
+    }
         return Response.json({
       ok: true,
       source: { id: quoteId, reference: source.reference, status: ['SENT','VIEWED'].includes(sourceStatus) ? 'EXPIRED' : sourceStatus },
