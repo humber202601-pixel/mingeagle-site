@@ -6,7 +6,9 @@ type Snapshot={ok:boolean;checkedAt:string;
  b2bStripeEvidence:{schemaPresent:boolean;wholesaleOrders:number|null;awaitingPaymentOrders:number|null;stripeCheckoutSessions:number|null;reconciledPaidOrders:number|null};
  quoteExpiryHealth:{schemaPresent:boolean;outstandingSentOrViewed:number|null;expiringWithinTwoCalendarDays:number|null;pastValidityDate:number|null};
  b2bStripeSessionHealth:{schemaPresent:boolean;openOrPendingSessions:number|null;olderThan24Hours:number|null;oldestAgedUTC:string|null};
- stripeWebhookHealth:{schemaPresent:boolean;receivedEvents:number|null;processedEvents:number|null;unprocessedEvents:number|null;olderThanTenMinutes:number|null;oldestUnprocessedUTC:string|null};
+ stripeWebhookHealth:{schemaPresent:boolean;receivedEvents:number|null;processedEvents:number|null;unprocessedEvents:number|null;
+  unprocessedPaymentSuccessEvents:number|null;unprocessedExpirationEvents:number|null;unprocessedOtherEvents:number|null;
+  olderThanTenMinutes:number|null;oldestUnprocessedUTC:string|null};
  security:{turnstileConfigured:boolean;turnstileEnabled:boolean;turnstileMisconfigured:boolean};
  payments:{checkoutRequested:boolean;providerCredentialsConfigured:boolean;webhookConfigured:boolean;environment:string|null;checkoutConfigurationReady:boolean;retailOnlyRestriction:boolean;b2bCheckoutRequested:boolean;b2bTaxReviewed:boolean;b2bApprovedDestinationStates:string[];b2bConfigurationReady:boolean};
  caveats:string[];error?:string};
@@ -62,6 +64,8 @@ export default function ReadinessPanel({accessKey}:{accessKey:string}){
     <span>{count(data.stripeWebhookHealth.processedEvents)} / {count(data.stripeWebhookHealth.receivedEvents)}</span></div>
    <div className="list-row"><div><strong>Stripe 未完成处理的事件</strong><small>待处理 / 超过 10 分钟仍未处理。Webhook 验签失败、未送达平台的事件不会计入。</small></div>
     <span>{count(data.stripeWebhookHealth.unprocessedEvents)} / {count(data.stripeWebhookHealth.olderThanTenMinutes)}</span></div>
+   {data.stripeWebhookHealth.schemaPresent&&<div className="list-row"><div><strong>未处理 Stripe 事件分类（只读）</strong><small>付款成功回调 / Checkout 过期 / 其他。过期事件也可能属于真实订单，必须按 Stripe 原始投递记录核实。</small></div>
+    <span>{count(data.stripeWebhookHealth.unprocessedPaymentSuccessEvents)} / {count(data.stripeWebhookHealth.unprocessedExpirationEvents)} / {count(data.stripeWebhookHealth.unprocessedOtherEvents)}</span></div>}
    {!data.stripeWebhookHealth.schemaPresent&&<p role="alert" className="form-status error">Stripe 事件台账不存在，不能判断支付回调是否处理。请检查正式数据库迁移。</p>}
    {(data.stripeWebhookHealth.olderThanTenMinutes??0)>0&&<p role="alert" className="form-status error">
     存在超过 10 分钟仍未处理的 Stripe 事件（最早登记于 UTC {data.stripeWebhookHealth.oldestUnprocessedUTC||'未知'}）。请先在 Stripe Dashboard 核实事件和订单状态，确认后再按正常重试流程处理，切勿手工标记付款。
