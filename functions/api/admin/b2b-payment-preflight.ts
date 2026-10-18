@@ -148,8 +148,20 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
    ]);
    output.push(reviewB2bStripeOrder(row,ql.success?ql.results:[],ol.success?ol.results:[],env));
   }
+  // Summarize only still-open unpaid/partial orders, never asking staff to
+  // re-charge historic PAID, completed or cancelled orders.
+  const pending=output.filter(x=>['UNPAID','PARTIAL'].includes(x.paymentStatus)&&
+   !['CANCELLED','COMPLETED','VOID'].includes(x.orderStatus));
+  const blocked=(code:string)=>pending.filter(x=>x.blockers.includes(code)).length;
   return response({ok:true,checkedAtUTC:new Date().toISOString(),
    scope:'ADMIN_READ_ONLY_B2B_ORDER_PAYMENT_PREFLIGHT',
+   pendingOrderReview:{
+    awaitingPayment:pending.length,
+    missingDeliveryAddress:blocked('COMPLETE_US_DELIVERY_ADDRESS_REQUIRED'),
+    missingSalesTaxBasis:blocked('SALES_TAX_BASIS_NOT_DOCUMENTED'),
+    quoteRevisionRequired:pending.filter(x=>x.nextAction==='PREPARE_NEW_REVIEWED_QUOTE_AND_REOBTAIN_BUYER_ACCEPTANCE').length,
+    codeReadyButManualApprovalRequired:pending.filter(x=>x.codeChecksPassed).length,
+   },
    audited:output.length,hasMore:rows.results.length>50,
    codeChecksPassed:output.filter(x=>x.codeChecksPassed).length,
    quoteRevisionRequired:output.filter(x=>x.nextAction==='PREPARE_NEW_REVIEWED_QUOTE_AND_REOBTAIN_BUYER_ACCEPTANCE').length,
