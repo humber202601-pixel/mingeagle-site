@@ -10,10 +10,10 @@
 
 ## Current four product families
 
-- [Flocked Silent Basketball Set](https://www.mingeagle.com/silent-basketball.html): Soft flocked indoor basketball and mini hoop set for controlled family play. Sizes: No. 3, No. 5, No. 7. Colors: Orange / Blue / Green / Yellow. Product image: https://www.mingeagle.com/assets/hero-flocked-silent-basketball-set.webp. US one-item total before tax: Size 3 USD 21.40, Size 5 USD 23.90, Size 7 USD 28.90.
-- [Fabric-Cover Silent Basketball Set](https://www.mingeagle.com/fabric-silent-basketball.html): Fabric-covered soft indoor basketball and mini hoop set for family activities. Sizes: No. 3, No. 5, No. 7. Colors: Orange / Green. Product image: https://www.mingeagle.com/assets/hero-fabric-cover-silent-basketball-set.webp. US one-item total before tax: Size 3 USD 22.40, Size 5 USD 24.90, Size 7 USD 29.90.
-- [Weighted Flocked Silent Basketball](https://www.mingeagle.com/weighted-flocked-basketball.html): Weighted-feel indoor basketball model for supervised handling and training-style drills. Sizes: No. 3, No. 4, No. 6, No. 7. Colors: Orange / Brown / Black / Aqua Blue. Product image: https://www.mingeagle.com/assets/hero-weighted-flocked-silent-basketball.webp. US one-item total before tax: Size 3 USD 24.90, Size 4 USD 27.90, Size 6 USD 33.90, Size 7 USD 37.90.
-- [Flocked Silent Soccer Ball](https://www.mingeagle.com/silent-soccer.html): Soft flocked size-5 indoor soccer ball for controlled footwork and family activities. Sizes: No. 5. Colors: Black/White / Black/Green / Black/Red / Yellow/Green / Black/Gold. Product image: https://www.mingeagle.com/assets/hero-flocked-silent-soccer-ball.webp. US one-item total before tax: Size 5 USD 29.90.
+- [Flocked Silent Basketball Set](https://www.mingeagle.com/silent-basketball.html): Soft flocked indoor basketball and mini hoop set for controlled family play. Sizes: No. 3, No. 5, No. 7. Colors: Orange / Blue / Green / Yellow. Product image: https://www.mingeagle.com/assets/hero-flocked-silent-basketball-set.webp. Confirmed one-unit US DDP estimate before sales tax (eligible sizes only): Size 3 USD 21.40, Size 7 USD 28.90.
+- [Fabric-Cover Silent Basketball Set](https://www.mingeagle.com/fabric-silent-basketball.html): Fabric-covered soft indoor basketball and mini hoop set for family activities. Sizes: No. 3, No. 5, No. 7. Colors: Orange / Green. Product image: https://www.mingeagle.com/assets/hero-fabric-cover-silent-basketball-set.webp. US freight by size is estimated only; final delivered total and direct checkout eligibility require confirmation in a written quote.
+- [Weighted Flocked Silent Basketball](https://www.mingeagle.com/weighted-flocked-basketball.html): Weighted-feel indoor basketball model for supervised handling and training-style drills. Sizes: No. 3, No. 4, No. 6, No. 7. Colors: Orange / Brown / Black / Aqua Blue. Product image: https://www.mingeagle.com/assets/hero-weighted-flocked-silent-basketball.webp. US freight by size is estimated only; final delivered total and direct checkout eligibility require confirmation in a written quote.
+- [Flocked Silent Soccer Ball](https://www.mingeagle.com/silent-soccer.html): Soft flocked size-5 indoor soccer ball for controlled footwork and family activities. Sizes: No. 5. Colors: Black/White / Black/Green / Black/Red / Yellow/Green / Black/Gold. Product image: https://www.mingeagle.com/assets/hero-flocked-silent-soccer-ball.webp. US freight by size is estimated only; final delivered total and direct checkout eligibility require confirmation in a written quote.
 
 ## Buyer questions and guides
 
@@ -22,6 +22,11 @@
 - [What controlled indoor sports equipment should schools assess?](https://www.mingeagle.com/indoor-school-sports-equipment-guide.html) — schools and after-school PE.
 - [How can a coach choose an indoor ball for handling drills and samples?](https://www.mingeagle.com/for-coaches.html) — basketball coaches and academies.
 - [How do I request wholesale prices, branding, samples and international freight?](https://www.mingeagle.com/wholesale.html) — sporting goods wholesalers and retailers.
+- [What should a school include in a bulk basketball supplier RFQ?](https://www.mingeagle.com/school-basketball-bulk-order-rfq-checklist.html) — school district purchasing teams.
+- [What terms and documents belong in a public-sector sports equipment quote?](https://www.mingeagle.com/procurement.html) — public institutions and government procurement teams.
+- [What sizes and product families can I compare for a silent basketball wholesale order?](https://www.mingeagle.com/wholesale-product-catalog.html) — sports distributors and buying groups.
+- [How does custom-logo basketball sourcing and sample approval work?](https://www.mingeagle.com/custom-logo.html) — school teams and sporting goods resellers.
+- [How can a camp request quieter basketballs, samples and bulk freight?](https://www.mingeagle.com/basketball-camp-equipment-supplier.html) — basketball camps and recreational programs.
 
 ## Machine-readable first-party catalog
 
@@ -35,7 +40,8 @@
 - Model suitability, child supervision, required safety documentation and training use must be evaluated for the actual setting.
 - Standard retail products are available to order and replenished as needed. Dispatch within 3 days of ordering; this is separate from shipping transit time.
 - Custom and wholesale order timing, branding, packaging, freight charges and delivery terms follow the confirmed quotation.
-- US single-item air small-parcel figures are estimates for exactly one unit; 12–15 days after dispatch is not guaranteed. US sales tax is separate; only approved one-unit P1-S3/P1-S7 freight includes import duties.
+- Other model and size air freight amounts are shipping estimates, not approved delivered-price totals or direct-checkout offers. Only one-unit P1-S3/P1-S7 shipping is confirmed as import-duty-paid.
+- Even approved P1-S3/P1-S7 totals exclude applicable US sales tax and remain subject to live checkout eligibility. 12–15 days after dispatch is only a shipping estimate.
 - This file is first-party supplier information, not an independent review, platform endorsement or AI placement claim.
 
 Retail prices, where present on linked product pages, exclude international freight and applicable taxes; do not assume wholesale prices or inventory. A staff-confirmed quote is required for commercial details.
