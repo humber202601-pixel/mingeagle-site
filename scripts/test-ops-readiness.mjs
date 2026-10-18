@@ -135,6 +135,26 @@ try{
  assert.equal(r.body.b2bStripeEvidence.awaitingPaymentOrders,1);
  assert.equal(r.body.b2bStripeEvidence.stripeCheckoutSessions,2);
  assert.equal(r.body.b2bStripeEvidence.reconciledPaidOrders,1,'Manual paid order must not count as Stripe');
+ // A provider-linked full Stripe receipt cannot be called reconciled when
+ // other-channel, unlinked, or excess receipts are attached to the same order.
+ sqlite.exec("INSERT INTO payments VALUES('b2b-paid-stripe',NULL,'synthetic_manual',5,'USD','RECEIVED')");
+ r=await read();
+ assert.equal(r.body.b2bStripeEvidence.reconciledPaidOrders,0,
+  'Mixed bank + matched Stripe receipts must not count as Stripe-only reconciliation');
+ sqlite.exec("DELETE FROM payments WHERE provider_reference='synthetic_manual'");
+ sqlite.exec("INSERT INTO payments VALUES('b2b-paid-stripe','STRIPE','cs_test_unlinked',1,'USD','RECEIVED')");
+ r=await read();
+ assert.equal(r.body.b2bStripeEvidence.reconciledPaidOrders,0,
+  'Unlinked provider receipt requires review even with exact other matched Stripe amount');
+ sqlite.exec("DELETE FROM payments WHERE provider_reference='cs_test_unlinked'");
+ sqlite.exec("UPDATE payments SET amount=180.01 WHERE provider='STRIPE'");
+ r=await read();
+ assert.equal(r.body.b2bStripeEvidence.reconciledPaidOrders,0,
+  'Overpaid Stripe receipt must not count as exactly reconciled');
+ sqlite.exec("UPDATE payments SET amount=180 WHERE provider='STRIPE'");
+ r=await read();
+ assert.equal(r.body.b2bStripeEvidence.reconciledPaidOrders,1,
+  'Only full, correctly matched, non-mixed Stripe receipt counts');
  assert.equal(r.body.b2bStripeSessionHealth.openOrPendingSessions,1,'Only unpaid B2B open provider rows are considered');
  assert.equal(r.body.b2bStripeSessionHealth.olderThan24Hours,1,'30-hour checkout snapshot needs review');
  assert(r.body.b2bStripeSessionHealth.oldestAgedUTC,'Aged record includes only created_at, not private session ID');
