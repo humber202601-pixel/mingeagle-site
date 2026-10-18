@@ -41,6 +41,7 @@ export default function ReadinessPanel({accessKey}:{accessKey:string}){
    <div className="list-row"><div><strong>已启用国家运价 / 运输包装 SKU</strong><small>运价需要实际核实，单件运费不代表最终可收款报价</small></div><span>{count(data.procurement.activeShippingRates)} / {count(data.procurement.packagingSkus)}</span></div>
    <div className="list-row"><div><strong>已核验自动运价目的地</strong><small>只显示已启用的国家、运输方式及最低件数；未列出的目的地必须人工询价，不能套用美国运价。</small></div><span>{data.procurement.activeShippingRoutes===null?'尚无法核验':data.procurement.activeShippingRoutes.length===0?'暂无启用运价':data.procurement.activeShippingRoutes.map(r=>r.country+' '+(r.method==='sea'?'海运':'空运')+'≥'+r.minimumUnits+'件').join('；')}</span></div>
    <div className="list-row"><div><strong>真实批发 Stripe 收款闭环</strong><small>仅统计报价合计至少 10 件、Stripe 成功会话对应足额入账记录且订单为 PAID 的正式订单；不包含 $0.50 独立验证或历史线下收款。</small></div><span>{data.b2bStripeEvidence.reconciledPaidOrders===null?'尚无法核验':data.b2bStripeEvidence.reconciledPaidOrders+' / '+count(data.b2bStripeEvidence.wholesaleOrders)}</span></div>
+   <WholesalePaymentPreflight accessKey={accessKey} refresh={refresh}/>
    <div className="list-row"><div><strong>批发待付款订单 / Stripe 会话</strong><small>未全额付款订单数和已创建的批发 Stripe Checkout 会话数，均为生产数据库只读统计；不代表已扣款。</small></div><span>{count(data.b2bStripeEvidence.awaitingPaymentOrders)} / {count(data.b2bStripeEvidence.stripeCheckoutSessions)}</span></div>
    {data.b2bStripeEvidence.schemaPresent&&data.b2bStripeEvidence.reconciledPaidOrders===0&&<p role="status" className="form-status error">尚无可核对的正式批发 Stripe 足额付款闭环。配置开启及独立小额测试成功，不等于客户批发订单验收通过。</p>}
    <div className="list-row"><div><strong>已发送/已浏览、尚未接受的报价</strong><small>待跟进报价总数 / 未来两个 UTC 日历日内到期数 / 已过报价有效日但尚未处理数；仅为后台只读统计。</small></div>
@@ -71,4 +72,77 @@ export default function ReadinessPanel({accessKey}:{accessKey:string}){
    <p style={{fontSize:12,color:'#667085'}}>核查 UTC {data.checkedAt}。当前面板只展示正式状态、聚合记录数和凭证是否存在，不会创建报价、发送邮件或执行付款。</p>
   </>}
  </section>;
+}
+
+
+type WholesaleOrderStatus={
+ reference:string;orderStatus:string;paymentStatus:string;
+ wholesaleUnits:number;stripeCheckoutSessions:number;stripePaymentReconciled:boolean;
+ codeChecksPassed:boolean;blockers:string[];nextAction:string;
+ manualSalesTaxDeterminationStillRequired:boolean;
+};
+type WholesalePreflightResponse={
+ ok:boolean;checkedAtUTC:string;audited:number;hasMore:boolean;
+ codeChecksPassed:number;quoteRevisionRequired:number;stripeFullyReconciled:number;
+ orders:WholesaleOrderStatus[];code?:string;
+};
+const paymentBlockerLabel:Record<string,string>={
+ LIVE_B2B_STRIPE_CONFIG_NOT_READY:'生产 Stripe 配置尚未满足付款条件',
+ CLOSED_ORDER_NO_NEW_CHECKOUT:'订单已关闭，不允许重新扣款',
+ ALREADY_MARKED_PAID_NO_NEW_CHECKOUT:'订单已标记收款，禁止重复扣款',
+ PAID_NOT_FULLY_RECONCILED_VIA_STRIPE:'尚无足额 Stripe 实收及成功会话的对应凭证',
+ PAYMENT_STATUS_NOT_ELIGIBLE:'订单付款状态不允许建立新 Checkout',
+ OPEN_STRIPE_RECONCILIATION_REVIEW:'存在未关闭的 Stripe 付款核账争议',
+ QUOTE_STRIPE_TERMS_MISSING:'买方接受的报价未明确同意 Stripe 卡支付',
+ QUOTE_ACCEPTANCE_OR_VALIDITY_NOT_PAYABLE:'报价未完成有效的发送及买方接受，或已到期',
+ COMPLETE_US_DELIVERY_ADDRESS_REQUIRED:'买方收货地址缺少必要的美国州、市、邮编或街道',
+ ACCEPTED_QUOTE_SHIP_STATE_MISMATCH:'收货州与原报价运输条款不一致',
+ DESTINATION_NOT_IN_APPROVED_B2B_SCOPE:'收货州不在已审核的 B2B 系统配置名单内',
+ SALES_TAX_BASIS_NOT_DOCUMENTED:'报价缺少销售税处理依据',
+ ACCEPTED_QUOTE_AMOUNT_CHANGED:'订单金额与买方接受的原报价不一致',
+ ACCEPTED_QUOTE_ITEMS_CHANGED_OR_MISSING:'订单商品规格、数量或单价与原报价不一致',
+ PAYMENT_AMOUNT_OR_CURRENCY_INVALID:'付款金额或币种不符合系统要求',
+ PARTIAL_RECEIPT_NEEDS_MANUAL_REVIEW:'已有部分收款，需人工核账并重新审核',
+ ORDER_TOTAL_NOT_RECONCILED:'订单商品、运费和税额的合计不一致',
+ NOT_WHOLESALE_QUANTITY:'不足十件，不属于批发收款范围',
+};
+function WholesalePaymentPreflight({accessKey,refresh}:{accessKey:string;refresh:number}){
+ const [data,setData]=useState<WholesalePreflightResponse|null>(null);
+ const [error,setError]=useState('');
+ useEffect(()=>{
+  const ctrl=new AbortController();
+  setData(null);setError('');
+  fetch('/api/admin/b2b-payment-preflight',{
+   headers:{'x-admin-key':accessKey},cache:'no-store',signal:ctrl.signal,
+  }).then(async res=>{
+   const parsed=await res.json() as WholesalePreflightResponse;
+   if(!res.ok||!parsed.ok)throw Error(parsed.code||'付款预检不可用');
+   if(!ctrl.signal.aborted)setData(parsed);
+  }).catch(err=>{if(!ctrl.signal.aborted)setError(err instanceof Error?err.message:'读取预检失败')});
+  return ()=>ctrl.abort();
+ },[accessKey,refresh]);
+ return <div style={{border:'1px solid #e0e5ec',borderRadius:10,padding:12,marginTop:14,marginBottom:14}}
+  aria-label="B2B Stripe 逐单付款预检">
+   <strong>批发订单逐单 Stripe 付款预检（仅管理员只读）</strong>
+   <p style={{fontSize:12}}>只核对正式报价和系统证据；不会自动改报价、发邮件或收款。销售税义务、豁免及注册必须逐单独立确认。</p>
+   {error&&<p role="alert" className="form-status error">当前无法核验：{error}。请勿将错误视为全部已就绪。</p>}
+   {!error&&!data&&<p>正在读取逐单付款检查…</p>}
+   {data&&<>
+    <p role="status" style={{fontSize:12}}>检查 {data.audited} 笔批发订单；代码条件通过 {data.codeChecksPassed} 笔；
+     需要重新审核报价 {data.quoteRevisionRequired} 笔；
+     Stripe 账本足额对账 {data.stripeFullyReconciled} 笔。
+     {data.hasMore?'尚有其他记录未在本次页面中展开。':''}</p>
+    {data.orders.slice(0,12).map(o=><div className="list-row" key={o.reference}>
+     <div>
+      <strong>{o.reference} · {o.wholesaleUnits} 件 · {o.paymentStatus}</strong>
+      <small>{o.stripePaymentReconciled?'已核验数据库内 Stripe 会话与实收凭证':o.codeChecksPassed?'系统条款检查通过；仍需税务与收款人工审批':'付款前置条件不完整，不得直接重新扣款'}</small>
+      {o.blockers.length>0&&<small style={{display:'block',color:'#a12622',marginTop:4}}>
+       {o.blockers.slice(0,6).map(code=>paymentBlockerLabel[code]||code).join('；')}
+       {o.blockers.length>6?'；另有 '+(o.blockers.length-6)+' 项':''}
+      </small>}
+     </div>
+    </div>)}
+    <p style={{fontSize:12,color:'#667085'}}>查询时间 {data.checkedAtUTC} UTC。请在报价管理中根据实际价格、运费、税务凭证修订新报价并重新取得客户接受，切勿篡改历史报价。</p>
+   </>}
+  </div>;
 }
