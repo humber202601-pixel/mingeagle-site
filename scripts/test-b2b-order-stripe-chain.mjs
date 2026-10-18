@@ -17,6 +17,7 @@ const sqlite=new DatabaseSync(':memory:');
 for(const file of readdirSync('migrations').filter(x=>x.endsWith('.sql')).sort())
  sqlite.exec(readFileSync('migrations/'+file,'utf8'));
 let writes=0,network=0;
+let simulateSellerRevisionBeforeCommit=false;
 const db={
  prepare(sql){
   const stmt={args:[],bind(...args){this.args=args;return this},
@@ -26,6 +27,12 @@ const db={
   return stmt;
  },
  async batch(stmts){
+  // Emulate a concurrent seller revision between buyer GET and SQLite's
+  // transactional conversion, without touching real D1 or Stripe.
+  if(simulateSellerRevisionBeforeCommit){
+   simulateSellerRevisionBeforeCommit=false;
+   sqlite.prepare("UPDATE quotes SET status='EXPIRED' WHERE id=?").run(quoteId);
+  }
   sqlite.exec('BEGIN');try{
    const results=[];for(const stmt of stmts)results.push(await stmt.run());
    sqlite.exec('COMMIT');return results;
@@ -170,6 +177,18 @@ try{
   'Source quote remains unconverted after rolled-back acceptance');
  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM activities WHERE activity_type='QUOTE_ACCEPTED'").get().n,0);
  sqlite.exec('DROP TRIGGER reject_payment_task');
+ simulateSellerRevisionBeforeCommit=true;
+ const superseded=await accept(ship);
+ assert.equal(superseded.status,409,
+  'An atomic seller revision must defeat a stale buyer acceptance');
+ assert.equal((await superseded.json()).code,'QUOTE_NO_LONGER_ACCEPTABLE');
+ assert.equal(sqlite.prepare('SELECT status FROM quotes WHERE id=?').get(quoteId).status,'EXPIRED');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM orders').get().n,0,
+  'No payable order may be created after a quote was superseded');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM order_items').get().n,0);
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM tasks WHERE type='PAYMENT'").get().n,0);
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM activities WHERE activity_type='QUOTE_ACCEPTED'").get().n,0);
+ sqlite.prepare("UPDATE quotes SET status='VIEWED' WHERE id=?").run(quoteId);
  const accepted=await accept(ship);
  assert.equal(accepted.status,201,await accepted.clone().text());
  const created=await accepted.json();
