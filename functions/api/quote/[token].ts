@@ -115,7 +115,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
     const existingOrder = await getOrder(db, String(quote.id));
     // Read the ship-to destination only inside the Worker. Never return raw
     // address fields in buyer JSON just to determine CTA eligibility.
-    const publicOrder=existingOrder?{...existingOrder,
+    const publicOrder:Row|null=existingOrder?{...existingOrder,
       b2b_payment_prerequisites_ready:b2bCheckoutPrerequisitesReady(existingOrder,quote,env)}:null;
     if(publicOrder)delete publicOrder.shipping_address;
     return Response.json({ ok: true, quote, items: items.results, order: publicOrder });
