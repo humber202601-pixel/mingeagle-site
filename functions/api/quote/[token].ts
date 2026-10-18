@@ -193,6 +193,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
         Number.isFinite(unit) && unit > 0 && Number.isFinite(line) && line > 0 &&
         Math.abs(Math.round(qty * unit * 100) - Math.round(line * 100)) <= 1;
     });
+    // A Stripe-bound quote converts into a wholesale order, not a sample
+    // cart. 1–9 units use the separate retail/sample checkout route.
+    const wholesaleUnits = items.results.reduce((sum,item) => sum+Number(item.quantity),0);
+    if(validItems&&(!Number.isSafeInteger(wholesaleUnits)||wholesaleUnits<10))
+      return Response.json({ok:false,code:'B2B_MINIMUM_10_UNITS',
+        error:'Wholesale quotes require at least 10 units. For 1–9 units, use the retail sample checkout.'},{status:409});
     const quotedSubtotal = Number(quote.subtotal), discount = Number(quote.discount || 0),
       shipping = Number(quote.shipping || 0), tax = Number(quote.tax || 0), total = Number(quote.total);
     const computedSubtotalCents = items.results.reduce((sum,item) => sum + Math.round(Number(item.line_total) * 100), 0);
