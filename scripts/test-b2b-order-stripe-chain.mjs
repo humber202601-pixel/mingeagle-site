@@ -123,6 +123,22 @@ try{
  assert(!(await todayHtml.text()).includes('This quote has expired'),
   'HTML must not show final-day quote as expired');
  const ship={country:'US',state:'TX',city:'Austin',postalCode:'78701',line1:'123 Synthetic B2B Street'};
+ // A previously sent quotation without a documented seller tax basis must
+ // not create an unpayable order, even if freight, Stripe terms and ZIP match.
+ sqlite.prepare('UPDATE quotes SET tax_basis=NULL WHERE id=?').run(quoteId);
+ const missingTaxBasis=await accept(ship);
+ assert.equal(missingTaxBasis.status,409,'Legacy quote missing seller tax basis must be revised before buyer acceptance');
+ assert.equal((await missingTaxBasis.json()).code,'QUOTE_SALES_TAX_BASIS_NOT_DOCUMENTED');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM orders').get().n,0,
+  'Missing tax basis may not create a real customer order');
+ const noTaxQuote=await (await quoteGet()).json();
+ assert.equal(noTaxQuote.quote.tax_basis_documented,0,'Public quote exposes a boolean only');
+ assert(!JSON.stringify(noTaxQuote).includes('simulated tax-basis review'),
+  'Never publish the seller internal tax review detail');
+ sqlite.prepare('UPDATE quotes SET tax_basis=? WHERE id=?').run(
+  'SYNTHETIC TEST ONLY: simulated tax-basis review is NOT merchant tax approval',quoteId);
+ const repairedQuote=await (await quoteGet()).json();
+ assert.equal(repairedQuote.quote.tax_basis_documented,1);
  sqlite.prepare("UPDATE quotes SET shipping_terms='DDP sea freight 25–30 days; Ship-to state: ZZ' WHERE id=?").run(quoteId);
  const impossible=await accept({...ship,state:'ZZ'});
  assert.equal(impossible.status,409,'Buyer may not accept invalid state code even if quote has same two letters');
