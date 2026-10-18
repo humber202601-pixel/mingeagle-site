@@ -318,7 +318,7 @@ jobs:
               print('PASS public AI source exact bytes',filename,len(body))
           facts=json.loads((root/'ai-product-facts.json').read_text())
           assert facts['documentType']=='first-party-public-product-facts'
-          assert len(facts['products'])==4 and len(facts['guides'])==5
+          assert len(facts['products'])==4 and len(facts['guides'])==10
           assert facts['publisher']['website']==base
           assert 'llms.txt' not in [x['url'] for x in facts['products']]
           print('PASS verified live AI product data remains first-party, canonical and complete')
