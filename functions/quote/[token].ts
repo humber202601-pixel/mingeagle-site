@@ -75,6 +75,13 @@ async function getQuote(db: D1Database, token: string) {
 async function getOrder(db: D1Database, quoteId: string) {
   return db.prepare(`SELECT o.id, o.reference, o.status, o.payment_status, o.total, o.currency, o.shipping_address,
       (SELECT COALESCE(SUM(p.amount),0) FROM payments p WHERE p.order_id=o.id AND p.status='RECEIVED') AS amount_received,
+      (SELECT COALESCE(SUM(p.amount),0) FROM payments p
+       JOIN payment_provider_sessions s ON s.order_id=p.order_id AND s.provider='STRIPE'
+        AND s.provider_intent_id=p.provider_reference AND s.status='SUCCEEDED'
+       WHERE p.order_id=o.id AND p.provider='STRIPE' AND p.currency='USD'
+        AND p.status='RECEIVED') AS stripe_verified_received,
+      (SELECT COALESCE(SUM(p.amount),0) FROM payments p WHERE p.order_id=o.id AND
+       p.status='RECEIVED' AND (p.provider IS NULL OR upper(p.provider)<>'STRIPE')) AS historical_other_received,
       (SELECT COUNT(*) FROM tasks t WHERE t.order_id=o.id AND t.type='PAYMENT'
        AND t.status IN ('OPEN','IN_PROGRESS')
        AND (t.title LIKE 'Review disputed Stripe receipts%'
@@ -172,6 +179,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
       const orderCurrency = String(order.currency || currency);
       const orderTotal = Number(order.total || quote.total || 0);
       const received = Number(order.amount_received || 0);
+      // PAID is a historical ledger label; it is not itself Stripe settlement
+      // evidence. Mirror the existing read-only /api/payments/stripe/status
+      // receipt/session join before showing an unconditional confirmation.
+      const verifiedStripeReceived = Number(order.stripe_verified_received || 0);
+      const historicalOtherReceived = Number(order.historical_other_received || 0);
+      const stripePaymentFullyReconciled = Number.isFinite(orderTotal) && orderTotal>0 &&
+        verifiedStripeReceived+0.005>=orderTotal && historicalOtherReceived<0.005 &&
+        received<=orderTotal+0.005;
       const outstanding = Math.max(0, orderTotal - received);
       const paymentReference = `PAY-${String(order.reference)}`;
       const trackLink = order.tracking_url && /^https:\/\//i.test(String(order.tracking_url))
@@ -209,7 +224,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
         : paymentHeld
         ? '<div class="notice info" role="alert"><strong>Stripe payment needs manual reconciliation.</strong> Our team is reviewing the recorded payment. Please do not pay again; preparation and shipping are on hold until reconciliation is complete. Contact MING EAGLE if you need an update.</div>'
         : String(order.payment_status) === 'PAID'
-        ? `<div class="payment-success"><strong>Payment received in full.</strong><br>Thank you. Your order is now moving into processing.</div>`
+        ? stripePaymentFullyReconciled
+          ? `<div class="payment-success"><strong>Payment received in full.</strong><br>Thank you. Your order is now moving into processing.</div>`
+          : '<div class="notice info" role="alert"><strong>Payment marked received; verification pending.</strong><p>Our records show this order as paid, but the Stripe payment evidence has not been fully reconciled. Please do not pay again. Contact MING EAGLE if you need confirmation; dispatch must await internal review.</p></div>'
         : !String(order.reference).startsWith('ME-RO-') && Number(quote.tax_basis_documented)!==1
         ? '<div class="notice info" role="alert"><strong>Payment is not available for this quotation.</strong><p>Seller sales-tax review must be documented and the quotation reapproved before any new card payment. Please contact MING EAGLE for revised terms. No new payment has been initiated.</p></div>'
         : `<div class="payment-help"><strong>Secure Stripe payment</strong><p>Stripe is our sole online payment provider. Your reference is <b>${esc(paymentReference)}</b>. Do not pay again while a Stripe payment is still processing.</p>${providerNotice}<div class="payment-options">${stripeReady?stripePay:'<div class="notice info">Stripe checkout is currently unavailable for this order. Please contact MING EAGLE for assistance.</div>'}</div></div>`;
