@@ -482,6 +482,7 @@ try{
  assert.equal(invalid.status,401);
  // The newly merchant-confirmed P1-S3 must use the same provider-side validations.
  retailSku='P1-S3';retailGoods=9.9;retailShipping=11.5;
+ retailBasket=[{sku:'P1-S3',quantity:1,unit:9.9,color:'Orange'}];
  const smallCheckout=await createCheckout({env:{...ready,MINGEAGLE_DB:db},request:request()});
  assert.equal(smallCheckout.status,200,await smallCheckout.clone().text());
  assert.equal((await smallCheckout.json()).ok,true);
