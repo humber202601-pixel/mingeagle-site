@@ -85,6 +85,34 @@ assert(page.includes("b2bTaxReview")===false,'Do not expose internal tax decisio
  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM quote_revision_links").get().n,1);
  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM tasks").get().n,1);
  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM activities").get().n,2);
+ // Lost browser response/double click must return one and the same direct
+ // revision, no duplicate quote, staff task or audit activity.
+ const initialRevisionId=latest.id;
+ const writesBeforeRetry={
+   quotes:sqlite.prepare("SELECT COUNT(*) n FROM quotes").get().n,
+   items:sqlite.prepare("SELECT COUNT(*) n FROM quote_items").get().n,
+   tasks:sqlite.prepare("SELECT COUNT(*) n FROM tasks").get().n,
+   activities:sqlite.prepare("SELECT COUNT(*) n FROM activities").get().n,
+   links:sqlite.prepare("SELECT COUNT(*) n FROM quote_revision_links").get().n,
+ };
+ response=await invoke('old-quote');
+ assert.equal(response.status,200,'Retrying an already revised quote reuses its draft');
+ assert.equal(response.data.reused,true);
+ assert.equal(response.data.quote.id,initialRevisionId,'Revision identity is stable across retries');
+ assert.equal(response.data.quote.reference,latest.reference);
+ assert.deepEqual({
+   quotes:sqlite.prepare("SELECT COUNT(*) n FROM quotes").get().n,
+   items:sqlite.prepare("SELECT COUNT(*) n FROM quote_items").get().n,
+   tasks:sqlite.prepare("SELECT COUNT(*) n FROM tasks").get().n,
+   activities:sqlite.prepare("SELECT COUNT(*) n FROM activities").get().n,
+   links:sqlite.prepare("SELECT COUNT(*) n FROM quote_revision_links").get().n
+ },writesBeforeRetry,'A retry must make no additional commercial or followup writes');
+ const index=sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_quote_revision_source'").get();
+ assert(index,'A concurrent retry must be blocked by source uniqueness at the database');
+ assert.throws(()=>sqlite.prepare(`INSERT INTO quote_revision_links
+   (id,root_quote_id,source_quote_id,revised_quote_id,revision_number)
+   VALUES('synthetic-duplicate', 'old-quote', 'old-quote', 'rollback-quote', 99)`).run(),
+   'The same source quote cannot be revised twice even by competing writers');
  sqlite.exec(`CREATE TRIGGER rollback_revision_last_step BEFORE INSERT ON activities
  WHEN NEW.activity_type='QUOTE_SUPERSEDED'
  BEGIN SELECT RAISE(ABORT,'isolated revision audit failure'); END;`);
