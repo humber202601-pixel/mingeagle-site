@@ -88,4 +88,17 @@ assert(!JSON.stringify(report).includes('private-order-id'));
 assert(!JSON.stringify(report).includes('Synthetic Lane'));
 assert(!JSON.stringify(report).includes('synthetic_payments'));
 assert.equal((await onRequestGet({env:{...env,MINGEAGLE_DB:null}})).status,503);
-console.log('PASS: B2B admin preflight identifies legacy missing terms and tax basis, preserves buyer-approved snapshots, separates config from paid receipts, and only reads D1.');
+
+// The admin portal must actually expose the secured production audit via navigation;
+// a compiled but unreachable component does not count as deployed UI.
+import {readFileSync} from 'node:fs';
+const adminSource=readFileSync('src/AdminApp.tsx','utf8');
+const readinessSource=readFileSync('src/ReadinessPanel.tsx','utf8');
+assert(adminSource.includes("import ReadinessPanel from './ReadinessPanel';"));
+assert(adminSource.includes("'/app/readiness'"));
+assert(adminSource.includes("page === 'readiness'"));
+assert(adminSource.includes('<ReadinessPanel accessKey={key}/>'));
+assert(readinessSource.includes('/api/admin/b2b-payment-preflight'));
+assert(readinessSource.includes('<WholesalePaymentPreflight accessKey={accessKey} refresh={refresh}/>'));
+
+console.log('PASS: B2B admin preflight identifies legacy missing terms and tax basis, preserves buyer-approved snapshots, separates config from paid receipts, only reads D1, and is reachable from the admin navigation.');
