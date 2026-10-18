@@ -20,8 +20,10 @@ assert(panel.includes('Stripe 在线收款配置'));
 assert(panel.includes('B2B 报价订单 Stripe 收款'));
 assert(panel.includes('B2B 技术配置就绪')&&panel.includes('非税务注册清单'),
  'Buyer destination allowlist cannot be represented to admins as tax-registration evidence');
-assert(panel.includes('本页面未向 Stripe Tax 查询任何实际注册证明'),
- 'Admin must see an explicit tax-registration verification limitation');
+assert(panel.includes('StripeTaxRegistrationsReadOnly')&&panel.includes('Stripe Tax Live 已生效州销售税登记'),
+ 'Admin must query actual Stripe Tax registration evidence without treating it as government permits');
+assert(panel.includes('不能把读取失败当作零项登记'),
+ 'Unavailable Stripe API must never be shown as zero tax registrations');
 assert(!panel.includes('<strong>Airwallex 在线收款</strong>'),'Retired online gateway must not be the dashboard heading');
 const temp=mkdtempSync(join(tmpdir(),'readiness-'));
 try{

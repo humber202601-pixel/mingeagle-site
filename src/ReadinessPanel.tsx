@@ -12,6 +12,31 @@ type Snapshot={ok:boolean;checkedAt:string;
  security:{turnstileConfigured:boolean;turnstileEnabled:boolean;turnstileMisconfigured:boolean};
  payments:{checkoutRequested:boolean;providerCredentialsConfigured:boolean;webhookConfigured:boolean;environment:string|null;checkoutConfigurationReady:boolean;retailOnlyRestriction:boolean;b2bCheckoutRequested:boolean;b2bTaxReviewed:boolean;b2bApprovedDestinationStates:string[];b2bConfigurationReady:boolean};
  caveats:string[];error?:string};
+type LiveTaxRegistrations={ok:boolean;checkedAt?:string;activeUsStateSalesTaxCount?:number;activeStates?:string[];morePages?:boolean;error?:string};
+function StripeTaxRegistrationsReadOnly({accessKey,refresh}:{accessKey:string;refresh:number}){
+ const [result,setResult]=useState<LiveTaxRegistrations|null>(null);
+ const [error,setError]=useState('');
+ useEffect(()=>{
+  const controller=new AbortController();setResult(null);setError('');
+  fetch('/api/admin/stripe-tax-registrations',{headers:{'x-admin-key':accessKey},signal:controller.signal,cache:'no-store'})
+   .then(async response=>{
+    const value=await response.json() as LiveTaxRegistrations;
+    if(!response.ok||!value.ok)throw Error(value.error||'Stripe Tax 注册记录无法读取');
+    if(!controller.signal.aborted)setResult(value);
+   }).catch(e=>{if(!controller.signal.aborted)setError(e instanceof Error?e.message:'Stripe Tax 记录读取失败')});
+  return ()=>controller.abort();
+ },[accessKey,refresh]);
+ return <>
+  <div className="list-row"><div><strong>Stripe Tax Live 已生效州销售税登记（只读）</strong>
+   <small>从 Stripe Tax API 读取实际登记记录，独立于 51 个技术允许目的州；Stripe 记录本身也不等同于政府许可或 Nexus 意见。</small></div>
+   <span>{error?'无法核验':result?result.activeUsStateSalesTaxCount+' 个州'+(result.morePages?'（仅已读取第一页）':''):'查询中…'}</span></div>
+  {error&&<p role="alert" className="form-status error">Stripe Tax Live 查询失败：{error}。不能把读取失败当作零项登记或收税许可。</p>}
+  {result&&<p role="status" style={{fontSize:12,color:result.activeUsStateSalesTaxCount===0?'#b54708':'#667085'}}>
+    Stripe 已报告的活跃州销售税登记：{result.activeStates?.join(' / ')||'无'}。核查时间 UTC {result.checkedAt}。
+    {result.morePages?'Stripe 还有后续页面，登记数量暂不完整。':'已检查 API 返回的全部分页标记。'}
+    仍须核实政府实际税务许可、客户目的州和相关销售税义务；未登记的州不应被自动判定为无需纳税。</p>}
+ </>;
+}
 const count=(n:number|null):string=>n===null?'尚无法核验':String(n);
 export default function ReadinessPanel({accessKey}:{accessKey:string}){
  const [data,setData]=useState<Snapshot|null>(null),[error,setError]=useState('');
@@ -74,7 +99,8 @@ export default function ReadinessPanel({accessKey}:{accessKey:string}){
    <div className="list-row"><div><strong>Stripe 在线收款配置</strong><small>仅代表 API 凭证和签名 Webhook 的配置状态；不代表真实到账或税务义务已经核实</small></div><span>{data.payments.checkoutConfigurationReady?'基础配置就绪，待真实交易验收':data.payments.checkoutRequested?'Stripe 启用请求存在但配置不完整':'未启用'}</span></div>
    <div className="list-row"><div><strong>B2B 报价订单 Stripe 收款</strong><small>仅检查 API 凭证、商家审核标志和允许目的州名单，不代表州销售税注册或真实结算已获验收。</small></div>
     <span>{data.payments.b2bConfigurationReady?'B2B 技术配置就绪；允许目的州/DC '+data.payments.b2bApprovedDestinationStates.length+' 个（非税务注册清单）':data.payments.retailOnlyRestriction?'当前仅限零售样品付款':data.payments.b2bCheckoutRequested&&!data.payments.b2bTaxReviewed?'待审核 B2B 税务及运输费用':'B2B 收款尚未开放或条件未满足'}</span></div>
-   {data.payments.b2bCheckoutRequested&&<p role="status" style={{fontSize:12,color:'#b54708'}}>Stripe Tax 开关或后台税务审核标志不等于已取得州税务登记。本页面未向 Stripe Tax 查询任何实际注册证明；每笔批发收款仍须核实客户目的州、适用税务义务、合法税务依据、已接受报价及支付凭证，不能仅凭允许州名单开展收税。</p>}
+   {data.payments.b2bCheckoutRequested&&<p role="status" style={{fontSize:12,color:'#b54708'}}>Stripe Tax 开关、技术目的州清单及后台税务审核标志均不等于已取得政府销售税许可。请对照下方 Stripe Tax Live 实际登记记录，逐单核实税务义务、合法税务依据、买方接受报价及支付凭证。</p>}
+   <StripeTaxRegistrationsReadOnly accessKey={accessKey} refresh={refresh}/>
    <p style={{fontSize:12,color:'#667085'}}>核查 UTC {data.checkedAt}。当前面板只展示正式状态、聚合记录数和凭证是否存在，不会创建报价、发送邮件或执行付款。</p>
   </>}
  </section>;
