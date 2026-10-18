@@ -4,8 +4,9 @@
 'use strict';
 const fs=require('node:fs');
 const path=require('node:path');
-const root=path.resolve(process.argv[2]||'public');
-const checkOnly=process.argv.includes('--check');
+const argumentsList=process.argv.slice(2);
+const root=path.resolve(argumentsList.find(arg=>!arg.startsWith('--'))||'public');
+const checkOnly=argumentsList.includes('--check');
 const icon='assets/mingeagle-social-wordmark.svg';
 const logo='assets/mingeagle-social-wordmark.png';
 const logoUrl='https://www.mingeagle.com/'+logo;
