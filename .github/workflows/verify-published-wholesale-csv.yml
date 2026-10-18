@@ -23,13 +23,13 @@ jobs:
         with:
           node-version: 22
       - name: Validate verifier without network
-        run: node scripts/verify-live-wholesale-csv.mjs
+        run: node scripts/verify-live-wholesale-csv.mjs --self-test
       - name: Self-test supplier introduction read-after-deploy verifier
         run: node scripts/verify-live-supplier-introduction.mjs --self-test
       - name: Confirm supplier introduction actual public download after release
         env:
           DEPLOYED_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: node scripts/verify-live-supplier-introduction.mjs --self-test
+        run: node scripts/verify-live-supplier-introduction.mjs
       - name: Confirm exact public CSV bytes after GitHub Pages release
         env:
           DEPLOYED_SHA: ${{ github.event.workflow_run.head_sha }}
