@@ -132,6 +132,8 @@ try{
  let simulatedOrderStatus='PAYMENT_PENDING',simulatedPaymentStatus='UNPAID';
  let simulatedActiveStripeReview=false;
  let retailSku='P1-S7', retailGoods=14.9, retailShipping=14;
+ // Synthetic multi-item order lines mirror actual customer retail carts.
+ let retailBasket=[{sku:'P1-S7',quantity:1,unit:14.9,color:'Orange'}];
  const processedEvents=new Set();
  let receivedInserts=0,paidOrderUpdates=0,fulfillmentTaskInserts=0;
  const db={prepare(sql){
@@ -174,7 +176,10 @@ try{
         description:simulatedOrderItemChange==='description'?'Different silent basketball':'Synthetic Silent Ball | No. 7 | Orange',
         quantity:1,unit_price:retailGoods,line_total:retailGoods
       }]};
-      return {success:true,results:[{description:retailSku+' / Orange Retail silent ball',quantity:1,unit_price:retailGoods}]};
+      return {success:true,results:retailBasket.map(item=>({
+       description:item.sku+' / '+item.color+' Retail silent ball',
+       quantity:item.quantity,unit_price:item.unit
+      }))};
     }
     throw Error('Unexpected SQL list '+sql);
    },
@@ -477,6 +482,7 @@ try{
  assert.equal(invalid.status,401);
  // The newly merchant-confirmed P1-S3 must use the same provider-side validations.
  retailSku='P1-S3';retailGoods=9.9;retailShipping=11.5;
+ retailBasket=[{sku:'P1-S3',quantity:1,unit:9.9,color:'Orange'}];
  const smallCheckout=await createCheckout({env:{...ready,MINGEAGLE_DB:db},request:request()});
  assert.equal(smallCheckout.status,200,await smallCheckout.clone().text());
  assert.equal((await smallCheckout.json()).ok,true);
@@ -497,5 +503,30 @@ try{
   })});
  assert.equal(wrongModeWebhook.status,409,'Signed live session must be rejected by a test-mode webhook');
  assert.equal(receivedInserts,b2bPaymentsAfter,'Cross-mode event must not record payment');
- console.log('PASS: Stripe fail-closed gate, owner-approved tax, signature verification, server price, hosted URL and signed payment reconciliation.');
+ // Retail 2–9 unit baskets must reach the same hosted Checkout API with
+ // exact one-unit DDP parcel charges. This provider fetch and D1 are FAKE.
+ const multiBaskets=[
+  {name:'two size-7',items:[{sku:'P1-S7',quantity:2,unit:14.9,color:'Orange'}],
+   goods:29.8,freight:28,totalCents:5780},
+  {name:'size-3 plus size-7',items:[
+     {sku:'P1-S3',quantity:1,unit:9.9,color:'Blue'},
+     {sku:'P1-S7',quantity:1,unit:14.9,color:'Orange'}],
+   goods:24.8,freight:25.5,totalCents:5030},
+  {name:'nine size-7',items:[{sku:'P1-S7',quantity:9,unit:14.9,color:'Orange'}],
+   goods:134.1,freight:126,totalCents:26010}
+ ];
+ for(const [index,basket] of multiBaskets.entries()){
+  retailSku='P1-S7';retailBasket=basket.items;
+  retailGoods=basket.goods;retailShipping=basket.freight;stored=false;
+  providerSessionIdOverride='cs_test_multiParcelCheckout'+index;
+  const callsBefore=providerCalls,writesBefore=dbWrites;
+  const result=await createCheckout({env:{...ready,MINGEAGLE_DB:db},request:request()});
+  assert.equal(result.status,200,basket.name+': '+await result.clone().text());
+  assert.equal((await result.json()).url,'https://checkout.stripe.com/c/pay/cs_test_synthetic');
+  assert.equal(requestAmount,basket.totalCents,basket.name+' exact Stripe billed cents');
+  assert.equal(providerCalls,callsBefore+1,basket.name+' must make only one provider POST');
+  assert.equal(dbWrites,writesBefore+1,basket.name+' must persist only one provider session');
+ }
+ providerSessionIdOverride=null;
+ console.log('PASS: single and mixed 2–9-unit DDP retail baskets reach synthetic hosted Stripe with exact cents, alongside signed payment reconciliation.');
 }finally{globalThis.fetch=saved}
