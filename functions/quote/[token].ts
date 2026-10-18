@@ -52,6 +52,8 @@ async function getQuote(db: D1Database, token: string) {
   return db.prepare(`SELECT
       q.id, q.reference, q.status, q.currency, q.subtotal, q.discount, q.shipping, q.tax, q.total,
       q.payment_terms, q.shipping_terms, q.notes, q.valid_until, q.sent_at, q.first_viewed_at, q.accepted_at,
+      -- A boolean readiness marker only; never expose internal seller tax reasoning.
+      CASE WHEN NULLIF(TRIM(q.tax_basis),'') IS NOT NULL THEN 1 ELSE 0 END AS tax_basis_documented,
       q.lead_id, q.inquiry_id, q.company_id, q.contact_id,
       COALESCE(c.name, ct.full_name, 'Customer') AS customer,
       ct.full_name AS contact_name, ct.email AS contact_email,
@@ -212,6 +214,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
       actionArea = `<div class="notice error">This quote is no longer awaiting acceptance.</div>`;
     } else if (Number(quote.total || 0) <= 0) {
       actionArea = `<div class="notice error">This quotation has no valid price. Please contact MING EAGLE for a corrected quotation.</div>`;
+    } else if (Number(quote.tax_basis_documented)!==1) {
+      // Mirrors the existing POST acceptance guard; never create an
+      // unpayable order from a legacy quote lacking seller tax review.
+      actionArea = '<div class="notice info" role="alert"><strong>Updated quotation required.</strong> Seller sales-tax review is not documented for this quotation. Please contact MING EAGLE to request a revised quote before accepting. No order or charge has been created.</div>';
     } else {
       const shipToFields=stripeCheckoutTermsSupported(quote.payment_terms)
         ? '<fieldset style="border:1px solid #d0d5dd;border-radius:12px;padding:14px;margin-bottom:18px"><legend>Confirm the US delivery destination from this quotation</legend><p class="notice info">The quoted freight must already specify the same state as "Ship-to state: XX". A different destination requires a revised quote.</p><label>Street address<input id="shipLine1" autocomplete="street-address" maxlength="180" style="width:100%" required></label><label>City<input id="shipCity" autocomplete="address-level2" maxlength="100" style="width:100%" required></label><label>US state (two letters)<input id="shipState" autocomplete="address-level1" maxlength="2" placeholder="OR" style="width:100%" required></label><label>ZIP code<input id="shipZip" autocomplete="postal-code" maxlength="10" style="width:100%" required></label></fieldset>'
