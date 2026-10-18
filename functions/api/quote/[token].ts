@@ -40,7 +40,15 @@ async function getQuote(db: D1Database, token: string) {
 }
 
 async function getOrder(db: D1Database, quoteId: string) {
-  return db.prepare(`SELECT o.id, o.reference, o.status, o.payment_status,
+  return db.prepare(`SELECT o.id, o.reference, o.status, o.payment_status, o.total, o.currency,
+      (SELECT COALESCE(SUM(p.amount),0) FROM payments p
+        WHERE p.order_id=o.id AND p.status='RECEIVED') AS amount_received,
+      (SELECT COALESCE(SUM(p.amount),0) FROM payments p
+        JOIN payment_provider_sessions s ON s.order_id=p.order_id
+          AND s.provider='STRIPE' AND s.provider_intent_id=p.provider_reference
+          AND s.status='SUCCEEDED'
+        WHERE p.order_id=o.id AND p.provider='STRIPE' AND p.currency='USD'
+          AND p.status='RECEIVED') AS stripe_verified_received,
       (SELECT COUNT(*) FROM tasks t WHERE t.order_id=o.id AND t.type='PAYMENT'
        AND t.status IN ('OPEN','IN_PROGRESS')
        AND (t.title LIKE 'Review disputed Stripe receipts%'
