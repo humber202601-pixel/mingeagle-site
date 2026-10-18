@@ -209,6 +209,12 @@ try{
  assert.equal(legacyPaidStatus.requiresManualReview,true,
   'Historical PAID without any Stripe session must require manual reconciliation');
  assert.equal(legacyPaidStatus.paymentEvidence,'MANUAL_RECONCILIATION');
+ const unverifiedApiOrder=(await (await quoteGet()).json()).order;
+ assert.equal(unverifiedApiOrder.payment_status,'PAID');
+ assert.equal(unverifiedApiOrder.stripe_verified_received,0,
+  'React JSON quote may not mistake a PAID label for receipt evidence');
+ assert.equal(unverifiedApiOrder.amount_received,0);
+ assert.equal(unverifiedApiOrder.total,180);
  assert(legacyPaidHtml.includes('Payment marked received; verification pending.'));
  assert(!legacyPaidHtml.includes('Payment received in full.'));
  assert(!legacyPaidHtml.includes('id="stripePayBtn"'),'Legacy PAID order must never solicit a second charge');
@@ -371,6 +377,11 @@ try{
  assert.equal(normalStatus.historicalOtherReceived,0);
  assert.equal(normalStatus.paymentEvidence,'STRIPE_VERIFIED');
  assert.equal(normalStatus.requiresManualReview,false);
+ const verifiedApiOrder=(await (await quoteGet()).json()).order;
+ assert.equal(verifiedApiOrder.stripe_verified_received,180,
+  'React JSON quote exposes succeeded Stripe session receipt only');
+ assert.equal(verifiedApiOrder.amount_received,180);
+ assert.equal(verifiedApiOrder.currency,'USD');
  const verifiedPaidPage=await quotePage({env,params:{token:bearer},request:new Request(orderPage)});
  const verifiedPaidHtml=await verifiedPaidPage.text();
  assert(verifiedPaidHtml.includes('Payment received in full.'),

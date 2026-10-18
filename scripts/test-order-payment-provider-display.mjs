@@ -49,8 +49,14 @@ assert.deepEqual(publicReviewCounts.map(x=>x.active_payment_review_count),[1,1,0
  'A customer may not see a generic PAID banner when Stripe review tasks are still open');
 db.close();
 const reactQuote=readFileSync('src/CustomerQuote.tsx','utf8');
-assert(reactQuote.includes('const paymentHeld=Number(order?.active_payment_review_count||0)>0'),
- 'React quote must fail closed during active disputed Stripe receipt review');
+assert(reactQuote.includes("order?.payment_status==='PAID'&&!stripeReceiptReconciled"),
+ 'React quote cannot confirm historic PAID status without provider-linked receipt evidence');
+assert(reactQuote.includes("Math.abs(Number(order?.stripe_verified_received||0)-invoiceTotal)<=0.005"),
+ 'React quote must check exactly matched Stripe receipts');
+assert(reactQuote.includes("Math.abs(Number(order?.amount_received||0)-invoiceTotal)<=0.005"),
+ 'React quote must also reject mixed, duplicated or overpaid historical receipts');
+assert(reactQuote.includes('Number(order?.active_payment_review_count||0)>0||'),
+ 'React quote must retain the active payment dispute guard');
 assert(reactQuote.includes('const checkoutReadyForOrder=Boolean(order&&'),
  'React quote must use order-channel payment readiness');
 assert(reactQuote.includes('payment?.stripe?.b2bConfigurationReady'),
@@ -61,8 +67,15 @@ assert(!reactQuote.includes('order&&payment?.stripe?.checkoutReady?'),
  'Global Stripe flag may not advertise an unapproved order as payable');
 assert(reactQuote.includes('paymentHeld?<p role="alert"'),
  'Buyer must see manual reconciliation warning before any generic PAID success banner');
-assert(reactQuote.includes('!checkoutReadyForOrder||paymentHeld||closedOrder'),
- 'Direct React click handler cannot bypass hidden payment controls');
+assert(reactQuote.includes('!checkoutReadyForOrder||paymentHeld||closedOrder||taxReviewNeeded'),
+ 'Direct React payment click handler cannot bypass evidence or tax basis guard');
+assert(reactQuote.includes('if(!valid||!data?.quote||taxReviewNeeded)return;'),
+ 'React quote acceptance may not bypass the tax-basis safety gate');
+assert(reactQuote.includes('taxReviewNeeded?<p role="alert"'),
+ 'React quote must inform buyers their unreviewed quotation cannot be accepted');
+assert(!reactQuote.includes('order?.payment_status===\'PAID\'?<p role="status" className="form-status success">\n      Payment confirmed. Thank you for your order.</p>:') ||
+ reactQuote.includes('(order?.payment_status===\'PAID\'&&!stripeReceiptReconciled)'),
+ 'Unsafe PAID state may never lead to an unconditional payment confirmation');
 assert(ui.includes("channel==='STRIPE'||channel==='AIRWALLEX'"),'Known providers are mapped by recorded identifier');
 assert(ui.includes("method==='ONLINE_PAYMENT'"),'Unidentified online payment is not silently attributed to Airwallex');
 assert(ui.includes('线上支付服务商（未记录）'));
