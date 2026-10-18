@@ -166,13 +166,15 @@ try{
    async all(){
     if(sql.includes('FROM quote_items WHERE quote_id='))return {success:true,results:[{
       product_id:'product_one',variant_id:'variant_one',description:'Synthetic Silent Ball | No. 7 | Orange',
-      quantity:1,unit_price:retailGoods,line_total:retailGoods
+      // This is a 10-unit synthetic B2B quotation; its fixture subtotal is
+      // fixed for arithmetic tests, not a real seller-approved wholesale price.
+      quantity:10,unit_price:retailGoods/10,line_total:retailGoods
     }]};
     if(sql.includes('FROM order_items WHERE order_id=')){
       if(orderReference.startsWith('ME-O-'))return {success:true,results:[{
         product_id:'product_one',variant_id:simulatedOrderItemChange==='variant'?'variant_swapped':'variant_one',
         description:simulatedOrderItemChange==='description'?'Different silent basketball':'Synthetic Silent Ball | No. 7 | Orange',
-        quantity:1,unit_price:retailGoods,line_total:retailGoods
+        quantity:10,unit_price:retailGoods/10,line_total:retailGoods
       }]};
       return {success:true,results:[{description:retailSku+' / Orange Retail silent ball',quantity:1,unit_price:retailGoods}]};
     }
