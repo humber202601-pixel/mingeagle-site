@@ -107,6 +107,7 @@ jobs:
         run: |
           node scripts/check-priority-indexing-pages.cjs
           node scripts/test-school-buyer-rfq.cjs
+          node scripts/check-school-team-search-intent.cjs
 
       - name: Optimize first-party native image loading
         run: |
