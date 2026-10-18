@@ -157,6 +157,11 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    if(!quoteLines.success||!orderLines.success||
       !acceptedB2bItemSnapshotMatches(quoteLines.results,orderLines.results,order.quote_subtotal,order.subtotal))
     return fail('Wholesale order items differ from the accepted quotation. A corrected quotation must be approved before payment.',409);
+   // Guard direct API calls and legacy accepted quotes independently of the
+   // public acceptance check. A sample order may not bypass retail policies.
+   const wholesaleUnits=(quoteLines.results||[]).reduce((sum,item)=>sum+Number(item.quantity),0);
+   if(!Number.isSafeInteger(wholesaleUnits)||wholesaleUnits<10)
+    return fail('Wholesale Stripe Checkout requires 10 or more units. Use the retail sample checkout for smaller orders.',409);
 
   }
   const received=cents(order.received);
