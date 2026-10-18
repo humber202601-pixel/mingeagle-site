@@ -37,7 +37,7 @@ for(const p of pages){
  const nodes=schemas.flatMap(x=>x['@graph']||[x]);
  assert(nodes.some(x=>x['@type']===p.kind&&x.dateModified==='2026-10-18'),p.file+' schema must reflect real edit');
  assert(sitemap.includes('<loc>https://www.mingeagle.com/'+p.file+'</loc><lastmod>2026-10-18</lastmod>'),p.file+' sitemap date missing');
- assert(head.includes(p.title),p.file+' title must explain the relevant buyer intent');
+ assert(head.includes(p.title)||head.includes(p.title.replace(/&/g,'&amp;')),p.file+' title must explain the relevant buyer intent; production builders escape HTML ampersands');
 }
 const rootCopy=JSON.parse(fs.readFileSync('admin/learning-copy.json','utf8')).en;
 assert.equal(rootCopy['team.0'],'Custom logo silent basketballs for teams and schools');
