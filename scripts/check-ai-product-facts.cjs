@@ -20,6 +20,8 @@ const siteMap=fs.readFileSync(path.join(root,'sitemap.xml'),'utf8');
 assert.equal(data.documentType,'first-party-public-product-facts');
 assert.equal(data.publisher.website,'https://www.mingeagle.com/');
 assert.equal(data.products.length,4);
+assert.equal(data.publisher.wholesaleProductFactsCsv,'https://www.mingeagle.com/wholesale-product-facts.csv');
+assert(txtBefore.includes('[Download first-party wholesale product comparison (CSV)]('+data.publisher.wholesaleProductFactsCsv+')'),'Machine-readable buyer guide must expose real downloadable CSV');
 assert.equal(data.guides.length,10);
 assert.equal(new Set(data.products.map(x=>x.id)).size,4);
 assert.equal(new Set(data.guides.map(x=>x.url)).size,10);
@@ -63,7 +65,7 @@ assert.deepEqual(data.usSingleItemAirParcel.estimatedDeliveryDaysAfterDispatch,{
 assert(!Object.keys(data).includes('searchRanking'));
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'ai-facts-negative-'));
 try{
- const files=['product-master.json','retail-prices.json','us-single-parcel-shipping.json','retail-fulfillment-policy.json','retail-checkout-scope.json','sitemap.xml',...data.products.map(p=>p.url.split('/').at(-1)),...data.guides.map(g=>g.url.split('/').at(-1)),'products.html','inquiry.html'];
+ const files=['product-master.json','retail-prices.json','us-single-parcel-shipping.json','retail-fulfillment-policy.json','retail-checkout-scope.json','sitemap.xml',...data.products.map(p=>p.url.split('/').at(-1)),...data.guides.map(g=>g.url.split('/').at(-1)),'products.html','inquiry.html','wholesale-product-facts.csv'];
  for(const name of new Set(files))fs.copyFileSync(path.join(root,name),path.join(tmp,name));
  fs.mkdirSync(path.join(tmp,'assets'));
  for(const x of data.products)fs.copyFileSync(path.join(root,master[x.id].hero),path.join(tmp,master[x.id].hero));

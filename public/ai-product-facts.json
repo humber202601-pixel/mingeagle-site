@@ -7,7 +7,8 @@
     "legalName": "MING EAGLE COMMERCE LLC",
     "website": "https://www.mingeagle.com/",
     "productCatalog": "https://www.mingeagle.com/products.html",
-    "inquiry": "https://www.mingeagle.com/inquiry.html"
+    "inquiry": "https://www.mingeagle.com/inquiry.html",
+    "wholesaleProductFactsCsv": "https://www.mingeagle.com/wholesale-product-facts.csv"
   },
   "usSingleItemAirParcel": {
     "destinationCountry": "US",

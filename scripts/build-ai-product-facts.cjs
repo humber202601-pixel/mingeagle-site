@@ -5,6 +5,10 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
 const args=process.argv.slice(2),check=args.includes('--check');
 const root=path.resolve(args.find(v=>v!=='--check')||'public');
 const base='https://www.mingeagle.com/';
+// Link the already published buyer CSV from each machine-readable source, not a
+// claimed independent review, AI endorsement, or wholesale price feed.
+const wholesaleCsvUrl=base+'wholesale-product-facts.csv';
+assert(fs.existsSync(path.join(root,'wholesale-product-facts.csv')),'Buyer CSV must exist before publishing AI source pointers');
 const master=JSON.parse(fs.readFileSync(path.join(root,'product-master.json'),'utf8'));
 const prices=JSON.parse(fs.readFileSync(path.join(root,'retail-prices.json'),'utf8'));
 const checkoutScope=JSON.parse(fs.readFileSync(path.join(root,'retail-checkout-scope.json'),'utf8'));
@@ -77,7 +81,8 @@ const facts={
  documentType:'first-party-public-product-facts',
  source:'MING EAGLE website product-master.json and retail-prices.json',
  publisher:{brand:'MING EAGLE',legalName:'MING EAGLE COMMERCE LLC',website:base,
-  productCatalog:makeUrl('products.html'),inquiry:makeUrl('inquiry.html')},
+  productCatalog:makeUrl('products.html'),inquiry:makeUrl('inquiry.html'),
+  wholesaleProductFactsCsv:wholesaleCsvUrl},
  usSingleItemAirParcel:{destinationCountry:'US',shippingMethod:'air small parcel',scope:'one item per parcel only',
   estimatedDeliveryDaysAfterDispatch:{min:12,max:15},deliveryEstimateGuaranteed:false,
   includes:'Published one-item freight estimates; only merchant-confirmed DDP SKUs have a confirmed landed-total estimate',
@@ -122,6 +127,7 @@ text.push('','## Buyer questions and guides','');
 for(const g of guides)text.push('- ['+g.question+']('+g.url+') — '+g.audience+'.');
 text.push('','## Machine-readable first-party catalog','',
  '- [JSON product facts]('+base+'ai-product-facts.json)',
+ '- [Download first-party wholesale product comparison (CSV)]('+wholesaleCsvUrl+') — four published ball families, sizes, colors and direct product links; this is supplier-provided information, not an independent test or a wholesale price offer.',
  '','## Product and purchasing limits','',
  ...facts.buyerDisclosures.map(v=>'- '+v),
  '','Retail prices, where present on linked product pages, exclude international freight and applicable taxes; do not assume wholesale prices or inventory. A staff-confirmed quote is required for commercial details.',

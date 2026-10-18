@@ -31,6 +31,7 @@
 ## Machine-readable first-party catalog
 
 - [JSON product facts](https://www.mingeagle.com/ai-product-facts.json)
+- [Download first-party wholesale product comparison (CSV)](https://www.mingeagle.com/wholesale-product-facts.csv) — four published ball families, sizes, colors and direct product links; this is supplier-provided information, not an independent test or a wholesale price offer.
 
 ## Product and purchasing limits
 
