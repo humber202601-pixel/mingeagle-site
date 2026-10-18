@@ -26,8 +26,8 @@ const settings={
   description:'Explore indoor basketballs for youth training, academies and coaches. Compare sizes and weighted options, request a sample or ask for a bulk quote.'
  },
  'for-schools.html':{
-  title:'Silent Basketballs & Indoor Sports Balls for Schools | MING EAGLE',
-  description:'Quiet-touch indoor sports balls for school PE, after-school activities and recreation. Compare sizes, request samples and ask about volume orders.'
+  title:'Basketballs for Schools | Indoor PE Bulk Orders & Samples | MING EAGLE',
+  description:'Compare soft silent-style basketballs for schools and supervised PE. See sizes, a free RFQ checklist, sample options, and reviewed bulk orders for 10+ units.'
  },
  'silent-basketball.html':{
   title:'Flocked Silent Basketball Set with Mini Hoop | MING EAGLE',
