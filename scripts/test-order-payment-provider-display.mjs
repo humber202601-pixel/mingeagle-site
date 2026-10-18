@@ -61,6 +61,12 @@ assert(reactQuote.includes('const checkoutReadyForOrder=Boolean(order&&'),
  'React quote must use order-channel payment readiness');
 assert(reactQuote.includes('payment?.stripe?.b2bConfigurationReady'),
  'Wholesale must require the separate B2B tax and checkout policy gates');
+assert(reactQuote.includes('!taxReviewNeeded&&!wholesalePreflightIncomplete'),
+ 'React wholesale Stripe CTA must require server-derived accepted quote and shipping readiness');
+assert(reactQuote.includes('Wholesale payment requires a complete buyer-confirmed US shipping address'),
+ 'React must explain why accepted but incomplete wholesale orders cannot pay');
+assert(privateQuote.includes('b2b_payment_prerequisites_ready:b2bCheckoutPrerequisitesReady'),
+ 'Quote JSON must expose server-computed readiness without exposing buyer shipping details');
 assert(reactQuote.includes('payment?.stripe?.retailConfigurationReady'),
  'Retail sample checkout must use retail readiness, not wholesale flags');
 assert(!reactQuote.includes('order&&payment?.stripe?.checkoutReady?'),

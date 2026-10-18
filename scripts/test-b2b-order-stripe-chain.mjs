@@ -181,6 +181,22 @@ try{
  assert.deepEqual(JSON.parse(sqlite.prepare('SELECT shipping_address FROM orders WHERE id=?').get(orderId).shipping_address),
   {line1:ship.line1,city:ship.city,state:ship.state,postalCode:ship.postalCode,country:ship.country},
   'Saved buyer delivery facts match the accepted address');
+ // React private quote JSON must use the SAME wholesale preflight as the
+ // server-rendered page, without exposing a buyer's full shipping address.
+ const acceptedPublicOrder=(await (await quoteGet()).json()).order;
+ assert.equal(acceptedPublicOrder.b2b_payment_prerequisites_ready,true,
+  'Accepted, tax-reviewed wholesale order with matching ship-to state may show Stripe CTA');
+ assert.equal(Object.hasOwn(acceptedPublicOrder,'shipping_address'),false,
+  'Sensitive ship-to address must stay server-side in public quote JSON');
+ sqlite.prepare("UPDATE orders SET shipping_address=NULL WHERE id=?").run(orderId);
+ const missingAddress=(await (await quoteGet()).json()).order;
+ assert.equal(missingAddress.b2b_payment_prerequisites_ready,false,
+  'Legacy UNPAID wholesale order with no ship-to must hide the React Pay button');
+ sqlite.prepare("UPDATE orders SET shipping_address=? WHERE id=?").run(JSON.stringify(ship),orderId);
+ sqlite.prepare("UPDATE quotes SET shipping_terms='DDP sea freight; Ship-to state: NY' WHERE id=?").run(quoteId);
+ assert.equal((await (await quoteGet()).json()).order.b2b_payment_prerequisites_ready,false,
+  'Changed ship-to state in quote requires seller revision before new Stripe charge');
+ sqlite.prepare("UPDATE quotes SET shipping_terms='DDP sea freight 25–30 days, customs and duties included; Ship-to state: TX' WHERE id=?").run(quoteId);
  const secondAccept=await accept(ship);
  assert.equal(secondAccept.status,200,'A second acceptance must reuse the existing order');
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM orders WHERE quote_id=?').get(quoteId).n,1);
@@ -215,6 +231,8 @@ try{
   'React JSON quote may not mistake a PAID label for receipt evidence');
  assert.equal(unverifiedApiOrder.amount_received,0);
  assert.equal(unverifiedApiOrder.total,180);
+ assert.equal(unverifiedApiOrder.b2b_payment_prerequisites_ready,false,
+  'PAID ledger flag may never authorize another customer Checkout attempt');
  assert(legacyPaidHtml.includes('Payment marked received; verification pending.'));
  assert(!legacyPaidHtml.includes('Payment received in full.'));
  assert(!legacyPaidHtml.includes('id="stripePayBtn"'),'Legacy PAID order must never solicit a second charge');

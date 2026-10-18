@@ -3,7 +3,7 @@ import {useParams,useSearchParams} from 'react-router-dom';
 type Quote={reference:string;status:string;currency:string;subtotal:number;
  shipping:number;tax:number;discount:number;total:number;shipping_terms?:string;payment_terms?:string;notes?:string;is_expired?:number;tax_basis_documented?:number};
 type Item={description:string;quantity:number;unit_price:number;line_total:number};
-type Order={reference:string;status:string;payment_status:string;active_payment_review_count?:number;total?:number;currency?:string;amount_received?:number;stripe_verified_received?:number};
+type Order={reference:string;status:string;payment_status:string;active_payment_review_count?:number;total?:number;currency?:string;amount_received?:number;stripe_verified_received?:number;b2b_payment_prerequisites_ready?:boolean};
 type Info={ok:boolean;error?:string;quote?:Quote;items?:Item[];order?:Order};
 type PayStatus={ok:boolean;stripe?:{checkoutReady:boolean;b2bConfigurationReady?:boolean;retailConfigurationReady?:boolean;mode:'test'|'live'|null}};
 const US_STATES=[['AL','Alabama'],['AK','Alaska'],['AZ','Arizona'],['AR','Arkansas'],['CA','California'],['CO','Colorado'],['CT','Connecticut'],['DE','Delaware'],['DC','District of Columbia'],['FL','Florida'],['GA','Georgia'],['HI','Hawaii'],['ID','Idaho'],['IL','Illinois'],['IN','Indiana'],['IA','Iowa'],['KS','Kansas'],['KY','Kentucky'],['LA','Louisiana'],['ME','Maine'],['MD','Maryland'],['MA','Massachusetts'],['MI','Michigan'],['MN','Minnesota'],['MS','Mississippi'],['MO','Missouri'],['MT','Montana'],['NE','Nebraska'],['NV','Nevada'],['NH','New Hampshire'],['NJ','New Jersey'],['NM','New Mexico'],['NY','New York'],['NC','North Carolina'],['ND','North Dakota'],['OH','Ohio'],['OK','Oklahoma'],['OR','Oregon'],['PA','Pennsylvania'],['RI','Rhode Island'],['SC','South Carolina'],['SD','South Dakota'],['TN','Tennessee'],['TX','Texas'],['UT','Utah'],['VT','Vermont'],['VA','Virginia'],['WA','Washington'],['WV','West Virginia'],['WI','Wisconsin'],['WY','Wyoming']];
@@ -79,12 +79,14 @@ export default function CustomerQuote(){
  const paymentHeld=Number(order?.active_payment_review_count||0)>0||
   (order?.payment_status==='PAID'&&!stripeReceiptReconciled);
  const taxReviewNeeded=Number(q?.tax_basis_documented)!==1&&!order?.reference.startsWith('ME-RO-');
+ const wholesalePreflightIncomplete=Boolean(order&&!order.reference.startsWith('ME-RO-')&&
+  order.b2b_payment_prerequisites_ready!==true);
  const closedOrder=order?.status==='CANCELLED'||order?.payment_status==='REFUNDED';
  // Global Stripe configuration does not authorize a wholesale charge.
  // The backend still performs per-order tax, address and receipt verification.
  const checkoutReadyForOrder=Boolean(order&&(order.reference.startsWith('ME-RO-')
    ?payment?.stripe?.retailConfigurationReady
-   :payment?.stripe?.b2bConfigurationReady&&!taxReviewNeeded));
+   :payment?.stripe?.b2bConfigurationReady&&!taxReviewNeeded&&!wholesalePreflightIncomplete));
  const taxPending=q?.notes?.startsWith('STRIPE_AUTOMATIC_TAX_PENDING:')&&order?.payment_status!=='PAID';
  return <div className="public-shell"><main className="form-page">
   <div className="form-intro"><span className="eyebrow">PRIVATE COMMERCIAL ORDER</span>
@@ -129,6 +131,8 @@ export default function CustomerQuote(){
       Payment confirmed. Thank you for your order.</p>:
       taxReviewNeeded?<p role="alert" className="form-status error">
       Updated quotation required. Seller sales-tax review must be documented before acceptance or Stripe payment. Please contact MING EAGLE for revised terms. No new charge has been started.</p>:
+      wholesalePreflightIncomplete?<p role="alert" className="form-status error">
+      Wholesale payment requires a complete buyer-confirmed US shipping address, matching accepted freight and Stripe payment terms, and documented seller tax review. Please request an updated quotation; no new payment has been started.</p>:
       !order&&['SENT','VIEWED'].includes(q.status)&&!q.is_expired?
        <button className="button" disabled={busy} onClick={accept}>{busy?'Processing…':'Accept quote to create unpaid order'}</button>:
        order&&checkoutReadyForOrder?

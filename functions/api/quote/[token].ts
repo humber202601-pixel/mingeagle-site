@@ -1,9 +1,11 @@
 import {stripeCheckoutTermsSupported} from '../../../lib/b2b-quote-terms';
+import {acceptedB2bQuotePayable} from '../../../lib/b2b-stripe-eligibility';
 import {QUOTE_PUBLIC_TOKEN_PREDICATE} from '../../../lib/quote-public-token';
 import {quoteTermsIssues} from '../../../lib/b2b-quote-terms';
 import {isUsDeliveryState} from '../../../lib/us-delivery-states';
 interface Env {
   MINGEAGLE_DB: D1Database;
+  STRIPE_B2B_APPROVED_US_STATES?:string;
 }
 
 type Row = Record<string, unknown>;
@@ -40,7 +42,7 @@ async function getQuote(db: D1Database, token: string) {
 }
 
 async function getOrder(db: D1Database, quoteId: string) {
-  return db.prepare(`SELECT o.id, o.reference, o.status, o.payment_status, o.total, o.currency,
+  return db.prepare(`SELECT o.id, o.reference, o.status, o.payment_status, o.total, o.currency, o.shipping_address,
       (SELECT COALESCE(SUM(p.amount),0) FROM payments p
         WHERE p.order_id=o.id AND p.status='RECEIVED') AS amount_received,
       (SELECT COALESCE(SUM(p.amount),0) FROM payments p
@@ -61,6 +63,26 @@ async function getOrder(db: D1Database, quoteId: string) {
       (SELECT shipped_at FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS shipped_at,
       (SELECT delivered_at FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS delivered_at
     FROM orders o WHERE o.quote_id=? ORDER BY o.created_at DESC LIMIT 1`).bind(quoteId).first<Row>();
+}
+
+// The browser needs a TRUE/FALSE payment preflight, never the private ship-to
+// address. Match the existing server-rendered buyer page and Checkout gate.
+function b2bCheckoutPrerequisitesReady(order:Row,quote:Row,env:Env):boolean {
+ if(String(order.reference||'').startsWith('ME-RO-')||
+    String(order.payment_status||'')!=='UNPAID'||String(order.currency||'')!=='USD'||
+    !Number.isFinite(Number(order.total))||Number(order.total)<=0||
+    Number(quote.tax_basis_documented)!==1||
+    !acceptedB2bQuotePayable(quote)||!stripeCheckoutTermsSupported(quote.payment_terms))return false;
+ try{
+  const ship=JSON.parse(String(order.shipping_address||'null')) as Record<string,unknown>|null;
+  if(!ship||typeof ship!=='object'||ship.country!=='US')return false;
+  const state=String(ship.state||'').toUpperCase();
+  const allowed=(env.STRIPE_B2B_APPROVED_US_STATES||'').split(',').map(x=>x.trim().toUpperCase());
+  return isUsDeliveryState(state)&&allowed.includes(state)&&
+   String(ship.line1||'').trim().length>=5&&String(ship.city||'').trim().length>=2&&
+   /^[0-9]{5}(?:-[0-9]{4})?$/.test(String(ship.postalCode||'').trim())&&
+   String(quote.shipping_terms||'').toUpperCase().match(/SHIP-TO STATE:\s*([A-Z]{2})(?![A-Z])/)?.[1]===state;
+ }catch{return false}
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
@@ -91,8 +113,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
     const items = await db.prepare(`SELECT description, quantity, unit_price, line_total, sort_order
       FROM quote_items WHERE quote_id=? ORDER BY sort_order, id`).bind(String(quote.id)).all();
     const existingOrder = await getOrder(db, String(quote.id));
-
-    return Response.json({ ok: true, quote, items: items.results, order: existingOrder || null });
+    // Read the ship-to destination only inside the Worker. Never return raw
+    // address fields in buyer JSON just to determine CTA eligibility.
+    const publicOrder:Row|null=existingOrder?{...existingOrder,
+      b2b_payment_prerequisites_ready:b2bCheckoutPrerequisitesReady(existingOrder,quote,env)}:null;
+    if(publicOrder)delete publicOrder.shipping_address;
+    return Response.json({ ok: true, quote, items: items.results, order: publicOrder });
   } catch (error) {
     console.error('public_quote_load_failed', error);
     return Response.json({ ok: false, error: 'Unable to load quote.' }, { status: 500 });
