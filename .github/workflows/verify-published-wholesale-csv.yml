@@ -1,0 +1,28 @@
+name: Verify published wholesale CSV after website deployment
+
+on:
+  workflow_run:
+    workflows: ["Deploy MING EAGLE self-contained website"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  public-csv-download:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact deployed revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate verifier without network
+        run: node scripts/verify-live-wholesale-csv.mjs --self-test
+      - name: Confirm exact public CSV bytes after GitHub Pages release
+        run: node scripts/verify-live-wholesale-csv.mjs
