@@ -6,6 +6,7 @@ on:
       - 'public/**'
       - 'scripts/verify-live-wholesale-csv.mjs'
       - 'scripts/verify-live-supplier-introduction.mjs'
+      - 'scripts/check-live-asset-workflow.cjs'
       - '.github/workflows/verify-published-wholesale-csv.yml'
       - 'scripts/build-wholesale-product-facts-csv.cjs'
       - 'scripts/check-wholesale-product-facts-csv.cjs'
@@ -174,6 +175,7 @@ jobs:
           node scripts/build-ai-product-facts.cjs --check
           node scripts/verify-live-wholesale-csv.mjs --self-test
           node scripts/verify-live-supplier-introduction.mjs --self-test
+          node scripts/check-live-asset-workflow.cjs
           node scripts/check-wholesale-product-facts-csv.cjs
           node scripts/check-geo-source-capture.cjs
           node scripts/check-native-media.cjs
