@@ -13,8 +13,7 @@ for(const phrase of ['What should a school or public recreation buyer ask','What
  'Can MING EAGLE accept a school or municipal purchase order',
  'What information makes a buyer-ready request for quotation',
  'not a guaranteed delivery promise','does not mean that MING EAGLE is registered',
- 'does not provide regulation rebound','does not automatically']) {
- if(phrase==='does not automatically')continue;
+ 'do not provide regulation rebound','does not automatically']) {
  assert(section.includes(phrase),'Required nuanced sourcing answer missing: '+phrase);
 }
 assert.equal((section.match(/<h3>/g)||[]).length,6);
