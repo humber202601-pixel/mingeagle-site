@@ -1,0 +1,26 @@
+name: Verify B2B Stripe production configuration (read-only)
+
+on:
+  pull_request:
+    branches: ["v2-cloudflare"]
+    paths:
+      - "scripts/verify-production-b2b-readiness.mjs"
+      - ".github/workflows/verify-b2b-production-readiness.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-b2b-readiness:
+    name: Inspect B2B Stripe production status without a charge
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Read-only production payment-status check
+        run: node scripts/verify-production-b2b-readiness.mjs
