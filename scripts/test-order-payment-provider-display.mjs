@@ -69,9 +69,11 @@ assert(ui.includes('线上支付服务商（未记录）'));
 assert(ui.includes('paymentProviderLabel(onlineProvider)'));
 assert(ui.includes('支付服务商报告成功（仍需核实订单入账）'));
 assert(ui.includes('仅通过 Stripe 确认在线收款'),'Normal admin actions must not simulate payment confirmation');
-assert(ui.includes('Stripe 收款异常待核对 · 暂停履约及订单完成'),'Admin must disclose full lifecycle payment hold');
-assert(ui.includes('const paymentHeld = Number(order.active_payment_review_count || 0) > 0'),
- 'Admin hold must use live server-calculated review count');
+assert(ui.includes('Stripe 收款凭证待核对 · 暂停履约及订单完成'),'Admin must disclose full lifecycle payment hold');
+assert(adminSql.includes('AS stripe_verified_received')&&ui.includes('const evidenceMissing = paymentStatus === \'PAID\' && !stripeReceiptReconciled'),
+ 'Admin must not permit fulfillment from a PAID label without exact provider-linked Stripe evidence');
+assert(ui.includes('const paymentHeld = Number(order.active_payment_review_count || 0) > 0 || evidenceMissing'),
+ 'Admin must hide lifecycle actions under either active review or missing Stripe settlement evidence');
 for(const target of ['PAID','PROCESSING','READY_TO_SHIP'])
  assert(ui.includes("paymentStatus === 'PAID' && !paymentHeld && status === '"+target+"'"),
  'Unsafe fulfillment control must remain hidden under active receipt review: '+target);

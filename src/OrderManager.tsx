@@ -130,7 +130,12 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
       const onlineStatus = text(order.online_payment_status, '');
       const onlineProvider = text(order.online_payment_provider, '');
       const legacyNonStripe = text(order.quote_payment_route,'UNKNOWN') === 'NON_STRIPE';
-      const paymentHeld = Number(order.active_payment_review_count || 0) > 0;
+      const stripeVerifiedReceived = Number(order.stripe_verified_received || 0);
+      const stripeReceiptReconciled = paymentStatus === 'PAID' && text(order.currency) === 'USD' &&
+        Number.isFinite(total) && total > 0 && Math.abs(stripeVerifiedReceived-total) <= 0.005 &&
+        Math.abs(received-total) <= 0.005;
+      const evidenceMissing = paymentStatus === 'PAID' && !stripeReceiptReconciled;
+      const paymentHeld = Number(order.active_payment_review_count || 0) > 0 || evidenceMissing;
       return <section className="panel order-card" key={reference}>
         <div className="order-head">
           <div><span className="eyebrow">订单</span><h2>{reference}</h2><p>{text(order.customer)} · {money(order.total, order.currency)}</p></div>
@@ -144,8 +149,8 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
         </div>
 
         {paymentHeld && <div className="form-status error" role="alert">
-          <strong>Stripe 收款异常待核对 · 暂停履约及订单完成</strong>
-          <p>这笔订单存在未完成的付款人工复核任务。即使显示 PAID，也不能继续备货、标记待发货、确认发货、送达或完成订单；请先在后台核实 Stripe 收款、历史付款记录及订单金额。</p>
+          <strong>Stripe 收款凭证待核对 · 暂停履约及订单完成</strong>
+          <p>{evidenceMissing?'这笔订单虽然标记为 PAID，但尚无足额、无重复或混合收款的 Stripe 成功对账凭证。':'这笔订单存在未完成的付款人工复核任务。'}在核实前不得备货、发货、确认送达或完成订单；不要再次向客户扣款。</p>
         </div>}
         {onlineStatus && <div className={`form-status ${['SUCCEEDED'].includes(onlineStatus) ? 'success' : ['CANCELLED','PAYMENT_FAILED'].includes(onlineStatus) ? 'error' : ''}`}>
           <strong>{paymentProviderLabel(onlineProvider)}：{onlineStatusLabel(onlineStatus)}</strong>

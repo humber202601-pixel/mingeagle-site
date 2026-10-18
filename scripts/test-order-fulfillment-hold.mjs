@@ -46,7 +46,31 @@ for(const action of ['START_PROCESSING','READY_TO_SHIP','SHIP']){
 sqlite.prepare("UPDATE tasks SET status='IN_PROGRESS' WHERE id=?").run(reviewId);
 assert.equal((await call('READY_TO_SHIP')).status,409,'IN_PROGRESS review remains a hold');
 sqlite.prepare("UPDATE tasks SET status='DONE' WHERE id=?").run(reviewId);
-// This fixture covers hold lifecycle; completing the review is an explicit staff decision.
+// Even when staff close a review task, a historic PAID label without a
+// provider-linked Stripe receipt cannot release an order for fulfillment.
+for(const action of ['START_PROCESSING','READY_TO_SHIP','SHIP','DELIVER','COMPLETE']){
+ const heldWrites=writes;
+ const blocked=await call(action,action==='SHIP'?track:{});
+ assert.equal(blocked.status,409,'Unverified historic PAID must block '+action);
+ assert.equal(blocked.body.code,'PAYMENT_EVIDENCE_REQUIRED');
+ assert.equal(writes,heldWrites,'No D1 writes allowed before receipt verification');
+}
+sqlite.prepare(`INSERT INTO payment_provider_sessions
+ (id,order_id,provider,provider_intent_id,request_id,amount,currency,status)
+ VALUES('session-synthetic-hold',?,'STRIPE','cs_test_synthetic_hold','request_synthetic_hold',180,'USD','SUCCEEDED')`).run(orderId);
+sqlite.prepare(`INSERT INTO payments
+ (id,order_id,method,provider,provider_reference,amount,currency,status)
+ VALUES('payment-synthetic-hold',?,'ONLINE_PAYMENT','STRIPE','cs_test_synthetic_hold',180,'USD','RECEIVED')`).run(orderId);
+// Mixed receipts or overpayment may not bypass the guard, even with a
+// succeeded provider session matching the original amount.
+sqlite.prepare(`INSERT INTO payments
+ (id,order_id,method,provider_reference,amount,currency,status)
+ VALUES('extra-manual-synthetic',?,'BANK_TRANSFER','synthetic-only',5,'USD','RECEIVED')`).run(orderId);
+assert.equal((await call('START_PROCESSING')).body.code,'PAYMENT_EVIDENCE_REQUIRED');
+sqlite.prepare("DELETE FROM payments WHERE id='extra-manual-synthetic'").run();
+sqlite.prepare("UPDATE payments SET amount=185 WHERE id='payment-synthetic-hold'").run();
+assert.equal((await call('START_PROCESSING')).body.code,'PAYMENT_EVIDENCE_REQUIRED');
+sqlite.prepare("UPDATE payments SET amount=180 WHERE id='payment-synthetic-hold'").run();
 const processing=await call('START_PROCESSING');
 assert.equal(processing.status,200,JSON.stringify(processing.body));
 assert.equal(processing.body.order.status,'PROCESSING');

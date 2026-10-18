@@ -202,6 +202,26 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         return Response.json({ok:false,code:'PAYMENT_RECONCILIATION_HOLD',
           error:'This order has an unresolved Stripe payment review. Reconcile funds and close the urgent payment review before processing, shipping, delivery confirmation or completion.'},{status:409});
       }
+      // A historic PAID label can exist without an unresolved review task.
+      // Before any lifecycle side effect, require a full provider-linked Stripe
+      // receipt and reject mixed, unlinked and excess receipts. No writes.
+      const evidence=await db.prepare(`SELECT
+        (SELECT COALESCE(SUM(p.amount),0) FROM payments p
+          JOIN payment_provider_sessions s ON s.order_id=p.order_id
+           AND s.provider='STRIPE' AND s.provider_intent_id=p.provider_reference
+           AND s.status='SUCCEEDED'
+          WHERE p.order_id=? AND p.provider='STRIPE' AND p.currency='USD'
+           AND p.status='RECEIVED') AS stripe_verified_received,
+        (SELECT COALESCE(SUM(p.amount),0) FROM payments p
+          WHERE p.order_id=? AND p.status='RECEIVED') AS all_received`
+      ).bind(orderId,orderId).first<{stripe_verified_received:number;all_received:number}>();
+      const expected=Number(order.total);
+      const verified=Number(evidence?.stripe_verified_received||0);
+      const allReceived=Number(evidence?.all_received||0);
+      if(paymentStatus!=='PAID'||currency!=='USD'||!Number.isFinite(expected)||expected<=0||
+         Math.abs(verified-expected)>0.005||Math.abs(allReceived-expected)>0.005)
+        return Response.json({ok:false,code:'PAYMENT_EVIDENCE_REQUIRED',
+          error:'Do not process or ship: a PAID label alone is not verified Stripe settlement. Reconcile the full provider-linked receipt and any historic payments before fulfillment.'},{status:409});
     }
 
     if (action === 'MARK_PAID') {
