@@ -144,6 +144,7 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
     'An empty supplier catalog means purchase cost and profit are not validated; prices cannot be inferred from public retail.',
     'Retail reference vs supplier unit cost is only a price risk indicator: wholesale MOQ tiers and product variants differ from one-unit samples, and freight, duties, tax and fees are excluded.',
     'Stripe configuration readiness does not prove successful card capture, webhook delivery or bank settlement.',
+    'The B2B approved destination state list and merchant tax-approval environment flags are technical settings, NOT state sales-tax registrations. This read-only endpoint does not fetch Stripe Tax registrations or verify state nexus.',
     'Webhook health includes only signed Stripe events inserted into this database. Zero unprocessed events does not prove every Stripe event arrived; reconcile Stripe Dashboard when suspicious.',
     'Quote expiry metrics use UTC calendar dates as a follow-up guide, not an authorization to send a revised quote or change customer pricing.',
     'Stripe Checkout session age is based on our local D1 snapshot; OPEN/PENDING may be stale when Stripe has already expired or settled a session. Verify Stripe Dashboard and webhook history before any retry or fulfillment.',
