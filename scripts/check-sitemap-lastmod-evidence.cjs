@@ -24,5 +24,6 @@ for(const p of revised)assert(dates.get(p)>='2026-10-13','Meaningfully revised c
 for(const p of ['order-status.html']){
  assert.equal(dates.get(p),'2026-10-12','Do not rewrite untouched pages merely to appear fresh: '+p);
 }
+assert.equal(dates.get('custom-logo.html'),'2026-10-18','Revised custom-logo B2B buyer FAQ must carry real 2026-10-18 lastmod');
 assert.equal(dates.get('videos.html'),'2026-10-13','Genuine video gallery editorial update needs evidence-backed sitemap lastmod');
 console.log('PASS: 27 unique www canonical URLs, evidenced lastmod dates and preserved untouched page dates.');
