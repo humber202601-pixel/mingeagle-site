@@ -189,7 +189,9 @@ try{
  sqlite.prepare("UPDATE quotes SET valid_until=date('now') WHERE id=?").run(quoteId);
  const quoteView=await quotePage({env,params:{token:bearer},request:new Request(orderPage)});
  assert.equal(quoteView.status,200);
- assert((await quoteView.text()).includes('Pay securely with Stripe'));
+ const quoteHtml=await quoteView.text();
+ assert(quoteHtml.includes('Pay securely with Stripe'));
+ assert(quoteHtml.includes('WHOLESALE QUOTATION'),'Ten-unit accepted quote is wholesale');
  // The accepted merchandise is not mutable merely because its amount stays the same.
  sqlite.prepare(`UPDATE order_items SET description='Another ball of identical price' WHERE order_id=?`).run(orderId);
  const beforeBlocked=network;
