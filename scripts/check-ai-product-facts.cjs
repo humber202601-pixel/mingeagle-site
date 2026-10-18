@@ -13,13 +13,16 @@ const data=JSON.parse(jsonBefore);
 const master=JSON.parse(fs.readFileSync(path.join(root,'product-master.json'),'utf8'));
 const retail=JSON.parse(fs.readFileSync(path.join(root,'retail-prices.json'),'utf8'));
 const us=JSON.parse(fs.readFileSync(path.join(root,'us-single-parcel-shipping.json'),'utf8'));
+const scope=JSON.parse(fs.readFileSync(path.join(root,'retail-checkout-scope.json'),'utf8'));
+const approved=new Set(us.confirmedDdpSingleItems.map(item=>item.sku));
+assert.deepEqual([...approved].sort(),[...scope.eligibleSkus].sort());
 const siteMap=fs.readFileSync(path.join(root,'sitemap.xml'),'utf8');
 assert.equal(data.documentType,'first-party-public-product-facts');
 assert.equal(data.publisher.website,'https://www.mingeagle.com/');
 assert.equal(data.products.length,4);
-assert.equal(data.guides.length,5);
+assert.equal(data.guides.length,10);
 assert.equal(new Set(data.products.map(x=>x.id)).size,4);
-assert.equal(new Set(data.guides.map(x=>x.url)).size,5);
+assert.equal(new Set(data.guides.map(x=>x.url)).size,10);
 for(const item of data.products){
  assert.equal(item.name,master[item.id].name);
  assert.equal(item.colors,master[item.id].colors);
@@ -27,10 +30,17 @@ for(const item of data.products){
  assert.deepEqual(item.retailReferencePricesUsdBySize,retail.products[item.id]);
  const usFees=us.productSizeShippingUSD[item.id];
  assert.deepEqual(item.usSingleItemAirParcelShippingUsdBySize,usFees);
+ assert.deepEqual(Object.keys(item.usSingleItemTotalBeforeTaxUsdBySize).sort(),
+  Object.keys(usFees).filter(size=>approved.has(item.id.toUpperCase()+'-S'+size)).sort(),
+  'Only DDP-approved SKUs may have a published US single-unit landed total');
  for(const size of Object.keys(retail.products[item.id])){
   const expected=Math.round((retail.products[item.id][size]+usFees[size])*100)/100;
-  assert.equal(item.usSingleItemTotalBeforeTaxUsdBySize[size],expected);
-  assert(txtBefore.includes('Size '+size+' USD '+expected.toFixed(2)),'US totals must be readable for AI '+item.id+' '+size);
+  const confirmed=approved.has(item.id.toUpperCase()+'-S'+size);
+  if(confirmed){
+   assert.equal(item.usSingleItemTotalBeforeTaxUsdBySize[size],expected);
+   assert(txtBefore.includes('Size '+size+' USD '+expected.toFixed(2)),'Confirmed DDP totals must be AI-readable '+item.id+' '+size);
+  }else assert(!Object.prototype.hasOwnProperty.call(item.usSingleItemTotalBeforeTaxUsdBySize,size),
+   'No unconfirmed DDP total in first-party AI facts '+item.id+' '+size);
  }
  const sourceSizes=[...master[item.id].sizes.matchAll(/No\.\s*(\d+)/g)].map(m=>'No. '+m[1]);
  assert.deepEqual(item.sizes,sourceSizes);
@@ -44,6 +54,8 @@ for(const g of data.guides){
 }
 assert(!/\b(?:inStock|InStock|aggregateRating|reviewCount|ratingValue|guaranteed silent|certified safe)\b/i.test(jsonBefore),'Do not publish unverified availability/review/certification claims');
 assert(txtBefore.includes('not an independent test report'));
+assert(txtBefore.includes('public-sector sports equipment quote'),'Institutional procurement buyers need source link');
+assert(txtBefore.includes('only; final delivered total'),'Unconfirmed direct checkout must be clearly disclosed');
 assert(txtBefore.includes('not imply any provider has crawled, indexed, ranked or cited'));
 assert(data.retailPricing.limitations.includes('Excludes international shipping'));
 assert.equal(data.usSingleItemAirParcel.deliveryEstimateGuaranteed,false);

@@ -18,7 +18,7 @@
       "max": 15
     },
     "deliveryEstimateGuaranteed": false,
-    "includes": "one approved product with its listed air shipping charge",
+    "includes": "Published one-item freight estimates; only merchant-confirmed DDP SKUs have a confirmed landed-total estimate",
     "excludes": "US state/local sales tax; import-duty coverage applies per one-unit P1-S3 or P1-S7 parcel. Orders of 1–9 eligible units use separate parcels and sum per-unit freight; other sizes, consolidated shipments and non-US rates need a quote"
   },
   "retailPricing": {
@@ -136,7 +136,6 @@
       },
       "usSingleItemTotalBeforeTaxUsdBySize": {
         "3": 21.4,
-        "5": 23.9,
         "7": 28.9
       }
     },
@@ -162,11 +161,7 @@
         "5": 12,
         "7": 14
       },
-      "usSingleItemTotalBeforeTaxUsdBySize": {
-        "3": 22.4,
-        "5": 24.9,
-        "7": 29.9
-      }
+      "usSingleItemTotalBeforeTaxUsdBySize": {}
     },
     {
       "id": "p3",
@@ -193,12 +188,7 @@
         "6": 15,
         "7": 16
       },
-      "usSingleItemTotalBeforeTaxUsdBySize": {
-        "3": 24.9,
-        "4": 27.9,
-        "6": 33.9,
-        "7": 37.9
-      }
+      "usSingleItemTotalBeforeTaxUsdBySize": {}
     },
     {
       "id": "p4",
@@ -216,9 +206,7 @@
       "usSingleItemAirParcelShippingUsdBySize": {
         "5": 12
       },
-      "usSingleItemTotalBeforeTaxUsdBySize": {
-        "5": 29.9
-      }
+      "usSingleItemTotalBeforeTaxUsdBySize": {}
     }
   ],
   "guides": [
@@ -246,6 +234,31 @@
       "audience": "sporting goods wholesalers and retailers",
       "question": "How do I request wholesale prices, branding, samples and international freight?",
       "url": "https://www.mingeagle.com/wholesale.html"
+    },
+    {
+      "audience": "school district purchasing teams",
+      "question": "What should a school include in a bulk basketball supplier RFQ?",
+      "url": "https://www.mingeagle.com/school-basketball-bulk-order-rfq-checklist.html"
+    },
+    {
+      "audience": "public institutions and government procurement teams",
+      "question": "What terms and documents belong in a public-sector sports equipment quote?",
+      "url": "https://www.mingeagle.com/procurement.html"
+    },
+    {
+      "audience": "sports distributors and buying groups",
+      "question": "What sizes and product families can I compare for a silent basketball wholesale order?",
+      "url": "https://www.mingeagle.com/wholesale-product-catalog.html"
+    },
+    {
+      "audience": "school teams and sporting goods resellers",
+      "question": "How does custom-logo basketball sourcing and sample approval work?",
+      "url": "https://www.mingeagle.com/custom-logo.html"
+    },
+    {
+      "audience": "basketball camps and recreational programs",
+      "question": "How can a camp request quieter basketballs, samples and bulk freight?",
+      "url": "https://www.mingeagle.com/basketball-camp-equipment-supplier.html"
     }
   ],
   "buyerDisclosures": [
@@ -255,7 +268,8 @@
     "Model suitability, child supervision, required safety documentation and training use must be evaluated for the actual setting.",
     "Standard retail products are available to order and replenished as needed. Dispatch within 3 days of ordering; this is separate from shipping transit time.",
     "Custom and wholesale order timing, branding, packaging, freight charges and delivery terms follow the confirmed quotation.",
-    "US single-item air small-parcel figures are estimates for exactly one unit; 12–15 days after dispatch is not guaranteed. US sales tax is separate; only approved one-unit P1-S3/P1-S7 freight includes import duties.",
+    "Other model and size air freight amounts are shipping estimates, not approved delivered-price totals or direct-checkout offers. Only one-unit P1-S3/P1-S7 shipping is confirmed as import-duty-paid.",
+    "Even approved P1-S3/P1-S7 totals exclude applicable US sales tax and remain subject to live checkout eligibility. 12–15 days after dispatch is only a shipping estimate.",
     "This file is first-party supplier information, not an independent review, platform endorsement or AI placement claim."
   ]
 }
