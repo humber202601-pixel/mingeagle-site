@@ -1,9 +1,9 @@
 import {useEffect,useMemo,useState} from 'react';
 import {useParams,useSearchParams} from 'react-router-dom';
 type Quote={reference:string;status:string;currency:string;subtotal:number;
- shipping:number;tax:number;discount:number;total:number;shipping_terms?:string;payment_terms?:string;notes?:string;is_expired?:number};
+ shipping:number;tax:number;discount:number;total:number;shipping_terms?:string;payment_terms?:string;notes?:string;is_expired?:number;tax_basis_documented?:number};
 type Item={description:string;quantity:number;unit_price:number;line_total:number};
-type Order={reference:string;status:string;payment_status:string;active_payment_review_count?:number};
+type Order={reference:string;status:string;payment_status:string;active_payment_review_count?:number;total?:number;currency?:string;amount_received?:number;stripe_verified_received?:number};
 type Info={ok:boolean;error?:string;quote?:Quote;items?:Item[];order?:Order};
 type PayStatus={ok:boolean;stripe?:{checkoutReady:boolean;b2bConfigurationReady?:boolean;retailConfigurationReady?:boolean;mode:'test'|'live'|null}};
 const US_STATES=[['AL','Alabama'],['AK','Alaska'],['AZ','Arizona'],['AR','Arkansas'],['CA','California'],['CO','Colorado'],['CT','Connecticut'],['DE','Delaware'],['DC','District of Columbia'],['FL','Florida'],['GA','Georgia'],['HI','Hawaii'],['ID','Idaho'],['IL','Illinois'],['IN','Indiana'],['IA','Iowa'],['KS','Kansas'],['KY','Kentucky'],['LA','Louisiana'],['ME','Maine'],['MD','Maryland'],['MA','Massachusetts'],['MI','Michigan'],['MN','Minnesota'],['MS','Mississippi'],['MO','Missouri'],['MT','Montana'],['NE','Nebraska'],['NV','Nevada'],['NH','New Hampshire'],['NJ','New Jersey'],['NM','New Mexico'],['NY','New York'],['NC','North Carolina'],['ND','North Dakota'],['OH','Ohio'],['OK','Oklahoma'],['OR','Oregon'],['PA','Pennsylvania'],['RI','Rhode Island'],['SC','South Carolina'],['SD','South Dakota'],['TN','Tennessee'],['TX','Texas'],['UT','Utah'],['VT','Vermont'],['VA','Virginia'],['WA','Washington'],['WV','West Virginia'],['WI','Wisconsin'],['WY','Wyoming']];
@@ -38,7 +38,7 @@ export default function CustomerQuote(){
   return ()=>{active=false;tag.remove();ref.remove()};
  },[token,valid]);
  async function payStripe(){
-  if(!valid||!checkoutReadyForOrder||paymentHeld||closedOrder||!data?.order||busy)return;
+  if(!valid||!checkoutReadyForOrder||paymentHeld||closedOrder||taxReviewNeeded||!data?.order||busy)return;
   setBusy(true);setError('');
   try{
    const response=await fetch('/api/payments/stripe/create',{
@@ -53,7 +53,7 @@ export default function CustomerQuote(){
  }
  const [shippingAddress,setShippingAddress]=useState({line1:'',city:'',state:'',postalCode:''});
  async function accept(){
-  if(!valid||!data?.quote)return;
+  if(!valid||!data?.quote||taxReviewNeeded)return;
   const line1=shippingAddress.line1.trim(),city=shippingAddress.city.trim(),state=shippingAddress.state.trim().toUpperCase(),postalCode=shippingAddress.postalCode.trim();
   if(line1.length<5||line1.length>180||city.length<2||city.length>100||!US_STATES.some(([code])=>code===state)||!/^[0-9]{5}(?:-[0-9]{4})?$/.test(postalCode)){
    setError('Enter a valid US street address, city, state and ZIP code before accepting this quotation.');return;
@@ -68,13 +68,23 @@ export default function CustomerQuote(){
   finally{setBusy(false)}
  }
  const q=data?.quote,order=data?.order;
- const paymentHeld=Number(order?.active_payment_review_count||0)>0;
+ // As on the server-rendered buyer page, a historical PAID flag alone does
+ // not verify funds. Render full payment confirmation only when a succeeded
+ // Stripe provider session and matching receipt cover the exact order total.
+ const invoiceTotal=Number(order?.total);
+ const stripeReceiptReconciled=Boolean(order?.payment_status==='PAID'&&order?.currency==='USD'&&
+  Number.isFinite(invoiceTotal)&&invoiceTotal>0&&
+  Math.abs(Number(order?.stripe_verified_received||0)-invoiceTotal)<=0.005&&
+  Math.abs(Number(order?.amount_received||0)-invoiceTotal)<=0.005);
+ const paymentHeld=Number(order?.active_payment_review_count||0)>0||
+  (order?.payment_status==='PAID'&&!stripeReceiptReconciled);
+ const taxReviewNeeded=Number(q?.tax_basis_documented)!==1&&!order?.reference.startsWith('ME-RO-');
  const closedOrder=order?.status==='CANCELLED'||order?.payment_status==='REFUNDED';
  // Global Stripe configuration does not authorize a wholesale charge.
  // The backend still performs per-order tax, address and receipt verification.
  const checkoutReadyForOrder=Boolean(order&&(order.reference.startsWith('ME-RO-')
    ?payment?.stripe?.retailConfigurationReady
-   :payment?.stripe?.b2bConfigurationReady));
+   :payment?.stripe?.b2bConfigurationReady&&!taxReviewNeeded));
  const taxPending=q?.notes?.startsWith('STRIPE_AUTOMATIC_TAX_PENDING:')&&order?.payment_status!=='PAID';
  return <div className="public-shell"><main className="form-page">
   <div className="form-intro"><span className="eyebrow">PRIVATE COMMERCIAL ORDER</span>
@@ -95,7 +105,7 @@ export default function CustomerQuote(){
      <h2>{taxPending?'Total before sales tax':'Total'}: {money(q.total)}</h2>
      {taxPending&&<p className="form-note">Your final sales tax and total will be shown before you pay, using the delivery address on this order.</p>}
      <p className="form-note">{q.shipping_terms||'Delivery terms are stated in the quotation.'}</p>
-     {!order&&['SENT','VIEWED'].includes(q.status)&&!q.is_expired&&<section className="form-note" aria-label="US delivery address">
+     {!order&&!taxReviewNeeded&&['SENT','VIEWED'].includes(q.status)&&!q.is_expired&&<section className="form-note" aria-label="US delivery address">
       <h3>Confirm US delivery address</h3>
       <p>Before accepting this Stripe quotation, enter the delivery address. We use the state and ZIP to verify the quoted freight and tax treatment.</p>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12}}>
@@ -117,6 +127,8 @@ export default function CustomerQuote(){
       This order is closed or refunded. Please contact MING EAGLE rather than attempting another payment.</p>:
       order?.payment_status==='PAID'?<p role="status" className="form-status success">
       Payment confirmed. Thank you for your order.</p>:
+      taxReviewNeeded?<p role="alert" className="form-status error">
+      Updated quotation required. Seller sales-tax review must be documented before acceptance or Stripe payment. Please contact MING EAGLE for revised terms. No new charge has been started.</p>:
       !order&&['SENT','VIEWED'].includes(q.status)&&!q.is_expired?
        <button className="button" disabled={busy} onClick={accept}>{busy?'Processing…':'Accept quote to create unpaid order'}</button>:
        order&&checkoutReadyForOrder?
