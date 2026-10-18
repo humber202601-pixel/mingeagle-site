@@ -6,6 +6,9 @@ on:
       - 'public/**'
       - 'scripts/check-b2b-acquisition-resource.cjs'
       - 'scripts/check-procurement-ai-buyer-answers.cjs'
+      - 'scripts/build-ai-school-logo-buyer-answers.cjs'
+      - 'scripts/check-ai-school-logo-buyer-answers.cjs'
+      - 'admin/learning-copy.json'
       - 'scripts/enable-web-analytics.cjs'
       - 'scripts/check-web-analytics.cjs'
       - 'scripts/check-custom-logo.cjs'
@@ -123,6 +126,8 @@ jobs:
           node scripts/test-product-buyer-answers.cjs
           node scripts/build-free-exposure-resources.cjs
           node scripts/test-free-exposure-resources.cjs
+          node scripts/build-ai-school-logo-buyer-answers.cjs
+          node scripts/check-ai-school-logo-buyer-answers.cjs
           node scripts/test-creator-to-product.cjs
           node scripts/check-priority-indexing-pages.cjs
           node scripts/test-school-buyer-rfq.cjs
