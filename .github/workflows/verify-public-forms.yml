@@ -36,6 +36,7 @@ on:
       - 'scripts/test-creator-to-product.cjs'
       - 'scripts/check-priority-indexing-pages.cjs'
       - 'scripts/test-school-buyer-rfq.cjs'
+      - 'scripts/check-school-team-search-intent.cjs'
       - 'public/videos.html'
       - 'public/products.html'
       - 'public/fabric-silent-basketball.html'
@@ -126,6 +127,7 @@ jobs:
           node scripts/test-creator-to-product.cjs
           node scripts/check-priority-indexing-pages.cjs
           node scripts/test-school-buyer-rfq.cjs
+          node scripts/check-school-team-search-intent.cjs
           node scripts/test-search-buyer-paths.cjs
           node scripts/test-creator-build-cache.cjs
           node scripts/build-seo-discovery-links.cjs
