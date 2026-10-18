@@ -1,0 +1,27 @@
+name: Verify draft-only B2B Google Search pilot
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/marketing/us-b2b-search-ads-pilot-2026-10-18.json"
+      - "scripts/check-us-b2b-search-ads-pilot.cjs"
+      - ".github/workflows/verify-us-b2b-search-pilot.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-ads-draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate draft data and ensure campaign has no activation hooks
+        run: |
+          node --check scripts/check-us-b2b-search-ads-pilot.cjs
+          node scripts/check-us-b2b-search-ads-pilot.cjs
+          test ! -f .google-ads-credentials.json
