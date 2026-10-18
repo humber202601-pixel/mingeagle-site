@@ -28,14 +28,23 @@ const makeUrl=filename=>{
 };
 assert.deepEqual(Object.keys(master).sort(),models.map(x=>x.id).sort(),'Facts registry must cover the exact published product catalog');
 assert.deepEqual(Object.keys(prices.products).sort(),Object.keys(master).sort(),'Retail sizes must match published product catalog');
+const confirmedDdp=new Set((usShipping.confirmedDdpSingleItems||[]).map(item=>item.sku));
+assert.deepEqual([...confirmedDdp].sort(),[...checkoutScope.eligibleSkus].sort(),
+ 'Only confirmed DDP models may have approved direct-checkout totals');
+for(const item of usShipping.confirmedDdpSingleItems){
+ const match=/^P([1-4])-S(\d+)$/.exec(item.sku);
+ assert(match,'Invalid confirmed DDP product/size '+item.sku);
+ assert.equal(item.shippingUSD,usShipping.productSizeShippingUSD['p'+match[1]][match[2]],
+  'Confirmed DDP shipping must equal listed shipping '+item.sku);
+}
 const products=models.map(m=>{
  const item=master[m.id],priceBySize=prices.products[m.id];
  const oneItemShippingBySize=usShipping.productSizeShippingUSD[m.id];
  assert(oneItemShippingBySize,'Missing approved US shipping for '+m.id);
  assert.deepEqual(Object.keys(priceBySize).sort(),Object.keys(oneItemShippingBySize).sort(),'US parcel coverage mismatch '+m.id);
- const usSingleItemTotalBeforeTaxUSDBySize=Object.fromEntries(Object.entries(priceBySize).map(([size,price])=>{
+ const usSingleItemTotalBeforeTaxUSDBySize=Object.fromEntries(Object.entries(priceBySize).flatMap(([size,price])=>{
   const freight=oneItemShippingBySize[size];assert(typeof freight==='number'&&Number.isFinite(freight)&&freight>0);
-  return [size,Math.round((price+freight)*100)/100];
+  return confirmedDdp.has(m.id.toUpperCase()+'-S'+size)?[[size,Math.round((price+freight)*100)/100]]:[];
  }));
  assert(typeof item.name==='string'&&item.name.length>8);
  assert(typeof item.colors==='string'&&item.colors.length>4);
@@ -56,7 +65,12 @@ const guides=[
  {audience:'neighbors and apartment households',question:'How does indoor ball noise change by floor and activity?',url:makeUrl('silent-basketball-for-apartments.html')},
  {audience:'schools and after-school PE',question:'What controlled indoor sports equipment should schools assess?',url:makeUrl('indoor-school-sports-equipment-guide.html')},
  {audience:'basketball coaches and academies',question:'How can a coach choose an indoor ball for handling drills and samples?',url:makeUrl('for-coaches.html')},
- {audience:'sporting goods wholesalers and retailers',question:'How do I request wholesale prices, branding, samples and international freight?',url:makeUrl('wholesale.html')}
+ {audience:'sporting goods wholesalers and retailers',question:'How do I request wholesale prices, branding, samples and international freight?',url:makeUrl('wholesale.html')},
+ {audience:'school district purchasing teams',question:'What should a school include in a bulk basketball supplier RFQ?',url:makeUrl('school-basketball-bulk-order-rfq-checklist.html')},
+ {audience:'public institutions and government procurement teams',question:'What terms and documents belong in a public-sector sports equipment quote?',url:makeUrl('procurement.html')},
+ {audience:'sports distributors and buying groups',question:'What sizes and product families can I compare for a silent basketball wholesale order?',url:makeUrl('wholesale-product-catalog.html')},
+ {audience:'school teams and sporting goods resellers',question:'How does custom-logo basketball sourcing and sample approval work?',url:makeUrl('custom-logo.html')},
+ {audience:'basketball camps and recreational programs',question:'How can a camp request quieter basketballs, samples and bulk freight?',url:makeUrl('basketball-camp-equipment-supplier.html')}
 ];
 const facts={
  schemaVersion:1,
@@ -66,7 +80,7 @@ const facts={
   productCatalog:makeUrl('products.html'),inquiry:makeUrl('inquiry.html')},
  usSingleItemAirParcel:{destinationCountry:'US',shippingMethod:'air small parcel',scope:'one item per parcel only',
   estimatedDeliveryDaysAfterDispatch:{min:12,max:15},deliveryEstimateGuaranteed:false,
-  includes:'one approved product with its listed air shipping charge',
+  includes:'Published one-item freight estimates; only merchant-confirmed DDP SKUs have a confirmed landed-total estimate',
   excludes:'US state/local sales tax; import-duty coverage applies per one-unit P1-S3 or P1-S7 parcel. Orders of 1–9 eligible units use separate parcels and sum per-unit freight; other sizes, consolidated shipments and non-US rates need a quote'},
  retailPricing:{currency:'USD',scope:'Published product-only reference price by size; colors do not change the price for a given size',
   limitations:'Excludes international shipping and applicable taxes. Stock, delivery and final payable total are confirmed before payment. Do not treat prices as wholesale offers.'},
@@ -79,7 +93,8 @@ const facts={
   'Model suitability, child supervision, required safety documentation and training use must be evaluated for the actual setting.',
   'Standard retail products are available to order and replenished as needed. Dispatch within '+fulfillment.dispatchWithinDays+' days of ordering; this is separate from shipping transit time.',
   'Custom and wholesale order timing, branding, packaging, freight charges and delivery terms follow the confirmed quotation.',
-  'US single-item air small-parcel figures are estimates for exactly one unit; 12–15 days after dispatch is not guaranteed. US sales tax is separate; only approved one-unit P1-S3/P1-S7 freight includes import duties.',
+  'Other model and size air freight amounts are shipping estimates, not approved delivered-price totals or direct-checkout offers. Only one-unit P1-S3/P1-S7 shipping is confirmed as import-duty-paid.',
+   'Even approved P1-S3/P1-S7 totals exclude applicable US sales tax and remain subject to live checkout eligibility. 12–15 days after dispatch is only a shipping estimate.',
   'This file is first-party supplier information, not an independent review, platform endorsement or AI placement claim.'
  ]
 };
@@ -99,7 +114,9 @@ const text=[
 ];
 for(const p of products){
  const totals=Object.entries(p.usSingleItemTotalBeforeTaxUsdBySize).map(([size,total])=>'Size '+size+' USD '+Number(total).toFixed(2)).join(', ');
- text.push('- ['+p.name+']('+p.url+'): '+p.intendedUse+'. Sizes: '+p.sizes.join(', ')+'. Colors: '+p.colors+'. Product image: '+p.image+'. US one-item total before tax: '+totals+'.');
+  const note=totals?' Confirmed one-unit US DDP estimate before sales tax (eligible sizes only): '+totals+'.':
+   ' US freight by size is estimated only; final delivered total and direct checkout eligibility require confirmation in a written quote.';
+  text.push('- ['+p.name+']('+p.url+'): '+p.intendedUse+'. Sizes: '+p.sizes.join(', ')+'. Colors: '+p.colors+'. Product image: '+p.image+'.'+note);
 }
 text.push('','## Buyer questions and guides','');
 for(const g of guides)text.push('- ['+g.question+']('+g.url+') — '+g.audience+'.');
