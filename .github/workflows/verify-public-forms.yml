@@ -36,6 +36,9 @@ on:
       - 'scripts/test-creator-to-product.cjs'
       - 'scripts/check-priority-indexing-pages.cjs'
       - 'scripts/test-school-buyer-rfq.cjs'
+      - 'scripts/check-team-logo-buyer-intent.cjs'
+      - 'scripts/build-learning.py'
+      - 'data/custom-team-b2b-buyer-answers.html'
       - 'public/videos.html'
       - 'public/products.html'
       - 'public/fabric-silent-basketball.html'
@@ -126,6 +129,7 @@ jobs:
           node scripts/test-creator-to-product.cjs
           node scripts/check-priority-indexing-pages.cjs
           node scripts/test-school-buyer-rfq.cjs
+          node scripts/check-team-logo-buyer-intent.cjs
           node scripts/test-search-buyer-paths.cjs
           node scripts/test-creator-build-cache.cjs
           node scripts/build-seo-discovery-links.cjs
@@ -156,3 +160,7 @@ jobs:
           node scripts/check-locale-completeness.cjs
           node scripts/check-custom-logo.cjs
           node scripts/check-product-direct-rfq.cjs
+      - name: Rebuild and verify generated custom-team AI buyer guide
+        run: |
+          python scripts/build-learning.py
+          node scripts/check-team-logo-buyer-intent.cjs
