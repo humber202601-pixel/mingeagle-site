@@ -194,6 +194,17 @@ try{
  assert.equal(writes,writesBeforeExpiredRetry,'Idempotent expired acceptance must not change D1');
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM orders WHERE quote_id=?').get(quoteId).n,1);
  assert.equal(sqlite.prepare('SELECT status FROM quotes WHERE id=?').get(quoteId).status,'CONVERTED');
+ // A legacy PAID ledger flag without a provider-linked Stripe receipt must
+ // never tell a buyer payment is fully confirmed or release fulfillment.
+ sqlite.prepare("UPDATE orders SET payment_status='PAID' WHERE id=?").run(orderId);
+ const legacyPaidPage=await quotePage({env,params:{token:bearer},request:new Request(orderPage)});
+ assert.equal(legacyPaidPage.status,200);
+ const legacyPaidHtml=await legacyPaidPage.text();
+ assert(legacyPaidHtml.includes('Payment marked received; verification pending.'));
+ assert(!legacyPaidHtml.includes('Payment received in full.'));
+ assert(!legacyPaidHtml.includes('id="stripePayBtn"'),'Legacy PAID order must never solicit a second charge');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM payments WHERE order_id=?').get(orderId).n,0);
+ sqlite.prepare("UPDATE orders SET payment_status='UNPAID' WHERE id=?").run(orderId);
  // Subsequent payment tests use an otherwise still-valid accepted quotation.
  sqlite.prepare("UPDATE quotes SET valid_until=date('now') WHERE id=?").run(quoteId);
  // Historic converted 10+ quotes created before mandatory tax review may
@@ -351,6 +362,11 @@ try{
  assert.equal(normalStatus.historicalOtherReceived,0);
  assert.equal(normalStatus.paymentEvidence,'STRIPE_VERIFIED');
  assert.equal(normalStatus.requiresManualReview,false);
+ const verifiedPaidPage=await quotePage({env,params:{token:bearer},request:new Request(orderPage)});
+ const verifiedPaidHtml=await verifiedPaidPage.text();
+ assert(verifiedPaidHtml.includes('Payment received in full.'),
+  'Matched Stripe session and receipt permit confirmed payment message');
+ assert(!verifiedPaidHtml.includes('Payment marked received; verification pending.'));
  assert.equal(writes,statusBeforeWrites,'Buyer polling stays read-only');
  // Even a fully paid Stripe receipt must not be advertised as free for
  // fulfillment when an unresolved manual review task has been opened.
@@ -391,6 +407,11 @@ try{
  assert.equal(reviewed.received,185,'Accounting total includes all recorded channels without mislabeling them');
  assert.equal(reviewed.requiresManualReview,true,'Mixed records need seller review');
  assert.equal(reviewed.paymentEvidence,'MANUAL_RECONCILIATION');
+ const mixedPaidPage=await quotePage({env,params:{token:bearer},request:new Request(orderPage)});
+ const mixedPaidHtml=await mixedPaidPage.text();
+ assert(mixedPaidHtml.includes('Payment marked received; verification pending.'),
+  'Mixed other-provider receipts must not produce unconditional confirmation');
+ assert(!mixedPaidHtml.includes('Payment received in full.'));
  assert.equal(writes,statusBeforeMixed,'Status observation may not mutate a receipt');
  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM tasks WHERE order_id=? AND type='FULFILLMENT'").get(orderId).n,1,
   'Buyer polling never duplicates fulfillment');
