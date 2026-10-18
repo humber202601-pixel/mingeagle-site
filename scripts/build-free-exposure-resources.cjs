@@ -42,8 +42,10 @@ for(const r of resources){
  const share='https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(url);
  const block=start+style+'<section class="meFree" id="'+r.id+'" lang="en" aria-labelledby="'+r.id+'-title"><div class="wrap"><p class="eyebrow">FREE TO READ &amp; SHARE</p><h2 id="'+r.id+'-title">'+esc(r.title)+'</h2><p class="meFreeIntro">'+esc(r.intro)+'</p><div class="meFreeGrid">'+r.cards.map(([h,p])=>'<article><h3>'+esc(h)+'</h3><p>'+esc(p)+'</p></article>').join('')+'</div><div class="meFreeLinks"><a href="'+filename+'" download>Download the text checklist</a><a href="'+r.related+'">'+esc(r.relatedLabel)+' →</a><a href="'+esc(share)+'" target="_blank" rel="noopener noreferrer">Share this resource</a></div><small>First-party suggestions by MING EAGLE. No signup or purchase required. These are activity/planning ideas, not independently tested noise results.</small></div></section>'+end;
  html=html.replace('</main>',block+'</main>');
- // Only these meaningfully updated pages get this editorial modification date.
- html=html.replace(/("dateModified"\s*:\s*")[^"]+(")/g,(_,a,b)=>a+'2026-10-14'+b);
+  // Keep the 2026-10-14 free-resource editorial baseline without overwriting
+  // newer evidence-backed dates from separately revised buyer guides.
+  html=html.replace(/("dateModified"\s*:\s*")(\d{4}-\d{2}-\d{2})(")/g,(_,a,previous,b)=>
+   a+(previous>'2026-10-14'?previous:'2026-10-14')+b);
  fs.writeFileSync(file,html);
 }
 console.log('PASS: 3 original, signup-free resources and matching downloadable checklists; sharing is a visitor action.');
