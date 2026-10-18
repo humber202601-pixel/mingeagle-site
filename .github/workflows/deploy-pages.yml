@@ -91,6 +91,7 @@ jobs:
           node scripts/check-coach-ai-answers.cjs
           node scripts/check-public-crawl-graph.cjs
           node scripts/check-school-product-crawl-paths.cjs
+          node scripts/check-shareable-b2b-resources.cjs
           node scripts/check-wholesale-product-deep-links.cjs
           node scripts/check-public-canonicals.cjs
           node scripts/check-sitemap-lastmod-evidence.cjs
