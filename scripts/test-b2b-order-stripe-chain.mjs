@@ -196,6 +196,28 @@ try{
  assert.equal(sqlite.prepare('SELECT status FROM quotes WHERE id=?').get(quoteId).status,'CONVERTED');
  // Subsequent payment tests use an otherwise still-valid accepted quotation.
  sqlite.prepare("UPDATE quotes SET valid_until=date('now') WHERE id=?").run(quoteId);
+ // Historic converted 10+ quotes created before mandatory tax review may
+ // still be unpaid. Keep order status visible, but never offer a Pay button
+ // that the server must reject. Retail sample self-checkout is separate.
+ sqlite.prepare("UPDATE quotes SET tax_basis=NULL WHERE id=?").run(quoteId);
+ const legacyUnpaidPage=await quotePage({env,params:{token:bearer},request:new Request(orderPage)});
+ assert.equal(legacyUnpaidPage.status,200);
+ const legacyUnpaidHtml=await legacyUnpaidPage.text();
+ assert.match(legacyUnpaidHtml,/Payment is not available for this quotation/);
+ assert.match(legacyUnpaidHtml,/Seller sales-tax review must be documented/);
+ assert(legacyUnpaidHtml.includes('Order '+created.order.reference),
+  'Historic unpaid order status remains visible for support and reconciliation');
+ assert(!legacyUnpaidHtml.includes('id="stripePayBtn"'),
+  'Unreviewed converted wholesale order must not display a misleading Pay button');
+ const beforeLegacyCheckoutNetwork=network;
+ const rejectedLegacyCheckout=await checkout({env,request:checkoutRequest()});
+ assert.equal(rejectedLegacyCheckout.status,409,
+  'Direct Stripe API still independently rejects missing historical quote tax review');
+ assert.equal(network,beforeLegacyCheckoutNetwork,
+  'Unreviewed legacy order may not contact Stripe');
+ assert.equal(provider.size,0);
+ sqlite.prepare('UPDATE quotes SET tax_basis=? WHERE id=?').run(
+  'SYNTHETIC TEST ONLY: simulated tax-basis review is NOT merchant tax approval',quoteId);
  const quoteView=await quotePage({env,params:{token:bearer},request:new Request(orderPage)});
  assert.equal(quoteView.status,200);
  const quoteHtml=await quoteView.text();

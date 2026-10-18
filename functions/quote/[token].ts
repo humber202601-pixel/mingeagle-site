@@ -189,6 +189,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
       } catch { wholesaleAddressReady=false; }
       const stripeReady = !closedOrder && !paymentHeld && stripeCheckoutReadiness(env).checkoutReady && env.STRIPE_TAX_POLICY_APPROVED==='true'
         && (String(order.reference).startsWith('ME-RO-') || (acceptedB2bQuotePayable(quote)
+          // Legacy converted wholesale orders may lack tax review even though
+          // their acceptance predates the current server-side guard. Don't
+          // offer a Pay button that Checkout must later reject.
+          && Number(quote.tax_basis_documented)===1
           && env.STRIPE_RETAIL_ONLY_ENABLED!=='true' && env.STRIPE_B2B_CHECKOUT_ENABLED==='true'
           && env.STRIPE_B2B_TAX_POLICY_APPROVED==='true' && wholesaleAddressReady
           && stripeCheckoutTermsSupported(quote.payment_terms)))
@@ -206,6 +210,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
         ? '<div class="notice info" role="alert"><strong>Stripe payment needs manual reconciliation.</strong> Our team is reviewing the recorded payment. Please do not pay again; preparation and shipping are on hold until reconciliation is complete. Contact MING EAGLE if you need an update.</div>'
         : String(order.payment_status) === 'PAID'
         ? `<div class="payment-success"><strong>Payment received in full.</strong><br>Thank you. Your order is now moving into processing.</div>`
+        : !String(order.reference).startsWith('ME-RO-') && Number(quote.tax_basis_documented)!==1
+        ? '<div class="notice info" role="alert"><strong>Payment is not available for this quotation.</strong><p>Seller sales-tax review must be documented and the quotation reapproved before any new card payment. Please contact MING EAGLE for revised terms. No new payment has been initiated.</p></div>'
         : `<div class="payment-help"><strong>Secure Stripe payment</strong><p>Stripe is our sole online payment provider. Your reference is <b>${esc(paymentReference)}</b>. Do not pay again while a Stripe payment is still processing.</p>${providerNotice}<div class="payment-options">${stripeReady?stripePay:'<div class="notice info">Stripe checkout is currently unavailable for this order. Please contact MING EAGLE for assistance.</div>'}</div></div>`;
       actionArea = `${paymentReturnBanner}<div class="order-status"><h3>Order ${esc(order.reference)}</h3><div class="order-grid"><div><small>ORDER STATUS</small><strong>${esc(order.status)}</strong></div><div><small>PAYMENT</small><strong>${esc(order.payment_status)}</strong></div><div><small>SHIPMENT</small><strong>${esc(order.shipment_status || 'Not shipped yet')}</strong></div><div><small>TRACKING</small><strong>${esc(order.carrier || 'Not assigned yet')} · ${esc(order.tracking_number || 'Not assigned yet')}</strong></div></div><div class="payment-panel"><h4>Payment progress</h4><div class="payment-grid"><div><small>${taxPending?'TOTAL BEFORE SALES TAX':'ORDER TOTAL'}</small><strong>${esc(money(orderTotal, orderCurrency))}</strong></div><div><small>RECEIVED</small><strong>${esc(money(received, orderCurrency))}</strong></div><div><small>${taxPending?'DUE BEFORE SALES TAX':'AMOUNT DUE'}</small><strong>${esc(money(outstanding, orderCurrency))}</strong></div><div><small>PAYMENT REFERENCE</small><strong>${esc(paymentReference)}</strong></div></div>${paymentMessage}</div>${trackLink}<div class="reorder-help"><h4>Order again?</h4><p>Request a refreshed quote for this configuration. Products, current price, shipping and availability will be confirmed by our team. No purchase is placed automatically.</p><a class="button" href="/wholesale?reorderOf=${encodeURIComponent(String(quote.reference))}">Request repeat-order quote</a></div></div>`;
     } else if (String(quote.status) === 'EXPIRED') {
