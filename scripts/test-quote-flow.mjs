@@ -16,9 +16,17 @@ const auth=(await load('functions/api/admin/_middleware.ts')).onRequest;
 const root=(await load('functions/_middleware.ts')).onRequest;
 const sqlite=new DatabaseSync(':memory:');
 for(const file of ['0001_core.sql','0002_quote_public_links.sql','0003_airwallex_payment_sessions.sql','0004_shipping_rates.sql','0005_supplier_purchase_terms.sql','0006_quote_retail_approvals.sql','0016_b2b_tax_basis.sql'])sqlite.exec(readFileSync('migrations/'+file,'utf8'));
+let simulateBuyerAcceptBeforeReleaseBatch=false;
+let concurrentReleaseQuoteId='';
 const database={
  prepare(sql){const statement={sql,args:[],bind(...args){statement.args=args;return statement;},async first(){return sqlite.prepare(sql).get(...statement.args)||null;},async all(){return {success:true,results:sqlite.prepare(sql).all(...statement.args)};},async run(){const result=sqlite.prepare(sql).run(...statement.args);return {success:true,meta:{changes:Number(result.changes)}};}};return statement;},
- async batch(statements){sqlite.exec('BEGIN');try{const results=[];for(const s of statements)results.push(await s.run());sqlite.exec('COMMIT');return results;}catch(error){sqlite.exec('ROLLBACK');throw error;}}
+ async batch(statements){
+  if(simulateBuyerAcceptBeforeReleaseBatch&&statements.some(s=>s.sql.includes('UPDATE quotes SET status=CASE'))){
+   simulateBuyerAcceptBeforeReleaseBatch=false;
+   sqlite.prepare("UPDATE quotes SET status='CONVERTED' WHERE id=?").run(concurrentReleaseQuoteId);
+  }
+  sqlite.exec('BEGIN');try{const results=[];for(const s of statements)results.push(await s.run());sqlite.exec('COMMIT');return results;}catch(error){sqlite.exec('ROLLBACK');throw error;}
+ }
 };
 const env={MINGEAGLE_DB:database,ADMIN_ACCESS_KEY:'test-only-local-key',TEST_ENVIRONMENT:'preview',OUTBOUND_EMAIL_DISABLED:'true',STRIPE_B2B_APPROVED_US_STATES:'TX,OR,NH'};
 const originalFetch=globalThis.fetch;let externalCalls=0;
@@ -40,6 +48,7 @@ try{
  for(const patch of [{unitPrice:'8.031'},{quantity:'50–100'},{shipping:''},{discount:'1000'},{unitPrice:true}]){response=await call('create','/api/admin/quotes',{...input,...patch});assert.equal(response.status,400);assert.equal(query('SELECT count(*) AS n FROM quotes').n,0);}
  response=await call('create','/api/admin/quotes',input);assert.equal(response.status,201,JSON.stringify(response));assert.equal(response.body.total,822.9);
  const quoteId=response.body.quoteId;
+ concurrentReleaseQuoteId=quoteId;
  let quote=query('SELECT * FROM quotes');let item=query('SELECT * FROM quote_items');
  // Server-side final quote publishing must never trust a mismatched stored
  // grand total, even if a preflight UI is bypassed.
@@ -144,6 +153,16 @@ try{
    .run(JSON.stringify([{minimumQuantity:1,purchaseCents:700}]));
  sqlite.prepare("UPDATE quotes SET notes=? WHERE id=?").run(
    'Wholesale draft. Internal purchase source review: procurement cost must stay private.',quoteId);
+ // Real race: buyer accepts between seller's preflight and atomic release.
+ simulateBuyerAcceptBeforeReleaseBatch=true;
+ response=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true});
+ assert.equal(response.status,409,'Accepted quote cannot be republished after release preflight');
+ assert.equal(response.body.code,'QUOTE_NO_LONGER_RELEASABLE');
+ assert.equal(query('SELECT status FROM quotes').status,'CONVERTED');
+ assert.equal(query('SELECT count(*) AS n FROM quote_public_links').n,0,'No stale buyer link');
+ assert.equal(query("SELECT count(*) AS n FROM activities WHERE activity_type='QUOTE_APPROVED'").n,0,'No stale seller approval audit');
+ assert.equal(externalCalls,0,'No email on losing release');
+ sqlite.prepare("UPDATE quotes SET status='DRAFT' WHERE id=?").run(quoteId);
  response=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true});assert.equal(response.status,200,JSON.stringify(response));assert.equal(response.body.emailed,false);
  assert.equal(query("SELECT count(*) AS n FROM activities WHERE activity_type='QUOTE_APPROVED'").n,1);
  const token=response.body.publicPath.split('/').pop();

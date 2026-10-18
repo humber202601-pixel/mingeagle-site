@@ -342,6 +342,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     // The public link, 10+ unit private cost audit, and quote state form ONE
     // D1 transaction; failure cannot dispatch email with an invalid URL.
     const releaseCommands:D1PreparedStatement[]=[];
+    // Guard this state at commit, not only at the earlier preflight SELECT.
+    // A buyer acceptance or seller revision can supersede the quote meanwhile.
+    // The NOT NULL quote status makes a stale write abort the WHOLE D1 batch.
+    releaseCommands.push(db.prepare(`UPDATE quotes SET status=CASE
+      WHEN status IN ('DRAFT','SENT','VIEWED')
+        AND (CASE WHEN valid_until IS NULL THEN 0
+          WHEN LENGTH(TRIM(valid_until))=10 THEN date(valid_until)>=date('now')
+          ELSE datetime(valid_until)>=datetime('now') END)
+      THEN 'SENT' ELSE NULL END,
+      public_token_hash=?,sent_at=COALESCE(sent_at,CURRENT_TIMESTAMP),
+      updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(tokenHash,quote.id));
     if(quote.public_token_hash) {
       releaseCommands.push(db.prepare(`INSERT OR IGNORE INTO quote_public_links (id, quote_id, token_hash)
         VALUES (?, ?, ?)`).bind(crypto.randomUUID(),quote.id,quote.public_token_hash));
@@ -358,10 +369,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
            reviewedAtUTC:new Date().toISOString(),
            unverifiedSupplierLines:review.unverified})));
     }
-    releaseCommands.push(db.prepare(`UPDATE quotes SET status='SENT',
-      public_token_hash=?,sent_at=COALESCE(sent_at,CURRENT_TIMESTAMP),
-      updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('DRAFT','SENT','VIEWED')`)
-      .bind(tokenHash,quote.id));
     if(quote.status==='DRAFT'){
       releaseCommands.push(db.prepare(`INSERT INTO activities
         (id,entity_type,entity_id,activity_type,title,description,metadata_json)
@@ -373,7 +380,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           supplierCostManuallyAcknowledged:review.unverified>0&&supplierCostAcknowledged===true,
           supplierReviewBasis:review.unverified>0?reviewedSourceNote:null})));
     }
-    const releaseResult=await db.batch(releaseCommands);
+    let releaseResult:D1Result[];
+    try{releaseResult=await db.batch(releaseCommands);}
+    catch(error){
+      const current=await db.prepare('SELECT status FROM quotes WHERE id=?')
+        .bind(quote.id).first<{status:string}>();
+      if(current&&!['DRAFT','SENT','VIEWED'].includes(current.status))
+        return Response.json({ok:false,code:'QUOTE_NO_LONGER_RELEASABLE',
+          error:'Quotation was accepted or superseded before publication. No new link or email was created.'},{status:409});
+      throw error;
+    }
     const expectedChanges=releaseCommands.length-(quote.public_token_hash?1:0);
     const verifiedChanges=releaseResult.reduce((sum,item)=>
       sum+(item.success?Number(item.meta?.changes||0):0),0);
