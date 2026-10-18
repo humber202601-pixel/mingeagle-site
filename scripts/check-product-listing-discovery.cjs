@@ -32,7 +32,8 @@ try{
   assert.equal(list.item.name,product.name);
   assert.equal(list.item.url,'https://www.mingeagle.com/'+page);
   assert.equal(list.item.image,'https://www.mingeagle.com/'+product.hero);
-  assert.equal(list.item.brand.name,'MING EAGLE');
+  assert.equal(list.item['@type'],'WebPage','Catalog links to product pages; ProductGroup/Offer data is on those detail pages');
+  assert(!('brand' in list.item),'WebPage list entries cannot pose as separate sellable products');
   assert(table.includes('<a href="'+page+'">'+product.name+'</a>'),'Comparison row must have readable static product deep link');
   assert(fs.readFileSync(path.join(root,'sitemap.xml'),'utf8').includes('<loc>'+list.item.url+'</loc>'));
  });
@@ -47,5 +48,5 @@ try{
  const fixed=fs.readFileSync(file,'utf8');
  assert(fixed.includes('<td><a href="silent-soccer.html">Flocked Silent Soccer Ball</a></td>'),'Correct source must repair incorrect display');
  assert(!fixed.includes('unknown.html'));
- console.log('PASS: 4 public product ItemList entries, four static comparison links, idempotent, no availability/price/rating fabrication; missing image stops build.');
+ console.log('PASS: 4 product-detail WebPage ItemList entries, four static comparison links, idempotent, no product offer/availability/rating fabrication; missing image stops build.');
 }finally{fs.rmSync(temp,{recursive:true,force:true})}
