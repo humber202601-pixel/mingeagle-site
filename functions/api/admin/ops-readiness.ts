@@ -54,7 +54,14 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
    db.prepare("SELECT COUNT(*) AS settled FROM orders o WHERE o.payment_status='PAID' AND o.currency='USD' AND "+wholesalePredicate+
     " AND (SELECT COALESCE(SUM(p.amount),0) FROM payments p JOIN payment_provider_sessions s ON s.provider_intent_id=p.provider_reference"+
     " AND s.order_id=p.order_id AND s.provider='STRIPE' AND s.status='SUCCEEDED' WHERE p.order_id=o.id AND p.provider='STRIPE'"+
-    " AND p.status='RECEIVED' AND p.currency='USD') >= o.total-0.005").first<{settled:number}>(),
+    " AND p.status='RECEIVED' AND p.currency='USD') BETWEEN o.total-0.005 AND o.total+0.005"+ 
+    // All received receipts must reconcile to that SAME amount. Otherwise a
+    // bank transfer, unlinked Stripe receipt, duplicate or excess is mixed in,
+    // and the dashboard must NOT report a fully reconciled Stripe-only order.
+    " AND o.total>0"+
+    " AND (SELECT COALESCE(SUM(p.amount),0) FROM payments p"+
+    " WHERE p.order_id=o.id AND p.status='RECEIVED') BETWEEN o.total-0.005 AND o.total+0.005"
+   ).first<{settled:number}>(),
    db.prepare("SELECT COUNT(*) AS sessions FROM payment_provider_sessions s JOIN orders o ON o.id=s.order_id WHERE s.provider='STRIPE' AND "+wholesalePredicate).first<{sessions:number}>()
   ]):[null,null,null];
   // These are local D1 session snapshots, not real-time Stripe status.
