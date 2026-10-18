@@ -14,7 +14,8 @@ const checks=[
 for(const [name,html,anchor] of checks){
  assert.equal((html.match(new RegExp('id="'+anchor+'"','g'))||[]).length,1,'Missing or duplicate buyer resource: '+name);
  assert(html.includes('https://www.mingeagle.com/'+name),'Public canonical or content missing '+name);
- assert(sitemap.includes('<loc>https://www.mingeagle.com/'+name+'</loc><lastmod>2026-10-17</lastmod>'),
+ const lastmod=name==='procurement.html'?'2026-10-18':'2026-10-17';
+ assert(sitemap.includes('<loc>https://www.mingeagle.com/'+name+'</loc><lastmod>'+lastmod+'</lastmod>'),
   'Evidence-backed sitemap date missing: '+name);
  assert(html.includes('inquiry.html?type=quote&amp;customer='),'No direct B2B inquiry CTA: '+name);
  assert(html.includes('<h2'),'Buyer resource must be a crawlable heading: '+name);
