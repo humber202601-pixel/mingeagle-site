@@ -84,5 +84,62 @@ try{
  const accepted=await webhook({env:{MINGEAGLE_DB:db,STRIPE_MODE:'live',STRIPE_WEBHOOK_SECRET:secret},request:new Request(base+'/api/payments/stripe/webhook',
   {method:'POST',headers:{'stripe-signature':'t='+now+',v1='+sig},body:raw})});
  assert.equal((await accepted.json()).launchProbe,true);assert.equal(dbWrites,2);
+ // Three owner-created unpaid diagnostic sessions expired after the original
+ // launch checks. Stripe must receive 2xx acknowledgement without any CRM
+ // order/payment/task mutations, but signed lookalikes must remain rejected.
+ const diagnosticCases=[
+  ['live_checkout_verification_20261016','USER_REQUESTED_050_USD',50],
+  ['live_checkout_verification_20261016_2','USER_REQUESTED_050_USD',50],
+  ['connectivity_verification_20261016','DO_NOT_PAY',100],
+ ];
+ let diagnosticWrites=0,orderReads=0;
+ const diagnosticDb={prepare(sql){
+  if(sql.includes('payment_webhook_events')){
+   return {bind(){return this},async first(){return {processed_at:null}},async run(){diagnosticWrites++;return {success:true}}};
+  }
+  if(sql.includes('payment_provider_sessions')){
+   orderReads++;return {bind(){return this},async first(){return null}};
+  }
+  throw Error('Diagnostic event must not access a CRM order/payment/task: '+sql);
+ }};
+ let diagCounter=0;
+ const sendDiagnostic=async(event,patch={})=>{
+  const eventText=JSON.stringify(event),ts=Math.floor(Date.now()/1000);
+  const mac=createHmac('sha256',secret).update(ts+'.'+eventText).digest('hex');
+  return webhook({env:{MINGEAGLE_DB:diagnosticDb,STRIPE_MODE:'live',STRIPE_WEBHOOK_SECRET:secret,...patch},
+   request:new Request(base+'/api/payments/stripe/webhook',{method:'POST',
+    headers:{'stripe-signature':'t='+ts+',v1='+mac},body:eventText})});
+ };
+ const diagnostic=(purpose,charge,amount)=>({id:'evt_test_diagnostic_'+(++diagCounter),
+  type:'checkout.session.expired',data:{object:{id:'cs_live_synthetic_diagnostic_'+diagCounter,
+   client_reference_id:null,payment_link:null,status:'expired',payment_status:'unpaid',
+   amount_total:amount,currency:'usd',metadata:{purpose,charge}}}});
+ for(const [purpose,charge,amount] of diagnosticCases){
+  const event=diagnostic(purpose,charge,amount),before=diagnosticWrites;
+  const response=await sendDiagnostic(event);
+  assert.equal(response.status,200,'Known unpaid owner-only diagnostic expiration must be acknowledged: '+purpose);
+  assert.equal((await response.json()).ownerConnectivityExpiry,true);
+  assert.equal(diagnosticWrites,before+2,'Only webhook ledger insertion+processing should be written');
+ }
+ assert.equal(orderReads,0,'Known expiries must never read an order or provider session');
+ const variants=[
+  (e)=>{e.data.object.amount_total=60},
+  (e)=>{e.data.object.metadata.purpose='unknown_customer_event'},
+  (e)=>{e.data.object.metadata.order_id='real_customer_order'},
+  (e)=>{e.data.object.metadata.order_reference='real_customer_reference'},
+  (e)=>{e.data.object.payment_status='paid'},
+  (e)=>{e.data.object.status='complete'},
+  (e)=>{e.data.object.client_reference_id='B2B-ORDER-REFERENCE'},
+  (e)=>{e.data.object.payment_link='plink_other'},
+  (e)=>{e.type='checkout.session.completed'}
+ ];
+ for(const modify of variants){
+  const e=diagnostic(...diagnosticCases[0]);
+  modify(e);
+  const response=await sendDiagnostic(e);
+  assert.equal(response.status,409,'Modified diagnostic metadata or lifecycle cannot skip order reconciliation');
+ }
+ assert.equal(orderReads,variants.length,
+  'Every lookalike must follow the normal unmatched Checkout session path');
  console.log('PASS: private live-mode launch checks fail closed, redact account/key data, create then expire unpaid probe, and signed probe expiry never creates a CRM order/payment/task.');
 }finally{globalThis.fetch=saved}
