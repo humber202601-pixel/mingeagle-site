@@ -127,6 +127,7 @@ jobs:
           node scripts/check-retail-quantity-routing.cjs
           node scripts/test-product-cart-journey.cjs
           node scripts/test-b2b-quote-planner.cjs
+          node scripts/check-catalog-inquiry.cjs
           node --check scripts/build-us-delivered-prices.cjs
           node scripts/test-us-delivered-prices.cjs
           node scripts/test-product-buyer-answers.cjs
