@@ -123,6 +123,16 @@ try{
  assert(!(await todayHtml.text()).includes('This quote has expired'),
   'HTML must not show final-day quote as expired');
  const ship={country:'US',state:'TX',city:'Austin',postalCode:'78701',line1:'123 Synthetic B2B Street'};
+ // Nine-unit Stripe quote has otherwise valid amount and freight, but must
+ // follow the 1–9 unit retail route rather than creating a wholesale order.
+ sqlite.prepare('UPDATE quote_items SET quantity=9,line_total=135 WHERE quote_id=?').run(quoteId);
+ sqlite.prepare('UPDATE quotes SET subtotal=135,total=165 WHERE id=?').run(quoteId);
+ const underMinimum=await accept(ship);
+ assert.equal(underMinimum.status,409,'Buyer may not accept a sub-ten-unit B2B quote');
+ assert.equal((await underMinimum.json()).code,'B2B_MINIMUM_10_UNITS');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM orders').get().n,0);
+ sqlite.prepare('UPDATE quote_items SET quantity=10,line_total=150 WHERE quote_id=?').run(quoteId);
+ sqlite.prepare('UPDATE quotes SET subtotal=150,total=180 WHERE id=?').run(quoteId);
  // A previously sent quotation without a documented seller tax basis must
  // not create an unpayable order, even if freight, Stripe terms and ZIP match.
  sqlite.prepare('UPDATE quotes SET tax_basis=NULL WHERE id=?').run(quoteId);
@@ -190,6 +200,23 @@ try{
  const quoteView=await quotePage({env,params:{token:bearer},request:new Request(orderPage)});
  assert.equal(quoteView.status,200);
  assert((await quoteView.text()).includes('Pay securely with Stripe'));
+ // A historical direct API call with nine matching quote/order units must
+ // also be blocked before any Stripe network request or provider-session write.
+ sqlite.prepare('UPDATE quote_items SET quantity=9,line_total=135 WHERE quote_id=?').run(quoteId);
+ sqlite.prepare('UPDATE order_items SET quantity=9,line_total=135 WHERE order_id=?').run(orderId);
+ sqlite.prepare('UPDATE quotes SET subtotal=135,total=165 WHERE id=?').run(quoteId);
+ sqlite.prepare('UPDATE orders SET subtotal=135,total=165 WHERE id=?').run(orderId);
+ const networkBeforeSmallCheckout=network, writesBeforeSmallCheckout=writes;
+ const smallCheckout=await checkout({env,request:checkoutRequest()});
+ assert.equal(smallCheckout.status,409,'Nine-unit legacy B2B order cannot start Stripe Checkout');
+ assert.match((await smallCheckout.json()).error,/10 or more units/);
+ assert.equal(network,networkBeforeSmallCheckout,'Nine-unit B2B checkout must not contact Stripe');
+ assert.equal(writes,writesBeforeSmallCheckout,'Nine-unit B2B checkout must not mutate D1');
+ assert.equal(provider.size,0);
+ sqlite.prepare('UPDATE quote_items SET quantity=10,line_total=150 WHERE quote_id=?').run(quoteId);
+ sqlite.prepare('UPDATE order_items SET quantity=10,line_total=150 WHERE order_id=?').run(orderId);
+ sqlite.prepare('UPDATE quotes SET subtotal=150,total=180 WHERE id=?').run(quoteId);
+ sqlite.prepare('UPDATE orders SET subtotal=150,total=180 WHERE id=?').run(orderId);
  // The accepted merchandise is not mutable merely because its amount stays the same.
  sqlite.prepare(`UPDATE order_items SET description='Another ball of identical price' WHERE order_id=?`).run(orderId);
  const beforeBlocked=network;
