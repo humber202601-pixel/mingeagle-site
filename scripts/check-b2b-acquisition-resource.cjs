@@ -30,9 +30,11 @@ assert(pages.template.includes('This checklist may be copied and shared'));
 assert(pages.template.includes('10+ units follow wholesale quotation'));
 assert(pages.template.includes('Applicable US sales-tax treatment'));
 assert(pages.template.includes('not a guaranteed delivery commitment'));
-for(const page of ['for-schools.html','basketball-camp-equipment-supplier.html'])
- assert(pages.sitemap.includes('<loc>https://www.mingeagle.com/'+page+'</loc><lastmod>2026-10-17</lastmod>'),
+for(const page of ['for-schools.html','basketball-camp-equipment-supplier.html']){
+ const lastmod=page==='for-schools.html'?'2026-10-18':'2026-10-17';
+ assert(pages.sitemap.includes('<loc>https://www.mingeagle.com/'+page+'</loc><lastmod>'+lastmod+'</lastmod>'),
   'Meaningfully revised buyer pages require evidence-backed lastmod');
+}
 assert(!pages.sitemap.includes('camp-school-rfq-checklist.txt'),
  'Text checklist is a download, not an indexable HTML sitemap page');
 console.log('PASS: camp and school free RFQ resource, crosslinks, quote capture and truthful commercial limits.');
