@@ -65,6 +65,7 @@ for(const [sku,fee] of Object.entries(US_SMALL_PARCEL_RATES)){
  assert.equal(c.shippingUSD,body.shippingUSD,sku);
  assert.equal(c.paymentEnabled,false);
  assert.equal(c.ddpConfirmed,['P1-S3','P1-S7'].includes(sku));
+ assert.equal(c.wholesale,false,'Retail cart requires explicit wholesale:false even for one unit: '+sku);
  if(c.ddpConfirmed){
   assert(c.notice.includes(sku),'DDP notice must name correct confirmed product');
   assert(c.notice.includes(String.fromCharCode(36)+fee.toFixed(2)),'DDP notice must state exact shipping amount');
@@ -92,6 +93,7 @@ for(const [lines,goods,shipping] of [
  assert.equal(data.productsUSD,goods);assert.equal(data.shippingUSD,shipping);
  assert.equal(Math.round(data.totalBeforeTaxesUSD*100),Math.round(goods*100)+Math.round(shipping*100));
  assert.equal(data.ddpConfirmed,true);assert.equal(data.shippingPlan,'ONE_UNIT_PER_PARCEL');
+ assert.equal(data.wholesale,false,'Retail air quote with 2–9 units must explicitly be wholesale:false');
  assert.equal(data.parcelCount,lines.reduce((n,x)=>n+x.quantity,0));assert.equal(data.unitsPerParcel,1);
  assert(data.notice.includes('Parcels may arrive separately'));
 }
@@ -120,6 +122,7 @@ for(const spec of [
   assert.equal(data.shippingConsentRequired,true);
  if(spec.n===10&&spec.method==='sea'&&spec.consent){
   assert.equal(data.quoteRequired,true);
+  assert.equal(data.wholesale,true,'Wholesale sea quote must remain wholesale:true');
   assert.equal(data.volumeCBM,null);
   assert.equal(data.packagingVerified,false);
   assert.equal(data.totalBeforeTaxesUSD,null);
