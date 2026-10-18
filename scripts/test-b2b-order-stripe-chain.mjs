@@ -200,6 +200,15 @@ try{
  const legacyPaidPage=await quotePage({env,params:{token:bearer},request:new Request(orderPage)});
  assert.equal(legacyPaidPage.status,200);
  const legacyPaidHtml=await legacyPaidPage.text();
+ const legacyPaidStatusResponse=await status({env,request:new Request(
+  origin+'/api/payments/stripe/status?token='+bearer)});
+ assert.equal(legacyPaidStatusResponse.status,200);
+ const legacyPaidStatus=await legacyPaidStatusResponse.json();
+ assert.equal(legacyPaidStatus.paymentStatus,'PAID');
+ assert.equal(legacyPaidStatus.stripeVerifiedReceived,0);
+ assert.equal(legacyPaidStatus.requiresManualReview,true,
+  'Historical PAID without any Stripe session must require manual reconciliation');
+ assert.equal(legacyPaidStatus.paymentEvidence,'MANUAL_RECONCILIATION');
  assert(legacyPaidHtml.includes('Payment marked received; verification pending.'));
  assert(!legacyPaidHtml.includes('Payment received in full.'));
  assert(!legacyPaidHtml.includes('id="stripePayBtn"'),'Legacy PAID order must never solicit a second charge');
