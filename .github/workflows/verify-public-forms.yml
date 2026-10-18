@@ -5,6 +5,7 @@ on:
     paths:
       - 'public/**'
       - 'scripts/check-b2b-acquisition-resource.cjs'
+      - 'scripts/check-procurement-ai-buyer-answers.cjs'
       - 'scripts/enable-web-analytics.cjs'
       - 'scripts/check-web-analytics.cjs'
       - 'scripts/check-custom-logo.cjs'
@@ -141,6 +142,7 @@ jobs:
           node scripts/check-public-canonicals.cjs
           node scripts/check-sitemap-lastmod-evidence.cjs
           node scripts/check-b2b-acquisition-resource.cjs
+          node scripts/check-procurement-ai-buyer-answers.cjs
           node scripts/test-b2b-outreach-pages.cjs
           node scripts/test-indexnow-notify-changed.cjs
           node scripts/test-public-canonicals.cjs
