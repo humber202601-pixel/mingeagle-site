@@ -77,6 +77,7 @@ on:
       - 'scripts/check-school-product-crawl-paths.cjs'
       - 'scripts/build-school-sample-evaluation.cjs'
       - 'scripts/check-shareable-b2b-resources.cjs'
+      - 'scripts/check-wholesale-supplier-introduction.cjs'
       - 'scripts/check-b2b-sharing-preview.cjs'
       - 'scripts/check-wholesale-product-deep-links.cjs'
       - 'scripts/check-public-canonicals.cjs'
@@ -157,6 +158,7 @@ jobs:
           node scripts/check-school-product-crawl-paths.cjs
           node scripts/build-school-sample-evaluation.cjs --check
           node scripts/check-shareable-b2b-resources.cjs
+          node scripts/check-wholesale-supplier-introduction.cjs
           node scripts/check-b2b-sharing-preview.cjs
           node scripts/check-wholesale-product-deep-links.cjs
           node scripts/check-public-canonicals.cjs
