@@ -95,10 +95,30 @@ try{
   ['connectivity_verification_20261016','DO_NOT_PAY',100,
    'cs_live_a1sYVMs58NpnMoPdnSUCVrX1q9rMeS5cmJxT4kejtEgJ2jV0CBEF69BNaA'],
  ];
+ // Simulate the production backlog: the signed event was already inserted
+ // while the older webhook implementation rejected it. A later Stripe retry
+ // must mark that row processed without creating an order or another payment.
+ const diagnosticLedger=new Map();
  let diagnosticWrites=0,orderReads=0;
  const diagnosticDb={prepare(sql){
   if(sql.includes('payment_webhook_events')){
-   return {bind(){return this},async first(){return {processed_at:null}},async run(){diagnosticWrites++;return {success:true}}};
+   return {args:[],bind(...args){this.args=args;return this},
+    async first(){
+     const row=diagnosticLedger.get(this.args[0]);
+     return row?{processed_at:row.processed_at}:null;
+    },
+    async run(){
+     diagnosticWrites++;
+     if(sql.startsWith('INSERT OR IGNORE')){
+      const [id,name]=this.args;
+      if(!diagnosticLedger.has(id))diagnosticLedger.set(id,{event_name:name,processed_at:null});
+     }else if(sql.startsWith('UPDATE payment_webhook_events')){
+      const row=diagnosticLedger.get(this.args[0]);
+      assert(row,'Only previously recorded event can be acknowledged');
+      row.processed_at='2026-10-18 00:00:00';
+     }else throw Error('Unexpected diagnostic write');
+     return {success:true};
+    }};
   }
   if(sql.includes('payment_provider_sessions')){
    orderReads++;return {bind(){return this},async first(){return null}};
@@ -119,10 +139,17 @@ try{
    amount_total:amount,currency:'usd',metadata:{purpose,charge}}}});
  for(const [purpose,charge,amount,id] of diagnosticCases){
   const event=diagnostic(purpose,charge,amount,id),before=diagnosticWrites;
+  diagnosticLedger.set(event.id,{event_name:event.type,processed_at:null});
   const response=await sendDiagnostic(event);
   assert.equal(response.status,200,'Known unpaid owner-only diagnostic expiration must be acknowledged: '+purpose);
   assert.equal((await response.json()).ownerConnectivityExpiry,true);
   assert.equal(diagnosticWrites,before+2,'Only webhook ledger insertion+processing should be written');
+  assert(diagnosticLedger.get(event.id).processed_at,'Backlogged event must be marked processed');
+  const writesBeforeRepeat=diagnosticWrites;
+  const repeatEvent=await sendDiagnostic(event);
+  assert.equal(repeatEvent.status,200,'Repeated signed event must be idempotently acknowledged');
+  assert.equal((await repeatEvent.json()).duplicate,true);
+  assert.equal(diagnosticWrites,writesBeforeRepeat+1,'Duplicate may INSERT OR IGNORE but never update an order or receipt');
  }
  assert.equal(orderReads,0,'Known expiries must never read an order or provider session');
  const variants=[
