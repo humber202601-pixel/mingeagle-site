@@ -135,6 +135,15 @@ try{
  assert.equal(noTaxQuote.quote.tax_basis_documented,0,'Public quote exposes a boolean only');
  assert(!JSON.stringify(noTaxQuote).includes('simulated tax-basis review'),
   'Never publish the seller internal tax review detail');
+ const missingBasisPage=await quotePage({env,params:{token:bearer},request:new Request(orderPage)});
+ assert.equal(missingBasisPage.status,200);
+ const missingBasisHtml=await missingBasisPage.text();
+ assert.match(missingBasisHtml,/Updated quotation required/);
+ assert.match(missingBasisHtml,/Seller sales-tax review is not documented/);
+ assert(!missingBasisHtml.includes('id="acceptBtn"'),
+  'Buyer must not be offered acceptance of an unpayable legacy quotation');
+ assert(!missingBasisHtml.includes('SYNTHETIC TEST ONLY: simulated tax-basis review'),
+  'Seller internal tax-basis details never appear in HTML');
  sqlite.prepare('UPDATE quotes SET tax_basis=? WHERE id=?').run(
   'SYNTHETIC TEST ONLY: simulated tax-basis review is NOT merchant tax approval',quoteId);
  const repairedQuote=await (await quoteGet()).json();
