@@ -20,7 +20,7 @@ const database={
  prepare(sql){const statement={sql,args:[],bind(...args){statement.args=args;return statement;},async first(){return sqlite.prepare(sql).get(...statement.args)||null;},async all(){return {success:true,results:sqlite.prepare(sql).all(...statement.args)};},async run(){const result=sqlite.prepare(sql).run(...statement.args);return {success:true,meta:{changes:Number(result.changes)}};}};return statement;},
  async batch(statements){sqlite.exec('BEGIN');try{const results=[];for(const s of statements)results.push(await s.run());sqlite.exec('COMMIT');return results;}catch(error){sqlite.exec('ROLLBACK');throw error;}}
 };
-const env={MINGEAGLE_DB:database,ADMIN_ACCESS_KEY:'test-only-local-key',TEST_ENVIRONMENT:'preview',OUTBOUND_EMAIL_DISABLED:'true'};
+const env={MINGEAGLE_DB:database,ADMIN_ACCESS_KEY:'test-only-local-key',TEST_ENVIRONMENT:'preview',OUTBOUND_EMAIL_DISABLED:'true',STRIPE_B2B_APPROVED_US_STATES:'TX,OR,NH'};
 const originalFetch=globalThis.fetch;let externalCalls=0;
 globalThis.fetch=async()=>{externalCalls++;throw Error('No external email or customer calls are allowed in quote tests');};
 const call=async(name,path,input,authorized=true)=>{
@@ -100,6 +100,12 @@ try{
  assert.equal(response.status,409,'Invalid two-letter state must not release Stripe quotation');
  assert.equal(response.body.code,'B2B_STRIPE_QUOTE_NOT_PAYABLE');
  assert.equal(query('SELECT count(*) AS n FROM quote_public_links').n,0);
+ sqlite.prepare("UPDATE quotes SET shipping_terms='Sea freight DDP to destination. Ship-to state: CA' WHERE id=?").run(quoteId);
+ response=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true});
+ assert.equal(response.status,409,'State excluded from merchant B2B Stripe policy cannot be published');
+ assert.equal(response.body.code,'B2B_DESTINATION_NOT_APPROVED');
+ assert.equal(query('SELECT count(*) AS n FROM quote_public_links').n,0,
+   'Unapproved delivery state must not publish any customer link');
  sqlite.prepare("UPDATE quotes SET shipping_terms='Sea freight DDP to destination. Ship-to state: TX' WHERE id=?").run(quoteId);
  sqlite.prepare("UPDATE quotes SET tax_basis=NULL WHERE id=?").run(quoteId);
  response=await call('release','/api/admin/quote-send',{quoteId,sendEmail:false,approved:true});

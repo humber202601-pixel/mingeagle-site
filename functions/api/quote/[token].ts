@@ -214,6 +214,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
         return Response.json({ok:false,error:'Valid US shipping street, city, state and ZIP code are required.'},{status:409});
       if(String(quote.shipping_terms||'').toUpperCase().match(/SHIP-TO STATE:\s*([A-Z]{2})(?![A-Z])/)?.[1]!==state)
         return Response.json({ok:false,error:'Ship-to state differs from the seller quotation. Request a revised freight quotation first.'},{status:409});
+      // Match the final Stripe Checkout and read-only React quote preflight.
+      // Never turn an unapproved destination into an accepted, unpayable order.
+      const approvedDestinations=(env.STRIPE_B2B_APPROVED_US_STATES||'')
+        .split(',').map(s=>s.trim().toUpperCase());
+      if(!approvedDestinations.includes(state))
+        return Response.json({ok:false,code:'B2B_DESTINATION_NOT_APPROVED',
+          error:'This destination is awaiting seller approval for Stripe collection. Please request a revised quotation; no order or payment was created.'},{status:409});
       shippingAddress={line1,city,state,postalCode,country};
     }
 

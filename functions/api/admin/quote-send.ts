@@ -11,6 +11,7 @@ interface Env {
   GMAIL_REFRESH_TOKEN?: string;
   GMAIL_FROM?: string;
   OUTBOUND_EMAIL_DISABLED?: string;
+  STRIPE_B2B_APPROVED_US_STATES?:string;
 }
 
 type Input = { quoteId?: string; sendEmail?: boolean; approved?: boolean; supplierCostAcknowledged?: boolean; supplierReviewBasis?: string; landedReview?: WholesaleReleaseProof };
@@ -240,6 +241,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         return Response.json({ok:false,code:'B2B_STRIPE_QUOTE_NOT_PAYABLE',
           error:'Before sending a Stripe payment quote, document the destination as Ship-to state: XX, the US sales-tax amount and the reviewed sales-tax basis. Verify freight, import duties and the customer tax treatment.'},{status:409});
       }
+      const approvedDestinations=(env.STRIPE_B2B_APPROVED_US_STATES||'')
+        .split(',').map(s=>s.trim().toUpperCase());
+      if(!approvedDestinations.includes(shipState!))
+        return Response.json({ok:false,code:'B2B_DESTINATION_NOT_APPROVED',
+          error:'This US delivery state is not in the approved B2B Stripe destination list. Review merchant policy before issuing the customer quote link.'},{status:409});
     }
 
     const pricedItems = await db.prepare(`SELECT COUNT(*) AS value
