@@ -72,7 +72,9 @@ export default function ReadinessPanel({accessKey}:{accessKey:string}){
    </p>}
    <div className="list-row"><div><strong>网站 Turnstile</strong><small>防止机器人滥用询盘接口；配置必须有站点和服务端双密钥</small></div><span>{data.security.turnstileEnabled?'已启用':data.security.turnstileMisconfigured?'启用配置不完整':'未启用'}</span></div>
    <div className="list-row"><div><strong>Stripe 在线收款配置</strong><small>仅代表 API 凭证和签名 Webhook 的配置状态；不代表真实到账或税务义务已经核实</small></div><span>{data.payments.checkoutConfigurationReady?'基础配置就绪，待真实交易验收':data.payments.checkoutRequested?'Stripe 启用请求存在但配置不完整':'未启用'}</span></div>
-   <div className="list-row"><div><strong>B2B 报价订单 Stripe 收款</strong><small>须卖方正式发出完整报价、买方接受，且满足税务及收款安全条件；不是所有询盘均可直接付款</small></div><span>{data.payments.b2bConfigurationReady?'已配置受控收款：'+data.payments.b2bApprovedDestinationStates.join(' / ')+'（仅符合条件的订单可付款）':data.payments.retailOnlyRestriction?'当前仅限零售样品付款':data.payments.b2bCheckoutRequested&&!data.payments.b2bTaxReviewed?'待审核 B2B 税务及运输费用':'B2B 收款尚未开放或条件未满足'}</span></div>
+   <div className="list-row"><div><strong>B2B 报价订单 Stripe 收款</strong><small>仅检查 API 凭证、商家审核标志和允许目的州名单，不代表州销售税注册或真实结算已获验收。</small></div>
+    <span>{data.payments.b2bConfigurationReady?'B2B 技术配置就绪；允许目的州/DC '+data.payments.b2bApprovedDestinationStates.length+' 个（非税务注册清单）':data.payments.retailOnlyRestriction?'当前仅限零售样品付款':data.payments.b2bCheckoutRequested&&!data.payments.b2bTaxReviewed?'待审核 B2B 税务及运输费用':'B2B 收款尚未开放或条件未满足'}</span></div>
+   {data.payments.b2bCheckoutRequested&&<p role="status" style={{fontSize:12,color:'#b54708'}}>Stripe Tax 开关或后台税务审核标志不等于已取得州税务登记。本页面未向 Stripe Tax 查询任何实际注册证明；每笔批发收款仍须核实客户目的州、适用税务义务、合法税务依据、已接受报价及支付凭证，不能仅凭允许州名单开展收税。</p>}
    <p style={{fontSize:12,color:'#667085'}}>核查 UTC {data.checkedAt}。当前面板只展示正式状态、聚合记录数和凭证是否存在，不会创建报价、发送邮件或执行付款。</p>
   </>}
  </section>;

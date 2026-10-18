@@ -18,6 +18,10 @@ assert(panel.includes('已核验自动运价目的地')&&panel.includes('未列�
 assert(panel.includes('当前有效的已审核供应商条款')&&panel.includes('过期或未生效条款不会计入'),'Readiness must not imply approved means valid forever');
 assert(panel.includes('Stripe 在线收款配置'));
 assert(panel.includes('B2B 报价订单 Stripe 收款'));
+assert(panel.includes('B2B 技术配置就绪')&&panel.includes('非税务注册清单'),
+ 'Buyer destination allowlist cannot be represented to admins as tax-registration evidence');
+assert(panel.includes('本页面未向 Stripe Tax 查询任何实际注册证明'),
+ 'Admin must see an explicit tax-registration verification limitation');
 assert(!panel.includes('<strong>Airwallex 在线收款</strong>'),'Retired online gateway must not be the dashboard heading');
 const temp=mkdtempSync(join(tmpdir(),'readiness-'));
 try{
@@ -115,6 +119,9 @@ try{
  assert.equal(r.body.payments.b2bTaxReviewed,true);
  assert.deepEqual(r.body.payments.b2bApprovedDestinationStates,['OR','NH']);
  assert.equal(r.body.payments.b2bConfigurationReady,true,'All B2B-specific permissions and verified Stripe credentials required');
+ assert(r.body.caveats.some(x=>x.includes('NOT state sales-tax registrations')&&
+  x.includes('does not fetch Stripe Tax registrations')),
+  'Technical allowlist must carry an explicit unverified-tax-registration caveat');
  // Verified paid B2B orders require live-like Stripe ledger consistency, not a manual PAID marker.
  sqlite.exec(`CREATE TABLE orders(id TEXT,quote_id TEXT,total REAL,currency TEXT,payment_status TEXT);
  CREATE TABLE quote_items(quote_id TEXT,quantity INTEGER);
