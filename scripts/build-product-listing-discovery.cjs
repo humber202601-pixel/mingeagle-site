@@ -1,4 +1,4 @@
-// Source-aligned, non-promotional product collection navigation.
+// Source-aligned, non-promotional product-detail PAGE collection navigation.
 // This is a first-party ItemList, not a Google Merchant feed, a rating, or a
 // guarantee of search carousel / AI recommendations.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
@@ -20,8 +20,10 @@ const items=models.map(([id,page],i)=>{
  assert(fs.existsSync(path.join(root,page)),'Missing catalog destination '+page);
  assert(sitemap.includes('<loc>'+url+'</loc>'),'Product destination missing from sitemap '+url);
  return {'@type':'ListItem',position:i+1,item:{
-  '@type':'Product',name:product.name,url,image:base+product.hero,
-  brand:{'@type':'Brand',name:'MING EAGLE'}
+  // A collection ItemList links to product detail PAGES. The detail pages
+  // separately publish ProductGroup + actual price-bearing Offer variants.
+  // Do not invent a single offer or one price for an entire multi-size family.
+  '@type':'WebPage',name:product.name,url,image:base+product.hero
  }};
 });
 let html=fs.readFileSync(file,'utf8');

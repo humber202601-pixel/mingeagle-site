@@ -1,0 +1,37 @@
+name: Verify brand and product collection metadata
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/deploy-pages.yml"
+      - ".github/workflows/verify-brand-metadata.yml"
+      - "scripts/build-brand-metadata.cjs"
+      - "scripts/check-brand-metadata.cjs"
+      - "scripts/build-product-listing-discovery.cjs"
+      - "scripts/check-product-listing-discovery.cjs"
+      - "scripts/build-seo-v37.cjs"
+      - "public/assets/mingeagle-social-wordmark.svg"
+      - "public/assets/mingeagle-social-wordmark.png"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-brand-metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout proposed site revision
+        uses: actions/checkout@v4
+      - name: Prepare existing product SEO and product list
+        run: |
+          node scripts/build-seo-v37.cjs
+          node scripts/build-product-listing-discovery.cjs
+          node scripts/check-product-listing-discovery.cjs
+      - name: Apply verified brand metadata and enforce idempotence
+        run: |
+          node scripts/build-brand-metadata.cjs
+          node scripts/check-brand-metadata.cjs
+          node scripts/build-brand-metadata.cjs --check
+      - name: Verify independent product SEO builder
+        run: node scripts/check-seo-v37.cjs

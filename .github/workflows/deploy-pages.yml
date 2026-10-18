@@ -122,6 +122,12 @@ jobs:
           node scripts/build-product-direct-rfq.cjs
           node scripts/check-product-direct-rfq.cjs
 
+      - name: Use verified MING EAGLE brand logo in public metadata
+        run: |
+          node scripts/build-brand-metadata.cjs
+          node scripts/check-brand-metadata.cjs
+          node scripts/build-brand-metadata.cjs --check
+
       - name: Enable privacy-focused Cloudflare Web Analytics across built HTML
         run: |
           node scripts/enable-web-analytics.cjs
