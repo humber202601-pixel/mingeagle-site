@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'public/**'
+      - 'scripts/verify-live-wholesale-csv.mjs'
+      - '.github/workflows/verify-published-wholesale-csv.yml'
       - 'scripts/build-wholesale-product-facts-csv.cjs'
       - 'scripts/check-wholesale-product-facts-csv.cjs'
       - 'scripts/check-b2b-acquisition-resource.cjs'
@@ -156,6 +158,7 @@ jobs:
           node scripts/build-ai-product-facts.cjs
           node scripts/check-ai-product-facts.cjs
           node scripts/build-ai-product-facts.cjs --check
+          node scripts/verify-live-wholesale-csv.mjs --self-test
           node scripts/check-wholesale-product-facts-csv.cjs
           node scripts/check-geo-source-capture.cjs
           node scripts/check-native-media.cjs
