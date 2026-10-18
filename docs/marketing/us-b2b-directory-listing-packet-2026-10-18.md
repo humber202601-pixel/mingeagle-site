@@ -14,6 +14,12 @@ MING EAGLE supplies soft indoor silent-style basketball and soccer products for 
 **Full company profile / About:**  
 MING EAGLE COMMERCE LLC is a Kentucky-registered U.S. company supplying soft, quiet-style indoor sports balls for buyers evaluating controlled recreational play and training activities. Our catalog covers flocked silent basketball sets with mini hoops (sizes No. 3/5/7), fabric-cover basketball sets with mini hoops (sizes No. 3/5/7), weighted-feel flocked basketball models (No. 3/4/6/7), and soft flocked indoor soccer balls (No. 5). Schools, private coaches, training programs, activity centers, team buyers and sports distributors can compare published model specifications and request a sample or a written quotation for 10 or more units. We fulfill from China and confirm product choice, available documentation, case packing, artwork suitability, freight, customs responsibilities, taxes, shipping timelines and final prices before any approved wholesale order. These soft-ball products are not regulation competition balls. We do not claim independent decibel measurements, school-vendor approvals or unverified product certifications.
 
+**Source-verified product names for directory category/product fields:**  
+1. Flocked Silent Basketball Set — No. 3 / No. 5 / No. 7; https://www.mingeagle.com/silent-basketball.html  
+2. Fabric-Cover Silent Basketball Set — No. 3 / No. 5 / No. 7; https://www.mingeagle.com/fabric-silent-basketball.html  
+3. Weighted Flocked Silent Basketball — No. 3 / No. 4 / No. 6 / No. 7; https://www.mingeagle.com/weighted-flocked-basketball.html  
+4. Flocked Silent Soccer Ball — No. 5; https://www.mingeagle.com/silent-soccer.html  
+
 **Five search/category phrases (descriptive, not rankings):**  
 silent basketball wholesale; soft indoor basketball supplier; school PE ball samples; custom team basketball RFQ; indoor soft soccer ball supplier.
 
