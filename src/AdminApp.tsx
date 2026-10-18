@@ -18,6 +18,7 @@ import {
   Database,
 } from 'lucide-react';
 import QuoteBuilder from './QuoteBuilder';
+import ReadinessPanel from './ReadinessPanel';
 import OrderManager from './OrderManager';
 import TaskManager from './TaskManager';
 import { prioritizeB2BTasks, overdueB2BTaskSummary } from './b2bTaskSort';
@@ -75,6 +76,7 @@ const nav = [
   ['/app/communications', MessageSquareText, '沟通中心'],
   ['/app/automation', Bot, '自动化中心'],
   ['/app/quotes', CircleDollarSign, '报价单'],
+  ['/app/readiness', ClipboardList, '生产与收款验收'],
   ['/app/suppliers', Database, '供应商采购价'],
   ['/app/shipping', ShoppingBag, '国际运费管理'],
   ['/app/orders', ShoppingBag, '订单'],
@@ -339,6 +341,10 @@ export default function AdminApp() {
   else if (page === 'quotes') content = <>
     <Top title="报价单" description="创建报价草稿、生成客户安全链接、跟踪查看状态并自动转订单。"/>
     <QuoteBuilder inquiries={data.inquiries} accessKey={key} onCreated={() => void load(key)} />
+  </>;
+  else if (page === 'readiness') content = <>
+    <Top title="生产与 B2B Stripe 收款验收" description="逐单显示卖方报价、买方同意、美国目的地、税务依据、支付凭证和 Webhook 阻塞项。所有检查只读，不会自动收款。"/>
+    <ReadinessPanel accessKey={key}/>
   </>;
   else if (page === 'suppliers') content = <><Top title="供应商采购价资料库" description="人工核实 SKU、MOQ、整箱倍数、美元采购价阶梯、报价有效期和审核版本；不自动作为对外售价。"/><SupplierPricingManager accessKey={key}/></>;
   else if (page === 'shipping') content = <><Top title="国际运费管理" description="按国家和运输方式维护抛货运价、包装尺寸和启用状态。"/><ShippingManager accessKey={key}/></>;
