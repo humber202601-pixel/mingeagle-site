@@ -22,7 +22,7 @@ assert.equal(data.publisher.website,'https://www.mingeagle.com/');
 assert.equal(data.products.length,4);
 assert.equal(data.guides.length,10);
 assert.equal(new Set(data.products.map(x=>x.id)).size,4);
-assert.equal(new Set(data.guides.map(x=>x.url)).size,5);
+assert.equal(new Set(data.guides.map(x=>x.url)).size,10);
 for(const item of data.products){
  assert.equal(item.name,master[item.id].name);
  assert.equal(item.colors,master[item.id].colors);
