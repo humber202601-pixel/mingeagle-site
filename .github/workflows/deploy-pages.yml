@@ -70,6 +70,8 @@ jobs:
         run: |
           node scripts/build-free-exposure-resources.cjs
           node scripts/test-free-exposure-resources.cjs
+          node scripts/build-ai-school-logo-buyer-answers.cjs
+          node scripts/check-ai-school-logo-buyer-answers.cjs
 
       - name: Align canonical host and sitemap with live www redirect
         run: python scripts/normalize-canonical-host.py
