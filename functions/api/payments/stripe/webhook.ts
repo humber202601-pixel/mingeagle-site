@@ -68,6 +68,28 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     &&session.metadata?.purpose==='MING_EAGLE_LAUNCH_PROBE_NO_PAYMENT'&&!session.metadata.order_id){
    await processed();return Response.json({ok:true,ignored:true,launchProbe:true});
   }
+  // Precisely known, unpaid owner connectivity sessions from 2026-10-16
+  // were created outside the CRM. Their signed Stripe expiry notifications
+  // must not be retried as if a customer's order went missing. Never create a
+  // payment, customer order, or fulfillment task for these diagnostic events.
+  const verifiedOwnerExpiryPurposes:Record<string,{charge:string;amount:number}>={
+   live_checkout_verification_20261016:{charge:'USER_REQUESTED_050_USD',amount:50},
+   live_checkout_verification_20261016_2:{charge:'USER_REQUESTED_050_USD',amount:50},
+   connectivity_verification_20261016:{charge:'DO_NOT_PAY',amount:100},
+  };
+  const ownerPurpose=String(session.metadata?.purpose||'');
+  const ownerFixture=Object.prototype.hasOwnProperty.call(verifiedOwnerExpiryPurposes,ownerPurpose)
+   ?verifiedOwnerExpiryPurposes[ownerPurpose]:undefined;
+  if(event.type==='checkout.session.expired'&&env.STRIPE_MODE==='live'&&ownerFixture&&
+    session.metadata?.charge===ownerFixture.charge&&
+    session.amount_total===ownerFixture.amount&&
+    session.status==='expired'&&session.payment_status==='unpaid'&&
+    session.currency?.toLowerCase()==='usd'&&
+    !session.client_reference_id&&!session.payment_link&&
+    !session.metadata?.order_id&&!session.metadata?.order_reference){
+   await processed();
+   return Response.json({ok:true,ignored:true,ownerConnectivityExpiry:true});
+  }
   // Owner-approved one-off live $0.50 connectivity payment came through a
   // standalone Stripe Payment Link, not our order-specific Checkout API.
   // Acknowledge only this precisely identified signed test event, so Stripe
