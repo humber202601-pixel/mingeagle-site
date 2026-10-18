@@ -39,7 +39,12 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
     (verifiedStripe>0&&historicalOther>0) ||
     received>total+0.005 ||
     (providerStatus==='SUCCEEDED'&&status!=='PAID') ||
-    (status==='PAID'&&providerStatus==='SUCCEEDED'&&verifiedStripe+0.005<total);
+    // A historical PAID ledger flag alone is not provider-confirmed receipt.
+    // Even with no Stripe session, or with a legitimate other-channel payment,
+    // the buyer-facing status must ask staff to reconcile rather than
+    // describing this order as cleared for fulfilment.
+    (status==='PAID'&&(!Number.isFinite(total)||total<=0||
+      verifiedStripe+0.005<total||historicalOther>0));
   return json({ok:true,provider:'STRIPE',orderReference:order.reference,orderStatus:order.status,
    paymentStatus:order.payment_status,providerStatus:order.provider_status||'',currency:order.currency,
    total,received,outstanding:Math.max(0,Math.round((total-received)*100)/100),
