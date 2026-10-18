@@ -1,0 +1,243 @@
+{
+  "version": 1,
+  "preparedOn": "2026-10-18",
+  "seller": "MING EAGLE COMMERCE LLC",
+  "campaignName": "ME US B2B Quiet Sports RFQ - DRAFT ONLY",
+  "status": "DRAFT_NOT_PUBLISHED_NO_SPEND",
+  "searchMarket": "United States",
+  "language": "English",
+  "network": "Google Search only (no Display Network)",
+  "locationTargeting": "Presence in United States; review in live account before launch",
+  "matchTypes": [
+    "EXACT",
+    "PHRASE"
+  ],
+  "objective": "Qualified written B2B RFQs (models, quantity 10+, destination, contact); not clicks alone",
+  "proposedSpend": null,
+  "approvedSpend": null,
+  "liveAdsAccount": null,
+  "activationGate": [
+    "Explicit written budget/campaign approval and legitimate Google Ads account access",
+    "Verify each landing page is HTTP 200, relevant, public, HTTPS and redirects/canonicals valid",
+    "Confirm US targeting set to physical presence, Search-only network and restricted match types",
+    "Confirm real RFQ form-to-CRM lead attribution and conversion event before spending",
+    "Review keywords and negative keywords against actual Search Terms and current Google Ads policies",
+    "Define qualified RFQ economics from verified merchant margins and costs; no unverified CAC or ROAS forecasts"
+  ],
+  "finalUrlSuffix": "utm_source=google&utm_medium=cpc&utm_campaign=us_b2b_search_pilot&utm_content={_megroup}",
+  "groupCustomParameter": "_megroup",
+  "groups": [
+    {
+      "id": "school_bulk",
+      "customParameterValue": "school_bulk",
+      "segment": "Schools / districts / PE buyers",
+      "landingPage": "https://www.mingeagle.com/for-schools.html",
+      "keywords": [
+        {
+          "term": "bulk basketballs for schools",
+          "match": "EXACT"
+        },
+        {
+          "term": "school PE basketball supplier",
+          "match": "PHRASE"
+        },
+        {
+          "term": "silent basketballs for schools",
+          "match": "PHRASE"
+        },
+        {
+          "term": "indoor PE foam basketball bulk",
+          "match": "PHRASE"
+        },
+        {
+          "term": "basketball school equipment wholesale",
+          "match": "PHRASE"
+        }
+      ],
+      "headlines": [
+        "Bulk Basketballs for Schools",
+        "School PE Ball Supply",
+        "Quiet Indoor Basketballs",
+        "Request School Bulk Quote",
+        "Compare PE Ball Models",
+        "School Samples & Sizes",
+        "MING EAGLE School Supply",
+        "Indoor Ball Model Guide"
+      ],
+      "descriptions": [
+        "Compare four soft indoor ball families for supervised PE. Ask for a written bulk quote.",
+        "For school orders of 10+ units, confirm models, shipping, taxes and supplier documents.",
+        "Download a no-cost school RFQ checklist. Review sample suitability before buying."
+      ],
+      "exclusions": [
+        "free basketballs",
+        "used basketballs",
+        "nba live"
+      ]
+    },
+    {
+      "id": "academy_training",
+      "customParameterValue": "academy_training",
+      "segment": "Basketball camps / coaching academies",
+      "landingPage": "https://www.mingeagle.com/for-coaches.html",
+      "keywords": [
+        {
+          "term": "basketball camp equipment supplier",
+          "match": "EXACT"
+        },
+        {
+          "term": "basketball training academy equipment wholesale",
+          "match": "PHRASE"
+        },
+        {
+          "term": "soft basketball bulk for camp",
+          "match": "PHRASE"
+        },
+        {
+          "term": "non inflatable practice basketball wholesale",
+          "match": "PHRASE"
+        }
+      ],
+      "headlines": [
+        "Basketball Academy Supply",
+        "Training Ball Samples",
+        "Indoor Ball Handling Options",
+        "Equipment for Youth Programs",
+        "Request a Team Bulk Quote",
+        "Soft Basketball Models",
+        "Compare Practice Ball Types",
+        "Academy Equipment Guide"
+      ],
+      "descriptions": [
+        "Compare non-inflatable soft ball options for suitable supervised indoor activities.",
+        "Not for regulation game-ball rebound drills. Review model, weight and intended use.",
+        "Ask about samples and 10+ unit wholesale quotations. Delivery terms are confirmed."
+      ],
+      "exclusions": [
+        "basketball coaching jobs",
+        "nba scores",
+        "basketball court rentals"
+      ]
+    },
+    {
+      "id": "wholesale_distributors",
+      "customParameterValue": "wholesale_distributors",
+      "segment": "Sports retailers / distributors",
+      "landingPage": "https://www.mingeagle.com/wholesale-product-catalog.html",
+      "keywords": [
+        {
+          "term": "silent basketball wholesale supplier",
+          "match": "EXACT"
+        },
+        {
+          "term": "quiet basketball bulk distributor",
+          "match": "PHRASE"
+        },
+        {
+          "term": "indoor sports balls wholesale",
+          "match": "PHRASE"
+        },
+        {
+          "term": "foam basketball supplier bulk",
+          "match": "PHRASE"
+        },
+        {
+          "term": "bulk silent soccer ball supplier",
+          "match": "PHRASE"
+        }
+      ],
+      "headlines": [
+        "Silent Basketball Wholesale",
+        "Wholesale Indoor Ball Models",
+        "Supplier Product Fact Sheet",
+        "Compare Four Ball Families",
+        "10+ Unit Wholesale RFQs",
+        "For Sports Retail Buyers",
+        "Indoor Soccer Ball Supply",
+        "Request a Written Quote"
+      ],
+      "descriptions": [
+        "Compare published indoor basketball and soccer ball families, sizes and colors.",
+        "Request a reviewed 10+ unit quote. Final freight, taxes and quantity terms vary.",
+        "Download first-party supplier facts with product links. No fixed bulk price promise."
+      ],
+      "exclusions": [
+        "free",
+        "diy foam ball",
+        "second hand"
+      ]
+    },
+    {
+      "id": "custom_logo",
+      "customParameterValue": "custom_logo",
+      "segment": "Teams / schools seeking branded products",
+      "landingPage": "https://www.mingeagle.com/custom-basketball-for-teams.html",
+      "keywords": [
+        {
+          "term": "custom logo basketballs bulk",
+          "match": "EXACT"
+        },
+        {
+          "term": "custom team basketballs with logo",
+          "match": "PHRASE"
+        },
+        {
+          "term": "branded foam basketball wholesale",
+          "match": "PHRASE"
+        },
+        {
+          "term": "custom basketball with school logo bulk",
+          "match": "PHRASE"
+        }
+      ],
+      "headlines": [
+        "Custom Logo Basketball RFQ",
+        "Team Logo Ball Previews",
+        "Branded Soft Basketballs",
+        "School Team Ball Sourcing",
+        "Custom Ball Quote Request",
+        "Preview Your Team Artwork",
+        "Basketball Club Bulk Orders",
+        "Logo Options for Teams"
+      ],
+      "descriptions": [
+        "Preview artwork on eligible soft basketball models. Final production needs approval.",
+        "Request a custom-logo bulk quote for your school or club. MOQ and print terms vary.",
+        "Compare eligible sizes, artwork checks and sample requirements before ordering."
+      ],
+      "exclusions": [
+        "nba jersey custom",
+        "basketball logo design jobs",
+        "free logo maker"
+      ]
+    }
+  ],
+  "campaignNegatives": [
+    "game download",
+    "nba live",
+    "job",
+    "jobs",
+    "salary",
+    "free basketball",
+    "used basketball",
+    "secondhand",
+    "basketball repair",
+    "how to make basketball",
+    "pickleball",
+    "basketball betting",
+    "official regulation match basketball"
+  ],
+  "trackingNotes": [
+    "Supply group-level custom parameter {_megroup} explicitly in Google Ads and test expansion.",
+    "Only the final landing page plus suffix is used; no redirect-based identity or customer tracking.",
+    "Do not claim that an inquiry is qualified until actual model/use, quantity, destination and contact are verified.",
+    "Google Ads click attribution and downstream Stripe settlement must be measured separately."
+  ],
+  "evidenceReferences": [
+    "https://www.mingeagle.com/for-schools.html",
+    "https://www.mingeagle.com/for-coaches.html",
+    "https://www.mingeagle.com/wholesale-product-catalog.html",
+    "https://www.mingeagle.com/custom-basketball-for-teams.html"
+  ],
+  "legalDisclosure": "Merchant-authored advertising draft. No live campaign, budget, approval, performance result, verified order, or payment is represented."
+}
