@@ -127,7 +127,7 @@ try{
  assert.equal(orderReads,0,'Known expiries must never read an order or provider session');
  const variants=[
   (e)=>{e.data.object.amount_total=60},
-  (e)=>{e.data.object.id='cs_live_synthetic_unlisted'},
+  (e)=>{e.data.object.id='cs_live_unlisted1234567890'},
   (e)=>{e.data.object.metadata.purpose='unknown_customer_event'},
   (e)=>{e.data.object.metadata.order_id='real_customer_order'},
   (e)=>{e.data.object.metadata.order_reference='real_customer_reference'},
