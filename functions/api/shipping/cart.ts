@@ -24,12 +24,12 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   oneItemUsAirParcel(lines[0].sku,country,String(method),1):null;
  if(one)return result({ok:true,lines:[{sku:one.sku,quantity:1,
   unitPriceUSD:one.productUSD,lineTotalUSD:one.productUSD}],
-  ...one,volumeCBM:null,
+  ...one,volumeCBM:null,wholesale:false,
   notice:one.ddpConfirmed
    ? 'One '+one.sku+' unit: the '+String.fromCharCode(36)+one.shippingUSD.toFixed(2)+' shipping includes customs clearance and US import duties; the buyer owes no additional import duty. US state/local sales tax is separate and subject to review. Delivery 12–15 days after dispatch is an estimate.'
    : 'Single-item US air parcel estimate; DDP/customs-duty coverage is not yet confirmed for this SKU. US state/local sales tax requires separate review. Delivery dates are estimates.'});
  const parcels=separateUnitUsAirParcels(lines,country,String(method));
- if(parcels)return result({ok:true,...parcels,volumeCBM:null,
+ if(parcels)return result({ok:true,...parcels,volumeCBM:null,wholesale:false,
   notice:parcels.quantity+' items ship in '+parcels.parcelCount+' separate one-unit air parcels. Shipping is the sum of each item’s confirmed rate; customs clearance and US import duties are included, with no additional import duty owed by the buyer. Parcels may arrive separately. Final US sales tax is shown before payment. Delivery 12–15 days after dispatch is an estimate.'});
  if(method==='sea')return result({
   ok:true,lines:lines.map(x=>({sku:x.sku,quantity:x.quantity})),
