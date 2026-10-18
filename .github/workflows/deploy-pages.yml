@@ -101,6 +101,7 @@ jobs:
           node scripts/build-ai-product-facts.cjs
           node scripts/check-ai-product-facts.cjs
           node scripts/build-ai-product-facts.cjs --check
+          node scripts/check-wholesale-product-facts-csv.cjs
           node scripts/check-indexnow-key.cjs
           node scripts/test-indexnow-notify-changed.cjs
           python scripts/check-live-public-crawl.py --self-test
