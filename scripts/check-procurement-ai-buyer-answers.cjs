@@ -12,7 +12,7 @@ for(const phrase of ['What should a school or public recreation buyer ask','What
  'Can a school review a sample','How are sea freight, import duties and US sales tax handled',
  'Can MING EAGLE accept a school or municipal purchase order',
  'What information makes a buyer-ready request for quotation',
- 'not a guaranteed delivery promise','does not mean that MING EAGLE is registered',
+ 'estimate and not a delivery commitment','does not mean that MING EAGLE is registered',
  'do not provide regulation rebound']) {
  assert(section.includes(phrase),'Required nuanced sourcing answer missing: '+phrase);
 }
