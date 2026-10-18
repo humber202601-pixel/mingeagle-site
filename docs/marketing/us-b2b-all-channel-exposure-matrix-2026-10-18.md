@@ -69,6 +69,18 @@ MING EAGLE is a US Kentucky LLC selling quiet-style indoor basketball/football p
 | 47 | Regional/national school sports events or trade shows | P3 | 3–12 months | Paid | Attend only after buyer interest, proof of fitness, clear sample economics and event ROI |
 | 48 | Local Google Business Profile / Maps storefront listing | **NOT ELIGIBLE under current model** | N/A | — | Online-only + Kentucky registered agent (not operating storefront) does not meet face-to-face eligibility; DO NOT create fake Maps listing |
 
+## 2026-10-18 actual marketplace cost / eligibility audit (official sources)
+
+The 48 channels above are candidate routes, **not 48 active listings**. Before any directories spend or new account, see the [ready-to-use verified supplier listing packet](us-b2b-directory-listing-packet-2026-10-18.md).
+
+- **LinkedIn Page**: free verified company page platform; owner authentication, company Page ownership and no duplicate account required. Official: https://www.business.linkedin.com/advertise/linkedin-pages .
+- **Thomasnet**: free basic supplier listing *may* be available; buyer population skews toward industrial procurement and supplier eligibility/categories must be checked. Never invent North American plant/physical warehouse or certifications. Official: https://business.thomasnet.com/get-listed-on-thomasnet .
+- **Kompass US**: the actual US registration page currently advertises **USD 40 for 12 months** for its company profile, even though some global / other country pages advertise free listings. Do not mark US directory acquisition as zero cost or approve purchase. Official: https://us.kompass.com/register/company/ .
+- **SHAPE America**: relevant PE audience, but promoted articles and partnership offerings are advertised from **USD 1,000**; this is P3 until approved budget and measurable buyer outcomes. Official: https://shapeamerica.org/publications/advertising-opportunities/ .
+- **FTC**: CAN-SPAM rules include commercial B2B emails and a valid physical postal address and opt-out process. Official: https://www.ftc.gov/business-guidance/resources/can-spam-act-compliance-guide-business .
+
+These prices and eligibility describe advertised options checked on 2026-10-18, not a confirmed quotation or right to list. No profile has been submitted by this audit.
+
 ## Minimum viable measurement
 
 1. **Sourced organizations researched** count only with operator URL and evidence, not customers.

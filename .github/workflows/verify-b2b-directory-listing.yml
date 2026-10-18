@@ -1,0 +1,28 @@
+name: Verify truthful B2B supplier listing research
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/marketing/us-b2b-directory-listing-packet-2026-10-18.md'
+      - 'docs/marketing/us-b2b-all-channel-exposure-matrix-2026-10-18.md'
+      - 'scripts/check-b2b-directory-listing-packet.cjs'
+      - '.github/workflows/verify-b2b-directory-listing.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/marketing/us-b2b-directory-listing-packet-2026-10-18.md'
+      - 'docs/marketing/us-b2b-all-channel-exposure-matrix-2026-10-18.md'
+      - 'scripts/check-b2b-directory-listing-packet.cjs'
+      - '.github/workflows/verify-b2b-directory-listing.yml'
+permissions:
+  contents: read
+jobs:
+  verify-supplier-directory-claims:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify supplier listing claims and sources
+        run: node scripts/check-b2b-directory-listing-packet.cjs
