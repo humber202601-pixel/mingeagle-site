@@ -88,6 +88,8 @@ type WholesaleOrderStatus={
 type WholesalePreflightResponse={
  ok:boolean;checkedAtUTC:string;audited:number;hasMore:boolean;
  codeChecksPassed:number;quoteRevisionRequired:number;stripeFullyReconciled:number;
+ pendingOrderReview:{awaitingPayment:number;missingDeliveryAddress:number;missingSalesTaxBasis:number;
+  quoteRevisionRequired:number;codeReadyButManualApprovalRequired:number};
  orders:WholesaleOrderStatus[];code?:string;
 };
 const paymentBlockerLabel:Record<string,string>={
@@ -135,7 +137,12 @@ function WholesalePaymentPreflight({accessKey,refresh}:{accessKey:string;refresh
     <p role="status" style={{fontSize:12}}>检查 {data.audited} 笔批发订单；代码条件通过 {data.codeChecksPassed} 笔；
      需要重新审核报价 {data.quoteRevisionRequired} 笔；
      Stripe 账本足额对账 {data.stripeFullyReconciled} 笔。
-     {data.hasMore?'尚有其他记录未在本次页面中展开。':''}</p>
+     {data.hasMore?'尚有其他记录未在本次页面中展开；以下汇总仅统计本次已审核的前 50 笔。':''}</p>
+    <div className="list-row"><div><strong>待付款批发订单资料补齐</strong>
+      <small>仅统计未付款/部分付款且未关闭的订单：缺完整收货地址 / 缺销售税依据 / 需重新报价。每类可能重叠，不得相加当作订单总数。</small></div>
+      <span>{data.pendingOrderReview.missingDeliveryAddress} / {data.pendingOrderReview.missingSalesTaxBasis} / {data.pendingOrderReview.quoteRevisionRequired}</span>
+    </div>
+    <p style={{fontSize:12}}>当前待付款 {data.pendingOrderReview.awaitingPayment} 笔；代码检查通过但仍待卖方税务和扣款审批 {data.pendingOrderReview.codeReadyButManualApprovalRequired} 笔。历史已付款订单不纳入催补资料统计，也不得再次扣款。</p>
     {data.orders.slice(0,12).map(o=><div className="list-row" key={o.reference}>
      <div>
       <strong>{o.reference} · {o.wholesaleUnits} 件 · {o.paymentStatus}</strong>

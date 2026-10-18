@@ -67,7 +67,9 @@ const fakeDb={prepare(sql){
  if(sql.includes('FROM orders o JOIN quotes q ON q.id=o.quote_id'))
   return {async all(){return {success:true,results:[row,{...row,order_id:'old-paid',order_reference:'ME-BO-REVIEW-002',
    payment_status:'PAID',stripe_session_count:0,total_received:180,tax_basis:null,payment_terms:null,
-   shipping_address:null,shipping_terms:null}]}}};
+   shipping_address:null,shipping_terms:null},
+   {...row,order_id:'unpaid-review-test',order_reference:'ME-BO-REVIEW-003',
+    payment_status:'UNPAID',tax_basis:null,shipping_address:null,shipping_terms:null}]}}};
  if(sql.includes('FROM quote_items WHERE quote_id=?'))
   return {bind(){return {async all(){return {success:true,results:q}}}}};
  if(sql.includes('FROM order_items WHERE order_id=?'))
@@ -78,10 +80,15 @@ const response=await onRequestGet({env:{...env,MINGEAGLE_DB:fakeDb}});
 assert.equal(response.status,200);
 assert.equal(response.headers.get('cache-control'),'private, no-store');
 const report=await response.json();
-assert.equal(report.audited,2);
+assert.equal(report.audited,3);
 assert.equal(report.codeChecksPassed,1);
+assert.equal(report.pendingOrderReview.awaitingPayment,2);
+assert.equal(report.pendingOrderReview.missingDeliveryAddress,1);
+assert.equal(report.pendingOrderReview.missingSalesTaxBasis,1);
+assert.equal(report.pendingOrderReview.quoteRevisionRequired,1);
+assert.equal(report.pendingOrderReview.codeReadyButManualApprovalRequired,1);
 assert.equal(report.stripeFullyReconciled,0);
-assert.equal(report.orders.length,2);
+assert.equal(report.orders.length,3);
 assert.equal(report.orders[1].paymentStatus,'PAID');
 assert.equal(report.orders[1].stripePaymentReconciled,false);
 assert(!JSON.stringify(report).includes('private-order-id'));
@@ -100,5 +107,8 @@ assert(adminSource.includes("page === 'readiness'"));
 assert(adminSource.includes('<ReadinessPanel accessKey={key}/>'));
 assert(readinessSource.includes('/api/admin/b2b-payment-preflight'));
 assert(readinessSource.includes('<WholesalePaymentPreflight accessKey={accessKey} refresh={refresh}/>'));
+assert(readinessSource.includes('data.pendingOrderReview.missingDeliveryAddress'));
+assert(readinessSource.includes('data.pendingOrderReview.missingSalesTaxBasis'));
+assert(readinessSource.includes('历史已付款订单不纳入催补资料统计'));
 
 console.log('PASS: B2B admin preflight identifies legacy missing terms and tax basis, preserves buyer-approved snapshots, separates config from paid receipts, only reads D1, and is reachable from the admin navigation.');
