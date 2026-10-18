@@ -163,6 +163,15 @@ try{
  const incorrect=await accept({...ship,state:'CA'});
  assert.equal(incorrect.status,409,'Wrong delivery state must not create an order');
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM orders').get().n,0);
+ env.STRIPE_B2B_APPROVED_US_STATES='OR,NH';
+ const excluded=await accept(ship);
+ assert.equal(excluded.status,409,'Buyer cannot create an unpaid order in a destination excluded from Stripe policy');
+ assert.equal((await excluded.json()).code,'B2B_DESTINATION_NOT_APPROVED');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM orders').get().n,0,
+  'Disallowed destination cannot produce a dangling payment-pending order');
+ assert.equal((await (await quoteGet()).json()).order,null,
+  'Read-only buyer quote must not expose a Pay action for a disallowed state');
+ env.STRIPE_B2B_APPROVED_US_STATES='TX,OR,NH';
  // Inject a failure in the final payment follow-up task. The accepted
  // order, all copied lines and quote conversion must roll back together.
  sqlite.exec(`CREATE TRIGGER reject_payment_task BEFORE INSERT ON tasks
