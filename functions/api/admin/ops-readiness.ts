@@ -71,11 +71,15 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
   // Only events already accepted into our signed-webhook ledger are counted.
   // Zero unprocessed records is not proof Stripe has delivered all payments.
   const stripeWebhooks=await get<{
-   total:number;processed:number;unprocessed:number;agedUnprocessed:number;oldestUnprocessedUTC:string|null
+   total:number;processed:number;unprocessed:number;agedUnprocessed:number;oldestUnprocessedUTC:string|null;
+   unprocessedPaymentSuccess:number;unprocessedExpiration:number;unprocessedOther:number
   }>('payment_webhook_events',`SELECT COUNT(*) AS total,
    COALESCE(SUM(CASE WHEN processed_at IS NOT NULL THEN 1 ELSE 0 END),0) AS processed,
    COALESCE(SUM(CASE WHEN processed_at IS NULL THEN 1 ELSE 0 END),0) AS unprocessed,
    COALESCE(SUM(CASE WHEN processed_at IS NULL AND received_at<=datetime('now','-10 minutes') THEN 1 ELSE 0 END),0) AS agedUnprocessed,
+   COALESCE(SUM(CASE WHEN processed_at IS NULL AND event_name IN ('checkout.session.completed','checkout.session.async_payment_succeeded') THEN 1 ELSE 0 END),0) AS unprocessedPaymentSuccess,
+   COALESCE(SUM(CASE WHEN processed_at IS NULL AND event_name='checkout.session.expired' THEN 1 ELSE 0 END),0) AS unprocessedExpiration,
+   COALESCE(SUM(CASE WHEN processed_at IS NULL AND event_name NOT IN ('checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.expired') THEN 1 ELSE 0 END),0) AS unprocessedOther,
    MIN(CASE WHEN processed_at IS NULL THEN received_at END) AS oldestUnprocessedUTC
    FROM payment_webhook_events WHERE provider='STRIPE'`);
   // SENT/VIEWED are still buyer-facing, unlike drafts or already accepted
@@ -112,6 +116,9 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
    stripeWebhookHealth:{schemaPresent:names.has('payment_webhook_events'),
     receivedEvents:stripeWebhooks?.total??null,processedEvents:stripeWebhooks?.processed??null,
     unprocessedEvents:stripeWebhooks?.unprocessed??null,
+    unprocessedPaymentSuccessEvents:stripeWebhooks?.unprocessedPaymentSuccess??null,
+    unprocessedExpirationEvents:stripeWebhooks?.unprocessedExpiration??null,
+    unprocessedOtherEvents:stripeWebhooks?.unprocessedOther??null,
     olderThanTenMinutes:stripeWebhooks?.agedUnprocessed??null,
     oldestUnprocessedUTC:stripeWebhooks?.oldestUnprocessedUTC??null},
    security:{turnstileConfigured:turnstileCredentials,turnstileEnabled:turnstileRequested&&turnstileCredentials,turnstileMisconfigured:turnstileRequested&&!turnstileCredentials},
