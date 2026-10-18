@@ -134,6 +134,8 @@ test('真实报价界面：精确数量、金额、修改审核、批准与客�
  expect(unauthorized.status()).toBe(401);
  await expect(page.getByText(/客户安全报价链接已生成/).first()).toBeVisible();
  await page.goto(released.publicPath);
+ await expect(page.getByText('SAMPLE / SMALL-ORDER QUOTATION',{exact:true})).toBeVisible();
+ await expect(page.getByText(/Quoted: USD 8\.07 \/ unit/)).toBeVisible();
  await expect(page.getByText(/Save USD 3\.83/)).toBeVisible();
  await expect(page.getByText(/Product savings USD 11\.49/)).toBeVisible();
  await expect(page.getByText('USD 43.82',{exact:true}).first()).toBeVisible();
