@@ -20,6 +20,7 @@ async function getQuote(db: D1Database, token: string) {
   return db.prepare(`SELECT
       q.id, q.reference, q.status, q.currency, q.subtotal, q.discount, q.shipping, q.tax, q.total,
       q.payment_terms, q.shipping_terms, q.notes, q.valid_until, q.sent_at, q.first_viewed_at, q.accepted_at,
+      CASE WHEN NULLIF(TRIM(q.tax_basis),'') IS NOT NULL THEN 1 ELSE 0 END AS tax_basis_documented,
       q.lead_id, q.inquiry_id, q.company_id, q.contact_id,
       COALESCE(c.name, ct.full_name, 'Customer') AS customer,
       ct.full_name AS contact_name, ct.email AS contact_email,
@@ -154,6 +155,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
     if(!stripeCheckoutTermsSupported(quote.payment_terms))
       return Response.json({ok:false,code:'STRIPE_ONLY_QUOTE_TERMS',
         error:'This quotation cannot be accepted with its former payment terms. Please request a revised Stripe Checkout quotation from MING EAGLE.'},{status:409});
+
+    // Enforce the same documented seller tax-basis requirement at buyer acceptance
+    // that the later Stripe Checkout already enforces. Otherwise a legacy quote
+    // could create a real UNPAID order that cannot proceed to payment.
+    // Only expose the boolean, never the seller's internal tax review text.
+    if(Number(quote.tax_basis_documented)!==1)
+      return Response.json({ok:false,code:'QUOTE_SALES_TAX_BASIS_NOT_DOCUMENTED',
+        error:'This quotation requires updated seller sales-tax review before acceptance. Please request a revised quotation.'},{status:409});
 
     // Stripe-bound orders require an explicit buyer-confirmed delivery state
     // to prevent freight and sales tax decisions from silently changing.
