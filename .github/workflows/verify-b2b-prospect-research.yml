@@ -1,0 +1,26 @@
+name: Verify B2B prospect research evidence
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/marketing/us-b2b-second-wave-research-2026-10-18.json'
+      - 'docs/marketing/us-b2b-second-wave-actions-2026-10-18.md'
+      - 'scripts/check-second-wave-b2b-research.cjs'
+      - '.github/workflows/verify-b2b-prospect-research.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/marketing/us-b2b-second-wave-research-2026-10-18.json'
+      - 'docs/marketing/us-b2b-second-wave-actions-2026-10-18.md'
+      - 'scripts/check-second-wave-b2b-research.cjs'
+      - '.github/workflows/verify-b2b-prospect-research.yml'
+permissions:
+  contents: read
+jobs:
+  validate-public-research:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Verify source-based target stages and buyer collateral
+        run: node scripts/check-second-wave-b2b-research.cjs
