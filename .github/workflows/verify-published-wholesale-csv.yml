@@ -25,4 +25,6 @@ jobs:
       - name: Validate verifier without network
         run: node scripts/verify-live-wholesale-csv.mjs --self-test
       - name: Confirm exact public CSV bytes after GitHub Pages release
+        env:
+          DEPLOYED_SHA: ${{ github.event.workflow_run.head_sha }}
         run: node scripts/verify-live-wholesale-csv.mjs
