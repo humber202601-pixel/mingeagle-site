@@ -112,7 +112,7 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
  try{
   // Deliberately do not select names, emails, full addresses or token hashes.
   // Count is bounded to 51 records and never alters the orders.
-  const rows=await db.prepare(\`
+  const rows=await db.prepare(`
    SELECT o.id AS order_id,o.reference AS order_reference,o.status AS order_status,
     o.payment_status,o.shipping_address,o.currency AS order_currency,
     o.subtotal AS order_subtotal,o.discount AS order_discount,
@@ -135,7 +135,7 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
    FROM orders o JOIN quotes q ON q.id=o.quote_id
    WHERE EXISTS(SELECT 1 FROM quote_items qi WHERE qi.quote_id=o.quote_id
      GROUP BY qi.quote_id HAVING SUM(qi.quantity)>=10)
-   ORDER BY o.created_at DESC LIMIT 51\`).all<R>();
+   ORDER BY o.created_at DESC LIMIT 51`).all<R>();
   if(!rows.success||!Array.isArray(rows.results))throw Error('Unverified database query');
   const batch=rows.results.slice(0,50);
   const output=[];
