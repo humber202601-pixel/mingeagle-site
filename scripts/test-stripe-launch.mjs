@@ -88,9 +88,12 @@ try{
  // launch checks. Stripe must receive 2xx acknowledgement without any CRM
  // order/payment/task mutations, but signed lookalikes must remain rejected.
  const diagnosticCases=[
-  ['live_checkout_verification_20261016','USER_REQUESTED_050_USD',50],
-  ['live_checkout_verification_20261016_2','USER_REQUESTED_050_USD',50],
-  ['connectivity_verification_20261016','DO_NOT_PAY',100],
+  ['live_checkout_verification_20261016','USER_REQUESTED_050_USD',50,
+   'cs_live_a1JNgEJogXEWUUI8MDkDZLgKO51ClNbnJQqqArVOd0NKjdwgLFQ8hg4VFy'],
+  ['live_checkout_verification_20261016_2','USER_REQUESTED_050_USD',50,
+   'cs_live_a1MIef4jppKojF9nckjFKjBlHVZ7wduBuzFb4er0dpoeJNfx8hdT8CsAZu'],
+  ['connectivity_verification_20261016','DO_NOT_PAY',100,
+   'cs_live_a1sYVMs58NpnMoPdnSUCVrX1q9rMeS5cmJxT4kejtEgJ2jV0CBEF69BNaA'],
  ];
  let diagnosticWrites=0,orderReads=0;
  const diagnosticDb={prepare(sql){
@@ -110,12 +113,12 @@ try{
    request:new Request(base+'/api/payments/stripe/webhook',{method:'POST',
     headers:{'stripe-signature':'t='+ts+',v1='+mac},body:eventText})});
  };
- const diagnostic=(purpose,charge,amount)=>({id:'evt_test_diagnostic_'+(++diagCounter),
-  type:'checkout.session.expired',data:{object:{id:'cs_live_synthetic_diagnostic_'+diagCounter,
+ const diagnostic=(purpose,charge,amount,id)=>({id:'evt_test_diagnostic_'+(++diagCounter),
+  type:'checkout.session.expired',data:{object:{id,
    client_reference_id:null,payment_link:null,status:'expired',payment_status:'unpaid',
    amount_total:amount,currency:'usd',metadata:{purpose,charge}}}});
- for(const [purpose,charge,amount] of diagnosticCases){
-  const event=diagnostic(purpose,charge,amount),before=diagnosticWrites;
+ for(const [purpose,charge,amount,id] of diagnosticCases){
+  const event=diagnostic(purpose,charge,amount,id),before=diagnosticWrites;
   const response=await sendDiagnostic(event);
   assert.equal(response.status,200,'Known unpaid owner-only diagnostic expiration must be acknowledged: '+purpose);
   assert.equal((await response.json()).ownerConnectivityExpiry,true);
@@ -124,6 +127,7 @@ try{
  assert.equal(orderReads,0,'Known expiries must never read an order or provider session');
  const variants=[
   (e)=>{e.data.object.amount_total=60},
+  (e)=>{e.data.object.id='cs_live_synthetic_unlisted'},
   (e)=>{e.data.object.metadata.purpose='unknown_customer_event'},
   (e)=>{e.data.object.metadata.order_id='real_customer_order'},
   (e)=>{e.data.object.metadata.order_reference='real_customer_reference'},
