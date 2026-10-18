@@ -35,6 +35,32 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if(String(order.currency)!=='USD')
       return reply({ok:false,code:'REORDER_CURRENCY_REVIEW',
         error:'Reorder currency needs manual review before drafting.'},409);
+    // An old PAID label / completed shipment is not proof of Stripe receipt.
+    // This endpoint creates a new lead task and changes funnel state, so
+    // verify that its historical source is fully reconciled first.
+    const sourceEvidence=await db.prepare(`SELECT
+      (SELECT COALESCE(SUM(p.amount),0) FROM payments p
+        JOIN payment_provider_sessions s ON s.order_id=p.order_id
+          AND s.provider='STRIPE' AND s.provider_intent_id=p.provider_reference
+          AND s.status='SUCCEEDED'
+        WHERE p.order_id=? AND p.provider='STRIPE' AND p.currency='USD'
+          AND p.status='RECEIVED') AS stripe_verified_received,
+      (SELECT COALESCE(SUM(p.amount),0) FROM payments p
+        WHERE p.order_id=? AND p.status='RECEIVED') AS all_received,
+      (SELECT COUNT(*) FROM tasks t WHERE t.order_id=? AND t.type='PAYMENT'
+        AND t.status IN ('OPEN','IN_PROGRESS') AND
+        (t.title LIKE 'Review disputed Stripe receipts%'
+          OR t.title LIKE 'Review payment on closed order%')) AS active_payment_reviews`
+    ).bind(order.id,order.id,order.id).first<{
+      stripe_verified_received:number;all_received:number;active_payment_reviews:number
+    }>();
+    const orderTotal=Number(order.total);
+    if(!Number.isFinite(orderTotal)||orderTotal<=0||
+       Math.abs(Number(sourceEvidence?.stripe_verified_received||0)-orderTotal)>0.005||
+       Math.abs(Number(sourceEvidence?.all_received||0)-orderTotal)>0.005||
+       Number(sourceEvidence?.active_payment_reviews||0)>0)
+      return reply({ok:false,code:'REORDER_PAYMENT_EVIDENCE_REQUIRED',
+        error:'The historical paid order still needs payment reconciliation before it may create a repeat-order draft. You can prepare an independent new quotation instead.'},409);
 
     const source=await db.prepare(`SELECT product_id,variant_id,description,quantity,unit_price,line_total
       FROM order_items WHERE order_id=? ORDER BY id`).bind(order.id).all<SourceItem>();
