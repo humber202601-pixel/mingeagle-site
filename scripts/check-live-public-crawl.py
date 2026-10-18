@@ -177,6 +177,47 @@ def probe(url, agent=PAGE_AGENT):
             "errorDetail": last}
 
 
+def public_product_assets():
+    """Only source-backed, public hero images; do not probe customer media."""
+    master = json.loads((ROOT / "product-master.json").read_text(encoding="utf8"))
+    if set(master) != {"p1", "p2", "p3", "p4"}:
+        raise ValueError("Unexpected four-product master inventory")
+    result = []
+    for model_id in ("p1", "p2", "p3", "p4"):
+        hero = master[model_id].get("hero", "")
+        if not re.fullmatch(r"assets/[a-z0-9-]+\.webp", hero):
+            raise ValueError("Unsafe or missing published product image: " + model_id)
+        if not (ROOT / hero).is_file():
+            raise ValueError("Missing first-party hero image: " + hero)
+        result.append(BASE + "/" + hero)
+    if len(set(result)) != 4:
+        raise ValueError("Expected four distinct source-backed product heroes")
+    return result
+
+
+def probe_image(url):
+    """Validate actual HTTP image delivery (not image indexing)."""
+    try:
+        r = fetch(url)
+        errors = []
+        if r["status"] != 200:
+            errors.append("non_200_http")
+        if r["finalUrl"] != url:
+            errors.append("unexpected_redirect")
+        if not r["contentType"].lower().startswith("image/webp"):
+            errors.append("non_webp_content_type")
+        if len(r["body"]) < 128:
+            errors.append("tiny_or_empty_image")
+        if len(r["body"]) > MAX_BYTES:
+            errors.append("image_exceeds_audit_budget")
+        return {"url": url, "status": r["status"],
+                "contentType": r["contentType"], "bytes": len(r["body"]),
+                "errors": errors}
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        return {"url": url, "status": None,
+                "errors": ["fetch_failed"], "errorDetail": str(exc)[:220]}
+
+
 def main():
     urls = sitemap_urls()
     print(f"Auditing all {len(urls)} public sitemap URLs on live {BASE}.", flush=True)
@@ -186,15 +227,27 @@ def main():
     pages.sort(key=lambda r: r["url"])
     # UA-only probes are DIAGNOSTIC. A forged User-Agent cannot prove a verified bot visit
     # and bot-management products may treat synthetic and official crawlers differently.
+    # Test important public product and buyer sources under synthetic UA strings.
+    # These requests are diagnostics, not proof of genuine search-bot visits.
     scenarios = [
         BASE + "/quiet-indoor-sports-for-kids.html",
         BASE + "/indoor-school-sports-equipment-guide.html",
+        BASE + "/silent-basketball.html",
+        BASE + "/fabric-silent-basketball.html",
+        BASE + "/weighted-flocked-basketball.html",
+        BASE + "/silent-soccer.html",
+        BASE + "/procurement.html",
     ]
     with ThreadPoolExecutor(max_workers=3) as workers:
         tasks = {workers.submit(probe, url, agent): (url, agent)
                  for url in scenarios for agent in BOT_PROBES}
         synthetic = [f.result() for f in as_completed(tasks)]
     synthetic.sort(key=lambda r: (r["url"], r["agent"]))
+    image_urls = public_product_assets()
+    with ThreadPoolExecutor(max_workers=4) as workers:
+        assets = list(workers.map(probe_image, image_urls))
+    assets.sort(key=lambda r: r["url"])
+    missing_assets = [a for a in assets if a["errors"]]
     failed = [p for p in pages if p["errors"]]
     limited = [p for p in synthetic if p["errors"]]
     result = {
@@ -206,6 +259,10 @@ def main():
         "normalUserAgentFailures": len(failed),
         "syntheticAgentTests": len(synthetic),
         "syntheticAgentWarnings": len(limited),
+        "productImageChecks": len(assets),
+        "productImagesReadable": len(assets) - len(missing_assets),
+        "productImageFailures": len(missing_assets),
+        "productImageResults": assets,
         "verifiedCrawlerTraffic": "NOT_OBSERVED",
         "indexedInGoogle": "NOT_INFERRED",
         "aiCitations": "NOT_MEASURED",
@@ -215,13 +272,17 @@ def main():
     OUTFILE.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf8")
     for page in failed:
         print("FAIL", page["url"], ",".join(page["errors"]), flush=True)
+    for asset in missing_assets:
+        print("FAIL PRODUCT IMAGE", asset["url"],
+              ",".join(asset["errors"]), flush=True)
     for page in limited:
         print("WARNING synthetic UA probe:", page["agent"], page["url"],
               ",".join(page["errors"]), flush=True)
     print(f"LIVE CRAWL AUDIT: {len(pages)-len(failed)}/{len(pages)} website pages "
-          f"valid; {len(limited)}/{len(synthetic)} synthetic UA probes need review. "
-          "Neither result proves bot visits, indexing or AI citation.", flush=True)
-    return 1 if failed else 0
+          f"valid; {len(assets)-len(missing_assets)}/{len(assets)} public product hero images "
+          f"readable; {len(limited)}/{len(synthetic)} synthetic UA probes need review. "
+          "Neither result proves actual bot visits, image indexing or AI citation.", flush=True)
+    return 1 if failed or missing_assets else 0
 
 
 def self_test():
@@ -234,6 +295,9 @@ def self_test():
     assert "h1_count_not_one" in inspect_html(url, sample.replace("<h1>Real product</h1>", ""))[0]
     assert "missing_title" in inspect_html(url, sample.replace("<title>Test Page</title>", ""))[0]
     assert sitemap_urls() and len(sitemap_urls()) == 31
+    assert len(public_product_assets()) == 4
+    for url in public_product_assets():
+        assert url.endswith(".webp") and url.startswith(BASE + "/assets/")
     assert "localized_language_mismatch" in inspect_html(
         BASE + "/school-sports-equipment-fr.html", sample)[0]
     print("PASS: offline crawl audit rejects wrong canonical, noindex header/meta, missing H1/title,"
