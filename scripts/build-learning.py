@@ -76,7 +76,10 @@ function dictionary(lang){return COPY[lang]||COPY.en}
 function apply(lang){
  const d=dictionary(lang);document.querySelectorAll('[data-learn]').forEach(el=>{const value=d[el.dataset.learn];if(value!==undefined)el.textContent=value});
  const page=document.querySelector('[data-learning-page]')?.dataset.learningPage;if(!page)return;
- const title=page==='hub'?d['common.24']:d[page+'.0'],desc=page==='hub'?d['common.2']:d[page+'.1'];document.title=title+' | MING EAGLE';
+ const baseTitle=page==='hub'?d['common.24']:d[page+'.0'],baseDesc=page==='hub'?d['common.2']:d[page+'.1'];
+ const title=page==='team'&&lang==='en'?'Custom Logo Basketballs for Teams & Schools':baseTitle;
+ const desc=page==='team'&&lang==='en'?'Compare custom logo indoor basketball options for school teams, sports clubs and bulk buyers. Explore eligible flocked models, artwork previews, samples and wholesale quotes.':baseDesc;
+ document.title=title+' | MING EAGLE';
  const description=document.querySelector('meta[name="description"]');if(description)description.content=desc;
  for(const [property,value]of [['og:title',title],['og:description',desc]]){const el=document.querySelector('meta[property="'+property+'"]');if(el)el.content=value}
  const node=document.getElementById('learning-schema');if(node){try{const schema=JSON.parse(node.textContent);if(page==='hub'){schema.name=title;schema.description=desc;schema.inLanguage=COPY[lang]?lang:'en'}else{const a=schema['@graph'].find(x=>x['@type']==='Article');a.headline=title;a.description=desc;a.inLanguage=COPY[lang]?lang:'en';const b=schema['@graph'].find(x=>x['@type']==='BreadcrumbList');b.itemListElement[1].name=d['common.0'];b.itemListElement[2].name=title}node.textContent=JSON.stringify(schema)}catch(e){}}
