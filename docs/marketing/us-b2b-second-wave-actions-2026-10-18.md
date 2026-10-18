@@ -106,6 +106,8 @@ No blank above may be replaced with guessed numbers. If a portal makes these man
 
 Priority next steps: (1) verify lawful outbound sender postal address and opt-out mechanism, (2) approve prices/QA/logistics for legitimate vendor forms, (3) confirm recipient contact purposes, (4) submit individualized applications or introductions through authorized channels with unique submission receipts, (5) log actual replies and qualified enquiries. Paid ads, donations, sponsorships and platform upgrades require explicit cash-budget approval.
 
+**CAN-SPAM applies to commercial B2B email too.** Do not send until a legally valid physical postal marketing address, truthful headers, properly identified advertising, a working opt-out path and a suppression process are verified. Honor opt-out requests within 10 business days.
+
 FTC business-email compliance (including B2B): https://www.ftc.gov/business-guidance/resources/can-spam-act-compliance-guide-business
 
 ## Source/review cautions
