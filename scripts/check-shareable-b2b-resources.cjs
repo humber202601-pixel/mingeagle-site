@@ -26,4 +26,22 @@ for(const [file,id] of pages){
  assert(fs.existsSync(path.join(root,'wholesale-product-facts.csv')),'Missing real buyer CSV');
  assert(html.includes('nothing is posted or emailed')||html.includes('never sends messages automatically'),'Share must not imply automatic publication '+file);
 }
+const catalog=fs.readFileSync(path.join(root,'wholesale-product-catalog.html'),'utf8').split('</head>')[0];
+const url='https://www.mingeagle.com/wholesale-product-catalog.html';
+const openGraph={
+ 'og:type':'website',
+ 'og:site_name':'MING EAGLE',
+ 'og:title':'Wholesale Quiet Indoor Sports Balls | MING EAGLE',
+ 'og:url':url,
+ 'og:image':'https://www.mingeagle.com/assets/mingeagle-social-wordmark.png'
+};
+for(const [name,value] of Object.entries(openGraph)){
+ const meta='<meta property="'+name+'" content="'+value+'">';
+ assert(catalog.includes(meta),'Missing first-party Open Graph property '+name);
+ assert.equal((catalog.match(new RegExp('property="'+name+'"','g'))||[]).length,1,'Duplicate Open Graph property '+name);
+}
+assert(catalog.includes('<meta property="og:description" content="Compare four supplier-published'),'Unique four-family summary missing');
+assert(catalog.includes('<meta property="og:image:alt" content="MING EAGLE company wordmark">'));
+assert(fs.statSync(path.join(root,'assets/mingeagle-social-wordmark.png')).size>1000,'Real public share artwork missing');
+assert(catalog.includes('<meta name="twitter:card" content="summary_large_image">'));
 console.log('PASS: two real procurement resources have user-triggered LinkedIn/email sharing, correct canonical links, existing CSV and no fabricated posts.');
