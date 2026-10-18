@@ -26,6 +26,7 @@ try{
  const {onRequestPost}=await import(pathToFileURL(compiled));
  const sqlite=new DatabaseSync(':memory:');
  sqlite.exec(readFileSync('migrations/0001_core.sql','utf8'));
+ sqlite.exec(readFileSync('migrations/0003_airwallex_payment_sessions.sql','utf8'));
  const db={
   prepare(sql){const stmt={args:[],bind(...a){this.args=a;return this;},
    async first(){return sqlite.prepare(sql).get(...this.args)||null;},
@@ -49,6 +50,31 @@ try{
  let response=await run('ME-O-UNPAID');
  assert.equal(response.status,409,'Unpaid historical orders must not be reused as approved reorders');
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n,0);
+ // A historical COMPLETED/PAID source without payment evidence must not
+ // create a new quote, task, activity or schedule a contact follow-up.
+ response=await run('ME-O-SUCCESS');
+ assert.equal(response.status,409);
+ assert.equal(response.data.code,'REORDER_PAYMENT_EVIDENCE_REQUIRED');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n,0);
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM tasks').get().n,0);
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM activities').get().n,0);
+ sqlite.exec(`INSERT INTO payment_provider_sessions
+   (id,order_id,provider,provider_intent_id,request_id,amount,currency,status)
+   VALUES ('reorder-session','paid-old','STRIPE','cs_test_reorder_paid','request_reorder_paid',144,'USD','SUCCEEDED');
+ INSERT INTO payments
+   (id,order_id,method,provider,provider_reference,amount,currency,status)
+   VALUES ('reorder-receipt','paid-old','ONLINE_PAYMENT','STRIPE','cs_test_reorder_paid',144,'USD','RECEIVED');`);
+ sqlite.exec(`INSERT INTO payments
+   (id,order_id,method,provider_reference,amount,currency,status)
+   VALUES ('extra-bank','paid-old','BANK_TRANSFER','test-bank-only',1,'USD','RECEIVED')`);
+ assert.equal((await run('ME-O-SUCCESS')).data.code,'REORDER_PAYMENT_EVIDENCE_REQUIRED',
+  'Mixed historical payments must not be silently reused for repeat orders');
+ sqlite.exec("DELETE FROM payments WHERE id='extra-bank'");
+ sqlite.exec(`INSERT INTO tasks (id,order_id,type,title,status,priority)
+   VALUES ('review-open','paid-old','PAYMENT','Review disputed Stripe receipts for synthetic','OPEN','URGENT')`);
+ assert.equal((await run('ME-O-SUCCESS')).data.code,'REORDER_PAYMENT_EVIDENCE_REQUIRED',
+  'Even verified Stripe receipts need open disputes cleared before generating follow-ups');
+ sqlite.exec("UPDATE tasks SET status='DONE' WHERE id='review-open'");
  response=await run('ME-O-SUCCESS');
  assert.equal(response.status,201,JSON.stringify(response));
  assert.equal(response.data.quote.requiresReview,true);
