@@ -22,7 +22,7 @@ if(process.argv.includes('--self-test')){
  console.log('PASS: post-deployment CSV verification checks exact bytes, rejects fallbacks, covers four public buyer links, and uses no credentials.');
  process.exit(0);
 }
-const revision=process.env.GITHUB_SHA||'unknown';
+const revision=process.env.DEPLOYED_SHA||'unknown';
 let last='HTTP response not yet verified';
 for(let n=1;n<=9;n++){
  try{
@@ -33,7 +33,7 @@ for(let n=1;n<=9;n++){
   });
   const type=res.headers.get('content-type')||'';
   const body=Buffer.from(await res.arrayBuffer());
-  if(res.status===200 && (type.includes('csv')||type.includes('octet-stream')||type.includes('text/plain')) && matchesPublicCsv(body)){
+  if(res.status===200 && (type.includes('csv')||type.includes('octet-stream')||type.includes('text/plain')||type.includes('vnd.ms-excel')) && matchesPublicCsv(body)){
    console.log('PASS: public website CSV is HTTP 200 with matching source bytes; sha256='+hash(body)+'; deployed_sha='+revision.slice(0,12));
    process.exit(0);
   }
