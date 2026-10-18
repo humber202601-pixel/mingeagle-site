@@ -6,8 +6,10 @@ const accept=source.slice(source.indexOf('export const onRequestPost'));
 assert(accept.includes("if (!['SENT','VIEWED'].includes(status))"),'only sent/viewed quotes accepted');
 assert(accept.includes('CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_quote_unique'),'one order per quote');
 assert(accept.includes('await db.batch(operationBatch)'),'order, quote conversion, payment task and activity must share one atomic batch');
-assert(accept.includes('const operationBatch:D1PreparedStatement[]=[orderInsert,...itemInserts,converted]'),
- 'Order with quote conversion is transactionally coupled');
+assert(accept.includes("status=CASE")&&accept.includes("THEN 'CONVERTED' ELSE NULL END"),
+ 'Concurrent seller revision/expiry must abort the acceptance transaction via NOT NULL guard');
+assert(accept.includes('const operationBatch:D1PreparedStatement[]=[converted,orderInsert,...itemInserts]'),
+ 'Conditional state guard must run before any buyer order or item insertion');
 assert(accept.includes("operationBatch.push(")&&accept.includes("Confirm Stripe payment for"),
  'Creation of Stripe payment follow-up is in the acceptance transaction');
 assert(accept.indexOf("await db.batch(operationBatch)")>accept.indexOf("'QUOTE_ACCEPTED'"),
@@ -25,6 +27,8 @@ assert(accept.includes('const incompleteTerms = quoteTermsIssues({'),'buyer acce
 assert(accept.includes("code:'STRIPE_ONLY_QUOTE_TERMS'"),'Old non-Stripe quotes may not convert into unpayable orders');
 assert(accept.indexOf("code:'STRIPE_ONLY_QUOTE_TERMS'")<accept.indexOf('const orderInsert ='),'Stripe-only rejection happens before all order writes');
 assert(accept.includes('if (incompleteTerms.length)'),'incomplete commercial terms block conversion');
+assert(accept.includes("code:'QUOTE_NO_LONGER_ACCEPTABLE'"),
+ 'Buyer receives a clear fail-closed 409 if the seller revises mid-acceptance');
 assert(accept.indexOf('const incompleteTerms = quoteTermsIssues(')<accept.indexOf('const orderInsert ='),'terms must be checked before unpaid orders can be created');
 assert(accept.indexOf('const incompleteTerms = quoteTermsIssues(')<accept.indexOf('const items = await db.prepare'),'rejected incomplete terms must not even fetch priced lines for conversion');
 assert(accept.includes("shippingAddress?JSON.stringify(shippingAddress):null"),'Accepted card order must snapshot buyer shipping destination');

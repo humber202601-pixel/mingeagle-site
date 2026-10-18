@@ -264,12 +264,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
         item.variant_id ? String(item.variant_id) : null,
         String(item.description || 'MING EAGLE products'), Number(item.quantity || 0),
         Number(item.unit_price || 0), Number(item.line_total || 0)));
-    const converted = db.prepare(`UPDATE quotes SET status='CONVERTED', accepted_at=CURRENT_TIMESTAMP,
-        updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('SENT','VIEWED')`).bind(quoteId);
+    // Perform the conditional quote conversion FIRST in the SAME atomic
+    // batch. A concurrent seller revision or expiry may invalidate the quote
+    // after the earlier GET; setting NOT NULL status to NULL intentionally
+    // aborts the transaction rather than leaving an orphan UNPAID order.
+    const converted = db.prepare(`UPDATE quotes
+      SET status=CASE
+        WHEN status IN ('SENT','VIEWED')
+         AND (CASE WHEN valid_until IS NULL THEN 0
+           WHEN LENGTH(TRIM(valid_until))=10 THEN date(valid_until)>=date('now')
+           ELSE datetime(valid_until)>=datetime('now') END)
+          THEN 'CONVERTED' ELSE NULL END,
+        accepted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
+      WHERE id=?`).bind(quoteId);
     // Buyer confirmation, order items, quote conversion, payment follow-up
     // and staff audit are a single transaction. A late task/activity error
     // may not leave a real order created while the browser reports failure.
-    const operationBatch:D1PreparedStatement[]=[orderInsert,...itemInserts,converted];
+    const operationBatch:D1PreparedStatement[]=[converted,orderInsert,...itemInserts];
     if(quote.lead_id)operationBatch.push(
       db.prepare(`UPDATE leads SET status='NEGOTIATION',
         next_best_action='Confirm payment and fulfillment',
@@ -299,6 +310,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, params, env }
       // the actual persisted order from that concurrent acceptance.
       const raced = await getOrder(db, quoteId);
       if(raced)return Response.json({ok:true,accepted:true,order:raced});
+      const current=await db.prepare('SELECT status FROM quotes WHERE id=?')
+       .bind(quoteId).first<{status:string}>();
+      if(current&&!['SENT','VIEWED'].includes(String(current.status)))
+       return Response.json({ok:false,code:'QUOTE_NO_LONGER_ACCEPTABLE',
+        error:'This quote was revised or expired before acceptance. Request the latest quotation; no order or payment was created.'},{status:409});
       throw insertError;
     }
     return Response.json({ ok: true, accepted: true, order: { id: orderId, reference: orderReference, status: 'PAYMENT_PENDING', payment_status: 'UNPAID' } }, { status: 201 });
