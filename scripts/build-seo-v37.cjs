@@ -31,7 +31,7 @@ const settings={
  },
  'silent-basketball.html':{
   title:'Flocked Silent Basketball Set with Mini Hoop | MING EAGLE',
-  description:"Explore MING EAGLE's flocked basketball set for quieter indoor practice, with sizes 3, 5 and 7. Compare colors, mini-hoop details, sample shipping and bulk quotes.",
+  description:"Explore MING EAGLE's flocked basketball set for quieter indoor practice, sizes 3, 5 and 7. Compare colors, mini-hoop details, sample shipping and bulk quotes.",
   product:{name:'Flocked Silent Basketball Set',image:'assets/hero-flocked-silent-basketball-set.webp',
    description:'Flocked non-inflatable basketball and adhesive mini hoop set for quieter indoor family play. Sizes 3, 5 and 7.'}
  },
