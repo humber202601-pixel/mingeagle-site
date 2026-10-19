@@ -69,7 +69,7 @@ try{
  }
  const productFooter=first['weighted-flocked-basketball.html'].match(/<footer\b[\s\S]*?<\/footer>/)?.[0]||'';
  assert(productFooter.includes('product=Weighted%20Flocked%20Silent%20Basketball'),'adding follow links must preserve product-specific quote attribution');
- assert(/Wholesale/.test(first['wholesale.html'])&&/Training Academies/.test(first['for-coaches.html']));
+ assert(/Wholesale/.test(first['wholesale.html'])&&/Academies/.test(first['for-coaches.html']));
  const sitemap=fs.readFileSync('public/sitemap.xml','utf8');
  const robots=fs.readFileSync('public/robots.txt','utf8');
  assert(robots.includes('Sitemap: https://www.mingeagle.com/sitemap.xml'));

@@ -14,42 +14,42 @@ const settings={
    contactPoint:[{'@type':'ContactPoint',contactType:'sales inquiries',email:'mingeaglecommerce@gmail.com',availableLanguage:'English'}]}
  },
  'products.html':{
-  title:'Compare Quiet Indoor Basketball Sets & Soccer Balls | MING EAGLE',
-  description:'Compare flocked and fabric-cover mini hoop sets, weighted indoor practice balls and soft soccer. Browse real sizes, colors, product details and US shipping options.'
+  title:'Quiet Basketball Sets & Indoor Soccer Balls | MING EAGLE',
+  description:'Compare flocked and fabric-cover basketball sets with mini hoops, weighted practice balls and indoor soccer. Review sizes, colors and US shipping.'
  },
  'wholesale.html':{
   title:'Silent Basketball Wholesale & Bulk Orders | MING EAGLE',
   description:'Silent basketball wholesale supply for coaches, training academies, schools and retailers. Compare models, request samples and ask for a bulk shipping quote.'
  },
  'for-coaches.html':{
-  title:'Silent Basketballs for Coaches & Training Academies | MING EAGLE',
+  title:'Silent Basketballs for Coaches & Academies | MING EAGLE',
   description:'Explore indoor basketballs for youth training, academies and coaches. Compare sizes and weighted options, request a sample or ask for a bulk quote.'
  },
  'for-schools.html':{
-  title:'Basketballs for Schools | Indoor PE Bulk Orders & Samples | MING EAGLE',
+  title:'School Basketballs for Indoor PE & Bulk Orders | MING EAGLE',
   description:'Compare soft silent-style basketballs for schools and supervised PE. See sizes, a free RFQ checklist, sample options, and reviewed bulk orders for 10+ units.'
  },
  'silent-basketball.html':{
   title:'Flocked Silent Basketball Set with Mini Hoop | MING EAGLE',
-  description:"Explore MING EAGLE's flocked basketball set for quieter indoor practice, with sizes 3, 5 and 7. Compare colors, mini-hoop details, sample shipping and bulk quotes.",
+  description:"Explore MING EAGLE's flocked basketball set for quieter indoor practice, sizes 3, 5 and 7. Compare colors, mini-hoop details, sample shipping and bulk quotes.",
   product:{name:'Flocked Silent Basketball Set',image:'assets/hero-flocked-silent-basketball-set.webp',
    description:'Flocked non-inflatable basketball and adhesive mini hoop set for quieter indoor family play. Sizes 3, 5 and 7.'}
  },
  'fabric-silent-basketball.html':{
-  title:'Fabric-Cover Soft Silent Basketball & Mini Hoop Set | MING EAGLE',
-  description:'Explore the fabric-cover indoor basketball plus adhesive mini hoop. Sizes 3, 5 and 7 in orange or green, surface comparison and US parcel shipping estimates.',
+  title:'Fabric-Cover Silent Basketball Set & Mini Hoop | MING EAGLE',
+  description:'Explore a fabric-cover silent basketball set with adhesive mini hoop. Sizes 3, 5 and 7 in orange or green; compare the surface and request a quote.',
   product:{name:'Fabric-Cover Silent Basketball Set',image:'assets/hero-fabric-cover-silent-basketball-set.webp',
    description:'Fabric-covered quiet indoor basketball set with matching adhesive mini hoop. Sizes 3, 5 and 7.'}
  },
  'weighted-flocked-basketball.html':{
-  title:'Weighted Flocked Silent Basketball for Indoor Drills | MING EAGLE',
-  description:"Explore the weighted flocked basketball for indoor practice, available in sizes 3, 4, 6 and 7. Review color options, product details and wholesale quote options.",
+  title:'Weighted Silent Basketball for Indoor Drills | MING EAGLE',
+  description:"Explore the weighted flocked basketball for indoor practice in sizes 3, 4, 6 and 7. Compare colors, product details and wholesale quote options.",
   product:{name:'Weighted Flocked Silent Basketball',image:'assets/hero-weighted-flocked-silent-basketball.webp',
    description:'Training-oriented weighted flocked basketball for quieter indoor ball-handling drills. Sizes 3, 4, 6 and 7.'}
  },
  'silent-soccer.html':{
   title:'Flocked Silent Soccer Ball for Indoor Play | MING EAGLE',
-  description:"Explore the flocked indoor soccer ball for quieter small-space footwork. Size 5 in five colorways; review product details, sample shipping and institutional quotes.",
+  description:"Size 5 flocked indoor soccer ball for quieter small-space footwork. Explore five colorways, product details, sample shipping and institutional quotes.",
   product:{name:'Flocked Silent Soccer Ball',image:'assets/hero-flocked-silent-soccer-ball.webp',
    description:'Size 5 flocked quiet-touch soccer ball for indoor kids and teens, home footwork and family play.'}
  }
