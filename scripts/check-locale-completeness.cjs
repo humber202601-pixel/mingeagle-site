@@ -16,4 +16,21 @@ for(const lang of languages){
   assert(!/<script\b|javascript:/i.test(obj[key]),lang+': unexpected executable markup in locale value');
  }
 }
+const b2bHome={
+ en:{title:'QUIET INDOOR SPORTS BALLS FOR ORGANIZATIONS.',quote:'Request a bulk quote',sample:'Request a sample'},
+ es:{title:'BALONES DEPORTIVOS PARA ORGANIZACIONES Y COMPRAS AL POR MAYOR.',quote:'Solicitar cotización por volumen',sample:'Solicitar una muestra'},
+ pt:{title:'BOLAS ESPORTIVAS PARA ORGANIZAÇÕES E COMPRAS EM ATACADO.',quote:'Solicitar cotação para atacado',sample:'Solicitar uma amostra'},
+ fr:{title:'BALLONS D’INTÉRIEUR POUR LES ACHATS DES ORGANISATIONS.',quote:'Demander un devis en volume',sample:'Demander un échantillon'},
+ de:{title:'LEISE INDOOR-BÄLLE FÜR ORGANISATIONEN UND GROẞEINKÄUFE.',quote:'Großhandelsangebot anfragen',sample:'Muster anfragen'},
+ it:{title:'PALLONI INDOOR PER ORGANIZZAZIONI E ACQUISTI ALL’INGROSSO.',quote:'Richiedi un preventivo all’ingrosso',sample:'Richiedi un campione'},
+ nl:{title:'INDOORSPORTBALLEN VOOR ORGANISATIES EN GROOTINKOOP.',quote:'Offerte voor bulkbestelling aanvragen',sample:'Proefexemplaar aanvragen'},
+ pl:{title:'PIŁKI DO HALI DLA ORGANIZACJI I ZAKUPÓW HURTOWYCH.',quote:'Poproś o wycenę hurtową',sample:'Poproś o próbkę'},
+ ja:{title:'学校・団体向けの静音インドアスポーツボール。',quote:'卸売見積もりを依頼',sample:'サンプルを依頼'}
+};
+for(const lang of languages){
+ assert.equal(doc[lang]['hero.title'],b2bHome[lang].title,lang+': homepage hero must retain B2B positioning');
+ assert.equal(doc[lang]['hero.shop'],b2bHome[lang].quote,lang+': primary hero CTA must request a bulk quote');
+ assert.equal(doc[lang]['hero.story'],b2bHome[lang].sample,lang+': secondary hero CTA must request a sample');
+ assert(/bulk|wholesale|quantity|quote|volumen|mayorista|atacado|devis|gros|Großhandel|ingrosso|groothandel|hurt|卸売|見積もり/i.test(doc[lang]['home.products.lead']),lang+': product section must support a wholesale / quote journey');
+}
 console.log('PASS: all '+languages.length+' locales, '+reference.length+' keys, placeholder integrity, no empty UI messages.');
