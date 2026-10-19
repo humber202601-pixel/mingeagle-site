@@ -147,6 +147,7 @@ jobs:
         run: |
           node scripts/enable-ga4-consent.cjs
           node scripts/check-ga4-consent.cjs
+          node scripts/test-ga4-consent-flow.cjs
           node scripts/enable-ga4-consent.cjs --check
 
       - name: Verify canonical B2B header navigation across public pages
