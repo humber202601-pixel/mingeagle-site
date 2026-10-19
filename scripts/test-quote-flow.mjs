@@ -40,7 +40,7 @@ const call=async(name,path,input,authorized=true)=>{
 const query=sql=>sqlite.prepare(sql).get();
 try{
  const reference='ME-TEST-QUOTE-20261012';
- const inquiry=await call('inquiry','/api/inquiries',{originalReference:reference,firstName:'Synthetic',lastName:'Quote Test',email:'quote-test@example.invalid',country:'US',postalCode:'75201',estimatedQuantity:'100',products:['Flocked Silent Basketball Set'],privacyAck:true,message:'Synthetic isolated test inquiry. Exact requested units: 100'});
+ const inquiry=await call('inquiry','/api/inquiries',{originalReference:reference,firstName:'Synthetic',lastName:'Quote Test',email:'quote-test@example.invalid',country:'US',state:'TX',postalCode:'75201',estimatedQuantity:'100',products:['Flocked Silent Basketball Set'],privacyAck:true,message:'Synthetic isolated test inquiry. Exact requested units: 100'});
  assert.equal(inquiry.status,200,JSON.stringify(inquiry));assert.equal(inquiry.body.reference,reference);
  assert.equal(query('SELECT count(*) AS n FROM inquiries').n,1);assert.equal(externalCalls,0);
  const input={inquiryReference:reference,description:'Flocked Silent Basketball Set | No. 5 | Blue',quantity:'100',unitPrice:'8.03',shipping:'19.90',taxUSD:'0',taxBasis:'Synthetic test: no tax collection in isolated test',discount:'0',paymentTerms:'Test terms',shippingTerms:'Test freight'};
