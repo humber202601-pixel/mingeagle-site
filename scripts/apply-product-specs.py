@@ -160,8 +160,14 @@ for d in data.values():
         if re.fullmatch(r'p[1-4]\.spec\d+', key):
             d[key] = value
 
+# The public locale bundle is authoritative for keys that already exist.  The
+# admin copy file is English-only and may lag behind approved translations; it
+# must never overwrite every locale during the production build.  It remains a
+# safe source for genuinely new fallback keys only.
+shared_inquiry_copy = json.loads(Path('admin/inquiry-copy.json').read_text(encoding='utf-8'))
 for locale in data.values():
-    locale.update(json.loads(Path('admin/inquiry-copy.json').read_text(encoding='utf-8')))
+    for key, value in shared_inquiry_copy.items():
+        locale.setdefault(key, value)
 
 i18n_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
