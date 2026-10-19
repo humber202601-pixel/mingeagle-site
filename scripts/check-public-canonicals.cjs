@@ -26,6 +26,17 @@ for(const url of urls){
   const tag=head.match(new RegExp('<meta\\b(?=[^>]*(?:name|property)=(["\x27])'+token+'\\1)[^>]*>','i'))?.[0];
   if(tag){const content=tag.match(/\bcontent=(["'])([^"']+)\1/i)?.[2];assert.equal(content,url,'Social URL must match canonical on '+filename)}
  }
+ if(filename==='silent-basketball-guide.html'){
+  assert(head.includes('<title>Silent Basketball Setup &amp; Care Guide | MING EAGLE</title>'),
+   'Guide title must describe the silent basketball search intent');
+  assert(head.includes('name="description" content="Learn how to install the mini hoop'),
+   'Guide description must name the product and task');
+  assert(html.includes('<h1>Silent basketball setup &amp; care guide.</h1>'),
+   'Guide H1 must reinforce the product topic');
+  for(const key of ['og:title','og:description','og:url','og:image','twitter:title','twitter:description','twitter:image']){
+   assert(head.includes(key),'Guide social metadata missing '+key);
+  }
+ }
  const scripts=[...head.matchAll(/<script\b[^>]*type=(["'])application\/ld\+json\1[^>]*>([\s\S]*?)<\/script>/gi)];
  for(const script of scripts){
   const obj=JSON.parse(script[2]);
