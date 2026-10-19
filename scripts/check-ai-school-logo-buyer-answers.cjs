@@ -43,5 +43,5 @@ const rootCopy=JSON.parse(fs.readFileSync('admin/learning-copy.json','utf8')).en
 assert.equal(rootCopy['team.0'],'Custom logo silent basketballs for teams and schools');
 assert(rootCopy['team.1'].includes('10+ units'));
 const seo=fs.readFileSync('scripts/build-seo-v37.cjs','utf8');
-assert(seo.includes('Basketballs for Schools | Indoor PE Bulk Orders & Samples | MING EAGLE'));
+assert(seo.includes('School Basketballs for Indoor PE & Bulk Orders | MING EAGLE'));
 console.log('PASS: updated school/logo answer-first content, two observed GSC query intents, real internal buyer links, schema/edit dates, no false performance or government claims.');
