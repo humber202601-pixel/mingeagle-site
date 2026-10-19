@@ -142,7 +142,7 @@ function titleAndDescription(filename,titleExpected,descriptionExpected){
  const image=base+'assets/hero-flocked-silent-basketball-set.webp?v=20261007-1';
  assert.equal(meta(head,'property','og:image'),image,'Bulk guide social image must use the real product image');
  assert(/<img\b[^>]*src=["']assets\/hero-flocked-silent-basketball-set\.webp\?v=20261007-1["'][^>]*alt=["']Flocked silent basketball set with mini hoop for wholesale sample evaluation["']/.test(body),'Bulk guide image must have meaningful alt text');
- assert(head.includes('src="site.js?v=20261020-i18n-sync2"'),'Bulk guide must use the approved locale bundle cache key');
+ assert(body.includes('src="site.js?v=20261020-i18n-sync2"'),'Bulk guide must use the approved locale bundle cache key');
  const nodes=schemas(head).flatMap(s=>flatten(s));
  const page=nodes.find(n=>n['@type']==='WebPage'&&n.url===base+filename);
  assert(page,'Bulk guide WebPage schema is required');
