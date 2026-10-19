@@ -4,6 +4,9 @@ on:
     branches: ["main"]
     paths:
       - "public/basketball-camp-equipment-supplier.html"
+      - "public/quiet-indoor-sports-for-kids.html"
+      - "public/school-basketball-bulk-order-rfq-checklist.html"
+      - "public/inquiry.html"
       - "public/silent-basketball-guide.html"
       - "public/sitemap.xml"
       - "scripts/check-priority-seo-guides.cjs"
@@ -14,6 +17,9 @@ on:
     branches: ["main"]
     paths:
       - "public/basketball-camp-equipment-supplier.html"
+      - "public/quiet-indoor-sports-for-kids.html"
+      - "public/school-basketball-bulk-order-rfq-checklist.html"
+      - "public/inquiry.html"
       - "public/silent-basketball-guide.html"
       - "public/sitemap.xml"
       - "scripts/check-priority-seo-guides.cjs"
