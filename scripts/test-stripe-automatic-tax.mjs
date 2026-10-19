@@ -32,7 +32,7 @@ const saved=globalThis.fetch;
 globalThis.fetch=async(url,init)=>{
  if(url==='https://challenges.cloudflare.com/turnstile/v0/siteverify')return Response.json({success:true,hostname:'app.mingeagle.com',action:'mingeagle_inquiry'});
  assert.equal(init.redirect,'manual');
- if(url.includes('/tax/registrations?'))return Response.json({data:registration?[{country:'US',status:'active',livemode:registrationLive,country_options:{us:{state:'CA',type:'state_sales_tax'}}}]:[],has_more:false});
+ if(url.includes('/tax/registrations?'))return Response.json({data:registration?[{country:'US',status:'active',livemode:registrationLive,country_options:{us:{state:expectedState,type:'state_sales_tax'}}}]:[],has_more:false});
  const p=new URLSearchParams(init.body);
  if(url.endsWith('/customers')){
   customerCalls++;assert.equal(p.get('shipping[address][state]'),expectedState);assert.equal(p.get('shipping[address][postal_code]'),expectedZip);assert.equal(p.get('address[state]'),expectedState);assert.equal(p.get('tax_exempt'),'none');
@@ -87,10 +87,25 @@ try{
  assert.equal((await webhook({env,request:sign('evt_tax_paid')})).status,200);assert.equal((await webhook({env,request:sign('evt_tax_same_payment_new_event')})).status,200);
  assert.equal(sql.prepare('SELECT COUNT(*) n FROM payments').get().n,1);assert.equal(sql.prepare("SELECT COUNT(*) n FROM tasks WHERE type='FULFILLMENT'").get().n,1);
  const paidPage=await quotePage({env,params:{token},request:new Request(result.paymentPage)});const paidHtml=await paidPage.text();assert(paidHtml.includes('USD 31.36'));assert(paidHtml.includes('USD 2.46'));assert(!paidHtml.includes('Confirmed at secure payment'));
- const nationwide={...env,RETAIL_NATIONWIDE_STRIPE_TAX_ENABLED:'true',RETAIL_US_TAX_POLICY_JSON:'',RETAIL_REMOTE_STARTUP_FACTS_JSON:JSON.stringify({basis:'NEXUS_REVIEW_REQUIRED',reported_existing_us_sales:true,reported_us_return_agent_state:'KY'})};
- const scope=await (await readiness({env:nationwide})).json();assert.equal(scope.supportedStates.length,51);assert.equal(scope.retailCheckoutReady,true);
- assert.equal(noSalesTaxCollectionRequired(nationwide,'NY'),false,'Payment availability must not claim legal zero-tax eligibility');
+ const nationwideUnreviewed={...env,RETAIL_NATIONWIDE_STRIPE_TAX_ENABLED:'true',RETAIL_US_TAX_POLICY_JSON:'',RETAIL_REMOTE_STARTUP_FACTS_JSON:JSON.stringify({basis:'NEXUS_REVIEW_REQUIRED',reported_existing_us_sales:true,reported_us_return_agent_state:'KY'})};
+ const unreviewedScope=await (await readiness({env:nationwideUnreviewed})).json();
+ assert.equal(unreviewedScope.supportedStates.length,0,'The nationwide flag cannot manufacture state tax eligibility');
+ assert.equal(unreviewedScope.retailCheckoutReady,false,'No reviewed tax states means direct checkout is not ready');
+ assert.equal(retailTaxTreatment(nationwideUnreviewed,'NY'),null,'Unreviewed states must not enter automatic-tax checkout');
+ assert.equal(noSalesTaxCollectionRequired(nationwideUnreviewed,'NY'),false,'Payment availability must not claim legal zero-tax eligibility');
  expectedState='NY';expectedZip='10001';salesTax=0;registration=false;
+ const ordersBeforeUnreviewed=sql.prepare('SELECT COUNT(*) n FROM orders').get().n;
+ const checkoutCallsBeforeUnreviewed=checkoutCalls;
+ const unreviewedCreated=await retail({env:nationwideUnreviewed,request:req('/api/retail/checkout',{...input,requestId:randomUUID(),state:'NY',city:'New York',postalCode:expectedZip})});
+ assert.equal(unreviewedCreated.status,409,await unreviewedCreated.clone().text());
+ assert.equal(sql.prepare('SELECT COUNT(*) n FROM orders').get().n,ordersBeforeUnreviewed,'Unreviewed state cannot create an order');
+ assert.equal(checkoutCalls,checkoutCallsBeforeUnreviewed,'Unreviewed state cannot start Stripe Checkout');
+
+ const nationwide={...env,RETAIL_NATIONWIDE_STRIPE_TAX_ENABLED:'true',RETAIL_US_TAX_POLICY_JSON:JSON.stringify(fullPolicy),RETAIL_REMOTE_STARTUP_FACTS_JSON:JSON.stringify({basis:'NEXUS_REVIEW_REQUIRED',reported_existing_us_sales:true,reported_us_return_agent_state:'KY'})};
+ const scope=await (await readiness({env:nationwide})).json();assert.equal(scope.supportedStates.length,51);assert.equal(scope.retailCheckoutReady,true);
+ assert.equal(noSalesTaxCollectionRequired(nationwide,'NY'),false,'Collection states must not be presented as zero-tax states');
+ assert.equal(retailTaxTreatment(nationwide,'NY'),'STRIPE_AUTOMATIC','A reviewed state with a registration reference may use automatic tax');
+ registration=true;registrationLive=false;
  const nationalCreated=await retail({env:nationwide,request:req('/api/retail/checkout',{...input,requestId:randomUUID(),state:'NY',city:'New York',postalCode:expectedZip})});
  assert.equal(nationalCreated.status,200,await nationalCreated.clone().text());const nationalOrder=await nationalCreated.json(),nationalToken=new URL(nationalOrder.paymentPage).pathname.split('/').at(-1);
  const nationalStarted=await checkout({env:nationwide,request:req('/api/payments/stripe/create',{token:nationalToken})});assert.equal(nationalStarted.status,200,await nationalStarted.clone().text());
