@@ -1,4 +1,4 @@
-name: Verify production retail cart shipping contract
+name: Verify production checkout readiness and retail cart shipping
 
 on:
   pull_request:
@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   live-retail-cart:
-    name: Read-only production cart API checks (no order or charge)
+    name: Read-only production checkout and cart checks (no order or charge)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
