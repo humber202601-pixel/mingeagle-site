@@ -4,7 +4,7 @@ const {execFileSync}=require('node:child_process');
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'mingeagle-seo-v37-'));
 try{
  const files=['index.html','products.html','wholesale.html','for-coaches.html','for-schools.html',
- 'silent-basketball.html','fabric-silent-basketball.html','weighted-flocked-basketball.html','silent-soccer.html'];
+ 'silent-basketball.html','fabric-silent-basketball.html','weighted-flocked-basketball.html','silent-soccer.html','videos.html'];
  for(const file of files)fs.copyFileSync(path.join('public',file),path.join(tmp,file));
  fs.copyFileSync('public/retail-prices.json',path.join(tmp,'retail-prices.json'));
  const run=()=>execFileSync(process.execPath,['scripts/build-seo-v37.cjs',tmp],{stdio:'pipe'});
@@ -46,6 +46,15 @@ try{
    assert(!obj.aggregateRating);
   }
  }
+ const coachSchema=JSON.parse(first['for-coaches.html'].split('<script type="application/ld+json">')[1].split('</script>')[0]);
+ assert.equal(coachSchema['@type'],'WebPage');
+ assert.equal(coachSchema.url,'https://www.mingeagle.com/for-coaches.html');
+ assert.equal(coachSchema.name,'Silent Basketballs for Coaches & Academies | MING EAGLE');
+ const videoSchema=JSON.parse(first['videos.html'].split('<script type="application/ld+json">')[1].split('</script>')[0]);
+ assert.equal(videoSchema['@type'],'CollectionPage');
+ assert.equal(videoSchema.url,'https://www.mingeagle.com/videos.html');
+ assert.equal(videoSchema.name,'16 Silent Basketball Creator Videos | MING EAGLE');
+ assert(!JSON.stringify(videoSchema).includes('VideoObject'),'do not invent per-video metadata');
  const homepage=first['index.html'];
  const organization=JSON.parse(homepage.match(/<script type="application\/ld\+json">([^<]*)<\/script>/)?.[1]||'{}');
  assert.equal(organization['@type'],'Organization');
@@ -74,5 +83,5 @@ try{
  const robots=fs.readFileSync('public/robots.txt','utf8');
  assert(robots.includes('Sitemap: https://www.mingeagle.com/sitemap.xml'));
  for(const f of files)assert(sitemap.includes(f==='index.html'?'https://www.mingeagle.com/':'https://www.mingeagle.com/'+f),'sitemap must include '+f);
- console.log('PASS: nine real website pages SEO metadata, five factual JSON-LD records, stable build, existing canonical/sitemap, real supplied prices and no invented reviews or false US physical office.');
+ console.log('PASS: ten real website pages SEO metadata, seven factual JSON-LD records, stable build, existing canonical/sitemap, real supplied prices and no invented reviews or false US physical office.');
 }finally{fs.rmSync(tmp,{recursive:true,force:true})}

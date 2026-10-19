@@ -83,4 +83,20 @@ for(const filename of ['for-coaches.html','for-schools.html']){
  const head=fs.readFileSync('public/'+filename,'utf8').split('</head>')[0];
  assertSearchSnippetLength(filename,head);
 }
+function schemaFromPage(filename){
+ const html=fs.readFileSync('public/'+filename,'utf8'),open='<script type="application/ld+json">',start=html.indexOf(open);
+ assert(start>=0,filename+' needs JSON-LD');
+ const contentStart=start+open.length,end=html.indexOf('</script>',contentStart);
+ assert(end>contentStart,filename+' has closed JSON-LD');
+ return JSON.parse(html.slice(contentStart,end));
+}
+const coachSchema=schemaFromPage('for-coaches.html');
+assert.equal(coachSchema['@type'],'WebPage');
+assert.equal(coachSchema.url,'https://www.mingeagle.com/for-coaches.html');
+assert.equal(coachSchema.name,'Silent Basketballs for Coaches & Academies | MING EAGLE');
+const videoSchema=schemaFromPage('videos.html');
+assert.equal(videoSchema['@type'],'CollectionPage');
+assert.equal(videoSchema.url,'https://www.mingeagle.com/videos.html');
+assert.equal(videoSchema.name,'16 Silent Basketball Creator Videos | MING EAGLE');
+assert(!JSON.stringify(videoSchema).includes('VideoObject'),'Do not invent per-video schema without verified metadata');
 console.log('PASS: buyer-guide and product-page metadata, structured data, crawlable model links and truthful video limitations.');
