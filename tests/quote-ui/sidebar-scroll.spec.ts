@@ -6,7 +6,7 @@ test('询盘页滚到底部：侧栏背景覆盖所有菜单，底部操作可�
  const desktop=testInfo.project.name==='desktop';
  if(desktop)await page.setViewportSize({width:1440,height:560});
  for(let i=0;i<16;i++){
-  const response=await request.post('/api/inquiries',{headers:{origin:'https://www.mingeagle.com'},data:{firstName:'Synthetic',lastName:'Sidebar '+i,email:'sidebar-test@example.invalid',country:'US',estimatedQuantity:'50',products:['Flocked Silent Basketball Set'],privacyAck:true,message:'Synthetic sidebar scroll fixture.'}});
+  const response=await request.post('/api/inquiries',{headers:{origin:'https://www.mingeagle.com'},data:{firstName:'Synthetic',lastName:'Sidebar '+i,email:'sidebar-test@example.invalid',country:'US',state:'TX',estimatedQuantity:'50',products:['Flocked Silent Basketball Set'],privacyAck:true,message:'Synthetic sidebar scroll fixture.'}});
   expect(response.status()).toBe(200);
  }
  await page.goto('/app/inquiries');

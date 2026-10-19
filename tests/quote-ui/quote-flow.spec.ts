@@ -6,7 +6,7 @@ const description='Flocked Silent Basketball Set | No. 5 | Blue';
 const auth={'x-admin-key':FIXTURE_KEY};
 async function seed(request:APIRequestContext,estimatedQuantity='50–100',structured=true){
  const reference='ME-UI-'+randomUUID().slice(0,8).toUpperCase();
- const response=await request.post('/api/inquiries',{headers:{origin:'https://www.mingeagle.com'},data:{originalReference:reference,firstName:'Synthetic',lastName:'Browser Fixture',email:'browser-test@example.invalid',country:'US',postalCode:'75201',estimatedQuantity,products:['Flocked Silent Basketball Set'],privacyAck:true,message:structured?'Synthetic browser test.\nCombined wholesale RFQ (customer-selected; not a final price):\n'+description+' | 100 units':'Synthetic browser test; exact quantity remains unconfirmed.'}});
+ const response=await request.post('/api/inquiries',{headers:{origin:'https://www.mingeagle.com'},data:{originalReference:reference,firstName:'Synthetic',lastName:'Browser Fixture',email:'browser-test@example.invalid',country:'US',state:'TX',postalCode:'75201',estimatedQuantity,products:['Flocked Silent Basketball Set'],privacyAck:true,message:structured?'Synthetic browser test.\nCombined wholesale RFQ (customer-selected; not a final price):\n'+description+' | 100 units':'Synthetic browser test; exact quantity remains unconfirmed.'}});
  expect(response.status()).toBe(200);expect((await response.json()).emailForwarded).toBe(false);return reference;
 }
 async function login(page:Page,reference:string){
