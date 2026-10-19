@@ -6,6 +6,9 @@ const result=await build({entryPoints:['functions/api/admin/unpaid-wholesale-req
  bundle:true,platform:'node',format:'esm',write:false,logLevel:'silent'});
 const {onRequestPost}=await import('data:text/javascript;base64,'+
  Buffer.from(result.outputFiles[0].text).toString('base64'));
+const middleware=readFileSync('functions/_middleware.ts','utf8');
+assert.match(middleware,/previewWrites\\s*=\\s*new Set\\([\\s\\S]*['"]\\/api\\/admin\\/unpaid-wholesale-requote['"]/,
+ 'The guarded recovery action must also work in the isolated preview environment.');
 const sqlite=new DatabaseSync(':memory:');
 for(const file of readdirSync('migrations').filter(x=>x.endsWith('.sql')).sort())
  sqlite.exec(readFileSync('migrations/'+file,'utf8'));
