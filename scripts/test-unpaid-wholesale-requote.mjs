@@ -6,6 +6,9 @@ const result=await build({entryPoints:['functions/api/admin/unpaid-wholesale-req
  bundle:true,platform:'node',format:'esm',write:false,logLevel:'silent'});
 const {onRequestPost}=await import('data:text/javascript;base64,'+
  Buffer.from(result.outputFiles[0].text).toString('base64'));
+const middleware=readFileSync('functions/_middleware.ts','utf8');
+assert.match(middleware,/previewWrites\\s*=\\s*new Set\\([\\s\\S]*['"]\\/api\\/admin\\/unpaid-wholesale-requote['"]/,
+ 'The guarded recovery action must also work in isolated preview.');
 const sqlite=new DatabaseSync(':memory:');
 for(const file of readdirSync('migrations').filter(x=>x.endsWith('.sql')).sort())
  sqlite.exec(readFileSync('migrations/'+file,'utf8'));
@@ -105,6 +108,14 @@ try{
  const tamper=setup('TAMPER');
  sqlite.prepare("UPDATE order_items SET line_total=149 WHERE order_id=?").run(tamper.orderId);
  assert.equal((await call(tamper.ref)).body.code,'SOURCE_LINE_ITEMS_INVALID');
+ const badTotal=setup('BADTOTAL');
+ sqlite.prepare("UPDATE orders SET total=179 WHERE id=?").run(badTotal.orderId);
+ assert.equal((await call(badTotal.ref)).body.code,'SOURCE_LINE_ITEMS_INVALID',
+  'Do not clone an order whose total does not reconcile with items and freight');
+ const badTax=setup('BADTAX');
+ sqlite.prepare("UPDATE orders SET tax=5 WHERE id=?").run(badTax.orderId);
+ assert.equal((await call(badTax.ref)).body.code,'SOURCE_LINE_ITEMS_INVALID',
+  'Tax changes must reconcile with the original total before preparing a new quote');
  const race=setup('RACE');
  concurrency={id:race.orderId,status:'PAID'};
  const before=sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n;
