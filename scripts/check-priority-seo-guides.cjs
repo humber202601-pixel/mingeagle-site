@@ -80,4 +80,57 @@ function titleAndDescription(filename,titleExpected,descriptionExpected){
  assert.equal(article.author?.name,'MING EAGLE');
  assert.equal(article.publisher?.url,base);
 }
+{
+ const filename='quiet-indoor-sports-for-kids.html';
+ const {head,body}=load(filename);
+ const title='Quiet Indoor Sports for Kids | MING EAGLE';
+ const description='Practical ideas for indoor basketball in apartments: compare soft balls, floor protection, safe play and realistic noise limits.';
+ titleAndDescription(filename,title,description);
+ const image=base+'assets/hero-flocked-silent-basketball-set.webp?v=20261007-1';
+ assert.equal(meta(head,'property','og:image'),image,'Indoor play guide social image must be the real product image');
+ assert(/<img\b[^>]*src=["']assets\/hero-flocked-silent-basketball-set\.webp\?v=20261007-1["'][^>]*alt=["']Flocked silent basketball set with mini hoop for supervised indoor play["']/.test(body),'Indoor play guide image must be visible with descriptive alt text');
+ const nodes=schemas(head).flatMap(s=>flatten(s));
+ const article=nodes.find(n=>n['@type']==='Article'&&n.mainEntityOfPage===base+filename);
+ assert(article,'Indoor play guide Article schema is required');
+ assert.equal(article.description,description);
+ assert(article.image?.includes(image),'Article image must match the visible lead image');
+ assert.equal(article.datePublished,'2026-10-13');
+ assert.equal(article.dateModified,'2026-10-19');
+}
+{
+ const filename='school-basketball-bulk-order-rfq-checklist.html';
+ const {head,body}=load(filename);
+ const title='School Basketball Bulk Order Checklist | MING EAGLE';
+ const description='Free RFQ checklist for school PE and district buyers: plan samples, compare silent basketball options and request a written bulk quote.';
+ titleAndDescription(filename,title,description);
+ const image=base+'assets/hero-flocked-silent-basketball-set.webp?v=20261007-1';
+ assert.equal(meta(head,'property','og:image'),image,'School RFQ social image must match the visible product image');
+ assert.equal(meta(head,'property','og:image:alt'),'Flocked silent basketball set with mini hoop for school PE sample evaluation');
+ assert(/<img\b[^>]*src=["']assets\/hero-flocked-silent-basketball-set\.webp\?v=20261007-1["'][^>]*alt=["']Flocked silent basketball set with mini hoop for school PE sample evaluation["']/.test(body),'School RFQ image must have meaningful alt text');
+ const nodes=schemas(head).flatMap(s=>flatten(s));
+ const page=nodes.find(n=>n['@type']==='WebPage'&&n.url===base+filename);
+ assert(page,'School RFQ WebPage schema is required');
+ assert.equal(page.description,description);
+ assert.equal(page.primaryImageOfPage?.url,image,'School RFQ schema image must match the visible image');
+ assert.equal(page.dateModified,'2026-10-19');
+}
+{
+ const filename='inquiry.html';
+ const {head,body}=load(filename);
+ const title='Request a Wholesale Quote or Sample | MING EAGLE';
+ const description='Request a wholesale quote or sample from MING EAGLE. Share product models, quantities, logo needs and destination for confirmed pricing and shipping options.';
+ titleAndDescription(filename,title,description);
+ const image=base+'assets/hero-flocked-silent-basketball-set.webp?v=20261007-1';
+ assert.equal(meta(head,'property','og:image'),image,'Inquiry page preview must use the real product image');
+ const images=[...body.matchAll(/<img\b[^>]*>/gi)].map(m=>m[0]);
+ assert.equal(images.length,4,'Inquiry page should keep all four product option images');
+ for(const img of images)assert(img.match(/\balt=["']([^"']+)["']/i)?.[1]?.trim(),'Each product option image needs meaningful alt text');
+ const nodes=schemas(head).flatMap(s=>flatten(s));
+ const page=nodes.find(n=>n['@type']==='WebPage'&&n.url===base+filename);
+ assert(page,'Inquiry WebPage schema is required');
+ assert.equal(page.description,description);
+ assert.equal(page.primaryImageOfPage?.url,image);
+ assert.equal(page.dateModified,'2026-10-19');
+}
+
 console.log('PASS: priority B2B guide snippets, canonical/social metadata, visible images and matching structured data.');
