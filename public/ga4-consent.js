@@ -137,8 +137,34 @@
     }
   }
 
+  function revokeGoogleAnalytics() {
+    // Stop subsequent GA4 hits immediately, then reload without the tag.
+    window['ga-disable-' + MEASUREMENT_ID] = true;
+    if (window.__mingeagleGa4Loaded && typeof window.gtag === 'function') {
+      window.gtag('consent', 'update', {
+        analytics_storage: 'denied',
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied'
+      });
+    }
+    // Best-effort deletion of first-party Analytics cookies created on this host.
+    var host = window.location.hostname;
+    var domains = ['', host, '.mingeagle.com'];
+    document.cookie.split(';').forEach(function (part) {
+      var name = part.split('=')[0].trim();
+      if (!/^_ga(?:_|$)|^_gid$|^_gat(?:_|$)/.test(name)) return;
+      domains.forEach(function (domain) {
+        document.cookie = name + '=; Max-Age=0; path=/' +
+          (domain ? '; domain=' + domain : '') + '; SameSite=Lax';
+      });
+    });
+    if (window.__mingeagleGa4Loaded) window.location.reload();
+  }
+
   function loadGoogleAnalytics() {
     if (window.__mingeagleGa4Loaded) return;
+    window['ga-disable-' + MEASUREMENT_ID] = false;
     window.__mingeagleGa4Loaded = true;
     window.dataLayer = window.dataLayer || [];
     window.gtag = window.gtag || function () {
@@ -216,6 +242,7 @@
       saveChoice('rejected');
       panel.hidden = true;
       settings.hidden = false;
+      revokeGoogleAnalytics();
     });
     var close = makeButton('mingeagle-ga4-button mingeagle-ga4-close', function () {
       panel.hidden = true;

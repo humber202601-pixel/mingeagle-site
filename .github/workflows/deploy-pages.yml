@@ -480,6 +480,9 @@ jobs:
                       assert b'calculateFromCatalog' in body
           PY
 
+      - name: Audit live GA4 consent assets without sending analytics events
+        run: node scripts/verify-live-ga4-consent.mjs
+
       - name: Audit all 31 live public sitemap URLs after deployment
         run: python scripts/check-live-public-crawl.py
 
