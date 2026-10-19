@@ -24,9 +24,9 @@ assert.throws(()=>calculate({retailUnitPrice:17.9,wholesaleUnitPrice:'19.90',qua
 assert.equal(RETAIL_CATALOG_VERSION,createHash('sha256').update(readFileSync('public/retail-reference-prices.json')).digest('hex'));
 const block='Combined wholesale RFQ (customer-selected; not a final price):\nFlocked Silent Basketball Set | No. 5 | Blue | 100 units';
 assert.deepEqual(quoteInquiryDefaults({estimated_quantity:'50–100',message:block}),{quantity:'100',description:'Flocked Silent Basketball Set | No. 5 | Blue',multiline:false,shippingState:''});
-assert.equal(quoteInquiryDefaults({message:block+'\\nBuyer-provided US destination state: TX'}).shippingState,'TX','A valid buyer-provided US state can prefill the draft for review');
+assert.equal(quoteInquiryDefaults({message:block+'\nBuyer-provided US destination state: TX'}).shippingState,'TX','A valid buyer-provided US state can prefill the draft for review');
 assert.equal(quoteInquiryDefaults({message:'Buyer-provided US destination state: ZZ'}).shippingState,'','An invalid state never pre-fills a customer-facing quote');
-assert.equal(quoteInquiryDefaults({message:'Buyer-provided US destination state: CA\\nBuyer-provided US destination state: TX'}).shippingState,'TX','The backend-validated final state marker wins over arbitrary earlier message text');
+assert.equal(quoteInquiryDefaults({message:'Buyer-provided US destination state: CA\nBuyer-provided US destination state: TX'}).shippingState,'TX','The backend-validated final state marker wins over arbitrary earlier message text');
 assert.equal(quoteInquiryDefaults({estimated_quantity:'100+'}).quantity,'','A quantity tier is not an exact quantity');
 assert.equal(quoteInquiryDefaults({estimated_quantity:'50',message:block}).quantity,'','Conflicting quantities require human confirmation');
 assert.equal(quoteInquiryDefaults({message:block+'\nFlocked Silent Soccer Ball | No. 5 | Black/White | 20 units'}).multiline,true);
