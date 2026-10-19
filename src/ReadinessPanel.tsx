@@ -38,6 +38,39 @@ function StripeTaxRegistrationsReadOnly({accessKey,refresh}:{accessKey:string;re
     仍须核实政府实际税务许可、客户目的州和相关销售税义务；未登记的州不应被自动判定为无需纳税。</p>}
  </>;
 }
+type LiveTaxSettings={ok:boolean;checkedAt?:string;status?:string;livemode?:boolean;
+ defaultTaxBehavior?:string|null;defaultTaxCode?:string|null;
+ headOffice?:{address?:{line1?:string|null;line2?:string|null;city?:string|null;
+  state?:string|null;postalCode?:string|null;country?:string|null}};error?:string};
+function StripeTaxSettingsReadOnly({accessKey,refresh}:{accessKey:string;refresh:number}){
+ const [result,setResult]=useState<LiveTaxSettings|null>(null);
+ const [error,setError]=useState('');
+ useEffect(()=>{
+  const controller=new AbortController();setResult(null);setError('');
+  fetch('/api/admin/stripe-tax-settings',{headers:{'x-admin-key':accessKey},
+    signal:controller.signal,cache:'no-store'})
+   .then(async response=>{
+    const value=await response.json() as LiveTaxSettings;
+    if(!response.ok||!value.ok)throw Error(value.error||'Stripe Tax 设置无法读取');
+    if(!controller.signal.aborted)setResult(value);
+   }).catch(e=>{if(!controller.signal.aborted)setError(e instanceof Error?e.message:'Stripe Tax 设置读取失败')});
+  return ()=>controller.abort();
+ },[accessKey,refresh]);
+ const address=result?.headOffice?.address;
+ const addressText=address?[address.line1,address.line2,address.city,address.state,address.postalCode,address.country]
+   .filter((v):v is string=>Boolean(v&&v.trim())).join(', '):'未返回总部地址';
+ return <>
+  <div className="list-row"><div><strong>Stripe Tax Live 设置与总部地址（只读）</strong>
+   <small>展示 Stripe 当前 Tax 设置和计算用总部地址。设置为 active 不代表已取得州销售税注册或收税资格。</small></div>
+   <span>{error?'无法核验':result?(result.status==='active'?'设置 active':'设置 pending'):'查询中…'}</span></div>
+  {error&&<p role="alert" className="form-status error">Stripe Tax Live 设置查询失败：{error}。不能把读取失败解释为设置正常或异常。</p>}
+  {result&&<p role="status" style={{fontSize:12,color:result.status==='active'?'#667085':'#b54708'}}>
+   当前税务总部地址：{addressText}。默认税务行为：{result.defaultTaxBehavior||'未设置'}；默认税码：{result.defaultTaxCode||'未设置'}。核查时间 UTC {result.checkedAt}。
+   请确认该地址准确反映企业用于税务计算的经营地点；如果它仅用于注册代理收件，不要自动视为实际经营地址，也不要未经核实修改。Stripe Tax 设置、州技术允许名单与政府税务注册是不同事项。
+  </p>}
+ </>;
+}
+
 const count=(n:number|null):string=>n===null?'尚无法核验':String(n);
 export default function ReadinessPanel({accessKey}:{accessKey:string}){
  const [data,setData]=useState<Snapshot|null>(null),[error,setError]=useState('');
@@ -105,6 +138,7 @@ export default function ReadinessPanel({accessKey}:{accessKey:string}){
     <span>{data.payments.b2bConfigurationReady?'B2B 技术配置就绪；允许目的州/DC '+data.payments.b2bApprovedDestinationStates.length+' 个（非税务注册清单）':data.payments.retailOnlyRestriction?'当前仅限零售样品付款':data.payments.b2bCheckoutRequested&&!data.payments.b2bTaxReviewed?'待审核 B2B 税务及运输费用':'B2B 收款尚未开放或条件未满足'}</span></div>
    {data.payments.b2bCheckoutRequested&&<p role="status" style={{fontSize:12,color:'#b54708'}}>Stripe Tax 开关、技术目的州清单及后台税务审核标志均不等于已取得政府销售税许可。请对照下方 Stripe Tax Live 实际登记记录，逐单核实税务义务、合法税务依据、买方接受报价及支付凭证。</p>}
    <StripeTaxRegistrationsReadOnly accessKey={accessKey} refresh={refresh}/>
+    <StripeTaxSettingsReadOnly accessKey={accessKey} refresh={refresh}/>
    <p style={{fontSize:12,color:'#667085'}}>核查 UTC {data.checkedAt}。当前面板只展示正式状态、聚合记录数和凭证是否存在，不会创建报价、发送邮件或执行付款。</p>
   </>}
  </section>;
