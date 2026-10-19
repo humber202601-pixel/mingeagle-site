@@ -105,6 +105,14 @@ try{
  const tamper=setup('TAMPER');
  sqlite.prepare("UPDATE order_items SET line_total=149 WHERE order_id=?").run(tamper.orderId);
  assert.equal((await call(tamper.ref)).body.code,'SOURCE_LINE_ITEMS_INVALID');
+ const badTotal=setup('BADTOTAL');
+ sqlite.prepare("UPDATE orders SET total=179 WHERE id=?").run(badTotal.orderId);
+ assert.equal((await call(badTotal.ref)).body.code,'SOURCE_LINE_ITEMS_INVALID',
+  'Do not clone an order whose total does not reconcile with items and freight');
+ const badTax=setup('BADTAX');
+ sqlite.prepare("UPDATE orders SET tax=5 WHERE id=?").run(badTax.orderId);
+ assert.equal((await call(badTax.ref)).body.code,'SOURCE_LINE_ITEMS_INVALID',
+  'Tax changes must reconcile with the original total before preparing a new quote');
  const race=setup('RACE');
  concurrency={id:race.orderId,status:'PAID'};
  const before=sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n;
