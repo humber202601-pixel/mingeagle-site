@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import {build} from 'esbuild';
 import {DatabaseSync} from 'node:sqlite';
-import {readFileSync} from 'node:fs';
+import {readFileSync,readdirSync} from 'node:fs';
 const result=await build({entryPoints:['functions/api/admin/unpaid-wholesale-requote.ts'],
  bundle:true,platform:'node',format:'esm',write:false,logLevel:'silent'});
 const {onRequestPost}=await import('data:text/javascript;base64,'+
  Buffer.from(result.outputFiles[0].text).toString('base64'));
 const sqlite=new DatabaseSync(':memory:');
-sqlite.exec(readFileSync('migrations/0001_core.sql','utf8'));
-sqlite.exec(readFileSync('migrations/0003_airwallex_payment_sessions.sql','utf8'));
+for(const file of readdirSync('migrations').filter(x=>x.endsWith('.sql')).sort())
+ sqlite.exec(readFileSync('migrations/'+file,'utf8'));
 let concurrency=null;
 const db={
  prepare(sql){return {sql,args:[],bind(...args){this.args=args;return this;},
