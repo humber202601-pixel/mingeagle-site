@@ -9,6 +9,12 @@ try{
  const fail=(message)=>{const r=run();assert.notEqual(r.status,0,message)};
  pass();
  const german=path.join(dir,'school-sports-equipment-de.html'),g=fs.readFileSync(german,'utf8');
+ fs.writeFileSync(german,g.replace('<title>Leise Sportbälle für Schulen | MING EAGLE</title>','<title>Leise Sportbälle für Schulen und Basketball-Akademien | MING EAGLE</title>'));
+ fail('Overlong search titles must be rejected');fs.writeFileSync(german,g);
+ fs.writeFileSync(german,g.replace('"image":"https://www.mingeagle.com/assets/hero-flocked-silent-basketball-set.webp?v=20261007-1","inLanguage":"de"','"inLanguage":"de"'));
+ fail('Article structured data must declare the image shown on the page');fs.writeFileSync(german,g);
+ fs.writeFileSync(german,g.replace('alt="Beflocktes Basketball-Set mit Mini-Korb für beaufsichtigte Hallenübungen"','alt=""'));
+ fail('Visible product image must have meaningful alternative text');fs.writeFileSync(german,g);
  fs.writeFileSync(german,g.replace('hreflang="fr" href="https://www.mingeagle.com/school-sports-equipment-fr.html"','hreflang="fr" href="https://unrelated.example/school-sports-equipment-fr.html"'));
  fail('Hreflang must be reciprocal and must not point off-domain');fs.writeFileSync(german,g);
  fs.writeFileSync(german,g.replace('<html lang="de">','<html lang="en">'));
