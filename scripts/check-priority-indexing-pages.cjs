@@ -98,5 +98,6 @@ const videoSchema=schemaFromPage('videos.html');
 assert.equal(videoSchema['@type'],'CollectionPage');
 assert.equal(videoSchema.url,'https://www.mingeagle.com/videos.html');
 assert.equal(videoSchema.name,'16 Silent Basketball Creator Videos | MING EAGLE');
+assert.equal(videoSchema.about['@type'],'Thing','Do not publish incomplete Product schema on the video collection');
 assert(!JSON.stringify(videoSchema).includes('VideoObject'),'Do not invent per-video schema without verified metadata');
 console.log('PASS: buyer-guide and product-page metadata, structured data, crawlable model links and truthful video limitations.');
