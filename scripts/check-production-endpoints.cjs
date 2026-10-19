@@ -87,7 +87,7 @@ async function checkProduction({expectedRevision, fetcher=globalThis.fetch, atte
   // The deployment hash alone does not prove that the buyer journey survived.
   // GET-only acceptance checks never create leads, send messages or charge cards.
   const buyerPages=[
-    ['', ['INDOOR SPORTS EQUIPMENT FOR ORGANIZATIONS.', 'id="institutional-buyers"', 'href="procurement.html"','href="inquiry.html?type=quote"']],
+    ['', ['QUIET INDOOR SPORTS BALLS FOR ORGANIZATIONS.', 'id="institutional-buyers"', 'href="procurement.html"','href="inquiry.html?type=quote"']],
     ['procurement.html', ['PROCUREMENT-READY INDOOR SPORTS EQUIPMENT.', 'customer=government', 'customer=business','Request samples']],
     ['wholesale.html', ['SUPPLY OPTIONS FOR INSTITUTIONAL BUYERS.', 'href="procurement.html"', 'href="inquiry.html?type=quote"']],
     ['for-schools.html', ['School district and procurement office resources', 'customer=district']],
