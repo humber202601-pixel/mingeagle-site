@@ -5,12 +5,12 @@ const file=name=>fs.readFileSync(path.join(root,name),'utf8');
 const sitemap=file('sitemap.xml');
 const pages=[
  {file:'custom-basketball-for-teams.html',kind:'Article',marker:'TEAM LOGO BUYER ANSWERS',
- title:'Custom logo silent basketballs for teams and schools',
+ title:'Custom Team Basketballs with Logo',
  h2:'Where can schools and basketball clubs request custom-logo silent basketballs?',
  answers:5,links:['silent-basketball.html','weighted-flocked-basketball.html','fabric-silent-basketball.html','custom-logo.html','inquiry.html?type=quote&amp;customer=business','school-basketball-bulk-order-rfq-checklist.html'],
  evidence:['10 or more units','No universal logo-printing minimum','not certified regulation-match','visual mockup','no independent decibel-reduction']},
  {file:'for-schools.html',kind:'WebPage',marker:'SCHOOL BULK BUYER ANSWERS',
- title:'School Basketballs for Indoor PE & Bulk Orders | MING EAGLE',
+ title:'Basketballs for Schools | Indoor PE & Bulk Orders | MING EAGLE',
  h2:'How should schools choose and order indoor basketballs for PE in bulk?',
  answers:4,links:['custom-basketball-for-teams.html','school-basketball-bulk-order-rfq-checklist.html','procurement.html','inquiry.html?type=quote&amp;customer=school'],
  evidence:['10 or more units','No measured acoustic rating','No government vendor approval']}
@@ -40,8 +40,8 @@ for(const p of pages){
  assert(head.includes(p.title)||head.includes(p.title.replace(/&/g,'&amp;')),p.file+' title must explain the relevant buyer intent; production builders escape HTML ampersands');
 }
 const rootCopy=JSON.parse(fs.readFileSync('admin/learning-copy.json','utf8')).en;
-assert.equal(rootCopy['team.0'],'Custom logo silent basketballs for teams and schools');
+assert.equal(rootCopy['team.0'],'Custom Team Basketballs with Logo');
 assert(rootCopy['team.1'].includes('10+ units'));
 const seo=fs.readFileSync('scripts/build-seo-v37.cjs','utf8');
-assert(seo.includes('School Basketballs for Indoor PE & Bulk Orders | MING EAGLE'));
+assert(seo.includes('Basketballs for Schools | Indoor PE & Bulk Orders | MING EAGLE'));
 console.log('PASS: updated school/logo answer-first content, two observed GSC query intents, real internal buyer links, schema/edit dates, no false performance or government claims.');
