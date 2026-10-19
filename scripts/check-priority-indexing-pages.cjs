@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs');
 function assertSearchSnippetLength(filename,head){
  const title=(head.match(/<title(?:\s[^>]*)?>([\s\S]*?)<\/title>/i)?.[1]||'').replace(/&amp;/g,'&').trim();
- const description=(head.match(/<meta\b(?=[^>]*\bname=["']description["'])[^>]*\bcontent=["']([^"']*)["']/i)?.[1]||'').replace(/&amp;/g,'&').trim();
+ const description=(head.match(/<meta\b(?=[^>]*\bname=["']description["'])[^>]*\bcontent="([^"]*)"/i)?.[1]||'').replace(/&amp;/g,'&').trim();
  assert(title.length>0&&title.length<=60,filename+' title should be 1–60 characters; got '+title.length);
  assert(description.length>0&&description.length<=160,filename+' meta description should be 1–160 characters; got '+description.length);
 }
