@@ -3,7 +3,7 @@ interface Env {MINGEAGLE_DB:D1Database}
 type Input={orderReference?:string};
 type Source={id:string;reference:string;quote_id:string|null;lead_id:string|null;
  company_id:string|null;contact_id:string|null;status:string;payment_status:string;
- currency:string;subtotal:number;shipping:number;total:number;quote_status:string|null};
+ currency:string;subtotal:number;discount:number;shipping:number;tax:number;total:number;quote_status:string|null};
 type Line={product_id:string|null;variant_id:string|null;description:string;
  quantity:number;unit_price:number;line_total:number};
 const reply=(v:object,s=200)=>Response.json(v,{status:s,headers:{'cache-control':'private, no-store'}});
@@ -23,7 +23,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  const db=env.MINGEAGLE_DB;
  try{
   const order=await db.prepare(`SELECT o.id,o.reference,o.quote_id,o.lead_id,o.company_id,o.contact_id,
-    o.status,o.payment_status,o.currency,o.subtotal,o.shipping,o.total,q.status AS quote_status
+    o.status,o.payment_status,o.currency,o.subtotal,o.discount,o.shipping,o.tax,o.total,q.status AS quote_status
     FROM orders o LEFT JOIN quotes q ON q.id=o.quote_id
     WHERE o.reference=? LIMIT 1`).bind(ref).first<Source>();
   if(!order)return reply({ok:false,error:'Order not found.'},404);
@@ -47,14 +47,22 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     error:'Only 10+ unit wholesale orders qualify for this recovery flow.'},409);
   let calc:ReturnType<typeof quoteTotals>;
   try{
-   calc=quoteTotals(rows.map(x=>({quantity:x.quantity,unitPrice:x.unit_price})),order.shipping,0,0);
-   if(Math.abs(calc.subtotal-Number(order.subtotal))>0.005||
+   const lines=rows.map(x=>({quantity:x.quantity,unitPrice:x.unit_price}));
+   const original=quoteTotals(lines,order.shipping,order.discount,order.tax);
+   if(Math.abs(original.subtotal-Number(order.subtotal))>0.005||
+     Math.abs(original.discount-Number(order.discount))>0.005||
+     Math.abs(original.shipping-Number(order.shipping))>0.005||
+     Math.abs(original.tax-Number(order.tax))>0.005||
+     Math.abs(original.total-Number(order.total))>0.005||
      rows.some((x,i)=>!x.description?.trim()||
-       Math.abs(calc.lineCents[i]-Math.round(Number(x.line_total)*100))>0))
-    throw Error('Unreconciled lines');
+       Math.abs(original.lineCents[i]-Math.round(Number(x.line_total)*100))>0))
+    throw Error('Unreconciled historical order');
+   // Carry forward only reconciled item and freight snapshots. The replacement
+   // draft intentionally drops old discounts and taxes until freshly reviewed.
+   calc=quoteTotals(lines,order.shipping,0,0);
   }catch{
    return reply({ok:false,code:'SOURCE_LINE_ITEMS_INVALID',
-    error:'Original order lines cannot be reconciled. Perform a manual review before drafting.'},409);
+    error:'Historical order items, discount, freight, tax and total do not reconcile. Perform a manual review before drafting.'},409);
   }
   // Lazy schema creation, only when explicitly requested by authenticated owner.
   await db.prepare(`CREATE TABLE IF NOT EXISTS b2b_recovery_quote_links(
