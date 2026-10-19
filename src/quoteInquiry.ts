@@ -5,7 +5,7 @@ import {isUsDeliveryState} from '../lib/us-delivery-states';
 // Only explicit customer-reviewed values may prefill a draft. Never use a tier's floor.
 export function quoteInquiryDefaults(item?: Record<string, unknown>) {
   const message = String(item?.message || '');
-  const stateMatches=[...message.matchAll(/^Buyer-provided US destination state:\\s*([A-Z]{2})\\s*$/gm)];
+  const stateMatches=[...message.matchAll(/^Buyer-provided US destination state:\s*([A-Z]{2})\s*$/gm)];
   const stateCandidate=stateMatches.at(-1)?.[1]||'';
   const shippingState=isUsDeliveryState(stateCandidate)?stateCandidate:'';
   const rfq = parseWholesaleRfq(message);
