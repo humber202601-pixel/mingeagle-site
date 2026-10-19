@@ -4,6 +4,7 @@ type Snapshot={ok:boolean;checkedAt:string;
  procurement:{catalogPresent:boolean;supplierSources:number|null;approvedSourceCount:number|null;shippingRates:number|null;activeShippingRates:number|null;packagingSkus:number|null;activeShippingRoutes:Array<{country:string;method:string;minimumUnits:number}>|null};
  retailReferenceCostRisk:{schemaPresent:boolean;comparableSkus:number|null;atOrBelowApprovedCost:number|null;unmatchedApprovedSkus:number|null;affectedSkus:string[]|null};
  b2bStripeEvidence:{schemaPresent:boolean;wholesaleOrders:number|null;awaitingPaymentOrders:number|null;stripeCheckoutSessions:number|null;reconciledPaidOrders:number|null};
+ paidOrderReceiptHealth:{schemaPresent:boolean;paidOrders:number|null;missingStripeReceiptOrders:number|null};
  quoteExpiryHealth:{schemaPresent:boolean;outstandingSentOrViewed:number|null;expiringWithinTwoCalendarDays:number|null;pastValidityDate:number|null};
  b2bStripeSessionHealth:{schemaPresent:boolean;openOrPendingSessions:number|null;olderThan24Hours:number|null;oldestAgedUTC:string|null};
  stripeWebhookHealth:{schemaPresent:boolean;receivedEvents:number|null;processedEvents:number|null;unprocessedEvents:number|null;
@@ -68,6 +69,9 @@ export default function ReadinessPanel({accessKey}:{accessKey:string}){
    <div className="list-row"><div><strong>已启用国家运价 / 运输包装 SKU</strong><small>运价需要实际核实，单件运费不代表最终可收款报价</small></div><span>{count(data.procurement.activeShippingRates)} / {count(data.procurement.packagingSkus)}</span></div>
    <div className="list-row"><div><strong>已核验自动运价目的地</strong><small>只显示已启用的国家、运输方式及最低件数；未列出的目的地必须人工询价，不能套用美国运价。</small></div><span>{data.procurement.activeShippingRoutes===null?'尚无法核验':data.procurement.activeShippingRoutes.length===0?'暂无启用运价':data.procurement.activeShippingRoutes.map(r=>r.country+' '+(r.method==='sea'?'海运':'空运')+'≥'+r.minimumUnits+'件').join('；')}</span></div>
    <div className="list-row"><div><strong>真实批发 Stripe 收款闭环</strong><small>仅统计报价合计至少 10 件、Stripe 成功会话对应足额入账记录且订单为 PAID 的正式订单；不包含 $0.50 独立验证或历史线下收款。</small></div><span>{data.b2bStripeEvidence.reconciledPaidOrders===null?'尚无法核验':data.b2bStripeEvidence.reconciledPaidOrders+' / '+count(data.b2bStripeEvidence.wholesaleOrders)}</span></div>
+   <div className="list-row"><div><strong>PAID 订单缺少 Stripe 对账凭证</strong><small>缺少匹配的足额 Stripe RECEIVED 记录与 SUCCEEDED 会话 / 全部 PAID 订单；只读本地台账统计，不代表 Stripe 实时状态。</small></div><span>{count(data.paidOrderReceiptHealth.missingStripeReceiptOrders)} / {count(data.paidOrderReceiptHealth.paidOrders)}</span></div>
+   {(data.paidOrderReceiptHealth.missingStripeReceiptOrders??0)>0&&<p role="alert" className="form-status error">有 {data.paidOrderReceiptHealth.missingStripeReceiptOrders} 笔已标记 PAID 的订单在本地台账中缺少匹配的足额 Stripe 成功会话凭证。请先核对 Stripe Dashboard、Webhook 和到账记录；不要手工改状态或再次扣款。</p>}
+   {!data.paidOrderReceiptHealth.schemaPresent&&<p role="alert" className="form-status error">付款对账表不完整，无法核验已标记 PAID 的订单；未知不等于 0。</p>}
    <WholesalePaymentPreflight accessKey={accessKey} refresh={refresh}/>
    <div className="list-row"><div><strong>批发待付款订单 / Stripe 会话</strong><small>未全额付款订单数和已创建的批发 Stripe Checkout 会话数，均为生产数据库只读统计；不代表已扣款。</small></div><span>{count(data.b2bStripeEvidence.awaitingPaymentOrders)} / {count(data.b2bStripeEvidence.stripeCheckoutSessions)}</span></div>
    {data.b2bStripeEvidence.schemaPresent&&data.b2bStripeEvidence.reconciledPaidOrders===0&&<p role="status" className="form-status error">尚无可核对的正式批发 Stripe 足额付款闭环。配置开启及独立小额测试成功，不等于客户批发订单验收通过。</p>}
