@@ -1,6 +1,20 @@
 import assert from 'node:assert/strict';
 
 const origin = 'https://app.mingeagle.com';
+
+const gateResponse = await fetch(origin + '/api/retail/checkout-status', {
+  headers: { accept: 'application/json', 'cache-control': 'no-cache' },
+  redirect: 'error',
+  signal: AbortSignal.timeout(15000),
+});
+assert.equal(gateResponse.status, 200, 'production checkout-status must respond');
+const gate = await gateResponse.json();
+assert.equal(gate.ok, true, 'production checkout-status must return ok');
+assert.equal(typeof gate.retailCheckoutReady, 'boolean', 'checkout readiness must be explicit');
+assert(Array.isArray(gate.supportedStates), 'supportedStates must be an array');
+console.log('OBSERVED current production retail gate: ready=' + gate.retailCheckoutReady +
+  '; supported states (' + gate.supportedStates.length + '): ' + gate.supportedStates.join(', '));
+
 const cases = [
   {
     name: 'one P1-S3 set',
