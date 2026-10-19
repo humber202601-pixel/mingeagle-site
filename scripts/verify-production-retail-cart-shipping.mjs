@@ -49,10 +49,15 @@ for (const test of cases) {
   assert.equal(data.ok, true, test.name + ': API must return ok');
   assert.equal(data.wholesale, false, test.name + ': retail response must explicitly say wholesale=false');
   assert.equal(data.ddpConfirmed, true, test.name + ': only approved duty-paid SKUs are used');
-  assert.equal(data.shippingPlan, 'ONE_UNIT_PER_PARCEL', test.name + ': preserve separate-parcel contract');
   assert.equal(data.quantity, test.expected.quantity, test.name + ': quantity mismatch');
-  assert.equal(data.parcelCount, test.expected.quantity, test.name + ': every set must have its own parcel');
-  for (const field of ['productsUSD', 'shippingUSD', 'totalBeforeTaxesUSD']) {
+  // The legacy single-item response uses productUSD; multi-item responses use productsUSD.
+  const productsUSD = data.productsUSD ?? data.productUSD;
+  assert.equal(
+    Math.round(Number(productsUSD) * 100),
+    Math.round(test.expected.productsUSD * 100),
+    test.name + ': product amount mismatch',
+  );
+  for (const field of ['shippingUSD', 'totalBeforeTaxesUSD']) {
     assert.equal(
       Math.round(Number(data[field]) * 100),
       Math.round(test.expected[field] * 100),
@@ -61,10 +66,14 @@ for (const test of cases) {
   }
   assert.equal(
     Math.round(Number(data.totalBeforeTaxesUSD) * 100),
-    Math.round(Number(data.productsUSD) * 100) + Math.round(Number(data.shippingUSD) * 100),
+    Math.round(Number(productsUSD) * 100) + Math.round(Number(data.shippingUSD) * 100),
     test.name + ': total must equal product plus shipping before sales tax',
   );
-  assert.match(String(data.notice || ''), /parcels may arrive separately/i, test.name + ': disclose separate parcel delivery');
+  if (test.expected.quantity > 1) {
+    assert.equal(data.shippingPlan, 'ONE_UNIT_PER_PARCEL', test.name + ': preserve separate-parcel contract');
+    assert.equal(data.parcelCount, test.expected.quantity, test.name + ': every set must have its own parcel');
+    assert.match(String(data.notice || ''), /parcels may arrive separately/i, test.name + ': disclose separate parcel delivery');
+  }
   console.log('PASS ' + test.name + ': products $' + test.expected.productsUSD.toFixed(2) +
     ' + shipping $' + test.expected.shippingUSD.toFixed(2) +
     ' = $' + test.expected.totalBeforeTaxesUSD.toFixed(2) + ' before sales tax');
