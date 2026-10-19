@@ -18,8 +18,8 @@ const settings={
   description:'Compare flocked and fabric-cover basketball sets with mini hoops, weighted practice balls and indoor soccer. Review sizes, colors and US shipping.'
  },
  'wholesale.html':{
-  title:'Silent Basketball Wholesale & Bulk Orders | MING EAGLE',
-  description:'Silent basketball wholesale supply for coaches, training academies, schools and retailers. Compare models, request samples and ask for a bulk shipping quote.'
+  title:'Wholesale Basketballs & Quiet Indoor Sports | MING EAGLE',
+  description:'Wholesale basketballs and quiet indoor sports balls for schools, coaches, public agencies and distributors. Request samples and a written bulk quote.'
  },
  'for-coaches.html':{
   title:'Silent Basketballs for Coaches & Academies | MING EAGLE',
@@ -27,7 +27,7 @@ const settings={
   schema:{'@context':'https://schema.org','@type':'WebPage',name:'Silent Basketballs for Coaches & Academies | MING EAGLE',url:base+'for-coaches.html',description:'Explore indoor basketballs for youth training, academies and coaches. Compare sizes and weighted options, request a sample or ask for a bulk quote.',isPartOf:{'@type':'WebSite',name:'MING EAGLE',url:base},about:{'@type':'Organization',name:'MING EAGLE COMMERCE LLC',url:base}}
  },
  'for-schools.html':{
-  title:'School Basketballs for Indoor PE & Bulk Orders | MING EAGLE',
+  title:'Basketballs for Schools | PE & Bulk Orders | MING EAGLE',
   description:'Compare soft silent-style basketballs for schools and supervised PE. See sizes, a free RFQ checklist, sample options, and reviewed bulk orders for 10+ units.'
  },
  'silent-basketball.html':{
