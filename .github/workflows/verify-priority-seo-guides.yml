@@ -5,6 +5,7 @@ on:
     paths:
       - "public/basketball-camp-equipment-supplier.html"
       - "public/quiet-indoor-sports-for-kids.html"
+      - "public/silent-basketball-bulk-buying-guide.html"
       - "public/school-basketball-bulk-order-rfq-checklist.html"
       - "public/inquiry.html"
       - "public/silent-basketball-guide.html"
@@ -18,6 +19,7 @@ on:
     paths:
       - "public/basketball-camp-equipment-supplier.html"
       - "public/quiet-indoor-sports-for-kids.html"
+      - "public/silent-basketball-bulk-buying-guide.html"
       - "public/school-basketball-bulk-order-rfq-checklist.html"
       - "public/inquiry.html"
       - "public/silent-basketball-guide.html"
