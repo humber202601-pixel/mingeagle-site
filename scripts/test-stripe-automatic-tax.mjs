@@ -97,7 +97,7 @@ try{
  const ordersBeforeUnreviewed=sql.prepare('SELECT COUNT(*) n FROM orders').get().n;
  const checkoutCallsBeforeUnreviewed=checkoutCalls;
  const unreviewedCreated=await retail({env:nationwideUnreviewed,request:req('/api/retail/checkout',{...input,requestId:randomUUID(),state:'NY',city:'New York',postalCode:expectedZip})});
- assert.equal(unreviewedCreated.status,409,await unreviewedCreated.clone().text());
+ assert.equal(unreviewedCreated.status,503,await unreviewedCreated.clone().text());
  assert.equal(sql.prepare('SELECT COUNT(*) n FROM orders').get().n,ordersBeforeUnreviewed,'Unreviewed state cannot create an order');
  assert.equal(checkoutCalls,checkoutCallsBeforeUnreviewed,'Unreviewed state cannot start Stripe Checkout');
 
