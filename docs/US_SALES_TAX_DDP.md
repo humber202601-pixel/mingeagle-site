@@ -10,9 +10,9 @@
 ## Tax obligations independent of Stripe
 1. Determine registered LLC state, place of management, inventory ownership, workers/agents, trade shows and physical presence in each state. An LLC, US bank account, or future warehouse alone is not enough to determine every state obligation.
 2. Count current and prior calendar-year sales by destination state, including all channels by the same seller and marketplace sales where applicable. Save the ledger and marketplace facilitator certificates.
-3. Kentucky remote seller threshold: 200 or more KY sales OR US$100,000 in Kentucky receipts in current or previous calendar year (Kentucky DOR): https://taxanswers.ky.gov/Sales-and-Excise-Taxes/Pages/Remote-Retailers-Marketplace-Providers-FAQs.aspx
+3. **Kentucky remote-seller economic nexus update (effective 2026-08-01):** HB 757, 2026 Ky. Acts ch. 161, §16 amended KRS 139.340(2)(g) to remove the former 200-transaction test. The current economic threshold is gross receipts from relevant sales delivered into Kentucky **exceeding US$100,000** in the current or previous calendar year. This does not resolve physical/agency nexus or every obligation of a Kentucky-organized LLC. The Kentucky DOR FAQ may still show the old transaction test; use the enacted statute as primary law and obtain qualified tax advice. Official act: https://apps.legislature.ky.gov/law/acts/26RS/documents/0161.pdf (see §16 and §135); HB 757 record: https://apps.legislature.ky.gov/record/26rs/hb757.html
 4. An operating warehouse holding owned inventory in KY can create physical nexus even below economic threshold. Before inventory arrives, review KY registration and inventory ownership.
-5. Consult other states' specific official DOR requirements; thresholds, transaction counts, sourcing rules and sale definitions differ. Source reference: https://www.streamlinedsalestax.org/for-businesses/marketplace-sellers
+5. Consult other states' specific official DOR requirements; thresholds, transaction counts (where still applicable), sourcing rules and sale definitions differ. Source reference: https://www.streamlinedsalestax.org/for-businesses/marketplace-sellers
 6. If registration and collection are REQUIRED in any destination state, do not classify it as "no collection required": register first and integrate Stripe Tax or an approved tax calculation/filing provider. Do not simply charge 0%.
 7. Product tax category must be tangible sporting goods, not an electronically supplied service. Resale / school exemptions require valid certificates where applicable.
 8. Periodically review nexus, especially before the first KY warehouse inbound shipment.
@@ -53,3 +53,10 @@ Stripe Checkout will not collect a different delivery state from the existing ve
 - Streamlined sales tax state/marketplace rules: https://www.streamlinedsalestax.org/for-businesses/marketplace-sellers
 - Stripe Tax guidance: https://support.stripe.com/questions/charging-sales-tax-gst-or-vat-on-payments
 - US Customs current duty regime: https://www.govinfo.gov/content/pkg/FR-2026-10-08/html/2026-20650.htm
+
+
+## 2026-10-19 live Stripe Tax evidence addendum
+- A direct read-only request to the connected **Live** Stripe account returned zero Tax Registration objects (active registrations endpoint: `data=[]`, `has_more=false`). This is a statement about Stripe's current configuration, not a legal finding that the merchant has no registration obligations.
+- Stripe Tax Settings returned `status=active`, `tax_behavior=exclusive`, and a Kentucky head-office address that matches the registered-agent address the owner previously said is for service of process/compliance mail only. Because Stripe defines this field as the place where the business is located for tax purposes, the owner/tax adviser should verify the correct tax-location entry. No address or Tax setting was changed.
+- Stripe Tax threshold monitoring returned `computed_at=null`, `locations=[]`, and `unattributed_locations=[]`. Stripe's monitoring result had no computation timestamp, so it cannot be used as proof of zero nexus, zero sales, or no filing obligation.
+- Read-only audit details and follow-up checklist: `docs/STRIPE_TAX_LIVE_AUDIT_20261019.md`.
