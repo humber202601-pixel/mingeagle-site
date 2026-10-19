@@ -2,7 +2,7 @@ import {type AirwallexEnv} from '../../_shared/airwallex';
 import {type StripeEnv} from '../../_shared/stripe';
 import {verifyInquiryTurnstile,turnstileConfiguration,type TurnstileEnv} from '../../../lib/turnstile-inquiry';
 import {SKU_USD} from '../../../lib/retail-reference';
-import {retailTaxTreatment,reviewedStripeTaxStates,remoteStartupState,remoteStartupWithinLimits,type RetailTaxEnv} from '../../../lib/retail-tax-policy';
+import {retailTaxTreatment,remoteStartupState,remoteStartupWithinLimits,type RetailTaxEnv} from '../../../lib/retail-tax-policy';
 import {registeredStripeTaxState} from '../../_shared/retail-stripe-tax';
 import {onRequestPost as calculateShipping} from '../shipping/cart';
 import {retailCheckoutReady} from './checkout-status';
@@ -83,7 +83,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  if(!captcha.ok||captcha.code!=='OK')return bad('Security challenge must be completed again',403);
  const db=env.MINGEAGLE_DB;
  try{
-  if(reviewedStripeTaxStates(env).has(state)&&!await registeredStripeTaxState(env,state))
+  if(treatment==='STRIPE_AUTOMATIC'&&!await registeredStripeTaxState(env,state))
    return bad('Secure payment for this delivery address is awaiting tax configuration. Please request a confirmed quote.',409);
   // Reject duplicated checkout actions before doing any CRM writes.
   const previous=await db.prepare('SELECT request_id FROM retail_checkout_requests WHERE request_id=?')
