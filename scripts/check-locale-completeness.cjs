@@ -15,6 +15,13 @@ assert(!deployGenerator.includes('site.js?v=20261020-i18n-sync1'),'deployment ge
 assert(!deployGenerator.includes('site.js?v=20261010-growth1'),'deployment generator must not restore the stale site.js cache key');
 assert(deployGenerator.includes('locale.setdefault(key, value)'),'deployment generator must only fill missing shared-copy keys');
 assert(!/locale\.update\(json\.loads\(Path\('admin\/inquiry-copy\.json'\)/.test(deployGenerator),'English admin copy must not overwrite every locale');
+for(const name of fs.readdirSync('public').filter(name=>name.endsWith('.html'))){
+ const html=fs.readFileSync('public/'+name,'utf8');
+ if(html.includes('src="site.js')){
+  assert(html.includes('src="site.js?v=20261020-i18n-sync2"'),name+': must reference the current locale bundle cache key');
+  assert(!html.includes('site.js?v=20261020-i18n-sync1'),name+': must not reuse the previous locale bundle cache key');
+ }
+}
 assert.deepEqual(Object.keys(doc).sort(),languages.slice().sort(),'Approved language set changed');
 const reference=Object.keys(doc.en).sort();
 assert(reference.length>=150,'Unexpected truncation of English locale');
