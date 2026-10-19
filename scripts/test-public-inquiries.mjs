@@ -61,6 +61,11 @@ try{
   const wrongContact=await request({...general,email:'different@example.test'});
   assert.equal(wrongContact.status,409,'the same ME reference cannot return another contact private CRM identifiers');
   assert.equal(count('leads'),1);
+  const missingUSState=await request({...general,originalReference:'ME-20261010-USSTATE1',requestType:'WHOLESALE',requestLabel:'Wholesale quote',country:'United States',estimatedQuantity:'25'});
+  assert.equal(missingUSState.status,400,'US wholesale quotes require a confirmed state before CRM write');
+  const invalidUSState=await request({...general,originalReference:'ME-20261010-USSTATE2',requestType:'WHOLESALE',requestLabel:'Wholesale quote',country:'USA',state:'ZZ',estimatedQuantity:'25'});
+  assert.equal(invalidUSState.status,400,'Reject a non-state two-letter code');
+  assert.equal(count('inquiries'),1,'Invalid US wholesale destinations do not create inquiry rows');
   const sample={...general,originalReference:'ME-20261010-B1B2C3D4',email:'sample@example.test',requestType:'SAMPLE',requestLabel:'Sample request',country:'US',estimatedQuantity:'1–2 samples',creatorVideoCode:'V099'};
   const invalid=await request({...sample,country:''});
   assert.equal(invalid.status,400,'sample shipping country is mandatory');
@@ -107,7 +112,7 @@ try{
     const originalReference='ME-20261015-B2B00'+String(index+1).padStart(3,'0');
     const institutional={
       ...general,originalReference,firstName:'Fixture',
-      email:'institution'+(index+1)+'@example.test',country:'US',
+      email:'institution'+(index+1)+'@example.test',country:'US',state:'TX',
       company:'Fixture Purchasing Office '+(index+1),
       customerType,estimatedQuantity:'25',requestType:'WHOLESALE',
       requestLabel:'Wholesale quote',message:'Requesting product details and written bulk quote.',
@@ -125,6 +130,9 @@ try{
     assert(saved.lead_score>=80,'Named institutional 25-unit RFQ merits purchasing priority');
     assert.equal(saved.priority,'HIGH','Route institutional RFQ to high-priority follow-up');
     assert(saved.task_description.includes('confirm buyer organization'),'Follow-up must verify requirements before quoting');
+    assert(sqlite.prepare('SELECT message FROM inquiries WHERE reference=?').get(originalReference).message.includes('Buyer-provided US destination state: TX'),'Persist state as a buyer-provided hint for human quote review');
+    const stateMeta=sqlite.prepare("SELECT metadata_json FROM activities WHERE activity_type='INQUIRY_CREATED' AND entity_id=(SELECT lead_id FROM inquiries WHERE reference=?)").get(originalReference);
+    assert.equal(JSON.parse(stateMeta.metadata_json).shippingState,'TX');
   }
   assert.equal(count('inquiries'),7,'Four commercial sectors are accepted and tracked');
 
