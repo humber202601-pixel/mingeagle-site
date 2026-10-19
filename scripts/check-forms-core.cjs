@@ -1,10 +1,11 @@
 const assert=require('node:assert/strict');
 const {crmPayload}=require('../public/forms-core.js');
-const base={reference:'ME-20261012-ABCDEFG1',requestType:'Wholesale quote',firstname:'Alex',email:'alex@example.com',phone:'',company:'Example Co',customerType:'Distributor / wholesaler',country:'US',zip:'75201',quantity:'100',products:'Flocked Silent Basketball Set',message:'Information collected by the automated website assistant (please confirm): Product: Flocked Silent Basketball Set; Size: No. 5; Quantity: 100 units; Destination ZIP: 75201'};
+const base={reference:'ME-20261012-ABCDEFG1',requestType:'Wholesale quote',firstname:'Alex',email:'alex@example.com',phone:'',company:'Example Co',customerType:'Distributor / wholesaler',country:'US',state:'TX',zip:'75201',quantity:'100',products:'Flocked Silent Basketball Set',message:'Information collected by the automated website assistant (please confirm): Product: Flocked Silent Basketball Set; Size: No. 5; Quantity: 100 units; Destination ZIP: 75201'};
 const ctx={pageUri:'https://www.mingeagle.com/inquiry.html',landingPage:'https://www.mingeagle.com/',referrer:'Direct / unknown',campaign:'utm_source=google | utm_medium=organic | utm_campaign= | utm_content='};
 const ai=crmPayload(base,ctx);
 assert.equal(ai.leadSource,'Website AI Assistant');
 assert.equal(ai.estimatedQuantity,'100');
+assert.equal(ai.state,'TX','Carry the buyer-provided US state to the CRM API');
 assert.deepEqual(ai.products,['Flocked Silent Basketball Set']);
 const normal=crmPayload({...base,message:'Please send your wholesale catalog.'},ctx);
 assert.equal(normal.leadSource,'MING EAGLE official website');
