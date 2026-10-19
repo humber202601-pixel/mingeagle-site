@@ -22,11 +22,11 @@ const settings={
   description:'Silent basketball wholesale supply for coaches, training academies, schools and retailers. Compare models, request samples and ask for a bulk shipping quote.'
  },
  'for-coaches.html':{
-  title:'Silent Basketballs for Coaches & Training Academies | MING EAGLE',
+  title:'Silent Basketballs for Coaches & Academies | MING EAGLE',
   description:'Explore indoor basketballs for youth training, academies and coaches. Compare sizes and weighted options, request a sample or ask for a bulk quote.'
  },
  'for-schools.html':{
-  title:'Basketballs for Schools | Indoor PE Bulk Orders & Samples | MING EAGLE',
+  title:'School Basketballs for Indoor PE & Bulk Orders | MING EAGLE',
   description:'Compare soft silent-style basketballs for schools and supervised PE. See sizes, a free RFQ checklist, sample options, and reviewed bulk orders for 10+ units.'
  },
  'silent-basketball.html':{
