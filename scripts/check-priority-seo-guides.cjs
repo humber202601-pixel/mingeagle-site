@@ -73,6 +73,8 @@ function titleAndDescription(filename,titleExpected,descriptionExpected){
  const article=articles[0];
  assert.equal(article.headline,'Silent Basketball Setup & Care Guide | MING EAGLE');
  assert.equal(article.description,description);
+ assert.equal(article.datePublished,'2026-10-06','Publication date must match the page first added to the public repository');
+ assert.equal(article.dateModified,'2026-10-19','Modification date must match the verified lastmod and editorial update');
  assert(article.image?.includes(guideImage),'Article schema image must match the existing lead image');
  assert.equal(article.inLanguage,'en');
  assert.equal(article.author?.name,'MING EAGLE');
