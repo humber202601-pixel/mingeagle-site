@@ -49,7 +49,7 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
   // A successful verification charge or a manual bank receipt is not a wholesale Stripe reconciliation.
   const b2bEvidenceSchema=['orders','quote_items','payments','payment_provider_sessions'].every(name=>names.has(name));
   const wholesalePredicate="EXISTS(SELECT 1 FROM quote_items qi WHERE qi.quote_id=o.quote_id GROUP BY qi.quote_id HAVING SUM(qi.quantity)>=10)";
-  const [wholesaleOrderCounts,stripeSettled,stripeSessionCounts]=b2bEvidenceSchema?await Promise.all([
+  const [wholesaleOrderCounts,stripeSettled,stripeSessionCounts,paidReceiptHealth]=b2bEvidenceSchema?await Promise.all([
    db.prepare("SELECT COUNT(*) AS total,COALESCE(SUM(CASE WHEN payment_status IN ('UNPAID','PARTIAL') THEN 1 ELSE 0 END),0) AS awaitingPayment FROM orders o WHERE "+wholesalePredicate).first<{total:number;awaitingPayment:number}>(),
    db.prepare("SELECT COUNT(*) AS settled FROM orders o WHERE o.payment_status='PAID' AND o.currency='USD' AND "+wholesalePredicate+
     " AND (SELECT COALESCE(SUM(p.amount),0) FROM payments p JOIN payment_provider_sessions s ON s.provider_intent_id=p.provider_reference"+
@@ -62,8 +62,17 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
     " AND (SELECT COALESCE(SUM(p.amount),0) FROM payments p"+
     " WHERE p.order_id=o.id AND p.status='RECEIVED') BETWEEN o.total-0.005 AND o.total+0.005"
    ).first<{settled:number}>(),
-   db.prepare("SELECT COUNT(*) AS sessions FROM payment_provider_sessions s JOIN orders o ON o.id=s.order_id WHERE s.provider='STRIPE' AND "+wholesalePredicate).first<{sessions:number}>()
-  ]):[null,null,null];
+   db.prepare("SELECT COUNT(*) AS sessions FROM payment_provider_sessions s JOIN orders o ON o.id=s.order_id WHERE s.provider='STRIPE' AND "+wholesalePredicate).first<{sessions:number}>(),
+   // Surface every PAID order that the local ledger cannot reconcile to a
+   // full Stripe-only receipt. This is an alert, not permission to edit or
+   // re-charge the order; staff must compare with Stripe Dashboard evidence.
+   db.prepare("SELECT COUNT(*) AS paidOrders,COALESCE(SUM(CASE WHEN o.currency='USD' AND o.total>0"+
+    " AND (SELECT COALESCE(SUM(p.amount),0) FROM payments p JOIN payment_provider_sessions s ON s.provider_intent_id=p.provider_reference"+
+    " AND s.order_id=p.order_id AND s.provider='STRIPE' AND s.status='SUCCEEDED' WHERE p.order_id=o.id AND p.provider='STRIPE'"+
+    " AND p.status='RECEIVED' AND p.currency='USD') BETWEEN o.total-0.005 AND o.total+0.005"+
+    " AND (SELECT COALESCE(SUM(p.amount),0) FROM payments p WHERE p.order_id=o.id AND p.status='RECEIVED') BETWEEN o.total-0.005 AND o.total+0.005"+
+    " THEN 0 ELSE 1 END),0) AS missingStripeReceiptOrders FROM orders o WHERE o.payment_status='PAID'").first<{paidOrders:number;missingStripeReceiptOrders:number}>()
+  ]):[null,null,null,null];
   // These are local D1 session snapshots, not real-time Stripe status.
   // A 24-hour stale OPEN/PENDING checkout requires processor-side review,
   // never automated recharging or marking the order paid.
@@ -113,6 +122,8 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
     awaitingPaymentOrders:wholesaleOrderCounts?.awaitingPayment??null,
     stripeCheckoutSessions:stripeSessionCounts?.sessions??null,
     reconciledPaidOrders:stripeSettled?.settled??null},
+   paidOrderReceiptHealth:{schemaPresent:b2bEvidenceSchema,paidOrders:paidReceiptHealth?.paidOrders??null,
+    missingStripeReceiptOrders:paidReceiptHealth?.missingStripeReceiptOrders??null},
    quoteExpiryHealth:{schemaPresent:names.has('quotes'),outstandingSentOrViewed:expiringQuotes?.unaccepted??null,
     expiringWithinTwoCalendarDays:expiringQuotes?.dueWithin48h??null,
     pastValidityDate:expiringQuotes?.expiredUnaccepted??null},
@@ -149,6 +160,7 @@ export const onRequestGet:PagesFunction<Env>=async({env})=>{
     'Quote expiry metrics use UTC calendar dates as a follow-up guide, not an authorization to send a revised quote or change customer pricing.',
     'Stripe Checkout session age is based on our local D1 snapshot; OPEN/PENDING may be stale when Stripe has already expired or settled a session. Verify Stripe Dashboard and webhook history before any retry or fulfillment.',
     'Reconciled wholesale orders require 10+ quoted units, full Stripe-only RECEIVED records linked to SUCCEEDED sessions, and a PAID order; provider payout is verified separately.',
+    'Paid-order receipt alerts use only the local D1 ledger. A missing match requires manual Stripe Dashboard and settlement review; never automatically change PAID status or create a second charge.',
     'Turnstile configuration does not by itself verify each individual inquiry submission.',
     'The latest observed source date is not proof the scheduled sync ran. No newer visitor data might exist; absent UTC dates remain unknown, not zero.']});
  }catch{return json({ok:false,error:'Readiness checks unavailable'},503)}
