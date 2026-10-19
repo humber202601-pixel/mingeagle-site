@@ -26,7 +26,7 @@ const db={
    const rows=[];
    for(const x of items)rows.push(await x.run());
    sqlite.exec('COMMIT');return rows;
-  }catch(e){sqlite.exec('ROLLBACK');throw e}
+  }catch(e){sqlite.exec('ROLLBACK');console.error('SYNTHETIC_D1_BATCH_ERROR',String(e));throw e}
  }
 };
 const call=async ref=>{
