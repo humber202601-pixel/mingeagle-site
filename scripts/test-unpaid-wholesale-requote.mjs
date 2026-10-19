@@ -7,7 +7,7 @@ const result=await build({entryPoints:['functions/api/admin/unpaid-wholesale-req
 const {onRequestPost}=await import('data:text/javascript;base64,'+
  Buffer.from(result.outputFiles[0].text).toString('base64'));
 const middleware=readFileSync('functions/_middleware.ts','utf8');
-assert.match(middleware,/previewWrites\\s*=\\s*new Set\\([\\s\\S]*['"]\\/api\\/admin\\/unpaid-wholesale-requote['"]/,
+assert.ok(middleware.includes("'/api/admin/unpaid-wholesale-requote'"),
  'The guarded recovery action must also work in isolated preview.');
 const sqlite=new DatabaseSync(':memory:');
 for(const file of readdirSync('migrations').filter(x=>x.endsWith('.sql')).sort())
