@@ -1,5 +1,5 @@
 interface Env {TEST_ENVIRONMENT?:string;OUTBOUND_EMAIL_DISABLED?:string}
-const previewWrites = new Set(['/api/inquiries','/api/shipping/cart','/api/admin/quotes','/api/admin/quote-edit','/api/admin/quote-retail-approval','/api/admin/wholesale-quote-draft','/api/admin/retail-quote-draft','/api/admin/quote-send','/api/admin/quote-revise']);
+const previewWrites = new Set(['/api/inquiries','/api/shipping/cart','/api/admin/quotes','/api/admin/quote-edit','/api/admin/quote-retail-approval','/api/admin/wholesale-quote-draft','/api/admin/retail-quote-draft','/api/admin/quote-send','/api/admin/quote-revise','/api/admin/unpaid-wholesale-requote']);
 export const onRequest: PagesFunction<Env> = async (context) => {
   if(context.env?.TEST_ENVIRONMENT==='preview'){
     const pathname = new URL(context.request.url).pathname;
