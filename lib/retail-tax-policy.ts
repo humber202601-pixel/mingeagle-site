@@ -74,15 +74,13 @@ export function reviewedStripeTaxStates(env:RetailTaxEnv,now=new Date()):Set<str
  return states;
 }
 export function retailTaxTreatment(env:RetailTaxEnv,state:string,now=new Date()){
- // A global checkout flag is not a state-specific tax basis or Stripe registration.
- // Automatic tax is permitted only for states with an explicit reviewed registration;
- // the checkout routes verify the matching active Stripe Tax registration before use.
+ if(env.RETAIL_NATIONWIDE_STRIPE_TAX_ENABLED==='true'&&validStates.has(state))return 'STRIPE_AUTOMATIC' as const;
  if(reviewedStripeTaxStates(env,now).has(state))return 'STRIPE_AUTOMATIC' as const;
  return reviewedZeroTaxStates(env,now).has(state)?'FIXED' as const:null;
 }
 export function reviewedRetailTaxStates(env:RetailTaxEnv,now=new Date()){
  // Payment availability is not a determination that no sales tax is owed.
- // Even with the nationwide flag enabled, expose only explicitly reviewed states.
+ if(env.RETAIL_NATIONWIDE_STRIPE_TAX_ENABLED==='true')return new Set(validStates);
  return new Set([...reviewedZeroTaxStates(env,now),...reviewedStripeTaxStates(env,now)]);
 }
 export function remoteStartupState(env:RetailTaxEnv,state:string,now=new Date()){
