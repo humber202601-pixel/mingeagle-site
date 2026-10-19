@@ -10,7 +10,7 @@ const pages=[
  answers:5,links:['silent-basketball.html','weighted-flocked-basketball.html','fabric-silent-basketball.html','custom-logo.html','inquiry.html?type=quote&amp;customer=business','school-basketball-bulk-order-rfq-checklist.html'],
  evidence:['10 or more units','No universal logo-printing minimum','not certified regulation-match','visual mockup','no independent decibel-reduction']},
  {file:'for-schools.html',kind:'WebPage',marker:'SCHOOL BULK BUYER ANSWERS',
- title:'Basketballs for Schools | Indoor PE Bulk Orders & Samples | MING EAGLE',
+ title:'School Basketballs for Indoor PE & Bulk Orders | MING EAGLE',
  h2:'How should schools choose and order indoor basketballs for PE in bulk?',
  answers:4,links:['custom-basketball-for-teams.html','school-basketball-bulk-order-rfq-checklist.html','procurement.html','inquiry.html?type=quote&amp;customer=school'],
  evidence:['10 or more units','No measured acoustic rating','No government vendor approval']}
