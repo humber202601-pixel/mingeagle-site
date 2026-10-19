@@ -25,6 +25,19 @@ assert(buildPayload(data,config,{pageUri:'https://www.mingeagle.com/inquiry.html
 const formHtml=fs.readFileSync('public/inquiry.html','utf8'),formJs=fs.readFileSync('public/inquiry.js','utf8');
 assert(formHtml.includes('id="state"')&&formHtml.includes('id="stateHint"'),'Public inquiry must ask for the US destination state');
 assert(formJs.includes('function syncUSStateRequirement')&&formJs.includes("state:r.purchase?v('state').toUpperCase():''"),'Public form must validate and send state before US wholesale inquiry submission');
+const inquiryImageAlts=[
+ ['hero-flocked-silent-basketball-set.webp','Flocked silent basketball set with mini hoop'],
+ ['hero-fabric-cover-silent-basketball-set.webp','Fabric-cover silent basketball set with mini hoop'],
+ ['hero-weighted-flocked-silent-basketball.webp','Weighted flocked silent basketball'],
+ ['hero-flocked-silent-soccer-ball.webp','Flocked silent soccer ball']
+];
+for(const [asset,alt] of inquiryImageAlts)assert(formHtml.includes('src="assets/'+asset+'?v=20261007-1"')&&formHtml.includes('alt="'+alt+'"'),'Inquiry product image needs accurate alt text: '+asset);
+const inquirySchemas=[...formHtml.matchAll(/<script\\b[^>]*type=["']application\\/ld\\+json["'][^>]*>([\\s\\S]*?)<\\/script>/gi)].map(m=>JSON.parse(m[1]));
+const inquiryNodes=inquirySchemas.flatMap(s=>Array.isArray(s['@graph'])?s['@graph']:[s]);
+const contactSchema=inquiryNodes.find(n=>(Array.isArray(n['@type'])?n['@type']:[n['@type']]).includes('ContactPage'));
+assert(contactSchema&&contactSchema.url==='https://www.mingeagle.com/inquiry.html','Inquiry page must expose accurate ContactPage structured data');
+assert.equal(contactSchema.mainEntity.email,'mingeaglecommerce@gmail.com');
+assert(contactSchema.mainEntity.contactPoint.some(p=>p.email==='mingeaglecommerce@gmail.com'));
  const c={...config,enabled:true,formId:'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'};
  assert.deepEqual(await sendPayload(c,payload,async(url,opts)=>{assert.equal(JSON.parse(opts.body).fields[1].value,'test@example.com');assert(url.endsWith(c.formId));return {status:200}}),{accepted:true});
  for(const [status,message] of [[400,'REJECTED'],[429,'RATE_LIMIT'],[500,'UNCERTAIN']])await assert.rejects(sendPayload(c,payload,async()=>({status})),new RegExp(message));
