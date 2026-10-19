@@ -211,6 +211,9 @@ jobs:
           node scripts/check-chat-i18n.cjs
           node scripts/check-locale-completeness.cjs
 
+      - name: Verify priority buyer guide SEO metadata and structured data
+        run: node scripts/check-priority-seo-guides.cjs
+
       - name: Stamp publicly verifiable deployment revision
         run: |
           printf '{"revision":"%s","builtAt":"%s","workflow":"github-pages"}\n' "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > public/deployment-version.json
