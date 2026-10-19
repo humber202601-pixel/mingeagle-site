@@ -23,7 +23,8 @@ const settings={
  },
  'for-coaches.html':{
   title:'Silent Basketballs for Coaches & Academies | MING EAGLE',
-  description:'Explore indoor basketballs for youth training, academies and coaches. Compare sizes and weighted options, request a sample or ask for a bulk quote.'
+  description:'Explore indoor basketballs for youth training, academies and coaches. Compare sizes and weighted options, request a sample or ask for a bulk quote.',
+  schema:{'@context':'https://schema.org','@type':'WebPage',name:'Silent Basketballs for Coaches & Academies | MING EAGLE',url:base+'for-coaches.html',description:'Explore indoor basketballs for youth training, academies and coaches. Compare sizes and weighted options, request a sample or ask for a bulk quote.',isPartOf:{'@type':'WebSite',name:'MING EAGLE',url:base},about:{'@type':'Organization',name:'MING EAGLE COMMERCE LLC',url:base}}
  },
  'for-schools.html':{
   title:'School Basketballs for Indoor PE & Bulk Orders | MING EAGLE',
