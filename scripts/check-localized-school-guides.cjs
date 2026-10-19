@@ -21,7 +21,7 @@ assert.equal(localizedUrls.length,4,'New sitemap contains exactly four actual tr
 assert.deepEqual(localizedUrls,files.slice(1).map(x=>base+x),'Localized sitemap order and URLs must match all four pages');
 for(const url of localizedUrls){
  assert(!originalUrls.includes(url),'Duplicated sitemap entry for '+url);
- assert(localized.includes('<loc>'+url+'</loc><lastmod>2026-10-20</lastmod>'),'Each updated localized page must carry its current modification date');
+ assert(localized.includes('<loc>'+url+'</loc><lastmod>2026-10-19</lastmod>'),'Each updated localized page must carry its UTC evidence-backed modification date');
 }
 const robots=fs.readFileSync(path.join(root,'robots.txt'),'utf8');
 for(const sitemap of ['sitemap.xml','sitemap-localized.xml'])
