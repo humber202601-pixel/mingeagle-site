@@ -511,6 +511,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
             `客户：${text(selected.customer,'—')}`,
             `数量：${text(selected.estimated_quantity,'待确认')}`,
             text(selected.shipping_postal_code) ? `ZIP：${text(selected.shipping_postal_code)}` : 'ZIP：待确认',
+            defaults.shippingState ? `客户提供的美国目的州：${defaults.shippingState}（发送前须核实）` : '美国目的州：待确认',
             text(selected.product_interest) ? `产品：${text(selected.product_interest)}` : '',
           ].filter(Boolean).join('；')}</p>
           {text(selected.message) && <details><summary style={{cursor:'pointer'}}>查看客户原始需求</summary><p style={{whiteSpace:'pre-wrap'}}>{text(selected.message)}</p></details>}
@@ -572,7 +573,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
           </label>
           <small>使用 Stripe 批发收款时，运输条款必须明确写入英文 <code>Ship-to state: XX</code>（XX 为客户真实的两位州代码，例如 NY），且税额和税务依据已审核。否则系统会拒绝发送，防止客户收到无法付款的报价。</small>
           <label className="span-2">运输条款（客户可见）
-            <input name="shippingTerms" defaultValue="" placeholder={text(selected?.shipping_postal_code) ? `e.g. DDP sea freight to ZIP ${text(selected?.shipping_postal_code)}. Ship-to state: NY. Include 25–30-day estimate, customs and duties.` : "e.g. DDP freight to confirmed customer address. Ship-to state: NY. Include estimated lead time, clearance and duties."} key={`shippingTerms-${selectedReference}`} />
+            <input name="shippingTerms" defaultValue={defaults.shippingState ? ('DDP sea freight to confirmed US destination. Ship-to state: ' + defaults.shippingState + '. Estimated transit 25–30 days after dispatch; confirm actual freight, customs clearance and duties.') : ''} placeholder={text(selected?.shipping_postal_code) ? `e.g. DDP sea freight to ZIP ${text(selected?.shipping_postal_code)}. Ship-to state: NY. Include 25–30-day estimate, customs and duties.` : "e.g. DDP freight to confirmed customer address. Ship-to state: NY. Include estimated lead time, clearance and duties."} key={`shippingTerms-${selectedReference}`} />
           </label>
           <label className="span-2">报价备注（客户可见）
             <textarea name="notes" rows={3} placeholder="可填写报价补充说明…" />
