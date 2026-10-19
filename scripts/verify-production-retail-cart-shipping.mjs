@@ -15,6 +15,25 @@ assert(Array.isArray(gate.supportedStates), 'supportedStates must be an array');
 console.log('OBSERVED current production retail gate: ready=' + gate.retailCheckoutReady +
   '; supported states (' + gate.supportedStates.length + '): ' + gate.supportedStates.join(', '));
 
+const paymentStatusResponse = await fetch(origin + '/api/payments/status', {
+  headers: { accept: 'application/json', 'cache-control': 'no-cache' },
+  redirect: 'error',
+  signal: AbortSignal.timeout(15000),
+});
+assert.equal(paymentStatusResponse.status, 200, 'production payment-status must respond');
+const paymentStatus = await paymentStatusResponse.json();
+assert.equal(paymentStatus.ok, true, 'production payment-status must return ok');
+assert(paymentStatus.stripe && typeof paymentStatus.stripe === 'object', 'Stripe readiness must be present');
+const b2b = paymentStatus.stripe;
+console.log('OBSERVED current production B2B Stripe gate: mode=' + b2b.mode +
+  '; checkoutReady=' + b2b.checkoutReady +
+  '; b2bRequested=' + b2b.b2bCheckoutRequested +
+  '; b2bTaxReviewConfigured=' + b2b.b2bTaxReviewConfigured +
+  '; b2bConfigurationReady=' + b2b.b2bConfigurationReady +
+  '; b2bLiveConfigurationReady=' + b2b.b2bLiveConfigurationReady +
+  '; blockers=' + (Array.isArray(b2b.b2bActivationBlockers) ? b2b.b2bActivationBlockers.join(',') : 'unavailable'));
+console.log('B2B tax scope caveat: ' + String(b2b.b2bTaxScopeWarning || 'not returned'));
+
 const cases = [
   {
     name: 'one P1-S3 set',
