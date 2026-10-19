@@ -3,6 +3,12 @@
 const fs=require('node:fs'),assert=require('node:assert/strict');
 const languages=['en','es','pt','fr','de','it','nl','pl','ja'];
 const doc=JSON.parse(fs.readFileSync('public/i18n.json','utf8'));
+const siteSource=fs.readFileSync('public/site.js','utf8');
+const sitePrefix='const I18N=';
+const siteEnd=siteSource.indexOf(';\n',sitePrefix.length);
+assert(siteSource.startsWith(sitePrefix)&&siteEnd>sitePrefix.length,'site.js embedded I18N bundle missing');
+const runtimeDoc=JSON.parse(siteSource.slice(sitePrefix.length,siteEnd));
+assert.deepEqual(runtimeDoc,doc,'site.js runtime translations must exactly match public/i18n.json');
 assert.deepEqual(Object.keys(doc).sort(),languages.slice().sort(),'Approved language set changed');
 const reference=Object.keys(doc.en).sort();
 assert(reference.length>=150,'Unexpected truncation of English locale');
