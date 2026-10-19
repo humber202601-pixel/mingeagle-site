@@ -57,7 +57,7 @@ const settings={
  'videos.html':{
   title:'16 Silent Basketball Creator Videos | MING EAGLE',
   description:'See 16 attributed TikTok creator clips featuring the flocked silent basketball + mini hoop set. Find the same product and choose your size and color.',
-  schema:{'@context':'https://schema.org','@type':'CollectionPage',name:'16 Silent Basketball Creator Videos | MING EAGLE',url:base+'videos.html',description:'See 16 attributed TikTok creator clips featuring the flocked silent basketball + mini hoop set. Find the same product and choose your size and color.',isPartOf:{'@type':'WebSite',name:'MING EAGLE',url:base},about:{'@type':'Product',name:'Flocked Silent Basketball Set',url:base+'silent-basketball.html'}}
+  schema:{'@context':'https://schema.org','@type':'CollectionPage',name:'16 Silent Basketball Creator Videos | MING EAGLE',url:base+'videos.html',description:'See 16 attributed TikTok creator clips featuring the flocked silent basketball + mini hoop set. Find the same product and choose your size and color.',isPartOf:{'@type':'WebSite',name:'MING EAGLE',url:base},about:{'@type':'Thing',name:'Flocked Silent Basketball Set',url:base+'silent-basketball.html'}}
  }
 };
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
