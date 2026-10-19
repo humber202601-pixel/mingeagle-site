@@ -1,0 +1,29 @@
+name: Verify production retail cart shipping contract
+
+on:
+  pull_request:
+    branches: ["v2-cloudflare"]
+    paths:
+      - "functions/api/shipping/cart.ts"
+      - "lib/us-small-parcel.ts"
+      - "scripts/verify-production-retail-cart-shipping.mjs"
+      - ".github/workflows/verify-retail-cart-shipping.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-retail-cart:
+    name: Read-only production cart API checks (no order or charge)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify live production shipping and quantity boundary
+        run: node scripts/verify-production-retail-cart-shipping.mjs
