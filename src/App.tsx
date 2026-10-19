@@ -6,6 +6,7 @@ import RetailCheckout from './RetailCheckout';
 import CustomerQuote from './CustomerQuote';
 import {safeReorderReference,reorderMessage} from './reorderIntent';
 import {useInquiryTurnstile} from './useInquiryTurnstile';
+import {isUsDeliveryState,US_DELIVERY_STATES} from '../lib/us-delivery-states';
 
 type ProductCard = {
   name: string;
@@ -17,6 +18,11 @@ type ProductCard = {
 type InquiryResult = { reference: string };
 
 const SALES_EMAIL = 'mingeaglecommerce@gmail.com';
+
+function isUnitedStatesCountry(value:unknown){
+  const normalized=String(value??'').toUpperCase().replace(/[.,]/g,'').replace(/\s+/g,' ').trim();
+  return ['US','USA','UNITED STATES','UNITED STATES OF AMERICA'].includes(normalized);
+}
 
 const products: ProductCard[] = [
   {
@@ -91,6 +97,9 @@ function HomePage() {
 function WholesalePage({ sample = false }: { sample?: boolean }) {
   const reorderRef=sample?null:safeReorderReference(new URLSearchParams(window.location.search).get('reorderOf'));
   const reorderPrefill=reorderMessage(reorderRef);
+  const [country,setCountry]=useState('United States');
+  const [shippingState,setShippingState]=useState('');
+  const requiresUSState=!sample&&isUnitedStatesCountry(country);
   const [status,setStatus] = useState<'idle'|'submitting'|'success'|'error'>('idle');
   const [result,setResult] = useState<InquiryResult|null>(null);
   const [errorMessage,setErrorMessage] = useState('');
@@ -106,14 +115,21 @@ function WholesalePage({ sample = false }: { sample?: boolean }) {
       return;
     }
     const formData = new FormData(form);
+    const countryValue=String(formData.get('country')||'').trim();
+    const stateValue=String(formData.get('state')||'').trim().toUpperCase();
+    if(!sample&&isUnitedStatesCountry(countryValue)&&!isUsDeliveryState(stateValue)){
+      setStatus('error');
+      setErrorMessage('Select the buyer-confirmed two-letter U.S. delivery state before submitting a wholesale inquiry.');
+      return;
+    }
     setStatus('submitting'); setErrorMessage('');
     try {
       const response = await fetch('/api/inquiries',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-        firstName:formData.get('firstName'),lastName:formData.get('lastName'),email:formData.get('email'),phone:formData.get('phone'),whatsapp:formData.get('whatsapp'),company:formData.get('company'),customerType:formData.get('customerType'),estimatedQuantity:formData.get('estimatedQuantity'),country:formData.get('country'),postalCode:formData.get('postalCode'),message:formData.get('message'),requestType:sample?'SAMPLE':'WHOLESALE',productInterest:'SILENT_BALL',turnstileToken:captcha.token,privacyAck:true
+        firstName:formData.get('firstName'),lastName:formData.get('lastName'),email:formData.get('email'),phone:formData.get('phone'),whatsapp:formData.get('whatsapp'),company:formData.get('company'),customerType:formData.get('customerType'),estimatedQuantity:formData.get('estimatedQuantity'),country:countryValue,state:stateValue,postalCode:formData.get('postalCode'),message:formData.get('message'),requestType:sample?'SAMPLE':'WHOLESALE',productInterest:'SILENT_BALL',turnstileToken:captcha.token,privacyAck:true
       })});
       const data = await response.json() as {ok?:boolean;reference?:string;error?:string};
       if(!response.ok||!data.ok||!data.reference) throw new Error(data.error||'Unable to submit your request.');
-      setResult({reference:data.reference}); setStatus('success'); form.reset();
+      setResult({reference:data.reference}); setStatus('success'); form.reset();setCountry('United States');setShippingState('');
     } catch(error) {
       captcha.reset();
       setErrorMessage(error instanceof Error?error.message:'Unable to submit your request.');
@@ -123,7 +139,7 @@ function WholesalePage({ sample = false }: { sample?: boolean }) {
 
   return <div className="public-shell"><PublicHeader/><main className="form-page"><div className="form-intro"><span className="eyebrow">{sample?'SAMPLE REQUEST':'WHOLESALE / BULK ORDER'}</span><h1>{sample?'TRY THE PRODUCT BEFORE A BIGGER ORDER.':'TELL US WHAT YOU NEED. WE’LL BUILD THE RIGHT QUOTE.'}</h1><p>{sample?'Your request becomes a tracked sales record so sample follow-up does not get lost.':'Your request enters the MING EAGLE sales workflow so quote, follow-up and reorder history stay connected.'}</p></div>
     {reorderRef&&<p className="form-note" role="status"><strong>Repeat-order quote request:</strong> {reorderRef}. Review your products, quantities and destination below. This sends a new inquiry only; it does not create an order or charge any payment.</p>}
-    <form className="lead-form" onSubmit={submitInquiry}><div className="form-grid"><label>First name *<input name="firstName" required placeholder="First name"/></label><label>Last name *<input name="lastName" required placeholder="Last name"/></label><label>Email *<input name="email" required type="email" placeholder="you@company.com"/></label><label>Phone<input name="phone" type="tel" placeholder="+1 555 123 4567"/></label><label>WhatsApp<input name="whatsapp" type="tel" placeholder="+1 555 123 4567"/></label><label>Company / organization<input name="company" placeholder="Academy, retailer, club…"/></label><label>Customer type<select name="customerType" defaultValue="Academy"><option>Academy</option><option>Coach / trainer</option><option>Retailer</option><option>Camp / program</option><option>Distributor</option><option>Family / consumer</option></select></label><label>Estimated quantity<input name="estimatedQuantity" type="number" min="1" placeholder={sample?'1':'100'}/></label><label>Country *<input name="country" required defaultValue="United States"/></label><label>ZIP / postal code<input name="postalCode" placeholder="75201"/></label></div><label>What are you looking for?<textarea name="message" rows={5} defaultValue={reorderPrefill} placeholder="Product, sizes, colors, timing, delivery needs…"/></label><div ref={captcha.container} aria-label="Security verification"/>
+    <form className="lead-form" onSubmit={submitInquiry}><div className="form-grid"><label>First name *<input name="firstName" required placeholder="First name"/></label><label>Last name *<input name="lastName" required placeholder="Last name"/></label><label>Email *<input name="email" required type="email" placeholder="you@company.com"/></label><label>Phone<input name="phone" type="tel" placeholder="+1 555 123 4567"/></label><label>WhatsApp<input name="whatsapp" type="tel" placeholder="+1 555 123 4567"/></label><label>Company / organization<input name="company" placeholder="Academy, retailer, club…"/></label><label>Customer type<select name="customerType" defaultValue="Academy"><option>Academy</option><option>Coach / trainer</option><option>Retailer</option><option>Camp / program</option><option>Distributor</option><option>Family / consumer</option></select></label><label>Estimated quantity<input name="estimatedQuantity" type="number" min="1" placeholder={sample?'1':'100'}/></label><label>Country *<input name="country" required value={country} onChange={event=>{const next=event.currentTarget.value;setCountry(next);if(!isUnitedStatesCountry(next))setShippingState('')}} placeholder="United States"/></label><label>U.S. delivery state (required for U.S. wholesale)<select name="state" value={shippingState} onChange={event=>setShippingState(event.currentTarget.value)} required={requiresUSState}><option value="">Select state / district</option>{Object.entries(US_DELIVERY_STATES).map(([code,name])=><option key={code} value={code}>{name} ({code})</option>)}</select><small>Choose the buyer-confirmed state for U.S. wholesale inquiries. Samples and non-U.S. destinations may leave this blank. State selection does not establish sales-tax registration.</small></label><label>ZIP / postal code<input name="postalCode" placeholder="75201"/></label></div><label>What are you looking for?<textarea name="message" rows={5} defaultValue={reorderPrefill} placeholder="Product, sizes, colors, timing, delivery needs…"/></label><div ref={captcha.container} aria-label="Security verification"/>
       {captcha.mode==='required'&&!captcha.token&&<p className="form-note">Complete the security verification before sending.</p>}
       {captcha.mode==='unavailable'&&<p className="form-note">Security verification is temporarily unavailable. Please email {SALES_EMAIL}.</p>}
       <button className="button" type="submit" disabled={status==='submitting'||captcha.mode==='loading'||captcha.mode==='unavailable'}>{status==='submitting'?'Submitting…':sample?'Request sample':'Request wholesale quote'}{status!=='submitting'&&<ArrowRight size={18}/>}</button>
