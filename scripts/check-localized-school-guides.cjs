@@ -63,7 +63,7 @@ for(const [lang,filename] of Object.entries(map)){
  assert(/sample|Muster|échantillon|muestra|amostra/i.test(text),'Sample evaluation guidance missing: '+filename);
  assert(/noise|Geräusch|bruit|ruido|ruído/i.test(text),'Noise limitation must be explicit: '+filename);
  assert(!/guaranteed silent|\b\d+\s*dB\b|\b\d+% quieter|certified safe for every age/i.test(text),'Unverified marketing claim '+filename);
- const title=head.match(/<title>([\\s\\S]*?)<\\/title>/i)?.[1]?.replace(/&amp;/g,'&');
+ const title=head.match(/<title>([\s\S]*?)<\/title>/i)?.[1]?.replace(/&amp;/g,'&');
  assert(title&&title.length<=60,'Search title should stay within the compact snippet target: '+filename);
  const meta=head.match(/<meta name="description" content="([^"]+)"/i)?.[1];
  assert(meta&&meta.length>=80&&meta.length<=160,'Localized meta description should fit a concise search snippet: '+filename);
@@ -81,7 +81,7 @@ for(const [lang,filename] of Object.entries(map)){
  assert.equal(head.match(/<meta name="twitter:card" content="summary_large_image"/gi)?.length,1,'One large-image social card required: '+filename);
  assert.equal(head.match(/<meta property="og:image" content="([^"]+)"/i)?.[1],imageUrl,'Social image must be the published product image: '+filename);
  assert.equal(head.match(/<meta name="twitter:image" content="([^"]+)"/i)?.[1],imageUrl,'Twitter image must be the published product image: '+filename);
- assert(new RegExp('<img\\\\b[^>]*src="assets/hero-flocked-silent-basketball-set\\\\.webp\\\\?v=20261007-1"[^>]*alt="[^"]+"').test(body),'Relevant product image with descriptive alt text required: '+filename);
+ assert(new RegExp('<img\\b[^>]*src="assets/hero-flocked-silent-basketball-set\\.webp\\?v=20261007-1"[^>]*alt="[^"]+"').test(body),'Relevant product image with descriptive alt text required: '+filename);
  const jsons=[...head.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
  assert.equal(jsons.length,1,'One factual Article JSON-LD per localized document: '+filename);
  const ld=JSON.parse(jsons[0][1]);
