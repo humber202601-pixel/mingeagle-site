@@ -16,7 +16,23 @@ function procurementDetails(formData,requestType){
 function summary(d,ctx){const lines=['MING EAGLE inquiry','Reference: '+d.reference,'Request: '+d.requestType,'Name: '+d.firstname,'Email: '+d.email];[['Products',d.products],['Quantity',d.quantity],['Destination',d.country],['US state',d.state],['Order / quote reference',d.orderReference],['Company',d.company],['Phone / WhatsApp',d.phone],['Customer type',d.customerType],['Postal code',d.zip],['Customization',d.customization],['Timing',d.timing],['Message',d.message]].forEach(([k,v])=>{if(v&&v!=='Not specified')lines.push(k+': '+v)});lines.push('Privacy: agreed to use these details to respond to this request.');if(ctx)lines.push(core.sourceLines(ctx));return lines.join('\n')}
 const core=typeof module!=='undefined'&&module.exports?require('./forms-core.js'):root.MingEagleForms;
 const {buildPayload,sendPayload,sendCrmInquiry}=core||{};
-if(typeof module!=='undefined'&&module.exports){module.exports={rules,summary,procurementDetails,buildPayload,sendPayload};return}
+// Analytics is optional. An unavailable/throwing tracker must never turn an
+// accepted CRM submission into a customer-facing failure or backup resubmission.
+const measuredLeadReferences=new Set();
+function recordAcceptedLead(data,delivery){
+ const ref=String(data&&data.reference||'');
+ if(!ref||measuredLeadReferences.has(ref))return false;
+ try{
+  if(typeof root.MingEagleGA4?.trackConfirmedLead!=='function')return false;
+  const sent=root.MingEagleGA4.trackConfirmedLead(data.requestType,delivery)===true;
+  if(sent)measuredLeadReferences.add(ref); // Private in-memory dedupe; never sent to GA4.
+  return sent;
+ }catch(error){
+  console.warn('Optional analytics lead tracking unavailable; accepted inquiry is unaffected.');
+  return false;
+ }
+}
+if(typeof module!=='undefined'&&module.exports){module.exports={rules,summary,procurementDetails,buildPayload,sendPayload,recordAcceptedLead};return}
 if(!core)return;
 const form=document.querySelector('#quoteForm');if(!form)return;
 const challenge=root.MingEagleTurnstile;
@@ -281,7 +297,7 @@ form.addEventListener('submit',async e=>{
   $('formStatus').textContent='Saving your request to MING EAGLE…';
   await sendCrmInquiry(c,d,context,undefined,challenge?challenge.token():'');
   // Only count an explicitly accepted CRM inquiry, without personal fields.
-  if(root.MingEagleGA4?.trackConfirmedLead)root.MingEagleGA4.trackConfirmedLead(d.requestType,'primary_crm');
+  recordAcceptedLead(d,'primary_crm');
   clearCreatorContext();
   // Preserve the existing HubSpot lead source on a best-effort basis.
   // A HubSpot outage cannot undo a successfully persisted CRM inquiry.
@@ -317,7 +333,7 @@ form.addEventListener('submit',async e=>{
   try{
    await sendPayload(c,buildPayload(d,c,context));
    // Backup provider accepted the request; primary CRM status remains unconfirmed.
-   if(root.MingEagleGA4?.trackConfirmedLead)root.MingEagleGA4.trackConfirmedLead(d.requestType,'backup_form');
+   recordAcceptedLead(d,'backup_form');
    clearCreatorContext();
    core.saveReceipt(d,'inquiry');
    $('formStatus').textContent='Your request was received by our backup form. Reference: '+d.reference+'. Our sales team will review it; synchronization to the customer management system has not yet been confirmed.';

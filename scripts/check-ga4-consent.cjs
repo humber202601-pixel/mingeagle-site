@@ -28,11 +28,32 @@ assert(js.includes("lead_type: leadType") && js.includes("lead_delivery: deliver
 assert(!js.includes("lead_email:") && !js.includes("lead_reference:"), 'Lead events must not send customer identifiers');
 const inquirySource = fs.readFileSync(path.join(root, 'inquiry.js'), 'utf8');
 const crmConfirmed = inquirySource.indexOf('await sendCrmInquiry(c,d,context');
-const crmLead = inquirySource.indexOf("MingEagleGA4.trackConfirmedLead(d.requestType,'primary_crm')");
+const crmLead = inquirySource.indexOf("recordAcceptedLead(d,'primary_crm')");
 const backupConfirmed = inquirySource.indexOf('await sendPayload(c,buildPayload(d,c,context));');
-const backupLead = inquirySource.indexOf("MingEagleGA4.trackConfirmedLead(d.requestType,'backup_form')");
+const backupLead = inquirySource.indexOf("recordAcceptedLead(d,'backup_form')");
 assert(crmConfirmed >= 0 && crmLead > crmConfirmed && crmLead < inquirySource.indexOf('}catch(crmError)'), 'Primary lead conversion only after confirmed CRM save');
 assert(backupConfirmed >= 0 && backupLead > backupConfirmed && backupLead < inquirySource.indexOf('}catch(backupError)'), 'Backup conversion only after accepted backup submit');
+
+// GA4 errors must not affect CRM success, and repeated form submissions with
+// one reference must be counted once in the current page session.
+const {recordAcceptedLead} = require(path.join(root, 'inquiry.js'));
+const d1={reference:'ME-20261019-ABCDEF12',requestType:'Wholesale quote'};
+const previous=global.MingEagleGA4;
+const oldWarn=console.warn;
+try{
+ console.warn=()=>{};
+ global.MingEagleGA4={trackConfirmedLead(){throw Error('simulated Google Analytics failure')}};
+ assert.doesNotThrow(()=>recordAcceptedLead(d1,'primary_crm'));
+ assert.equal(recordAcceptedLead(d1,'primary_crm'),false);
+ let sends=0;
+ global.MingEagleGA4={trackConfirmedLead(){sends++;return true}};
+ assert.equal(recordAcceptedLead(d1,'primary_crm'),true);
+ assert.equal(recordAcceptedLead(d1,'backup_form'),false,'same reference must not double count');
+ assert.equal(sends,1);
+}finally{
+ console.warn=oldWarn;
+ if(previous===undefined)delete global.MingEagleGA4;else global.MingEagleGA4=previous;
+}
 const css = fs.readFileSync(path.join(root, 'ga4-consent.css'), 'utf8');
 assert(css.includes('.mingeagle-ga4-panel') && css.includes(':focus-visible'), 'Accessible consent banner styles');
 const policy = fs.readFileSync(path.join(root, 'policies.html'), 'utf8');
