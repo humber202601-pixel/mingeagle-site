@@ -46,6 +46,8 @@ assert(!cart.includes('window.location.href=\'https://airwallex.com'), 'Never in
 const page=fs.readFileSync('public/retail-cart.html','utf8');
 assert(page.includes('id="cartSeaConsent"')&&page.includes('25–30 days'));
 assert(page.includes('id="cartRetail"')&&page.includes('id="cartWholesale"'));
+assert(page.includes('only where the delivery state is enabled for checkout')&&page.includes('request a confirmed retail quote instead'),
+ 'Do not imply nationwide card checkout where the delivery-state tax review is not enabled');
 assert(page.includes('retail-cart.js?v=20261018-eligibility-copy1'));
 assert(page.includes('id="cartInquiry"')&&page.includes('#cartInquiry[hidden]{display:none}'),
  'Secondary quote button must be accessible only after checkout readiness failure');
