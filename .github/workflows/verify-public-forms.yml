@@ -17,6 +17,10 @@ on:
       - 'admin/learning-copy.json'
       - 'scripts/enable-web-analytics.cjs'
       - 'scripts/check-web-analytics.cjs'
+      - 'scripts/enable-ga4-consent.cjs'
+      - 'scripts/check-ga4-consent.cjs'
+      - 'public/ga4-consent.js'
+      - 'public/ga4-consent.css'
       - 'scripts/check-custom-logo.cjs'
       - 'public/inquiry.js'
       - 'public/sales-assistant.js'
@@ -121,6 +125,12 @@ jobs:
           node scripts/enable-web-analytics.cjs
           node scripts/check-web-analytics.cjs
           node scripts/enable-web-analytics.cjs --check
+
+      - name: Ensure consent-based GA4 tracking is packaged safely
+        run: |
+          node scripts/enable-ga4-consent.cjs
+          node scripts/check-ga4-consent.cjs
+          node scripts/enable-ga4-consent.cjs --check
 
       - name: Check public inquiry / CRM mapping and site attribution
         run: |
