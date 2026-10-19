@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs');
 const pages={
- 'products.html':['Compare Quiet Indoor Basketball Sets & Soccer Balls','fabric-silent-basketball.html','Compare the actual indoor-play models'],
- 'fabric-silent-basketball.html':['Fabric-Cover Soft Silent Basketball & Mini Hoop Set','silent-basketball.html','What is different about the fabric-cover ball?'],
+ 'products.html':['Quiet Basketball Sets & Indoor Soccer Balls','fabric-silent-basketball.html','Compare the actual indoor-play models'],
+ 'fabric-silent-basketball.html':['Fabric-Cover Silent Basketball Set & Mini Hoop','silent-basketball.html','What is different about the fabric-cover ball?'],
  'videos.html':['16 Real Flocked Silent Basketball Creator Videos','silent-basketball.html','What do the creator demonstrations actually show?']
 };
 const headDescriptions=new Set();
@@ -33,7 +33,7 @@ assert(fabric.includes('orange or green in sizes 3, 5 and 7'));
 
 for(const [filename,url,title] of [
  ['wholesale.html','https://www.mingeagle.com/wholesale.html','Wholesale Sports Equipment for Schools, Institutions & Business | MING EAGLE'],
- ['procurement.html','https://www.mingeagle.com/procurement.html','Institutional & Public-Sector Sports Equipment Procurement | MING EAGLE']
+ ['procurement.html','https://www.mingeagle.com/procurement.html','Institutional Sports Equipment Procurement | MING EAGLE']
 ]){
  const html=fs.readFileSync('public/'+filename,'utf8'),head=html.split('</head>')[0];
  assert.equal((head.match(/<meta[^>]*name="robots"/g)||[]).length,1,filename+' must have one robots directive');
@@ -50,9 +50,9 @@ for(const [filename,url,title] of [
 }
 const productMeta=[
  ['silent-basketball.html','https://www.mingeagle.com/silent-basketball.html','Flocked Silent Basketball Set with Mini Hoop | MING EAGLE',"Explore MING EAGLE's flocked basketball set for quieter indoor practice, with sizes 3, 5 and 7. Compare colors, mini-hoop details, sample shipping and bulk quotes."],
- ['fabric-silent-basketball.html','https://www.mingeagle.com/fabric-silent-basketball.html','Fabric-Cover Soft Silent Basketball & Mini Hoop Set | MING EAGLE','Explore the fabric-cover indoor basketball plus adhesive mini hoop. Sizes 3, 5 and 7 in orange or green, surface comparison and US parcel shipping estimates.'],
- ['weighted-flocked-basketball.html','https://www.mingeagle.com/weighted-flocked-basketball.html','Weighted Flocked Silent Basketball for Indoor Drills | MING EAGLE',"Explore the weighted flocked basketball for indoor practice, available in sizes 3, 4, 6 and 7. Review color options, product details and wholesale quote options."],
- ['silent-soccer.html','https://www.mingeagle.com/silent-soccer.html','Flocked Silent Soccer Ball for Indoor Play | MING EAGLE',"Explore the flocked indoor soccer ball for quieter small-space footwork. Size 5 in five colorways; review product details, sample shipping and institutional quotes."]
+ ['fabric-silent-basketball.html','https://www.mingeagle.com/fabric-silent-basketball.html','Fabric-Cover Silent Basketball Set & Mini Hoop | MING EAGLE','Explore a fabric-cover silent basketball set with adhesive mini hoop. Sizes 3, 5 and 7 in orange or green; compare the surface and request a quote.'],
+ ['weighted-flocked-basketball.html','https://www.mingeagle.com/weighted-flocked-basketball.html','Weighted Silent Basketball for Indoor Drills | MING EAGLE',"Explore the weighted flocked basketball for indoor practice in sizes 3, 4, 6 and 7. Compare colors, product details and wholesale quote options."],
+ ['silent-soccer.html','https://www.mingeagle.com/silent-soccer.html','Flocked Silent Soccer Ball for Indoor Play | MING EAGLE',"Size 5 flocked indoor soccer ball for quieter small-space footwork. Explore five colorways, product details, sample shipping and institutional quotes."]
 ];
 for(const [filename,url,title,description] of productMeta){
  const head=fs.readFileSync('public/'+filename,'utf8').split('</head>')[0];
