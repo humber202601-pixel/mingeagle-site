@@ -143,6 +143,12 @@ jobs:
           node scripts/check-web-analytics.cjs
           node scripts/enable-web-analytics.cjs --check
 
+      - name: Enable opt-in Google Analytics 4 with sanitized page URLs
+        run: |
+          node scripts/enable-ga4-consent.cjs
+          node scripts/check-ga4-consent.cjs
+          node scripts/enable-ga4-consent.cjs --check
+
       - name: Verify canonical B2B header navigation across public pages
         run: node scripts/check-site-navigation.cjs
 
