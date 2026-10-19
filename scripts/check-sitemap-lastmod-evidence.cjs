@@ -19,11 +19,12 @@ for(const entry of entries){
  assert(/^[a-z0-9-]+\.html$/.test(filename)&&fs.existsSync(path.join(dir,filename)),'Missing approved HTML page '+filename);
  dates.set(filename,entry.date);
 }
-const revised=['school-basketball-bulk-order-rfq-checklist.html','procurement.html','for-schools.html','wholesale.html','index.html','silent-basketball.html','fabric-silent-basketball.html','weighted-flocked-basketball.html','silent-soccer.html','products.html','wholesale-product-catalog.html','for-coaches.html','basketball-camp-equipment-supplier.html'];
+const revised=['school-basketball-bulk-order-rfq-checklist.html','procurement.html','for-schools.html','wholesale.html','index.html','silent-basketball.html','silent-basketball-guide.html','fabric-silent-basketball.html','weighted-flocked-basketball.html','silent-soccer.html','products.html','wholesale-product-catalog.html','for-coaches.html','basketball-camp-equipment-supplier.html'];
 for(const p of revised)assert(dates.get(p)>='2026-10-13','Meaningfully revised content cannot be represented by its obsolete 2026-10-12 sitemap lastmod: '+p);
 for(const p of ['order-status.html']){
  assert.equal(dates.get(p),'2026-10-12','Do not rewrite untouched pages merely to appear fresh: '+p);
 }
+assert.equal(dates.get('index.html'),'2026-10-19','Homepage localization and B2B messaging update must carry the evidence-backed 2026-10-19 lastmod');
 assert.equal(dates.get('custom-logo.html'),'2026-10-18','Revised custom-logo B2B buyer FAQ must carry real 2026-10-18 lastmod');
 assert.equal(dates.get('videos.html'),'2026-10-13','Genuine video gallery editorial update needs evidence-backed sitemap lastmod');
 console.log('PASS: 27 unique www canonical URLs, evidenced lastmod dates and preserved untouched page dates.');
