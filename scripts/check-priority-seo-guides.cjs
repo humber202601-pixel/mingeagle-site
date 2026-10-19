@@ -133,4 +133,23 @@ function titleAndDescription(filename,titleExpected,descriptionExpected){
  assert.equal(page.dateModified,'2026-10-19');
 }
 
+{
+ const filename='silent-basketball-bulk-buying-guide.html';
+ const {head,body}=load(filename);
+ const title='Bulk Silent Basketball Buying Guide | MING EAGLE';
+ const description='A purchasing checklist for retailers, schools and coaches ordering silent basketballs: product models, samples, custom logos, packing and shipping quotes.';
+ titleAndDescription(filename,title,description);
+ const image=base+'assets/hero-flocked-silent-basketball-set.webp?v=20261007-1';
+ assert.equal(meta(head,'property','og:image'),image,'Bulk guide social image must use the real product image');
+ assert(/<img\b[^>]*src=["']assets\/hero-flocked-silent-basketball-set\.webp\?v=20261007-1["'][^>]*alt=["']Flocked silent basketball set with mini hoop for wholesale sample evaluation["']/.test(body),'Bulk guide image must have meaningful alt text');
+ assert(head.includes('src="site.js?v=20261020-i18n-sync2"'),'Bulk guide must use the approved locale bundle cache key');
+ const nodes=schemas(head).flatMap(s=>flatten(s));
+ const page=nodes.find(n=>n['@type']==='WebPage'&&n.url===base+filename);
+ assert(page,'Bulk guide WebPage schema is required');
+ assert.equal(page.name,title);
+ assert.equal(page.description,description);
+ assert.equal(page.dateModified,'2026-10-19');
+ assert.equal(page.primaryImageOfPage?.url,image,'Bulk guide schema image must match the visible image');
+}
+
 console.log('PASS: priority B2B guide snippets, canonical/social metadata, visible images and matching structured data.');
