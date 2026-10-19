@@ -43,7 +43,7 @@ assert(fabric.includes('orange or green in sizes 3, 5 and 7'));
 
 
 for(const [filename,url,title] of [
- ['wholesale.html','https://www.mingeagle.com/wholesale.html','Wholesale Sports Equipment for Schools, Institutions & Business | MING EAGLE'],
+ ['wholesale.html','https://www.mingeagle.com/wholesale.html','Silent Basketball Wholesale & Bulk Orders | MING EAGLE'],
  ['procurement.html','https://www.mingeagle.com/procurement.html','Institutional Sports Equipment Procurement | MING EAGLE']
 ]){
  const html=fs.readFileSync('public/'+filename,'utf8'),head=html.split('</head>')[0];
