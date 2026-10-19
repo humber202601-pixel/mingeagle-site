@@ -201,6 +201,27 @@
     document.head.appendChild(script);
   }
 
+  // Count only server-accepted inquiries, never an attempted form click.
+  // All fields are fixed enums: no customer details or inquiry references.
+  function trackConfirmedLead(requestType, delivery) {
+    if (readChoice() !== 'accepted' || !window.__mingeagleGa4Loaded ||
+        window['ga-disable-' + MEASUREMENT_ID] === true ||
+        typeof window.gtag !== 'function') return false;
+    var leadType = requestType === 'Wholesale quote' ? 'wholesale' :
+      requestType === 'Sample request' ? 'sample' :
+      requestType === 'Retail purchase inquiry' ? 'retail' : 'other';
+    var deliveryType = delivery === 'primary_crm' ? 'primary_crm' :
+      delivery === 'backup_form' ? 'backup_form' : 'other';
+    window.gtag('event', 'generate_lead', {
+      send_to: MEASUREMENT_ID,
+      lead_type: leadType,
+      lead_delivery: deliveryType,
+      page_location: safePageUrl(window.location.href)
+    });
+    return true;
+  }
+  window.MingEagleGA4 = Object.freeze({ trackConfirmedLead: trackConfirmedLead });
+
   function makeButton(className, handler) {
     var button = document.createElement('button');
     button.type = 'button';
