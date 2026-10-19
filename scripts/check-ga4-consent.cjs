@@ -22,6 +22,17 @@ assert(js.includes("document.cookie.split(';')"), 'Revocation must attempt to cl
 assert(js.includes('send_page_view: false'), 'Initial page view must be explicitly sanitized');
 assert(js.includes('url.origin + url.pathname'), 'Query strings and fragments must be removed from measured URLs');
 assert(js.includes('allow_google_signals: false') && js.includes('allow_ad_personalization_signals: false'), 'Advertising signals must be disabled');
+assert(js.includes("window.gtag('event', 'generate_lead'"), 'Only explicit confirmed lead conversion events are counted');
+assert(js.includes("readChoice() !== 'accepted'"), 'Lead events must remain consent-gated');
+assert(js.includes("lead_type: leadType") && js.includes("lead_delivery: deliveryType"), 'Lead event only carries enum values');
+assert(!js.includes("lead_email:") && !js.includes("lead_reference:"), 'Lead events must not send customer identifiers');
+const inquirySource = fs.readFileSync(path.join(root, 'inquiry.js'), 'utf8');
+const crmConfirmed = inquirySource.indexOf('await sendCrmInquiry(c,d,context');
+const crmLead = inquirySource.indexOf("MingEagleGA4.trackConfirmedLead(d.requestType,'primary_crm')");
+const backupConfirmed = inquirySource.indexOf('await sendPayload(c,buildPayload(d,c,context));');
+const backupLead = inquirySource.indexOf("MingEagleGA4.trackConfirmedLead(d.requestType,'backup_form')");
+assert(crmConfirmed >= 0 && crmLead > crmConfirmed && crmLead < inquirySource.indexOf('}catch(crmError)'), 'Primary lead conversion only after confirmed CRM save');
+assert(backupConfirmed >= 0 && backupLead > backupConfirmed && backupLead < inquirySource.indexOf('}catch(backupError)'), 'Backup conversion only after accepted backup submit');
 const css = fs.readFileSync(path.join(root, 'ga4-consent.css'), 'utf8');
 assert(css.includes('.mingeagle-ga4-panel') && css.includes(':focus-visible'), 'Accessible consent banner styles');
 const policy = fs.readFileSync(path.join(root, 'policies.html'), 'utf8');

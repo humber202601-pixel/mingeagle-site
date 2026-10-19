@@ -280,6 +280,8 @@ form.addEventListener('submit',async e=>{
   }
   $('formStatus').textContent='Saving your request to MING EAGLE…';
   await sendCrmInquiry(c,d,context,undefined,challenge?challenge.token():'');
+  // Only count an explicitly accepted CRM inquiry, without personal fields.
+  if(root.MingEagleGA4?.trackConfirmedLead)root.MingEagleGA4.trackConfirmedLead(d.requestType,'primary_crm');
   clearCreatorContext();
   // Preserve the existing HubSpot lead source on a best-effort basis.
   // A HubSpot outage cannot undo a successfully persisted CRM inquiry.
@@ -314,6 +316,8 @@ form.addEventListener('submit',async e=>{
   // channel. We cannot claim the primary CRM accepted this request.
   try{
    await sendPayload(c,buildPayload(d,c,context));
+   // Backup provider accepted the request; primary CRM status remains unconfirmed.
+   if(root.MingEagleGA4?.trackConfirmedLead)root.MingEagleGA4.trackConfirmedLead(d.requestType,'backup_form');
    clearCreatorContext();
    core.saveReceipt(d,'inquiry');
    $('formStatus').textContent='Your request was received by our backup form. Reference: '+d.reference+'. Our sales team will review it; synchronization to the customer management system has not yet been confirmed.';
