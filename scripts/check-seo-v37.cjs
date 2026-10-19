@@ -54,6 +54,7 @@ try{
  assert.equal(videoSchema['@type'],'CollectionPage');
  assert.equal(videoSchema.url,'https://www.mingeagle.com/videos.html');
  assert.equal(videoSchema.name,'16 Silent Basketball Creator Videos | MING EAGLE');
+ assert.equal(videoSchema.about['@type'],'Thing','do not expose incomplete Product rich-result data');
  assert(!JSON.stringify(videoSchema).includes('VideoObject'),'do not invent per-video metadata');
  const homepage=first['index.html'];
  const organization=JSON.parse(homepage.match(/<script type="application\/ld\+json">([^<]*)<\/script>/)?.[1]||'{}');
