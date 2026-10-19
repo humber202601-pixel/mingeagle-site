@@ -31,7 +31,7 @@ assert(pages.template.includes('10+ units follow wholesale quotation'));
 assert(pages.template.includes('Applicable US sales-tax treatment'));
 assert(pages.template.includes('not a guaranteed delivery commitment'));
 for(const page of ['for-schools.html','basketball-camp-equipment-supplier.html']){
- const lastmod=page==='for-schools.html'?'2026-10-18':'2026-10-17';
+ const lastmod=page==='for-schools.html'?'2026-10-18':'2026-10-19';
  assert(pages.sitemap.includes('<loc>https://www.mingeagle.com/'+page+'</loc><lastmod>'+lastmod+'</lastmod>'),
   'Meaningfully revised buyer pages require evidence-backed lastmod');
 }

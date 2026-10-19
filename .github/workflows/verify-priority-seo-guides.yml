@@ -1,0 +1,36 @@
+name: Verify priority B2B guide SEO
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "public/basketball-camp-equipment-supplier.html"
+      - "public/silent-basketball-guide.html"
+      - "public/sitemap.xml"
+      - "scripts/check-priority-seo-guides.cjs"
+      - "scripts/check-public-canonicals.cjs"
+      - ".github/workflows/deploy-pages.yml"
+      - ".github/workflows/verify-priority-seo-guides.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "public/basketball-camp-equipment-supplier.html"
+      - "public/silent-basketball-guide.html"
+      - "public/sitemap.xml"
+      - "scripts/check-priority-seo-guides.cjs"
+      - "scripts/check-public-canonicals.cjs"
+      - ".github/workflows/deploy-pages.yml"
+      - ".github/workflows/verify-priority-seo-guides.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify buyer guide snippets and image schema
+        run: node scripts/check-priority-seo-guides.cjs
+      - name: Verify canonical and sitemap integrity
+        run: node scripts/check-public-canonicals.cjs
