@@ -1,7 +1,7 @@
 import {stripeCheckoutTermsSupported} from '../../../../lib/b2b-quote-terms';
 import {QUOTE_PUBLIC_TOKEN_PREDICATE} from '../../../../lib/quote-public-token';
 import {stripeApi, stripeCheckoutReadiness, stripeSessionMatchesMode, type StripeEnv} from '../../../_shared/stripe';
-import {retailTaxTreatment,remoteStartupState,remoteStartupWithinLimits,type RetailTaxEnv} from '../../../../lib/retail-tax-policy';
+import {retailTaxTreatment,reviewedStripeTaxStates,remoteStartupState,remoteStartupWithinLimits,type RetailTaxEnv} from '../../../../lib/retail-tax-policy';
 import {registeredStripeTaxState,fixedTaxCustomer,automaticTaxAmount,type DeliveryAddress} from '../../../_shared/retail-stripe-tax';
 import {separateUnitUsAirParcels} from '../../../../lib/us-small-parcel';
 import {requiresClosedOrderPaymentReview} from '../../../../lib/closed-order-payment';
@@ -168,7 +168,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   const components=[cents(Number(order.subtotal)-Number(order.discount)),cents(order.shipping),cents(order.tax)];
   if(components.some(x=>!Number.isSafeInteger(x)||x<0)||components.reduce((a,b)=>a+b,0)!==due)
    return fail('Order total does not reconcile.',409);
-  if(taxMode==='STRIPE_AUTOMATIC'&&!await registeredStripeTaxState(env,shippingAddress.state!))
+  if(taxMode==='STRIPE_AUTOMATIC'&&reviewedStripeTaxStates(env).has(shippingAddress.state!)&&
+   !await registeredStripeTaxState(env,shippingAddress.state!))
    return fail('Secure payment for this delivery state is awaiting tax configuration.',409);
 
   // Stripe idempotency protects concurrent browser clicks for this order/amount.

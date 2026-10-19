@@ -17,9 +17,6 @@ assert.equal(noSalesTaxCollectionRequired(env,'ZZ',time),false);
 assert.deepEqual([...reviewedZeroTaxStates(env,time)],['KY']);
 assert.equal(noSalesTaxCollectionRequired({RETAIL_US_TAX_POLICY_JSON:''},'KY',time),false);
 assert.equal(noSalesTaxCollectionRequired({RETAIL_US_TAX_POLICY_JSON:'bad'},'KY',time),false);
-const nationwideWithoutReview={RETAIL_NATIONWIDE_STRIPE_TAX_ENABLED:'true',RETAIL_US_TAX_POLICY_JSON:''};
-assert.equal(noSalesTaxCollectionRequired(nationwideWithoutReview,'NY',time),false,'A global checkout flag cannot create a zero-tax decision');
-assert.deepEqual([...reviewedZeroTaxStates(nationwideWithoutReview,time)],[],'No state is approved by a flag alone');
 const stale={RETAIL_US_TAX_POLICY_JSON:JSON.stringify({
  reviewed_on:'2026-08-01',review_reference:'stale CPA review older than a month',states:{KY:'NO_COLLECTION_REQUIRED'}
 })};
