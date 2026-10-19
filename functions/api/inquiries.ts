@@ -60,7 +60,7 @@ const clean = (value: unknown, max = 500) =>
   typeof value === 'string' ? value.trim().slice(0, max) : '';
 
 function isUnitedStatesCountry(value:string){
-  const normalized=value.toUpperCase().replace(/[.,]/g,'').replace(/\\s+/g,' ').trim();
+  const normalized=value.toUpperCase().replace(/[.,]/g,'').replace(/\s+/g,' ').trim();
   return ['US','USA','UNITED STATES','UNITED STATES OF AMERICA'].includes(normalized);
 }
 
