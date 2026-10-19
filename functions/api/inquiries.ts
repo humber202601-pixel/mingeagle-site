@@ -1,5 +1,6 @@
 import {publicInquiryRateLimit} from '../../lib/public-inquiry-guard';
 import {verifyInquiryTurnstile,type TurnstileEnv} from '../../lib/turnstile-inquiry';
+import {isUsDeliveryState} from '../../lib/us-delivery-states';
 interface Env {
   MINGEAGLE_DB: D1Database;
   OUTBOUND_EMAIL_DISABLED?: string;
@@ -21,6 +22,7 @@ type InquiryInput = {
   customerType?: string;
   estimatedQuantity?: number | string;
   country?: string;
+  state?: string;
   city?: string;
   postalCode?: string;
   website?: string;
@@ -56,6 +58,11 @@ const THANK_YOU_URL = 'https://www.mingeagle.com/thank-you.html';
 
 const clean = (value: unknown, max = 500) =>
   typeof value === 'string' ? value.trim().slice(0, max) : '';
+
+function isUnitedStatesCountry(value:string){
+  const normalized=value.toUpperCase().replace(/[.,]/g,'').replace(/\\s+/g,' ').trim();
+  return ['US','USA','UNITED STATES','UNITED STATES OF AMERICA'].includes(normalized);
+}
 
 const normalizedCompany = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -161,6 +168,7 @@ async function parseRequest(request: Request): Promise<ParsedRequest> {
         customerType: formText(form, 'customer_type', 100),
         estimatedQuantity: formText(form, 'estimated_quantity', 80),
         country: formText(form, 'country', 100),
+        state: formText(form, 'state', 2).toUpperCase(),
         city: formText(form, 'city', 120),
         postalCode: formText(form, 'zip', 40),
         website: formText(form, 'website', 300),
@@ -215,6 +223,7 @@ async function forwardInquiryEmail(input: InquiryInput, reference: string) {
         Customization: clean(input.customization, 120),
         'Purchase timeline': clean(input.orderTiming, 120),
         Country: clean(input.country, 100),
+        'US delivery state': isUnitedStatesCountry(clean(input.country,100)) && isUsDeliveryState(clean(input.state,2).toUpperCase()) ? clean(input.state,2).toUpperCase() : '',
         City: clean(input.city, 120),
         'Postal / ZIP': clean(input.postalCode, 40),
         'Shipping preference': clean(input.shippingPreference, 120),
@@ -253,7 +262,7 @@ function successResponse(nativeForm: boolean, reference: string, payload: Record
   return Response.json({ ok: true, reference, ...payload });
 }
 
-async function processInquiryPost(context:Parameters<PagesFunction<Env>>[0],notify=true):Promise<Response>{
+async function processInquiryPost(context:Parameters<PagesFunction<Env>>[0],notify=true,requireUSWholesaleState=true):Promise<Response>{
   const {request,env}=context;
   notify = notify && env.OUTBOUND_EMAIL_DISABLED !== 'true';
   try {
@@ -271,6 +280,8 @@ async function processInquiryPost(context:Parameters<PagesFunction<Env>>[0],noti
     const companyName = clean(input.company, 160);
     const customerType = clean(input.customerType, 100);
     const country = clean(input.country, 100);
+    const shippingState = clean(input.state, 2).toUpperCase();
+    const usDestination = isUnitedStatesCountry(country);
     const city = clean(input.city, 120);
     const postalCode = clean(input.postalCode, 40);
     const website = clean(input.website, 300);
@@ -286,10 +297,14 @@ async function processInquiryPost(context:Parameters<PagesFunction<Env>>[0],noti
       rawMessage,
       preferredConfiguration ? `Preferred configuration: ${preferredConfiguration}` : '',
       shippingPreference ? `Shipping preference: ${shippingPreference}` : '',
+      usDestination && isUsDeliveryState(shippingState) ? `Buyer-provided US destination state: ${shippingState}` : '',
     ].filter(Boolean).join('\n');
     const requestedType = clean(input.requestType,40).toUpperCase();
     const requestType = (['SAMPLE','WHOLESALE','GENERAL','ORDER_SUPPORT','RETAIL_PARTNERSHIP'].includes(requestedType)
       ? requestedType : 'WHOLESALE') as NonNullable<InquiryInput['requestType']>;
+    if(requireUSWholesaleState && requestType==='WHOLESALE' && usDestination && !isUsDeliveryState(shippingState)){
+      return Response.json({ok:false,error:'For US wholesale quotations, enter the buyer-confirmed two-letter delivery state (for example, CA or TX). No inquiry was saved.'},{status:400});
+    }
     const productInterest = clean(input.productInterest, 120) || productInterestFromProducts(products);
     const requestedReference = safeReference(input.originalReference);
 
@@ -481,6 +496,7 @@ async function processInquiryPost(context:Parameters<PagesFunction<Env>>[0],noti
           companyName,
           customerType,
           city,
+          shippingState:usDestination && isUsDeliveryState(shippingState) ? shippingState : null,
           website,
           jobTitle,
           customization,
@@ -555,7 +571,7 @@ export async function receiveRecoveredInquiry(env:Env,input:Record<string,unknow
   const request=new Request('https://app.mingeagle.com/api/inquiries',{
     method:'POST',headers:{'content-type':'application/json'},
     body:JSON.stringify(input)});
-  return processInquiryPost({request,env} as Parameters<PagesFunction<Env>>[0],false);
+  return processInquiryPost({request,env} as Parameters<PagesFunction<Env>>[0],false,false);
 }
 
 // The storefront is hosted separately from the CRM. Public inquiries never
