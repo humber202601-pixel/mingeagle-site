@@ -103,6 +103,29 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
     }
   }
 
+  async function createUnpaidReplacementDraft(orderReference:string){
+    setBusy(`${orderReference}:REQUOTE`);
+    setMessage(prev=>({...prev,[orderReference]:undefined as never}));
+    try{
+      if(!window.confirm('仅创建新的独立报价草稿，原订单及付款记录保持不变。重新报价前必须取得买方真实收货地址、重新审核运费和各州销售税依据，客户重新接受后才可使用 Stripe。确认创建？'))return;
+      const response=await fetch('/api/admin/unpaid-wholesale-requote',{
+        method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},
+        body:JSON.stringify({orderReference})
+      });
+      const body=await response.json() as {ok?:boolean;reused?:boolean;error?:string;
+        quote?:{reference?:string}};
+      if(!response.ok||!body.ok||!body.quote?.reference)
+        throw new Error(body.error||'无法创建待审核的新批发报价草稿。');
+      setMessage(prev=>({...prev,[orderReference]:{type:'success',
+        text:(body.reused?'已有恢复草稿 ':'已创建恢复草稿 ')+body.quote!.reference+
+          '。请到报价管理审核当前成本、DDP 运费、客户目的州和销售税依据，再重新发送并取得客户接受。旧订单不得重新扣款。'}}));
+      onChanged();
+    }catch(error){
+      setMessage(prev=>({...prev,[orderReference]:{type:'error',
+        text:error instanceof Error?error.message:'恢复草稿未创建。'}}));
+    }finally{setBusy('');}
+  }
+
   function shipmentSubmit(event: FormEvent<HTMLFormElement>, reference: string) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
@@ -185,6 +208,18 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
             <p>待收金额：<strong>{money(outstanding, order.currency)}</strong>。已收到的历史线下记录仅供核对，不代表 Stripe 付款已完成。</p>
           </div>)}
 
+        {paymentStatus==='UNPAID'&&status==='PAYMENT_PENDING'&&
+          text(order.quote_status)==='CONVERTED'&&Number(order.item_units||0)>=10&&
+          received===0&&payments.length===0&&!onlineStatus&&
+          <div className="form-status" role="status">
+            <strong>历史批发订单待恢复 · 必须重新报价</strong>
+            <p>旧订单尚无可验证的 Stripe 会话和收款，可能缺少客户真实美国收货地址或销售税依据。此功能只为卖方创建一份新的独立 DRAFT；不会改写旧订单、自动确认旧报价、发送邮件或扣款。</p>
+            <button type="button" className="button secondary small" disabled={busy!==''}
+              onClick={()=>void createUnpaidReplacementDraft(reference)}>
+              {busy===`${reference}:REQUOTE`?'正在检查…':'创建新的待审核批发报价'}
+            </button>
+            <a className="table-action" href="/app/quotes">打开报价管理</a>
+          </div>}
         {paymentStatus === 'PAID' && !paymentHeld && status === 'PAID' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'START_PROCESSING')}>开始处理订单</button></div>}
         {paymentStatus === 'PAID' && !paymentHeld && status === 'PROCESSING' && <div className="order-actions"><button className="button small" disabled={busy !== ''} onClick={() => void runAction(reference, 'READY_TO_SHIP')}>标记为待发货</button></div>}
 

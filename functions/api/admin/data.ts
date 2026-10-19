@@ -86,6 +86,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
         ORDER BY q.created_at DESC LIMIT 100`).all(),
       db.prepare(`SELECT o.id, o.reference, o.quote_id, COALESCE(c.name, ct.full_name, ct.email, 'Unknown') AS customer,
         o.total, o.currency, o.status, o.payment_status,
+        (SELECT COALESCE(SUM(oi.quantity),0) FROM order_items oi WHERE oi.order_id=o.id) AS item_units,
         q.reference AS quote_reference, q.status AS quote_status,
         CASE WHEN q.id IS NULL OR q.payment_terms IS NULL THEN 'UNKNOWN'
           WHEN instr(lower(q.payment_terms),'stripe')>0 THEN 'STRIPE_MENTIONED'
