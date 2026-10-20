@@ -85,7 +85,28 @@ try{
   'A double-click cannot schedule duplicate outreach');
  sqlite.prepare("UPDATE orders SET payment_status='PAID' WHERE id=?").run(source.orderId);
  assert.equal((await call(source.ref)).status,409,'A paid original order may never be requoted or duplicated');
- const paid=setup('PAID');
+ // Historical unpaid orders can exist without a quote_id. They must still
+ // reconcile exactly and can only create a fresh, unapproved draft.
+ const orphanId='src-order-ORPHAN', orphanRef='ME-O-ORPHAN';
+ sqlite.prepare(`INSERT INTO orders(id,reference,quote_id,status,payment_status,currency,
+  subtotal,discount,shipping,tax,total)
+  VALUES(?,?,NULL,'PAYMENT_PENDING','UNPAID','USD',150,0,30,0,180)`)
+  .run(orphanId,orphanRef);
+ sqlite.prepare(`INSERT INTO order_items(id,order_id,description,quantity,unit_price,line_total)
+  VALUES(?,?,?,10,15,150)`)
+  .run('line-ORPHAN',orphanId,'Flocked Silent Basketball Set | No. 7 | Orange');
+ response=await call(orphanRef);
+ assert.equal(response.status,201,'A reconciled legacy order without quote_id may create only a fresh draft');
+ assert.equal(response.body.quote.status,'DRAFT');
+ const orphanDraft=sqlite.prepare('SELECT status,tax_basis,public_token_hash FROM quotes WHERE id=?').get(response.body.quote.id);
+ assert.equal(orphanDraft.status,'DRAFT');
+ assert.equal(orphanDraft.tax_basis,null);
+ assert.equal(orphanDraft.public_token_hash,null);
+ assert.equal(sqlite.prepare('SELECT quote_id FROM orders WHERE id=?').get(orphanId).quote_id,null,
+  'Recovery must not edit the original order or invent a source quote');
+ assert.equal((await call(orphanRef)).status,200,'Retry must reuse the orphan order draft');
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM b2b_recovery_quote_links WHERE source_order_id=?").get(orphanId).n,1);
+  const paid=setup('PAID');
  sqlite.prepare("UPDATE orders SET payment_status='PAID' WHERE id=?").run(paid.orderId);
  assert.equal((await call(paid.ref)).body.code,'SOURCE_ORDER_NOT_SAFE_FOR_REQUOTE');
  const partial=setup('PARTIAL');
