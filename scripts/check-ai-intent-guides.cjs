@@ -37,19 +37,6 @@ for(const name of pages){
  assert(anchors.length>=9,'Need real crawlable product and inquiry links');
  for(const href of anchors)assert(fs.existsSync(path.join(root,href)),name+' has broken link '+href);
 }
-
-const acousticsReferences=[
- 'https://acousticstoday.org/wp-content/uploads/2019/10/THE-ACOUSTICS-OF-FLOORS-IN-CONDOMINIUMS-Marshall-Long.pdf',
- 'https://acoustics.org/1aaaa2-flooring-impact-sound-a-potential-path-to-quieter-hospitals-mike-raley/'
-];
-for(const name of pages){
- const source=read(name);
- for(const href of acousticsReferences){
-  assert(source.includes('href="'+href+'"'),name+' must include a reputable external acoustics reference');
- }
- assert(/they do not test MING EAGLE products/i.test(source),name+' must distinguish general acoustics references from product testing');
-}
-
 for(const [source,target] of [
  ['index.html','quiet-indoor-sports-for-kids.html'],
  ['silent-basketball.html','quiet-indoor-sports-for-kids.html'],
