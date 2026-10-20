@@ -7,6 +7,9 @@ const result=await build({entryPoints:['functions/api/admin/unpaid-wholesale-req
 const {onRequestPost}=await import('data:text/javascript;base64,'+
  Buffer.from(result.outputFiles[0].text).toString('base64'));
 const middleware=readFileSync('functions/_middleware.ts','utf8');
+const orderManager=readFileSync('src/OrderManager.tsx','utf8');
+assert.ok(orderManager.includes("order.quote_id==null") && orderManager.includes("text(order.quote_status)==='CONVERTED'"),
+ 'The admin recovery action must be visible for unlinked legacy orders and converted-quote orders.');
 assert.ok(middleware.includes("'/api/admin/unpaid-wholesale-requote'"),
  'The guarded recovery action must also work in isolated preview.');
 const sqlite=new DatabaseSync(':memory:');
