@@ -67,6 +67,7 @@ const products=models.map(m=>{
 const guides=[
  {audience:'parents and apartment households',question:'What can children use for quieter indoor ball games?',url:makeUrl('quiet-indoor-sports-for-kids.html')},
  {audience:'neighbors and apartment households',question:'How does indoor ball noise change by floor and activity?',url:makeUrl('silent-basketball-for-apartments.html')},
+ {audience:'families, coaches and buyers comparing basketball types',question:'How does a silent basketball compare with a regular basketball?',url:makeUrl('silent-basketball-vs-regular.html')},
  {audience:'schools and after-school PE',question:'What controlled indoor sports equipment should schools assess?',url:makeUrl('indoor-school-sports-equipment-guide.html')},
  {audience:'basketball coaches and academies',question:'How can a coach choose an indoor ball for handling drills and samples?',url:makeUrl('for-coaches.html')},
  {audience:'sporting goods wholesalers and retailers',question:'How do I request wholesale prices, branding, samples and international freight?',url:makeUrl('wholesale.html')},
@@ -74,6 +75,7 @@ const guides=[
  {audience:'public institutions and government procurement teams',question:'What terms and documents belong in a public-sector sports equipment quote?',url:makeUrl('procurement.html')},
  {audience:'sports distributors and buying groups',question:'What sizes and product families can I compare for a silent basketball wholesale order?',url:makeUrl('wholesale-product-catalog.html')},
  {audience:'school teams and sporting goods resellers',question:'How does custom-logo basketball sourcing and sample approval work?',url:makeUrl('custom-logo.html')},
+ {audience:'school teams, coaches and custom-logo buyers',question:'How can a school or team source custom-logo basketballs?',url:makeUrl('custom-basketball-for-teams.html')},
  {audience:'basketball camps and recreational programs',question:'How can a camp request quieter basketballs, samples and bulk freight?',url:makeUrl('basketball-camp-equipment-supplier.html')}
 ];
 const facts={
