@@ -25,7 +25,7 @@ assert(js.includes('url.origin + url.pathname'), 'Page locations must be sanitiz
 assert(css.includes('.mingeagle-ga4-panel'), 'Consent control CSS must be available');
 assert(policies.includes('Google Analytics 4') && policies.includes('Privacy settings'), 'GA4 privacy notice must be published');
 assert(js.includes("window.gtag('event', 'generate_lead'") && js.includes('trackConfirmedLead'), 'Live GA4 must expose the confirmed-lead event');
-assert(inquiryHtml.includes('inquiry.js?v=20261020-ga4lead1') && inquiryHtml.includes('forms-core.js?v=20261020-ga4lead1'), 'Inquiry HTML must reference the exact cache-busted inquiry and forms assets');
+assert(inquiryHtml.includes('inquiry.js?v=20261020-ga4lead1') && inquiryHtml.includes('forms-core.js?v=20261019-usstate1'), 'Inquiry HTML must reference the exact cache-busted inquiry and forms assets');
 assert(inquiry.includes('function recordAcceptedLead(data,delivery)'), 'Live inquiry must guard optional analytics independently of CRM success');
 assert(inquiry.includes('root.MingEagleGA4.trackConfirmedLead(data.requestType,delivery)'), 'Live inquiry must call the consent-gated GA4 tracker through its safe wrapper');
 const crmConfirmed = inquiry.indexOf('await sendCrmInquiry(c,d,context');
