@@ -6,8 +6,8 @@ const retail=JSON.parse(fs.readFileSync(path.join(root,'retail-prices.json'),'ut
 const productKeys={'silent-basketball.html':'p1','fabric-silent-basketball.html':'p2','weighted-flocked-basketball.html':'p3','silent-soccer.html':'p4'};
 const settings={
  'index.html':{
-  title:'Silent Basketball & Quiet Indoor Sports Balls | MING EAGLE',
-  description:'Explore MING EAGLE silent basketball sets and indoor soccer balls for families, coaches, schools and wholesale buyers. Compare models or request a bulk quote.',
+  title:'Wholesale Indoor Sports Equipment | MING EAGLE',
+  description:'Wholesale quiet indoor sports equipment for schools, public agencies, businesses and distributors. Request bulk quotes and samples.',
   schema:{'@context':'https://schema.org','@type':'Organization',name:'MING EAGLE COMMERCE LLC',alternateName:'MING EAGLE',url:base,
    email:'mingeaglecommerce@gmail.com',
    sameAs:['https://www.facebook.com/profile.php?id=61594156866139','https://de.pinterest.com/mingeaglecommerce/','https://www.youtube.com/channel/UCMyIMO2mCzAGcJ9GqRF4dNQ'],
