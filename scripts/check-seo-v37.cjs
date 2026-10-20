@@ -78,7 +78,7 @@ try{
   const navs=[...first[f].matchAll(/<nav\b[^>]*id="official-social-profiles"[^>]*>[\s\S]*?<\/nav>/g)];
   assert.equal(navs.length,1,f+' must have exactly one social navigation');
   assert.equal(navs[0][0],socialNav,f+' must use the reviewed official account links');
-  assert(first[f].includes('styles.css?v=20261015-social2'),f+' must load current follow-button styles');
+  assert(first[f].includes('styles.css?v=20261020-homefix1'),f+' must load current follow-button styles');
  }
  const productFooter=first['weighted-flocked-basketball.html'].match(/<footer\b[\s\S]*?<\/footer>/)?.[0]||'';
  assert(productFooter.includes('product=Weighted%20Flocked%20Silent%20Basketball'),'adding follow links must preserve product-specific quote attribution');
