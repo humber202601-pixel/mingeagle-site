@@ -9,6 +9,8 @@ for (const name of files) {
   const html = fs.readFileSync(path.join(root, name), 'utf8');
   assert.equal((html.match(/data-mingeagle-ga4-consent="styles"/g) || []).length, 1, 'Exactly one GA4 consent stylesheet in ' + name);
   assert.equal((html.match(/data-mingeagle-ga4-consent="script"/g) || []).length, 1, 'Exactly one GA4 consent script in ' + name);
+  assert(html.includes('href="/ga4-consent.css?v=20261020-ga4lead1"'), 'Current cache-busted GA4 CSS URL in ' + name);
+  assert(html.includes('src="/ga4-consent.js?v=20261020-ga4lead1"'), 'Current cache-busted GA4 JS URL in ' + name);
   assert(!html.includes('googletagmanager.com/gtag/js'), 'Google tag must not be embedded before visitor consent: ' + name);
 }
 const js = fs.readFileSync(path.join(root, 'ga4-consent.js'), 'utf8');
@@ -54,6 +56,8 @@ try{
  console.warn=oldWarn;
  if(previous===undefined)delete global.MingEagleGA4;else global.MingEagleGA4=previous;
 }
+const inquiryHtml = fs.readFileSync(path.join(root, 'inquiry.html'), 'utf8');
+assert(inquiryHtml.includes('inquiry.js?v=20261020-ga4lead1'), 'Inquiry script URL must be cache-busted when conversion code changes');
 const css = fs.readFileSync(path.join(root, 'ga4-consent.css'), 'utf8');
 assert(css.includes('.mingeagle-ga4-panel') && css.includes(':focus-visible'), 'Accessible consent banner styles');
 const policy = fs.readFileSync(path.join(root, 'policies.html'), 'utf8');
