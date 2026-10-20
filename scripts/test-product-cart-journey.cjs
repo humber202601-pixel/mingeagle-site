@@ -10,7 +10,7 @@ for(const name of pages){
  const html=fs.readFileSync('public/'+name,'utf8');
  assert(html.includes('retail-buy.css?v=20261013-cartfix1'),name+' missing styles');
  const base=html.indexOf('retail-cart.js?v=20261013-cartfix1');
- const buyer=html.indexOf(name==='silent-basketball.html'?'retail-buy.js?v=20261014-creator1':'retail-buy.js?v=20261013-cartfix1');
+ const buyer=html.indexOf('retail-buy.js?v=20261020-scope1');
  assert(base>0&&buyer>base,name+' cart store must load before selector');
 }
 const prices=JSON.parse(fs.readFileSync('public/retail-prices.json','utf8')).products;
@@ -98,8 +98,16 @@ const color=find(panel,x=>x.attrs['aria-label']==='Color');
 const quantity=find(panel,x=>x.attrs['aria-label']==='Quantity');
 const add=find(panel,x=>x.className==='retailBuyAdd');
 assert(size&&color&&quantity&&add,'Complete selector controls');
+const eyebrow=find(panel,x=>x.className==='retailBuyEyebrow');
+const note=find(panel,x=>x.className==='retailBuyNote');
+assert.equal(add.textContent,'Add to cart','Approved P1-S3 starts on the direct-checkout path');
+assert(eyebrow.textContent.includes('1–9 ELIGIBLE UNITS'));
 state='[]';
 size.value='No. 5';color.value='Green';quantity.value='2';
+size.handlers.change();
+assert.equal(add.textContent,'Add to quote cart','Unapproved P1-S5 must not be presented as direct checkout');
+assert(eyebrow.textContent.includes('QUOTE PATH'));
+assert(note.textContent.includes('not eligible for direct card checkout'));
 add.handlers.click();
 assert.equal(store.read().length,1);
 assert.equal(store.read()[0].sku,'P1-S5');
