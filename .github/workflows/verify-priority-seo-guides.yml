@@ -52,6 +52,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Build generated SEO metadata
+        run: node scripts/build-seo-v37.cjs
+      - name: Verify AI intent guide evidence and limitations
+        run: node scripts/check-ai-intent-guides.cjs
       - name: Verify buyer guide snippets and image schema
         run: node scripts/check-priority-seo-guides.cjs
       - name: Verify canonical and sitemap integrity
