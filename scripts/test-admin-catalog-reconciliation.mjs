@@ -54,5 +54,14 @@ assert.match(endpointSource,/request\.headers\.get\('x-admin-key'\)/,'report val
 assert.match(endpointSource,/return reply\(\{ok:false,error:'Unauthorized\.'\},401\)/,'report fails closed for unauthorized requests');
 assert.match(uiSource,/fetch\('\/api\/admin\/catalog-reconciliation'/,'order manager calls the reconciliation endpoint');
 assert.match(uiSource,/headers: \{ 'x-admin-key': accessKey \}/,'UI uses the current authenticated admin session');
-assert.match(uiSource,/不会自动匹配商品、修改订单、创建报价或发起支付/,'UI explains the report is read-only');
+assert.match(uiSource,/仅人工确认后保存商品\/规格关联/,'UI explains manual-only association behavior');
+assert.match(uiSource,/saveCatalogMatch/,'UI exposes the manual association action');
+assert.match(uiSource,/confirmOriginalEvidence: true/,'UI requires explicit confirmation of original evidence');
+const matchSource=readFileSync('functions/api/admin/order-item-catalog-match.ts','utf8');
+assert.match(matchSource,/env\.ADMIN_ACCESS_KEY/,'association endpoint requires the existing server-side admin key');
+assert.match(matchSource,/Unauthorized\.'\},401/,'association endpoint rejects unauthorized requests');
+assert.match(matchSource,/confirmOriginalEvidence!==true/,'association endpoint requires explicit evidence confirmation');
+assert.match(matchSource,/order_item_catalog_audit/,'association endpoint records an audit trail');
+assert.match(matchSource,/product_id=\?,variant_id=\?/,'association endpoint only updates product/variant association fields');
+assert.doesNotMatch(matchSource,/UPDATE orders SET|UPDATE payments SET|UPDATE quotes SET/,'association endpoint does not mutate financial records');
 console.log('PASS: reconciliation endpoint is wired to existing admin auth and read-only admin UI');
