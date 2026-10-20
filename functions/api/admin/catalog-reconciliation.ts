@@ -1,4 +1,4 @@
-interface Env { MINGEAGLE_DB: D1Database; CATALOG_RECONCILIATION_KEY?: string }
+interface Env { MINGEAGLE_DB: D1Database; ADMIN_ACCESS_KEY?: string }
 type MissingLine = {
   order_reference:string; order_status:string; payment_status:string; currency:string;
   order_total:number; item_id:string; description:string; quantity:number;
@@ -22,7 +22,7 @@ async function sameSecret(a:string,b:string){
 // Read-only report. It deliberately never guesses product/variant matches and
 // never mutates historical orders, quote records, or payment evidence.
 export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
-  const expected=env.CATALOG_RECONCILIATION_KEY||'';
+  const expected=env.ADMIN_ACCESS_KEY||'';
   const supplied=request.headers.get('x-admin-key')||'';
   if(!expected||!supplied||!await sameSecret(supplied,expected))
     return reply({ok:false,error:'Unauthorized.'},401);
