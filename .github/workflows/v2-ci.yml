@@ -37,6 +37,9 @@ jobs:
       - name: Verify canonical product catalog seed migration
         run: node scripts/test-product-catalog-seed.mjs
 
+      - name: Verify read-only catalog reconciliation report
+        run: node scripts/test-admin-catalog-reconciliation.mjs
+
       - name: Typecheck and build
         run: npm run build
 
