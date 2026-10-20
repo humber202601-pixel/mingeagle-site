@@ -22,9 +22,11 @@ assert.equal(data.publisher.website,'https://www.mingeagle.com/');
 assert.equal(data.products.length,4);
 assert.equal(data.publisher.wholesaleProductFactsCsv,'https://www.mingeagle.com/wholesale-product-facts.csv');
 assert(txtBefore.includes('[Download first-party wholesale product comparison (CSV)]('+data.publisher.wholesaleProductFactsCsv+')'),'Machine-readable buyer guide must expose real downloadable CSV');
-assert.equal(data.guides.length,10);
+assert.equal(data.guides.length,12);
 assert.equal(new Set(data.products.map(x=>x.id)).size,4);
-assert.equal(new Set(data.guides.map(x=>x.url)).size,10);
+assert.equal(new Set(data.guides.map(x=>x.url)).size,12);
+assert(data.guides.some(g=>g.question==='How does a silent basketball compare with a regular basketball?'&&g.url==='https://www.mingeagle.com/silent-basketball-vs-regular.html'));
+assert(data.guides.some(g=>g.question==='How can a school or team source custom-logo basketballs?'&&g.url==='https://www.mingeagle.com/custom-basketball-for-teams.html'));
 for(const item of data.products){
  assert.equal(item.name,master[item.id].name);
  assert.equal(item.colors,master[item.id].colors);
