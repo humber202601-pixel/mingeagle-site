@@ -2,8 +2,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const root = path.join(__dirname, '../public');
-const cssTag = '<link rel="stylesheet" href="/ga4-consent.css?v=20261019-ga4" data-mingeagle-ga4-consent="styles">';
-const jsTag = '<script defer src="/ga4-consent.js?v=20261019-ga4" data-mingeagle-ga4-consent="script"></script>';
+const cssTag = '<link rel="stylesheet" href="/ga4-consent.css?v=20261020-ga4lead1" data-mingeagle-ga4-consent="styles">';
+const jsTag = '<script defer src="/ga4-consent.js?v=20261020-ga4lead1" data-mingeagle-ga4-consent="script"></script>';
 const checkOnly = process.argv.includes('--check');
 const files = fs.readdirSync(root).filter(function (name) { return /\.html$/i.test(name); });
 if (files.length < 20) throw new Error('Unexpectedly small public HTML catalog');
@@ -19,10 +19,16 @@ for (const name of files) {
   if (cssCount === 0) {
     if (checkOnly) throw new Error('Missing GA4 consent stylesheet in ' + name);
     next = next.replace(/<\/head>/i, cssTag + '</head>');
+  } else if (!html.includes(cssTag)) {
+    if (checkOnly) throw new Error('Stale GA4 consent stylesheet version in ' + name);
+    next = next.replace(/<link\b[^>]*data-mingeagle-ga4-consent="styles"[^>]*>/i, cssTag);
   }
   if (jsCount === 0) {
     if (checkOnly) throw new Error('Missing GA4 consent script in ' + name);
     next = next.replace(/<\/body>/i, jsTag + '</body>');
+  } else if (!html.includes(jsTag)) {
+    if (checkOnly) throw new Error('Stale GA4 consent script version in ' + name);
+    next = next.replace(/<script\b[^>]*data-mingeagle-ga4-consent="script"[^>]*><\/script>/i, jsTag);
   }
   if (next !== html) {
     fs.writeFileSync(filename, next);

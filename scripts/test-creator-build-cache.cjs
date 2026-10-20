@@ -8,8 +8,8 @@ try{
  const run=()=>cp.execFileSync('python',[path.resolve('scripts/build-conversion.py')],{cwd:temp,encoding:'utf8'});
  run();
  const once=fs.readFileSync(path.join(pub,'inquiry.html'),'utf8');
- for(const file of ['forms-core.js','inquiry.js'])
-  assert(once.includes(file+'?v=20261019-usstate1'),file+' must remain new on inquiry form');
+ assert(once.includes('forms-core.js?v=20261019-usstate1'),'forms-core.js must retain its current cache key');
+ assert(once.includes('inquiry.js?v=20261020-ga4lead1'),'inquiry.js must refresh after confirmed-lead tracking changes');
  const direct=fs.readFileSync(path.join(pub,'index.html'),'utf8');
  assert(direct.includes('forms-core.js?v=20261010-turnstile-v30'),
   'Other site pages must retain existing working contact script version');

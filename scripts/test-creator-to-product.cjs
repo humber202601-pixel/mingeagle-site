@@ -26,7 +26,7 @@ try{
  const inquiryPage=fs.readFileSync('public/inquiry.html','utf8');
  assert(product.includes('retail-buy.js?v=20261014-creator1'));
  assert(inquiryPage.includes('forms-core.js?v=20261019-usstate1'));
- assert(inquiryPage.includes('inquiry.js?v=20261019-usstate1'));
+ assert(inquiryPage.includes('inquiry.js?v=20261020-ga4lead1'));
  const buy=fs.readFileSync('public/retail-buy.js','utf8');
  assert(buy.includes('mingeagle_video_to_product_v1'));
  assert(buy.includes("productId==='p1'"),'Other product pages must not inherit demonstration context');
