@@ -57,7 +57,7 @@ try{
  if(previous===undefined)delete global.MingEagleGA4;else global.MingEagleGA4=previous;
 }
 const inquiryHtml = fs.readFileSync(path.join(root, 'inquiry.html'), 'utf8');
-assert(inquiryHtml.includes('inquiry.js?v=20261020-homefix1'), 'Inquiry script URL must be cache-busted when conversion code changes');
+assert(inquiryHtml.includes('inquiry.js?v=20261020-ga4lead1'), 'Inquiry script URL must be cache-busted when conversion code changes');
 const css = fs.readFileSync(path.join(root, 'ga4-consent.css'), 'utf8');
 assert(css.includes('.mingeagle-ga4-panel') && css.includes(':focus-visible'), 'Accessible consent banner styles');
 const policy = fs.readFileSync(path.join(root, 'policies.html'), 'utf8');
