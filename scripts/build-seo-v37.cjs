@@ -74,7 +74,7 @@ for(const [filename,config] of Object.entries(settings)){
  if(html.split(brandFooter).length!==2)throw new Error('Missing or ambiguous brand footer: '+filename);
  html=html.replace(/<nav\b[^>]*id="official-social-profiles"[^>]*>[\s\S]*?<\/nav>/g,'');
  html=html.replace(brandFooter,brandFooter+officialNav);
- html=html.replace(/styles\.css\?v=[^"\s>]+/g,'styles.css?v=20261020-homefix1');
+ html=html.replace(/styles\.css\?v=[^"\s>]+/g,'styles.css?v=20261020-homefix2');
 
  html=html.replace(/<!-- MING EAGLE V37 SEO BEGIN -->[\s\S]*?<!-- MING EAGLE V37 SEO END -->\s*/g,'');
  if(!/<head(?:\s[^>]*)?>/i.test(html)||!/<\/head>/i.test(html))throw new Error('Malformed head: '+filename);
