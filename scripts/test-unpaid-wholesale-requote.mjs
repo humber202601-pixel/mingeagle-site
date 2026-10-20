@@ -43,6 +43,11 @@ const call=async ref=>{
 };
 const setup=(name)=>{
  const quoteId='src-quote-'+name,orderId='src-order-'+name,ref='ME-O-'+name;
+ const productId='product-'+name,variantId='variant-'+name;
+ sqlite.prepare(`INSERT INTO products(id,sku,slug,name,status) VALUES(?,?,?,?,'ACTIVE')`)
+  .run(productId,'SKU-'+name,'slug-'+name,'Silent Basketball '+name);
+ sqlite.prepare(`INSERT INTO product_variants(id,product_id,variant_sku,name,active) VALUES(?,?,?,?,1)`)
+  .run(variantId,productId,'VAR-'+name,'No. 7 Orange');
  sqlite.prepare(`INSERT INTO quotes(id,reference,status,currency,subtotal,discount,shipping,tax,total,
   payment_terms,shipping_terms,valid_until)
   VALUES(?,?,'CONVERTED','USD',150,0,30,0,180,'Accepted original Stripe terms',
@@ -52,9 +57,9 @@ const setup=(name)=>{
   subtotal,discount,shipping,tax,total)
   VALUES(?,?,?,'PAYMENT_PENDING','UNPAID','USD',150,0,30,0,180)`)
   .run(orderId,ref,quoteId);
- sqlite.prepare(`INSERT INTO order_items(id,order_id,description,quantity,unit_price,line_total)
-  VALUES(?,?,?,10,15,150)`)
-  .run('line-'+name,orderId,'Flocked Silent Basketball Set | No. 7 | Orange');
+ sqlite.prepare(`INSERT INTO order_items(id,order_id,product_id,variant_id,description,quantity,unit_price,line_total)
+  VALUES(?,?,?,?,?,10,15,150)`)
+  .run('line-'+name,orderId,productId,variantId,'Flocked Silent Basketball Set | No. 7 | Orange');
  return {quoteId,orderId,ref};
 };
 try{
@@ -108,9 +113,11 @@ try{
   subtotal,discount,shipping,tax,total)
   VALUES(?,?,NULL,'PAYMENT_PENDING','UNPAID','USD',150,0,30,0,180)`)
   .run(orphanId,orphanRef);
- sqlite.prepare(`INSERT INTO order_items(id,order_id,description,quantity,unit_price,line_total)
-  VALUES(?,?,?,10,15,150)`)
-  .run('line-ORPHAN',orphanId,'Flocked Silent Basketball Set | No. 7 | Orange');
+ sqlite.prepare(`INSERT INTO products(id,sku,slug,name,status) VALUES('product-ORPHAN','SKU-ORPHAN','slug-ORPHAN','Silent Basketball ORPHAN','ACTIVE')`).run();
+ sqlite.prepare(`INSERT INTO product_variants(id,product_id,variant_sku,name,active) VALUES('variant-ORPHAN','product-ORPHAN','VAR-ORPHAN','No. 7 Orange',1)`).run();
+ sqlite.prepare(`INSERT INTO order_items(id,order_id,product_id,variant_id,description,quantity,unit_price,line_total)
+  VALUES(?,?,?,?,?,10,15,150)`)
+  .run('line-ORPHAN',orphanId,'product-ORPHAN','variant-ORPHAN','Flocked Silent Basketball Set | No. 7 | Orange');
  response=await call(orphanRef);
  assert.equal(response.status,201,'A reconciled legacy order without quote_id may create only a fresh draft');
  assert.equal(response.body.quote.status,'DRAFT');
@@ -142,6 +149,19 @@ try{
  const small=setup('SAMPLE');
  sqlite.prepare("UPDATE order_items SET quantity=1,line_total=15 WHERE order_id=?").run(small.orderId);
  assert.equal((await call(small.ref)).body.code,'SOURCE_NOT_WHOLESALE');
+ const missingProduct=setup('MISSING-PRODUCT');
+ sqlite.prepare("UPDATE order_items SET product_id=NULL WHERE order_id=?").run(missingProduct.orderId);
+ const missingProductCount=sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n;
+ const missingProductResult=await call(missingProduct.ref);
+ assert.equal(missingProductResult.status,409,'A legacy line without product association must not become a customer quote');
+ assert.equal(missingProductResult.body.code,'SOURCE_PRODUCT_SNAPSHOT_REQUIRED');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n,missingProductCount,
+  'Missing product association must not create a draft quote');
+ const missingVariant=setup('MISSING-VARIANT');
+ sqlite.prepare("UPDATE order_items SET variant_id=NULL WHERE order_id=?").run(missingVariant.orderId);
+ const missingVariantResult=await call(missingVariant.ref);
+ assert.equal(missingVariantResult.status,409,'A product with variants must have a valid variant snapshot');
+ assert.equal(missingVariantResult.body.code,'SOURCE_PRODUCT_SNAPSHOT_REQUIRED');
  const tamper=setup('TAMPER');
  sqlite.prepare("UPDATE order_items SET line_total=149 WHERE order_id=?").run(tamper.orderId);
  assert.equal((await call(tamper.ref)).body.code,'SOURCE_LINE_ITEMS_INVALID');
