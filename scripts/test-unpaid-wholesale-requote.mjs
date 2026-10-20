@@ -25,7 +25,8 @@ const db={
  async batch(items){
   if(concurrency){
    const op=concurrency;concurrency=null;
-   sqlite.prepare('UPDATE orders SET payment_status=? WHERE id=?').run(op.status,op.id);
+   if(op.status)sqlite.prepare('UPDATE orders SET payment_status=? WHERE id=?').run(op.status,op.id);
+   if(op.description)sqlite.prepare('UPDATE order_items SET description=? WHERE order_id=?').run(op.description,op.id);
   }
   sqlite.exec('BEGIN');
   try{
@@ -160,14 +161,22 @@ try{
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n,before,
   'No replacement quote may survive a race with PAID');
  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM b2b_recovery_quote_links WHERE source_order_id=?").get(race.orderId).n,0);
+ const lateQa=setup('LATE-QA');
+ concurrency={id:lateQa.orderId,description:'QA TEST - DO NOT SEND'};
+ const beforeLateQa=sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n;
+ response=await call(lateQa.ref);
+ assert.equal(response.status,409,'A QA marker added before the atomic batch must block recovery');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n,beforeLateQa,'Atomic QA guard must prevent draft creation');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM b2b_recovery_quote_links WHERE source_order_id=?').get(lateQa.orderId).n,0);
  const late=setup('ROLLBACK');
  sqlite.exec(`CREATE TRIGGER stop_recovery_activity BEFORE INSERT ON activities
   WHEN NEW.activity_type='UNPAID_ORDER_REQUOTE_DRAFT'
   BEGIN SELECT RAISE(ABORT,'synthetic late audit failure');END;`);
  const activityCount=sqlite.prepare('SELECT COUNT(*) n FROM activities').get().n;
+ const quoteCountBeforeLate=sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n;
  response=await call(late.ref);
  assert.equal(response.status,409);
- assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n,before+1,
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n,quoteCountBeforeLate,
   'Rollback must remove all new draft records, not the legitimate source');
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM activities').get().n,activityCount);
  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM b2b_recovery_quote_links WHERE source_order_id=?").get(late.orderId).n,0);
