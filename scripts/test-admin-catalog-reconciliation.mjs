@@ -38,7 +38,7 @@ assert.deepEqual(new Set(missing.map(x=>x.order_reference)),new Set(['ME-UNLINKE
 assert.equal(catalog.length,39,'catalog candidates are exposed for manual review');
 assert.equal(missing.find(x=>x.order_reference==='ME-UNLINKED').description,'MING EAGLE Silent Basketball',
  'report preserves ambiguous original descriptions and does not guess a match');
-assert.equal(db.prepare("SELECT product_id FROM order_items WHERE id='line-unlinked'").get().product_id,undefined);
+assert.equal(db.prepare("SELECT product_id FROM order_items WHERE id='line-unlinked'").get().product_id,null);
 assert.equal(db.prepare("SELECT COUNT(*) AS n FROM quotes").get().n,0,'report never creates quotations');
 assert.equal(db.prepare("SELECT COUNT(*) AS n FROM payments").get().n,0,'report never creates payment evidence');
 console.log('PASS: read-only catalog reconciliation report query preserves ambiguity and performs no writes');
