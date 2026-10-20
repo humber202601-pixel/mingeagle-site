@@ -152,4 +152,45 @@ function titleAndDescription(filename,titleExpected,descriptionExpected){
  assert.equal(page.primaryImageOfPage?.url,image,'Bulk guide schema image must match the visible image');
 }
 
+
+{
+ const productCases=[
+  {filename:'silent-basketball.html',name:'Flocked Silent Basketball Set',category:'Indoor basketball set',image:base+'assets/hero-flocked-silent-basketball-set.webp',sizes:'No. 3, No. 5, No. 7',colors:'Orange, Blue, Green, Yellow',setContents:'Basketball and mini hoop'},
+  {filename:'fabric-silent-basketball.html',name:'Fabric-Cover Silent Basketball Set',category:'Indoor basketball set',image:base+'assets/hero-fabric-cover-silent-basketball-set.webp',sizes:'No. 3, No. 5, No. 7',colors:'Orange, Green',setContents:'Basketball and mini hoop'},
+  {filename:'weighted-flocked-basketball.html',name:'Weighted Flocked Silent Basketball',category:'Indoor basketball',image:base+'assets/hero-weighted-flocked-silent-basketball.webp',sizes:'No. 3, No. 4, No. 6, No. 7',colors:'Orange, Brown, Black, Aqua Blue'},
+  {filename:'silent-soccer.html',name:'Flocked Silent Soccer Ball',category:'Indoor soccer ball',image:base+'assets/hero-flocked-silent-soccer-ball.webp',sizes:'No. 5',colors:'Black/White, Black/Green, Black/Red, Yellow/Green, Black/Gold'}
+ ];
+ for(const item of productCases){
+  const {head}=load(item.filename);
+  const url=base+item.filename;
+  const nodes=schemas(head).flatMap(s=>flatten(s));
+  const product=nodes.find(n=>n['@type']==='Product'&&n.url===url);
+  assert(product,'Product JSON-LD is required for '+item.filename);
+  assert.equal(product['@id'],url+'#product');
+  assert.equal(product.name,item.name);
+  assert.equal(product.description,meta(head,'name','description'),'Product description must match visible page metadata');
+  assert.equal(product.image,item.image,'Product schema image must be a real first-party image');
+  assert.equal(product.brand?.['@type'],'Brand');
+  assert.equal(product.brand?.name,'MING EAGLE');
+  assert.equal(product.category,item.category);
+  assert.equal(product.mainEntityOfPage,url);
+  const properties=Object.fromEntries((product.additionalProperty||[]).map(p=>[p.name,p.value]));
+  assert.equal(properties['Available sizes'],item.sizes);
+  assert.equal(properties['Available colors'],item.colors);
+  if(item.setContents)assert.equal(properties['Set contents'],item.setContents);
+  assert(!product.offers,'Do not imply checkout availability or confirmed landed prices through unverified offers');
+  assert(!product.review&&!product.aggregateRating,'Do not fabricate reviews or ratings');
+ }
+ const sitemap=fs.readFileSync(path.join(root,'sitemap.xml'),'utf8');
+ const llms=fs.readFileSync(path.join(root,'llms.txt'),'utf8');
+ for(const url of [base+'custom-basketball-for-teams.html',base+'silent-basketball-vs-regular.html']){
+  assert(sitemap.includes('<loc>'+url+'</loc>'),'Priority guide missing from sitemap: '+url);
+  assert(llms.includes(url),'Priority guide missing from llms.txt: '+url);
+ }
+ const robots=fs.readFileSync(path.join(root,'robots.txt'),'utf8');
+ for(const agent of ['Googlebot','Bingbot','OAI-SearchBot','PerplexityBot','Claude-SearchBot']){
+  assert(new RegExp('User-agent: '+agent+'\\s+Allow: \\/','i').test(robots),'Crawler access rule missing for '+agent);
+ }
+}
+
 console.log('PASS: priority B2B guide snippets, canonical/social metadata, visible images and matching structured data.');
