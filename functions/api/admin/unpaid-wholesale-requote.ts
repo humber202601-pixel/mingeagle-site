@@ -58,6 +58,20 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   if(!rows.length||rows.reduce((n,x)=>n+Number(x.quantity||0),0)<10)
    return reply({ok:false,code:'SOURCE_NOT_WHOLESALE',
     error:'Only 10+ unit wholesale orders qualify for this recovery flow.'},409);
+  // A historical description alone is not a reliable product identity. Every
+  // line must resolve to an active catalog product; products with variants must
+  // also resolve to an active variant belonging to that product.
+  const productSnapshot=await db.prepare(`SELECT COUNT(*) AS invalid_lines FROM order_items i
+    LEFT JOIN products p ON p.id=i.product_id
+    LEFT JOIN product_variants v ON v.id=i.variant_id
+    WHERE i.order_id=? AND (
+      i.product_id IS NULL OR p.id IS NULL OR p.status<>'ACTIVE'
+      OR (i.variant_id IS NOT NULL AND (v.id IS NULL OR v.product_id<>p.id OR v.active<>1))
+      OR (i.variant_id IS NULL AND EXISTS(SELECT 1 FROM product_variants pv WHERE pv.product_id=p.id))
+    )`).bind(order.id).first<{invalid_lines:number}>();
+  if(Number(productSnapshot?.invalid_lines||0)>0)
+   return reply({ok:false,code:'SOURCE_PRODUCT_SNAPSHOT_REQUIRED',
+    error:'One or more historical order lines lack a valid active catalog product or required variant. Restore the product/variant association and review the original SKU before creating a replacement quotation.'},409);
   let calc:ReturnType<typeof quoteTotals>;
   try{
    const lines=rows.map(x=>({quantity:x.quantity,unitPrice:x.unit_price}));
@@ -96,6 +110,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
        AND NOT EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id)
        AND NOT EXISTS(SELECT 1 FROM payment_provider_sessions s WHERE s.order_id=o.id)
        AND NOT EXISTS(SELECT 1 FROM order_items i WHERE i.order_id=o.id AND (UPPER(i.description) LIKE '%QA TEST%' OR UPPER(i.description) LIKE '%DO NOT SEND%' OR UPPER(i.description) LIKE '%TEST ORDER%'))
+       AND NOT EXISTS(SELECT 1 FROM order_items i LEFT JOIN products p ON p.id=i.product_id LEFT JOIN product_variants v ON v.id=i.variant_id WHERE i.order_id=o.id AND (i.product_id IS NULL OR p.id IS NULL OR p.status<>'ACTIVE' OR (i.variant_id IS NOT NULL AND (v.id IS NULL OR v.product_id<>p.id OR v.active<>1)) OR (i.variant_id IS NULL AND EXISTS(SELECT 1 FROM product_variants pv WHERE pv.product_id=p.id))))
        THEN o.id ELSE NULL END
        FROM orders o LEFT JOIN quotes q ON q.id=o.quote_id WHERE o.id=?),?)`)
       .bind(crypto.randomUUID(),order.id,quoteId),
