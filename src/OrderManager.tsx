@@ -55,7 +55,7 @@ type ReconciliationReport = {
   ok?: boolean;
   error?: string;
   summary?: { unlinkedLines: number; unlinkedOrders: number; activeCatalogVariants: number };
-  missingLines?: Array<{order_reference:string;description:string;quantity:number;unit_price:number;line_total:number;qaOrTest:boolean;reviewRequired:boolean;customer_notes:string|null;lead_product_interest:string|null;lead_source_detail:string|null;inquiry_reference:string|null;inquiry_product_interest:string|null;inquiry_quantity:string|null;size_preference:string|null;color_preference:string|null;customization:string|null;order_timing:string|null;shipping_country:string|null}>;
+  missingLines?: Array<{item_id:string;order_reference:string;description:string;quantity:number;unit_price:number;line_total:number;qaOrTest:boolean;reviewRequired:boolean;customer_notes:string|null;lead_product_interest:string|null;lead_source_detail:string|null;inquiry_reference:string|null;inquiry_product_interest:string|null;inquiry_quantity:string|null;size_preference:string|null;color_preference:string|null;customization:string|null;order_timing:string|null;shipping_country:string|null}>;
   catalog?: Array<{product_sku:string;product_name:string;variant_sku:string;variant_name:string;size:string|null;color:string|null;retail_price:number|null}>;
 };
 
@@ -64,6 +64,8 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
   const [reportBusy, setReportBusy] = useState(false);
   const [report, setReport] = useState<ReconciliationReport | null>(null);
   const [reportError, setReportError] = useState('');
+  const [selectedVariants, setSelectedVariants] = useState<Record<string,string>>({});
+  const [savingMatch, setSavingMatch] = useState('');
   const [message, setMessage] = useState<Record<string, { type: 'success' | 'error'; text: string }>>({});
 
   async function runAction(orderReference: string, action: string, extra: Record<string, unknown> = {}) {
@@ -164,9 +166,36 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
     } finally { setReportBusy(false); }
   }
 
+  async function saveCatalogMatch(line: NonNullable<ReconciliationReport['missingLines']>[number]) {
+    const variantSku = selectedVariants[line.item_id] || '';
+    if (!variantSku) { setReportError('请先选择经原始采购资料确认的商品规格 SKU。'); return; }
+    const variant = report?.catalog?.find(item => item.variant_sku === variantSku);
+    if (!variant) { setReportError('所选规格不在当前有效商品目录中，请重新加载报告。'); return; }
+    const approved = window.confirm(
+      '请确认：已依据原始采购单、客户书面确认或其他可靠交易凭证核实商品系列、规格和颜色。仅凭“静音球类”或订单金额不足以确认。保存后只补充商品/规格关联，不会更改数量、单价、金额、付款状态或客户通知。是否继续？'
+    );
+    if (!approved) return;
+    setSavingMatch(line.item_id); setReportError('');
+    try {
+      const response = await fetch('/api/admin/order-item-catalog-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
+        body: JSON.stringify({ orderReference: line.order_reference, itemId: line.item_id, variantSku, confirmOriginalEvidence: true }),
+        signal: AbortSignal.timeout(15000),
+      });
+      const body = await response.json() as {ok?:boolean;error?:string;financialSnapshotUnchanged?:boolean};
+      if (!response.ok || !body.ok) throw new Error(body.error || '商品关联保存失败。');
+      setSelectedVariants(prev => { const next = {...prev}; delete next[line.item_id]; return next; });
+      await loadReconciliationReport();
+      onChanged();
+    } catch (error) {
+      setReportError(error instanceof Error ? error.message : '商品关联保存失败。');
+    } finally { setSavingMatch(''); }
+  }
+
   return <div className="order-stack">
     <section className="panel">
-      <div className="panel-head"><div><h2>历史订单商品关联核对</h2><p>只读报告；不会自动匹配商品、修改订单、创建报价或发起支付。</p></div>
+      <div className="panel-head"><div><h2>历史订单商品关联核对</h2><p>仅人工确认后保存商品/规格关联；不会自动匹配、修改金额、创建报价或发起支付。</p></div>
         <button type="button" className="button secondary small" disabled={reportBusy} onClick={() => void loadReconciliationReport()}>{reportBusy ? '正在核对…' : '加载核对报告'}</button>
       </div>
       {reportError && <div className="form-status error" role="alert">{reportError}</div>}
@@ -176,10 +205,16 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
         <div><small>可供人工核对的商品规格</small><strong>{report.summary.activeCatalogVariants}</strong></div>
       </div>}
       {report?.missingLines?.length ? <div className="table-wrap"><table>
-        <thead><tr><th>订单编号</th><th>原始商品描述</th><th>数量</th><th>原单行金额</th><th>询盘/规格线索</th><th>处理</th></tr></thead>
+        <thead><tr><th>订单编号</th><th>原始商品描述</th><th>数量</th><th>原单行金额</th><th>询盘/规格线索</th><th>人工确认商品规格</th></tr></thead>
         <tbody>{report.missingLines.map((line,index)=><tr key={line.order_reference+'-'+index}>
           <td>{line.order_reference}</td><td>{line.description}</td><td>{line.quantity}</td>
-          <td>{money(line.line_total,'USD')}</td><td><details><summary>查看线索</summary><div>询盘编号：{text(line.inquiry_reference)}<br/>兴趣分类：{text(line.inquiry_product_interest || line.lead_product_interest)}<br/>询盘数量：{text(line.inquiry_quantity)}<br/>尺寸：{text(line.size_preference)}；颜色：{text(line.color_preference)}<br/>定制要求：{text(line.customization)}<br/>交期：{text(line.order_timing)}；国家：{text(line.shipping_country)}<br/>客户备注：{text(line.customer_notes)}</div></details></td><td>{line.qaOrTest?'QA/测试订单 · 排除真实报价':'需核对原始采购资料'}</td>
+          <td>{money(line.line_total,'USD')}</td><td><details><summary>查看线索</summary><div>询盘编号：{text(line.inquiry_reference)}<br/>兴趣分类：{text(line.inquiry_product_interest || line.lead_product_interest)}<br/>询盘数量：{text(line.inquiry_quantity)}<br/>尺寸：{text(line.size_preference)}；颜色：{text(line.color_preference)}<br/>定制要求：{text(line.customization)}<br/>交期：{text(line.order_timing)}；国家：{text(line.shipping_country)}<br/>客户备注：{text(line.customer_notes)}</div></details></td><td>{line.qaOrTest ? <span>QA/测试订单 · 禁止关联</span> : <div className="order-actions">
+            <select aria-label={`为订单 ${line.order_reference} 选择规格`} value={selectedVariants[line.item_id]||''} onChange={event=>setSelectedVariants(prev=>({...prev,[line.item_id]:event.target.value}))}>
+              <option value="">选择已核实的规格 SKU…</option>
+              {(report.catalog||[]).map(v=><option key={v.variant_sku} value={v.variant_sku}>{v.product_name} · {v.variant_sku} · {text(v.size)} · {text(v.color)}</option>)}
+            </select>
+            <button type="button" className="button secondary small" disabled={savingMatch!==''||!selectedVariants[line.item_id]} onClick={()=>void saveCatalogMatch(line)}>{savingMatch===line.item_id?'保存中…':'确认并保存关联'}</button>
+          </div>}</td>
         </tr>)}</tbody>
       </table></div> : report && <div className="empty-row">没有发现缺少商品/规格关联的订单明细。</div>}
       {report?.catalog?.length ? <details><summary>查看可供人工对照的商品规格（{report.catalog.length} 项）</summary><div className="table-wrap"><table>
