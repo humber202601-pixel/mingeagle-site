@@ -46,6 +46,10 @@ console.log('PASS: read-only catalog reconciliation report query preserves ambig
 const endpointSource=readFileSync('functions/api/admin/catalog-reconciliation.ts','utf8');
 const uiSource=readFileSync('src/OrderManager.tsx','utf8');
 assert.match(endpointSource,/env\.ADMIN_ACCESS_KEY/,'report requires the existing server-side admin key');
+assert.match(endpointSource,/LEFT JOIN inquiries iq ON iq\.lead_id=o\.lead_id/,'report includes the original inquiry context');
+assert.match(endpointSource,/iq\.size_preference,iq\.color_preference/,'report exposes original size and color preferences');
+assert.match(uiSource,/询盘\/规格线索/,'UI presents original inquiry context for manual matching');
+assert.match(uiSource,/查看线索/,'UI makes the original inquiry context inspectable');
 assert.match(endpointSource,/request\.headers\.get\('x-admin-key'\)/,'report validates the existing admin request header');
 assert.match(endpointSource,/return reply\(\{ok:false,error:'Unauthorized\.'\},401\)/,'report fails closed for unauthorized requests');
 assert.match(uiSource,/fetch\('\/api\/admin\/catalog-reconciliation'/,'order manager calls the reconciliation endpoint');
