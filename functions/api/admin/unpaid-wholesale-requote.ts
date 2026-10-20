@@ -27,11 +27,15 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     FROM orders o LEFT JOIN quotes q ON q.id=o.quote_id
     WHERE o.reference=? LIMIT 1`).bind(ref).first<Source>();
   if(!order)return reply({ok:false,error:'Order not found.'},404);
+  // Some historical unpaid orders have no quote_id at all. They may only
+  // produce a fresh, unapproved draft after line/finance reconciliation; no
+  // buyer acceptance or original quote terms are inferred or copied.
   if(order.status!=='PAYMENT_PENDING'||order.payment_status!=='UNPAID'||
-     order.currency!=='USD'||order.quote_status!=='CONVERTED'||!order.quote_id||
+     order.currency!=='USD'||
+     (order.quote_id!==null&&order.quote_status!=='CONVERTED')||
      !(Number(order.total)>0))
    return reply({ok:false,code:'SOURCE_ORDER_NOT_SAFE_FOR_REQUOTE',
-    error:'Only unpaid, unfulfilled wholesale orders with an accepted original quote can be used. Do not reuse paid, partial or cancelled orders.'},409);
+    error:'Only unpaid, unfulfilled USD orders with reconciled items qualify. Any replacement remains a new draft requiring seller review and buyer acceptance.'},409);
   const evidence=await db.prepare(`SELECT
     (SELECT COUNT(*) FROM payments WHERE order_id=?) AS payment_rows,
     (SELECT COUNT(*) FROM payment_provider_sessions WHERE order_id=?) AS provider_sessions`)
@@ -78,11 +82,12 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    // atomic D1 batch; NOT NULL source_order_id aborts all later inserts.
    db.prepare(`INSERT INTO b2b_recovery_quote_links(id,source_order_id,recovery_quote_id)
      VALUES(?,(SELECT CASE WHEN o.status='PAYMENT_PENDING' AND o.payment_status='UNPAID'
-       AND o.currency='USD' AND q.status='CONVERTED'
+       AND o.currency='USD' AND o.total>0
+       AND (o.quote_id IS NULL OR q.status='CONVERTED')
        AND NOT EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id)
        AND NOT EXISTS(SELECT 1 FROM payment_provider_sessions s WHERE s.order_id=o.id)
        THEN o.id ELSE NULL END
-       FROM orders o JOIN quotes q ON q.id=o.quote_id WHERE o.id=?),?)`)
+       FROM orders o LEFT JOIN quotes q ON q.id=o.quote_id WHERE o.id=?),?)`)
       .bind(crypto.randomUUID(),order.id,quoteId),
    db.prepare(`INSERT INTO quotes(
      id,reference,lead_id,company_id,contact_id,status,currency,
