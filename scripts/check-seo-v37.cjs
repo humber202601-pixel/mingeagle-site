@@ -57,6 +57,9 @@ try{
  assert.equal(videoSchema.about['@type'],'Thing','do not expose incomplete Product rich-result data');
  assert(!JSON.stringify(videoSchema).includes('VideoObject'),'do not invent per-video metadata');
  const homepage=first['index.html'];
+ assert.equal(homepage.match(/<title>([^<]*)<\/title>/i)?.[1],'Wholesale Indoor Sports Equipment | MING EAGLE');
+ assert.equal(homepage.match(/<meta name="description" content="([^"]*)"/i)?.[1],'Wholesale quiet indoor sports equipment for schools, public agencies, businesses and distributors. Request bulk quotes and samples.');
+ assert(!homepage.includes('Silent Basketball & Quiet Indoor Sports Balls | MING EAGLE'),'production SEO builder must not restore the superseded consumer homepage title');
  const organization=JSON.parse(homepage.match(/<script type="application\/ld\+json">([^<]*)<\/script>/)?.[1]||'{}');
  assert.equal(organization['@type'],'Organization');
  assert.equal(organization.name,'MING EAGLE COMMERCE LLC');
