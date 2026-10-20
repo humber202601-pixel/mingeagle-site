@@ -55,7 +55,7 @@ type ReconciliationReport = {
   ok?: boolean;
   error?: string;
   summary?: { unlinkedLines: number; unlinkedOrders: number; activeCatalogVariants: number };
-  missingLines?: Array<{order_reference:string;description:string;quantity:number;unit_price:number;line_total:number;qaOrTest:boolean;reviewRequired:boolean}>;
+  missingLines?: Array<{order_reference:string;description:string;quantity:number;unit_price:number;line_total:number;qaOrTest:boolean;reviewRequired:boolean;customer_notes:string|null;lead_product_interest:string|null;lead_source_detail:string|null;inquiry_reference:string|null;inquiry_product_interest:string|null;inquiry_quantity:string|null;size_preference:string|null;color_preference:string|null;customization:string|null;order_timing:string|null;shipping_country:string|null}>;
   catalog?: Array<{product_sku:string;product_name:string;variant_sku:string;variant_name:string;size:string|null;color:string|null;retail_price:number|null}>;
 };
 
@@ -176,10 +176,10 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
         <div><small>可供人工核对的商品规格</small><strong>{report.summary.activeCatalogVariants}</strong></div>
       </div>}
       {report?.missingLines?.length ? <div className="table-wrap"><table>
-        <thead><tr><th>订单编号</th><th>原始商品描述</th><th>数量</th><th>原单行金额</th><th>处理</th></tr></thead>
+        <thead><tr><th>订单编号</th><th>原始商品描述</th><th>数量</th><th>原单行金额</th><th>询盘/规格线索</th><th>处理</th></tr></thead>
         <tbody>{report.missingLines.map((line,index)=><tr key={line.order_reference+'-'+index}>
           <td>{line.order_reference}</td><td>{line.description}</td><td>{line.quantity}</td>
-          <td>{money(line.line_total,'USD')}</td><td>{line.qaOrTest?'QA/测试订单 · 排除真实报价':'需核对原始采购资料'}</td>
+          <td>{money(line.line_total,'USD')}</td><td><details><summary>查看线索</summary><div>询盘编号：{text(line.inquiry_reference)}<br/>兴趣分类：{text(line.inquiry_product_interest || line.lead_product_interest)}<br/>询盘数量：{text(line.inquiry_quantity)}<br/>尺寸：{text(line.size_preference)}；颜色：{text(line.color_preference)}<br/>定制要求：{text(line.customization)}<br/>交期：{text(line.order_timing)}；国家：{text(line.shipping_country)}<br/>客户备注：{text(line.customer_notes)}</div></details></td><td>{line.qaOrTest?'QA/测试订单 · 排除真实报价':'需核对原始采购资料'}</td>
         </tr>)}</tbody>
       </table></div> : report && <div className="empty-row">没有发现缺少商品/规格关联的订单明细。</div>}
       {report?.catalog?.length ? <details><summary>查看可供人工对照的商品规格（{report.catalog.length} 项）</summary><div className="table-wrap"><table>
