@@ -1,4 +1,4 @@
-interface Env { MINGEAGLE_DB: D1Database }
+interface Env { MINGEAGLE_DB: D1Database; CATALOG_RECONCILIATION_KEY?: string }
 type MissingLine = {
   order_reference:string; order_status:string; payment_status:string; currency:string;
   order_total:number; item_id:string; description:string; quantity:number;
@@ -11,9 +11,21 @@ type CatalogVariant = {
 }
 const reply=(value:object,status=200)=>Response.json(value,{status,headers:{'cache-control':'private, no-store'}});
 
+async function sameSecret(a:string,b:string){
+  const enc=new TextEncoder();
+  const [ha,hb]=await Promise.all([crypto.subtle.digest('SHA-256',enc.encode(a)),crypto.subtle.digest('SHA-256',enc.encode(b))]);
+  const x=new Uint8Array(ha),y=new Uint8Array(hb);let diff=0;
+  for(let i=0;i<x.length;i++)diff|=x[i]^y[i];
+  return diff===0;
+}
+
 // Read-only report. It deliberately never guesses product/variant matches and
 // never mutates historical orders, quote records, or payment evidence.
-export const onRequestGet:PagesFunction<Env>=async({env})=>{
+export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
+  const expected=env.CATALOG_RECONCILIATION_KEY||'';
+  const supplied=request.headers.get('x-admin-key')||'';
+  if(!expected||!supplied||!await sameSecret(supplied,expected))
+    return reply({ok:false,error:'Unauthorized.'},401);
   if(!env.MINGEAGLE_DB)return reply({ok:false,error:'Database is not configured.'},503);
   try{
     const [missing,catalog]=await Promise.all([
