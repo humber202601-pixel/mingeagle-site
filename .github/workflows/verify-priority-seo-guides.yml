@@ -17,7 +17,7 @@ on:
       - "public/sitemap.xml"
       - "public/llms.txt"
       - "scripts/check-priority-seo-guides.cjs"
-      - "scripts/check-ai-intent-guides.cjs"
+      - "scripts/check-acoustics-citations.cjs"
       - "scripts/check-public-canonicals.cjs"
       - ".github/workflows/deploy-pages.yml"
       - ".github/workflows/verify-priority-seo-guides.yml"
@@ -38,7 +38,7 @@ on:
       - "public/sitemap.xml"
       - "public/llms.txt"
       - "scripts/check-priority-seo-guides.cjs"
-      - "scripts/check-ai-intent-guides.cjs"
+      - "scripts/check-acoustics-citations.cjs"
       - "scripts/check-public-canonicals.cjs"
       - ".github/workflows/deploy-pages.yml"
       - ".github/workflows/verify-priority-seo-guides.yml"
@@ -52,10 +52,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Build generated SEO metadata
-        run: node scripts/build-seo-v37.cjs
-      - name: Verify AI intent guide evidence and limitations
-        run: node scripts/check-ai-intent-guides.cjs
+      - name: Verify acoustics source citations and evidence limits
+        run: node scripts/check-acoustics-citations.cjs
       - name: Verify buyer guide snippets and image schema
         run: node scripts/check-priority-seo-guides.cjs
       - name: Verify canonical and sitemap integrity
