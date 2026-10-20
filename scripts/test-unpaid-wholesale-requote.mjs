@@ -59,6 +59,17 @@ const setup=(name)=>{
 try{
  assert.equal((await call('')).status,400);
  assert.equal((await call('ME-O-MISSING')).status,404);
+ const qa=setup('QA-BLOCKED');
+ sqlite.prepare("UPDATE order_items SET description='QA TEST - MING EAGLE Silent Basketball - DO NOT SEND' WHERE order_id=?").run(qa.orderId);
+ const quoteCountBeforeQa=sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n;
+ const qaResponse=await call(qa.ref);
+ assert.equal(qaResponse.status,409,'A QA/demo order must never become a customer quote');
+ assert.equal(qaResponse.body.code,'SOURCE_TEST_ORDER_BLOCKED');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n,quoteCountBeforeQa,
+  'Blocking a test order must not create a replacement quote');
+ assert.equal(sqlite.prepare('SELECT status,payment_status,total FROM orders WHERE id=?').get(qa.orderId).payment_status,'UNPAID',
+  'Blocking a QA order must leave the historical order unchanged');
+ const quoteCountBeforeSource=sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n;
  const source=setup('SOURCE');
  let response=await call(source.ref);
  assert.equal(response.status,201,JSON.stringify(response.body));
@@ -83,7 +94,8 @@ try{
  assert.equal(response.status,200,'Retry may reuse an existing safe draft');
  assert.equal(response.body.reused,true);assert.equal(response.body.quote.id,replacementId);
  assert.equal(response.body.quote.reference,replacementRef);
- assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n,2);
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n,quoteCountBeforeSource+2,
+  'Only the source quote and one replacement draft may be added');
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM tasks').get().n,1,
   'A double-click cannot schedule duplicate outreach');
  sqlite.prepare("UPDATE orders SET payment_status='PAID' WHERE id=?").run(source.orderId);

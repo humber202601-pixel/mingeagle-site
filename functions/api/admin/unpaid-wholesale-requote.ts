@@ -27,6 +27,15 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     FROM orders o LEFT JOIN quotes q ON q.id=o.quote_id
     WHERE o.reference=? LIMIT 1`).bind(ref).first<Source>();
   if(!order)return reply({ok:false,error:'Order not found.'},404);
+  // Explicit QA/demo records must never enter the customer recovery workflow,
+  // even when their totals and item rows reconcile. Keep them available for
+  // audit, but require a separate deliberate cleanup/review path.
+  const testMarker=await db.prepare(`SELECT 1 AS flagged FROM order_items
+    WHERE order_id=? AND (UPPER(description) LIKE '%QA TEST%'
+      OR UPPER(description) LIKE '%DO NOT SEND%'
+      OR UPPER(description) LIKE '%TEST ORDER%') LIMIT 1`).bind(order.id).first<{flagged:number}>();
+  if(testMarker)return reply({ok:false,code:'SOURCE_TEST_ORDER_BLOCKED',
+    error:'This order is marked as a QA/test record and cannot be converted into a customer quotation. The historical order remains unchanged.'},409);
   // Some historical unpaid orders have no quote_id at all. They may only
   // produce a fresh, unapproved draft after line/finance reconciliation; no
   // buyer acceptance or original quote terms are inferred or copied.
