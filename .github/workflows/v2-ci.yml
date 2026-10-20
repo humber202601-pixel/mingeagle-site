@@ -34,6 +34,9 @@ jobs:
       - name: Verify quote arithmetic and isolated CRM workflow
         run: npm run test:quotes
 
+      - name: Verify canonical product catalog seed migration
+        run: node scripts/test-product-catalog-seed.mjs
+
       - name: Typecheck and build
         run: npm run build
 
