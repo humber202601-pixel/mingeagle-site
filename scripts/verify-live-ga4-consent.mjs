@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 const base = 'https://www.mingeagle.com/';
-const files = ['', 'ga4-consent.js', 'ga4-consent.css', 'policies.html'];
+const files = ['', 'ga4-consent.js', 'ga4-consent.css', 'policies.html', 'inquiry.js'];
 
 async function get(url) {
   const response = await fetch(url, {
@@ -13,7 +13,7 @@ async function get(url) {
 }
 
 const results = await Promise.all(files.map(name => get(base + name)));
-const [index, js, css, policies] = results;
+const [index, js, css, policies, inquiry] = results;
 const count = (str, token) => str.split(token).length - 1;
 assert.equal(count(index, 'data-mingeagle-ga4-consent="script"'), 1, 'Homepage must load exactly one consent controller');
 assert.equal(count(index, 'data-mingeagle-ga4-consent="styles"'), 1, 'Homepage must load exactly one consent stylesheet');
@@ -23,4 +23,8 @@ assert(js.includes('revokeGoogleAnalytics()') && js.includes("window['ga-disable
 assert(js.includes('url.origin + url.pathname'), 'Page locations must be sanitized');
 assert(css.includes('.mingeagle-ga4-panel'), 'Consent control CSS must be available');
 assert(policies.includes('Google Analytics 4') && policies.includes('Privacy settings'), 'GA4 privacy notice must be published');
-console.log('PASS: live homepage has one opt-in GA4 consent controller; correct ID, revocation, query-string stripping, CSS and privacy disclosure are published.');
+assert(js.includes("window.gtag('event', 'generate_lead'") && js.includes('trackConfirmedLead'), 'Live GA4 must expose the confirmed-lead event');
+assert(inquiry.includes("MingEagleGA4.trackConfirmedLead(d.requestType,'primary_crm')"), 'Live inquiry form must count only after confirmed primary CRM acceptance');
+assert(inquiry.includes("MingEagleGA4.trackConfirmedLead(d.requestType,'backup_form')"), 'Live inquiry form must count backup leads only after backup acceptance');
+assert(policies.includes('generic completed-lead event') && policies.includes('without sending the reference or form contents'), 'Privacy policy must disclose generic lead conversion tracking');
+console.log('PASS: live GA4 consent and confirmed-lead tracking, both success gates, privacy disclosure, sanitized URLs, CSS and measurement ID are published.');
