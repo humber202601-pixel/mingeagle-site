@@ -209,7 +209,7 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
           </div>)}
 
         {paymentStatus==='UNPAID'&&status==='PAYMENT_PENDING'&&
-          text(order.quote_status)==='CONVERTED'&&Number(order.item_units||0)>=10&&
+          (order.quote_id==null||text(order.quote_id,'')===''||text(order.quote_status)==='CONVERTED')&&Number(order.item_units||0)>=10&&
           received===0&&payments.length===0&&!onlineStatus&&
           <div className="form-status" role="status">
             <strong>历史批发订单待恢复 · 必须重新报价</strong>
