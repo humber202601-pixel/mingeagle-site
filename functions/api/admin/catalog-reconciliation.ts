@@ -2,7 +2,11 @@ interface Env { MINGEAGLE_DB: D1Database; ADMIN_ACCESS_KEY?: string }
 type MissingLine = {
   order_reference:string; order_status:string; payment_status:string; currency:string;
   order_total:number; item_id:string; description:string; quantity:number;
-  unit_price:number; line_total:number;
+  unit_price:number; line_total:number; customer_notes:string|null;
+  lead_product_interest:string|null; lead_source_detail:string|null;
+  inquiry_reference:string|null; inquiry_product_interest:string|null;
+  inquiry_quantity:string|null; size_preference:string|null; color_preference:string|null;
+  customization:string|null; order_timing:string|null; shipping_country:string|null;
 }
 type CatalogVariant = {
   product_sku:string; product_name:string; product_status:string;
@@ -31,8 +35,14 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
     const [missing,catalog]=await Promise.all([
       env.MINGEAGLE_DB.prepare(`SELECT o.reference AS order_reference,o.status AS order_status,
         o.payment_status,o.currency,o.total AS order_total,i.id AS item_id,
-        i.description,i.quantity,i.unit_price,i.line_total
+        i.description,i.quantity,i.unit_price,i.line_total,o.customer_notes,
+        l.product_interest AS lead_product_interest,l.source_detail AS lead_source_detail,
+        iq.reference AS inquiry_reference,iq.product_interest AS inquiry_product_interest,
+        iq.estimated_quantity AS inquiry_quantity,iq.size_preference,iq.color_preference,
+        iq.customization,iq.order_timing,iq.shipping_country
         FROM orders o JOIN order_items i ON i.order_id=o.id
+        LEFT JOIN leads l ON l.id=o.lead_id
+        LEFT JOIN inquiries iq ON iq.lead_id=o.lead_id
         WHERE i.product_id IS NULL OR i.variant_id IS NULL
         ORDER BY o.created_at ASC,o.reference,i.id`).all<MissingLine>(),
       env.MINGEAGLE_DB.prepare(`SELECT p.sku AS product_sku,p.name AS product_name,
