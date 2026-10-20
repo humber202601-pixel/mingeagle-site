@@ -95,6 +95,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
        AND (o.quote_id IS NULL OR q.status='CONVERTED')
        AND NOT EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id)
        AND NOT EXISTS(SELECT 1 FROM payment_provider_sessions s WHERE s.order_id=o.id)
+       AND NOT EXISTS(SELECT 1 FROM order_items i WHERE i.order_id=o.id AND (UPPER(i.description) LIKE '%QA TEST%' OR UPPER(i.description) LIKE '%DO NOT SEND%' OR UPPER(i.description) LIKE '%TEST ORDER%'))
        THEN o.id ELSE NULL END
        FROM orders o LEFT JOIN quotes q ON q.id=o.quote_id WHERE o.id=?),?)`)
       .bind(crypto.randomUUID(),order.id,quoteId),
