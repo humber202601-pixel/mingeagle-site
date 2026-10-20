@@ -42,3 +42,13 @@ assert.equal(db.prepare("SELECT product_id FROM order_items WHERE id='line-unlin
 assert.equal(db.prepare("SELECT COUNT(*) AS n FROM quotes").get().n,0,'report never creates quotations');
 assert.equal(db.prepare("SELECT COUNT(*) AS n FROM payments").get().n,0,'report never creates payment evidence');
 console.log('PASS: read-only catalog reconciliation report query preserves ambiguity and performs no writes');
+
+const endpointSource=readFileSync('functions/api/admin/catalog-reconciliation.ts','utf8');
+const uiSource=readFileSync('src/OrderManager.tsx','utf8');
+assert.match(endpointSource,/env\.ADMIN_ACCESS_KEY/,'report requires the existing server-side admin key');
+assert.match(endpointSource,/request\.headers\.get\('x-admin-key'\)/,'report validates the existing admin request header');
+assert.match(endpointSource,/return reply\(\{ok:false,error:'Unauthorized\.'\},401\)/,'report fails closed for unauthorized requests');
+assert.match(uiSource,/fetch\('\/api\/admin\/catalog-reconciliation'/,'order manager calls the reconciliation endpoint');
+assert.match(uiSource,/headers: \{ 'x-admin-key': accessKey \}/,'UI uses the current authenticated admin session');
+assert.match(uiSource,/不会自动匹配商品、修改订单、创建报价或发起支付/,'UI explains the report is read-only');
+console.log('PASS: reconciliation endpoint is wired to existing admin auth and read-only admin UI');

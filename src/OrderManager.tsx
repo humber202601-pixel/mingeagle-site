@@ -51,8 +51,19 @@ function parsePayments(value: unknown): Row[] {
   }
 }
 
+type ReconciliationReport = {
+  ok?: boolean;
+  error?: string;
+  summary?: { unlinkedLines: number; unlinkedOrders: number; activeCatalogVariants: number };
+  missingLines?: Array<{order_reference:string;description:string;quantity:number;unit_price:number;line_total:number;qaOrTest:boolean;reviewRequired:boolean}>;
+  catalog?: Array<{product_sku:string;product_name:string;variant_sku:string;variant_name:string;size:string|null;color:string|null;retail_price:number|null}>;
+};
+
 export default function OrderManager({ orders, accessKey, onChanged }: Props) {
   const [busy, setBusy] = useState('');
+  const [reportBusy, setReportBusy] = useState(false);
+  const [report, setReport] = useState<ReconciliationReport | null>(null);
+  const [reportError, setReportError] = useState('');
   const [message, setMessage] = useState<Record<string, { type: 'success' | 'error'; text: string }>>({});
 
   async function runAction(orderReference: string, action: string, extra: Record<string, unknown> = {}) {
@@ -137,9 +148,46 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
     });
   }
 
-  if (!orders.length) return <section className="panel"><div className="empty-row">暂无订单。</div></section>;
+  async function loadReconciliationReport() {
+    setReportBusy(true); setReportError('');
+    try {
+      const response = await fetch('/api/admin/catalog-reconciliation', {
+        headers: { 'x-admin-key': accessKey },
+        signal: AbortSignal.timeout(15000),
+      });
+      const body = await response.json() as ReconciliationReport;
+      if (!response.ok || !body.ok) throw new Error(body.error || '无法加载历史订单核对报告。');
+      setReport(body);
+    } catch (error) {
+      setReportError(error instanceof Error ? error.message : '无法加载历史订单核对报告。');
+      setReport(null);
+    } finally { setReportBusy(false); }
+  }
 
   return <div className="order-stack">
+    <section className="panel">
+      <div className="panel-head"><div><h2>历史订单商品关联核对</h2><p>只读报告；不会自动匹配商品、修改订单、创建报价或发起支付。</p></div>
+        <button type="button" className="button secondary small" disabled={reportBusy} onClick={() => void loadReconciliationReport()}>{reportBusy ? '正在核对…' : '加载核对报告'}</button>
+      </div>
+      {reportError && <div className="form-status error" role="alert">{reportError}</div>}
+      {report?.summary && <div className="order-meta">
+        <div><small>待核对明细</small><strong>{report.summary.unlinkedLines}</strong></div>
+        <div><small>涉及订单</small><strong>{report.summary.unlinkedOrders}</strong></div>
+        <div><small>可供人工核对的商品规格</small><strong>{report.summary.activeCatalogVariants}</strong></div>
+      </div>}
+      {report?.missingLines?.length ? <div className="table-wrap"><table>
+        <thead><tr><th>订单编号</th><th>原始商品描述</th><th>数量</th><th>原单行金额</th><th>处理</th></tr></thead>
+        <tbody>{report.missingLines.map((line,index)=><tr key={line.order_reference+'-'+index}>
+          <td>{line.order_reference}</td><td>{line.description}</td><td>{line.quantity}</td>
+          <td>{money(line.line_total,'USD')}</td><td>{line.qaOrTest?'QA/测试订单 · 排除真实报价':'需核对原始采购资料'}</td>
+        </tr>)}</tbody>
+      </table></div> : report && <div className="empty-row">没有发现缺少商品/规格关联的订单明细。</div>}
+      {report?.catalog?.length ? <details><summary>查看可供人工对照的商品规格（{report.catalog.length} 项）</summary><div className="table-wrap"><table>
+        <thead><tr><th>商品 SKU</th><th>商品系列</th><th>规格 SKU</th><th>尺寸</th><th>颜色</th><th>零售参考价</th></tr></thead>
+        <tbody>{report.catalog.map(v=><tr key={v.variant_sku}><td>{v.product_sku}</td><td>{v.product_name}</td><td>{v.variant_sku}</td><td>{text(v.size)}</td><td>{text(v.color)}</td><td>{v.retail_price==null?'—':money(v.retail_price,'USD')}</td></tr>)}</tbody>
+      </table></div></details> : null}
+    </section>
+    {!orders.length ? <section className="panel"><div className="empty-row">暂无订单。</div></section> : null}
     {orders.map((order, index) => {
       const reference = text(order.reference, `ORDER-${index + 1}`);
       const status = text(order.status);
