@@ -10,6 +10,7 @@ const products={
  p3:{name:'Weighted Flocked Silent Basketball',sizes:['3','4','6','7'],colors:['Orange','Brown','Black','Aqua Blue']},
  p4:{name:'Flocked Silent Soccer Ball',sizes:['5'],colors:['Black/White','Black/Green','Black/Red','Yellow/Green','Black/Gold']}
 };
+const DIRECT_CHECKOUT_SKUS=new Set(['P1-S3','P1-S7']);
 const detailPages={
  'silent-basketball.html':'p1','fabric-silent-basketball.html':'p2',
  'weighted-flocked-basketball.html':'p3','silent-soccer.html':'p4'
@@ -64,11 +65,16 @@ function picker(id,variant){
  function update(){
   const selected=size.field.value.replace('No. ','');
   const sku=id.toUpperCase()+'-S'+selected,unit=store.unitPrice(sku);
+  const directCheckout=DIRECT_CHECKOUT_SKUS.has(sku);
+  eyebrow.textContent=directCheckout?'SHOP RETAIL · 1–9 ELIGIBLE UNITS':'QUOTE PATH · DELIVERY CONFIRMATION';
+  add.textContent=directCheckout?'Add to cart':'Add to quote cart';
   price.textContent='Product price: '+(unit===null?'Unavailable':format(unit))+' USD / item';
   const n=Number(quantity.value);
-  note.textContent=n===1?'US one-item air parcel price shown in the comparison below; shipping and taxes are checked in the cart.':
+  note.textContent=!directCheckout?
+   'This size is not eligible for direct card checkout. Add it to the cart to request a confirmed delivered-price quote.':
+   n===1?'US one-item air parcel price is confirmed in the cart; final sales tax is shown before payment.':
    n>=10?'10+ total units: sea-freight wholesale quote required; discounts are confirmed by sales.':
-   '2–9 units: combined air shipping will be calculated in the cart.';
+   'For 2–9 eligible units, each set ships separately and the confirmed per-unit freight is added in the cart.';
  }
  for(const el of [size.field,color.field,quantity])el.addEventListener('change',update);
  const requestedSize=new URL(window.location.href).searchParams.get('size');
