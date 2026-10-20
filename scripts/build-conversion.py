@@ -7,8 +7,9 @@ for p in root.glob('*.html'):
  if 'site.js?' not in s:
   continue
  asset_version='20261020-ga4lead1' if p.name=='inquiry.html' else version
+ forms_core_version='20261019-usstate1' if p.name=='inquiry.html' else version
  s=re.sub(r'<script src="direct-contact\.js[^"]*"></script>','',s)
- s=re.sub(r'<script src="forms-core\.js[^"]*"></script>',f'<script src="forms-core.js?v={asset_version}"></script>',s)
+ s=re.sub(r'<script src="forms-core\.js[^"]*"></script>',f'<script src="forms-core.js?v={forms_core_version}"></script>',s)
  if 'forms-core.js?' not in s:
   s=s.replace('</body>',f'<script src="forms-core.js?v={version}"></script></body>')
  s=s.replace('</body>',f'<script src="direct-contact.js?v={version}"></script></body>')
