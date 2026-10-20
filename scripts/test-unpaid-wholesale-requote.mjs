@@ -173,9 +173,10 @@ try{
   WHEN NEW.activity_type='UNPAID_ORDER_REQUOTE_DRAFT'
   BEGIN SELECT RAISE(ABORT,'synthetic late audit failure');END;`);
  const activityCount=sqlite.prepare('SELECT COUNT(*) n FROM activities').get().n;
+ const quoteCountBeforeLate=sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n;
  response=await call(late.ref);
  assert.equal(response.status,409);
- assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n,before+1,
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n,quoteCountBeforeLate,
   'Rollback must remove all new draft records, not the legitimate source');
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM activities').get().n,activityCount);
  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM b2b_recovery_quote_links WHERE source_order_id=?").get(late.orderId).n,0);
