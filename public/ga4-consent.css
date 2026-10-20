@@ -7,7 +7,7 @@
   position: fixed;
   z-index: 100000;
   left: 16px;
-  bottom: 16px;
+  bottom: 78px;
   width: min(560px, calc(100vw - 32px));
   box-sizing: border-box;
   padding: 18px;
@@ -72,13 +72,13 @@
   position: fixed;
   z-index: 99999;
   left: 16px;
-  bottom: 16px;
+  bottom: 78px;
   box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12);
 }
 @media (max-width: 600px) {
   .mingeagle-ga4-panel {
     left: 10px;
-    bottom: 10px;
+    bottom: 72px;
     width: calc(100vw - 20px);
     padding: 14px;
   }
@@ -90,6 +90,6 @@
   }
   .mingeagle-ga4-settings {
     left: 10px;
-    bottom: 10px;
+    bottom: 72px;
   }
 }
