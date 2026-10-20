@@ -152,4 +152,14 @@ function titleAndDescription(filename,titleExpected,descriptionExpected){
  assert.equal(page.primaryImageOfPage?.url,image,'Bulk guide schema image must match the visible image');
 }
 
+
+{
+ const sitemap=fs.readFileSync(path.join(root,'sitemap.xml'),'utf8');
+ const llms=fs.readFileSync(path.join(root,'llms.txt'),'utf8');
+ for(const url of [base+'custom-basketball-for-teams.html',base+'silent-basketball-vs-regular.html']){
+  assert(sitemap.includes('<loc>'+url+'</loc>'),'Priority guide missing from sitemap: '+url);
+  assert(llms.includes(url),'Priority guide missing from llms.txt: '+url);
+ }
+}
+
 console.log('PASS: priority B2B guide snippets, canonical/social metadata, visible images and matching structured data.');
