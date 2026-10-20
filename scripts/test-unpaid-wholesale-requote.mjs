@@ -59,6 +59,16 @@ const setup=(name)=>{
 try{
  assert.equal((await call('')).status,400);
  assert.equal((await call('ME-O-MISSING')).status,404);
+ const qa=setup('QA-BLOCKED');
+ sqlite.prepare("UPDATE order_items SET description='QA TEST - MING EAGLE Silent Basketball - DO NOT SEND' WHERE order_id=?").run(qa.orderId);
+ const quoteCountBeforeQa=sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n;
+ const qaResponse=await call(qa.ref);
+ assert.equal(qaResponse.status,409,'A QA/demo order must never become a customer quote');
+ assert.equal(qaResponse.body.code,'SOURCE_TEST_ORDER_BLOCKED');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n,quoteCountBeforeQa,
+  'Blocking a test order must not create a replacement quote');
+ assert.equal(sqlite.prepare('SELECT status,payment_status,total FROM orders WHERE id=?').get(qa.orderId).payment_status,'UNPAID',
+  'Blocking a QA order must leave the historical order unchanged');
  const source=setup('SOURCE');
  let response=await call(source.ref);
  assert.equal(response.status,201,JSON.stringify(response.body));
