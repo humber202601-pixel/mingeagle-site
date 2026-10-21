@@ -3,7 +3,8 @@
 // public canonical / localized pages listed in the published sitemaps.
 // No network beacons, cookies, or personal identifiers are introduced here.
 const fs=require('node:fs'),path=require('node:path');
-const root=path.resolve(process.argv[2]||'public');
+const dirArg=process.argv.slice(2).find(x=>!x.startsWith('--'));
+const root=path.resolve(dirArg||'public');
 const checkOnly=process.argv.includes('--check');
 const tag='<script defer src="geo-source-capture.js"></script>';
 const base='https://www.mingeagle.com/';
