@@ -236,3 +236,5 @@ try{
  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM b2b_recovery_quote_links WHERE source_order_id=?").get(late.orderId).n,0);
  console.log('PASS: owner-only draft replacement for unpaid 10+ unit wholesale is Stripe-safe, idempotent, finance-gated, atomic, never mailed or charged.');
 }finally{sqlite.close();}
+
+await import('./test-unpaid-wholesale-readiness-runtime.mjs');
