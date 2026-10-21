@@ -1,0 +1,15 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(process.argv[2]||'public');
+const filename='indoor-school-sports-equipment-guide.html';
+const html=fs.readFileSync(path.join(root,filename),'utf8');
+const url='https://www.mingeagle.com/'+filename;
+assert.equal((html.match(/<h1>/g)||[]).length,1,'School procurement guide must have one H1');
+assert(html.includes('<link rel="canonical" href="'+url+'">'),'School procurement guide must keep its canonical URL');
+const shape='https://shapeamerica.org/standards/pe/new-pe-standards/';
+assert(html.includes('href="'+shape+'" target="_blank" rel="noopener noreferrer"'),'School procurement guide must cite SHAPE America safely');
+assert(/not a product certification or endorsement of MING EAGLE or any supplier/i.test(html),'Curriculum source must not be presented as a product endorsement');
+assert(/Match equipment to the planned activity, student group, local requirements and the supplier’s current model-specific documentation/i.test(html),'Procurement guidance must connect curriculum context to buyer due diligence');
+console.log('PASS: school procurement guide cites SHAPE America accurately without implying product certification or endorsement.');
