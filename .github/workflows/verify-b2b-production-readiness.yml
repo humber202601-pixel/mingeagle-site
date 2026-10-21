@@ -7,6 +7,7 @@ on:
       - "scripts/verify-production-b2b-readiness.mjs"
       - "scripts/verify-production-http-smoke.mjs"
       - "scripts/verify-production-website-source.mjs"
+      - "scripts/verify-production-commerce-gates.mjs"
       - ".github/workflows/verify-b2b-production-readiness.yml"
   workflow_dispatch:
 
@@ -58,3 +59,16 @@ jobs:
           node-version: 22
       - name: Compare live storefront files with tracked source
         run: node scripts/verify-production-website-source.mjs
+
+  live-retail-gates:
+    name: Audit public 1- and 2-unit checkout activation and cross-origin preflight
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test live WWW to app cart route (no customer writes)
+        run: node scripts/verify-production-commerce-gates.mjs
