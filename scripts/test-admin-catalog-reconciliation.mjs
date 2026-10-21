@@ -65,3 +65,16 @@ assert.match(matchSource,/order_item_catalog_audit/,'association endpoint record
 assert.match(matchSource,/product_id=\?,variant_id=\?/,'association endpoint only updates product/variant association fields');
 assert.doesNotMatch(matchSource,/UPDATE orders SET|UPDATE payments SET|UPDATE quotes SET/,'association endpoint does not mutate financial records');
 console.log('PASS: reconciliation endpoint is wired to existing admin auth and read-only admin UI');
+
+const guardedSource=readFileSync('functions/api/admin/order-item-catalog-match.ts','utf8');
+assert.match(guardedSource,/source\.status!=='PAYMENT_PENDING'\|\|source\.payment_status!=='UNPAID'/,
+ 'paid and completed historical orders are blocked before mutations');
+assert.match(guardedSource,/HISTORICAL_PAYMENT_REVIEW_REQUIRED/,
+ 'separate reconciliation of historical paid orders is required');
+assert.equal((guardedSource.match(/o\.status='PAYMENT_PENDING' AND o\.payment_status='UNPAID'/g)||[]).length,2,
+ 'audit insert and association update independently recheck unpaid pending state');
+assert.equal((guardedSource.match(/p\.status='ACTIVE' AND v\.active=1/g)||[]).length,2,
+ 'audit insert and association update independently recheck active catalog linkage');
+assert.equal((guardedSource.match(/NOT LIKE '%QA TEST%'/g)||[]).length,2,
+ 'QA exclusion is rechecked during both writes');
+console.log('PASS: catalog association blocks paid/completed historical orders and rechecks each mutation');

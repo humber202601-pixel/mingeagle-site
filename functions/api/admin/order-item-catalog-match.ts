@@ -19,6 +19,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   const source=await db.prepare(`SELECT o.id AS order_id,o.reference,o.status,o.payment_status,i.id AS item_id,i.product_id,i.variant_id,i.description,i.quantity,i.unit_price,i.line_total
     FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.reference=? AND i.id=? LIMIT 1`).bind(orderReference,itemId).first<Row>();
   if(!source)return reply({ok:false,error:'Order line not found.'},404);
+  if(source.status!=='PAYMENT_PENDING'||source.payment_status!=='UNPAID')
+    return reply({ok:false,code:'HISTORICAL_PAYMENT_REVIEW_REQUIRED',error:'Only unpaid, pending historical orders may be matched for quote recovery. Completed or paid orders require separate payment evidence review.'},409);
   if(source.product_id||source.variant_id)return reply({ok:false,error:'This line already has a product/variant association; overwrite is blocked.'},409);
   const variant=await db.prepare(`SELECT v.id AS variant_id,v.variant_sku,v.name AS variant_name,v.size,v.color,v.active,p.id AS product_id,p.sku AS product_sku,p.name AS product_name,p.status AS product_status
    FROM product_variants v JOIN products p ON p.id=v.product_id WHERE v.variant_sku=? LIMIT 1`).bind(variantSku).first<Row>();
@@ -39,11 +41,24 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     SELECT ?,o.id,i.id,o.reference,i.product_id,i.variant_id,?,?,i.description,i.quantity,i.unit_price,i.line_total,1
     FROM orders o JOIN order_items i ON i.order_id=o.id
     WHERE o.id=? AND i.id=? AND i.product_id IS NULL AND i.variant_id IS NULL
-    AND NOT EXISTS(SELECT 1 FROM order_item_catalog_audit a WHERE a.order_item_id=i.id)`).bind(auditId,String(variant.product_id),String(variant.variant_id),String(source.order_id),itemId),
+    AND o.status='PAYMENT_PENDING' AND o.payment_status='UNPAID'
+    AND UPPER(i.description) NOT LIKE '%QA TEST%'
+    AND UPPER(i.description) NOT LIKE '%DO NOT SEND%'
+    AND UPPER(i.description) NOT LIKE '%TEST ORDER%'
+    AND EXISTS(SELECT 1 FROM products p JOIN product_variants v ON v.product_id=p.id
+      WHERE p.id=? AND v.id=? AND p.status='ACTIVE' AND v.active=1)
+    AND NOT EXISTS(SELECT 1 FROM order_item_catalog_audit a WHERE a.order_item_id=i.id)`).bind(auditId,String(variant.product_id),String(variant.variant_id),String(source.order_id),itemId,String(variant.product_id),String(variant.variant_id)),
    db.prepare(`UPDATE order_items SET product_id=?,variant_id=?
     WHERE id=? AND order_id=? AND product_id IS NULL AND variant_id IS NULL
+    AND EXISTS(SELECT 1 FROM orders o WHERE o.id=order_items.order_id
+      AND o.status='PAYMENT_PENDING' AND o.payment_status='UNPAID')
+    AND UPPER(description) NOT LIKE '%QA TEST%'
+    AND UPPER(description) NOT LIKE '%DO NOT SEND%'
+    AND UPPER(description) NOT LIKE '%TEST ORDER%'
+    AND EXISTS(SELECT 1 FROM products p JOIN product_variants v ON v.product_id=p.id
+      WHERE p.id=? AND v.id=? AND p.status='ACTIVE' AND v.active=1)
     AND EXISTS(SELECT 1 FROM order_item_catalog_audit a WHERE a.id=? AND a.order_item_id=order_items.id)`)
-    .bind(String(variant.product_id),String(variant.variant_id),itemId,String(source.order_id),auditId)
+    .bind(String(variant.product_id),String(variant.variant_id),itemId,String(source.order_id),String(variant.product_id),String(variant.variant_id),auditId)
   ]);
   if(Number(result?.[0]?.meta?.changes||0)!==1||Number(result?.[1]?.meta?.changes||0)!==1)
     return reply({ok:false,error:'Association was not saved; the line may have changed. Reload the report and retry.'},409);
