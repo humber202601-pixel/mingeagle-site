@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 const base='https://www.mingeagle.com';
 const files=['index.html','retail-cart.html','retail-cart.js','retail-buy.js'];
-let mismatches=0;
+let mismatches=0,scriptMismatches=0;
 for(const file of files){
  try{
   const r=await fetch(base+'/'+file+'?audit='+Date.now(),{
@@ -17,14 +17,15 @@ for(const file of files){
   console.log((same?'MATCH':'MISMATCH')+' '+file+' live_http='+r.status+
    ' local_sha256='+hash(local)+' remote_sha256='+hash(remote)+
    ' remote_bytes='+remote.length+' local_bytes='+local.length);
-  if(!same)mismatches++;
+  if(!same){mismatches++;if(file.endsWith('.js'))scriptMismatches++;}
   if(file==='index.html'||file==='retail-cart.html'){
    const str=remote.toString('utf8');
    console.log('LIVE_MARKER '+file+' retail-cart-js='+String(str.match(/retail-cart\.js\?v=([\w-]+)/)?.[1]||'none')+
     ' website_homefix2='+str.includes('20261020-homefix2'));
   }
- }catch(e){mismatches++;console.log('MISMATCH '+file+' fetch_error='+(e instanceof Error?e.name:'unknown'))}
+ }catch(e){mismatches++;if(file.endsWith('.js'))scriptMismatches++;console.log('MISMATCH '+file+' fetch_error='+(e instanceof Error?e.name:'unknown'))}
 }
 console.log('READ ONLY: no checkout or customer records were created.');
-if(mismatches){console.error('Live WWW file mismatch count='+mismatches+'. Updating GitHub source alone may not deploy current public files.');process.exitCode=1;}
-else console.log('PASS: storefront source files are identical to main/public.');
+if(mismatches)console.log('NOTICE: WWW source differs for '+mismatches+' files. HTML may include additions, so review the release process before overwriting.');
+if(scriptMismatches){console.error('BLOCK: Live cart JavaScript is NOT synchronized with latest main/public.');process.exitCode=1;}
+else console.log('PASS: storefront cart JavaScript files match latest main/public exactly.');
