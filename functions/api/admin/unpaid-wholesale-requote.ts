@@ -4,7 +4,7 @@ type Input={orderReference?:string};
 type Source={id:string;reference:string;quote_id:string|null;lead_id:string|null;
  company_id:string|null;contact_id:string|null;status:string;payment_status:string;
  currency:string;subtotal:number;discount:number;shipping:number;tax:number;total:number;quote_status:string|null};
-type Line={product_id:string|null;variant_id:string|null;description:string;
+type Line={id:string;product_id:string|null;variant_id:string|null;description:string;
  quantity:number;unit_price:number;line_total:number};
 const reply=(v:object,s=200)=>Response.json(v,{status:s,headers:{'cache-control':'private, no-store'}});
 const readExisting=async(db:D1Database,order:Source)=>{
@@ -52,7 +52,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   if(Number(evidence?.payment_rows||0)>0||Number(evidence?.provider_sessions||0)>0)
    return reply({ok:false,code:'SOURCE_PAYMENT_REVIEW_REQUIRED',
     error:'Original order has payment records or Stripe sessions. Reconcile these first; no duplicate quote draft has been created.'},409);
-  const items=await db.prepare(`SELECT product_id,variant_id,description,quantity,unit_price,line_total
+  const items=await db.prepare(`SELECT id,product_id,variant_id,description,quantity,unit_price,line_total
     FROM order_items WHERE order_id=? ORDER BY id`).bind(order.id).all<Line>();
   const rows=items.results||[];
   if(!rows.length||rows.reduce((n,x)=>n+Number(x.quantity||0),0)<10)
@@ -114,12 +114,27 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   if(previous)return previous;
   const quoteId=crypto.randomUUID();
   const reference='ME-Q-REC-'+Date.now().toString(36).toUpperCase()+'-'+crypto.randomUUID().slice(0,8).toUpperCase();
+  // Every copied financial field and every source item must remain identical
+  // at the point the D1 batch starts. Rechecking order status alone is not
+  // sufficient if a concurrent edit changes price, quantity, freight or SKU.
+  const lineSnapshotGuards=rows.map(()=>`AND EXISTS(
+         SELECT 1 FROM order_items snapshot WHERE snapshot.order_id=o.id
+           AND snapshot.id=? AND snapshot.product_id IS ? AND snapshot.variant_id IS ?
+           AND snapshot.description=? AND snapshot.quantity=?
+           AND snapshot.unit_price=? AND snapshot.line_total=?)`).join('\n       ');
+  const sourceSnapshotParams=rows.flatMap(item=>[
+   item.id,item.product_id,item.variant_id,item.description,item.quantity,item.unit_price,item.line_total
+  ]);
   const statements:D1PreparedStatement[]=[
-   // A payment may complete concurrently. Re-check eligibility *within* the
+   // A payment or financial/item edit may happen concurrently. Re-check eligibility *within* the
    // atomic D1 batch; NOT NULL source_order_id aborts all later inserts.
    db.prepare(`INSERT INTO b2b_recovery_quote_links(id,source_order_id,recovery_quote_id)
      VALUES(?,(SELECT CASE WHEN o.status='PAYMENT_PENDING' AND o.payment_status='UNPAID'
        AND o.currency='USD' AND o.total>0
+       AND o.subtotal=? AND o.discount=? AND o.shipping=? AND o.tax=? AND o.total=?
+       AND o.quote_id IS ? AND o.lead_id IS ? AND o.company_id IS ? AND o.contact_id IS ?
+       AND (SELECT COUNT(*) FROM order_items current_items WHERE current_items.order_id=o.id)=?
+       ${lineSnapshotGuards}
        AND (o.quote_id IS NULL OR q.status='CONVERTED')
        AND NOT EXISTS(SELECT 1 FROM payments p WHERE p.order_id=o.id)
        AND NOT EXISTS(SELECT 1 FROM payment_provider_sessions s WHERE s.order_id=o.id)
@@ -133,7 +148,10 @@ ${order.quote_id===null ? `AND NOT EXISTS(
            AND a.new_variant_id=i.variant_id AND length(trim(e.evidence_reference))>=12))` : ''}
        THEN o.id ELSE NULL END
        FROM orders o LEFT JOIN quotes q ON q.id=o.quote_id WHERE o.id=?),?)`)
-      .bind(crypto.randomUUID(),order.id,quoteId),
+      .bind(crypto.randomUUID(),
+       order.subtotal,order.discount,order.shipping,order.tax,order.total,
+       order.quote_id,order.lead_id,order.company_id,order.contact_id,
+       rows.length,...sourceSnapshotParams,order.id,quoteId),
    db.prepare(`INSERT INTO quotes(
      id,reference,lead_id,company_id,contact_id,status,currency,
      subtotal,discount,shipping,tax,total,payment_terms,shipping_terms,notes,tax_basis,valid_until)
