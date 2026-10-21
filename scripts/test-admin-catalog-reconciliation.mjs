@@ -78,3 +78,12 @@ assert.equal((guardedSource.match(/p\.status='ACTIVE' AND v\.active=1/g)||[]).le
 assert.equal((guardedSource.match(/NOT LIKE '%QA TEST%'/g)||[]).length,2,
  'QA exclusion is rechecked during both writes');
 console.log('PASS: catalog association blocks paid/completed historical orders and rechecks each mutation');
+
+const evidenceEndpoint=readFileSync('functions/api/admin/order-item-catalog-match.ts','utf8');
+const evidenceUi=readFileSync('src/OrderManager.tsx','utf8');
+assert.match(evidenceEndpoint,/evidenceReference\.length<12\|\|evidenceReference\.length>500/,'server rejects missing and oversized evidence references');
+assert.match(evidenceEndpoint,/order_item_catalog_evidence/,'evidence is persisted in a dedicated audit companion table');
+assert.match(evidenceEndpoint,/result\?\.\[2\]\?\.meta\?\.changes/,'save checks audit, item association and evidence insert in a single batch');
+assert.match(evidenceUi,/evidenceReference, confirmOriginalEvidence: true/,'admin UI submits evidence to the API');
+assert.match(evidenceUi,/line\.order_status!=='PAYMENT_PENDING'\|\|line\.payment_status!=='UNPAID'/,'admin UI blocks paid and completed orders');
+console.log('PASS: manual order matching requires stored purchase evidence and hides paid order writes');
