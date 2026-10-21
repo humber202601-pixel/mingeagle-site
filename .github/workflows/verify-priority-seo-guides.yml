@@ -17,6 +17,8 @@ on:
       - "public/sitemap.xml"
       - "public/llms.txt"
       - "scripts/check-priority-seo-guides.cjs"
+      - "scripts/build-first-touch-crawl-coverage.cjs"
+      - "scripts/check-first-touch-crawl-coverage.cjs"
       - "scripts/check-acoustics-citations.cjs"
       - "scripts/check-school-procurement-evidence.cjs"
       - "scripts/check-public-canonicals.cjs"
@@ -39,6 +41,8 @@ on:
       - "public/sitemap.xml"
       - "public/llms.txt"
       - "scripts/check-priority-seo-guides.cjs"
+      - "scripts/build-first-touch-crawl-coverage.cjs"
+      - "scripts/check-first-touch-crawl-coverage.cjs"
       - "scripts/check-acoustics-citations.cjs"
       - "scripts/check-public-canonicals.cjs"
       - ".github/workflows/deploy-pages.yml"
@@ -57,6 +61,11 @@ jobs:
         run: node scripts/check-acoustics-citations.cjs
       - name: Verify school procurement evidence and endorsement limits
         run: node scripts/check-school-procurement-evidence.cjs
+      - name: Verify first-touch AI referral capture covers public buyer pages
+        run: |
+          node scripts/build-first-touch-crawl-coverage.cjs
+          node scripts/check-first-touch-crawl-coverage.cjs
+          node scripts/build-first-touch-crawl-coverage.cjs --check
       - name: Verify buyer guide snippets and image schema
         run: node scripts/check-priority-seo-guides.cjs
       - name: Verify canonical and sitemap integrity
