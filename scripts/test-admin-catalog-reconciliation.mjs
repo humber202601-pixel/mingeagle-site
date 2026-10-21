@@ -43,10 +43,25 @@ assert.equal(db.prepare("SELECT COUNT(*) AS n FROM quotes").get().n,0,'report ne
 assert.equal(db.prepare("SELECT COUNT(*) AS n FROM payments").get().n,0,'report never creates payment evidence');
 console.log('PASS: read-only catalog reconciliation report query preserves ambiguity and performs no writes');
 
+db.prepare("INSERT INTO leads(id) VALUES('lead-multi')").run();
+db.prepare("UPDATE orders SET lead_id='lead-multi',created_at='2026-10-20 12:00:00' WHERE id='o-unlinked'").run();
+db.prepare("INSERT INTO inquiries(id,reference,lead_id,created_at) VALUES('iq-old','INQ-OLD','lead-multi','2026-10-19 10:00:00')").run();
+db.prepare("INSERT INTO inquiries(id,reference,lead_id,created_at) VALUES('iq-new','INQ-NEW','lead-multi','2026-10-20 11:00:00')").run();
+db.prepare("INSERT INTO inquiries(id,reference,lead_id,created_at) VALUES('iq-future','INQ-FUTURE','lead-multi','2026-10-21 11:00:00')").run();
+const matchingInquiries=db.prepare(`SELECT o.reference AS order_reference,i.id AS item_id,iq.reference AS inquiry_reference
+  FROM orders o JOIN order_items i ON i.order_id=o.id
+  LEFT JOIN inquiries iq ON iq.id=(
+    SELECT candidate.id FROM inquiries candidate
+    WHERE candidate.lead_id=o.lead_id AND datetime(candidate.created_at)<=datetime(o.created_at)
+    ORDER BY datetime(candidate.created_at) DESC,candidate.id DESC LIMIT 1)
+  WHERE o.reference='ME-UNLINKED'`).all();
+assert.equal(matchingInquiries.length,1,'multiple inquiries must not duplicate order line rows');
+assert.equal(matchingInquiries[0].inquiry_reference,'INQ-NEW','choose latest qualifying lead inquiry before the order, not a future one');
+
 const endpointSource=readFileSync('functions/api/admin/catalog-reconciliation.ts','utf8');
 const uiSource=readFileSync('src/OrderManager.tsx','utf8');
 assert.match(endpointSource,/env\.ADMIN_ACCESS_KEY/,'report requires the existing server-side admin key');
-assert.match(endpointSource,/LEFT JOIN inquiries iq ON iq\.lead_id=o\.lead_id/,'report includes the original inquiry context');
+assert.match(endpointSource,/LEFT JOIN inquiries iq ON iq\.id=\(/,'report joins at most one contextual inquiry');
 assert.match(endpointSource,/iq\.size_preference,iq\.color_preference/,'report exposes original size and color preferences');
 assert.match(uiSource,/询盘\/规格线索/,'UI presents original inquiry context for manual matching');
 assert.match(uiSource,/查看线索/,'UI makes the original inquiry context inspectable');
