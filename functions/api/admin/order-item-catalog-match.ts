@@ -1,5 +1,5 @@
 interface Env { MINGEAGLE_DB?: D1Database; ADMIN_ACCESS_KEY?: string }
-type Input={orderReference?:string;itemId?:string;variantSku?:string;confirmOriginalEvidence?:boolean};
+type Input={orderReference?:string;itemId?:string;variantSku?:string;confirmOriginalEvidence?:boolean;evidenceReference?:string};
 type Row=Record<string,unknown>;
 const reply=(v:object,status=200)=>Response.json(v,{status,headers:{'cache-control':'private, no-store'}});
 async function sameSecret(a:string,b:string){
@@ -13,6 +13,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
  const input=await request.json().catch(()=>null) as Input|null;
  const orderReference=String(input?.orderReference||'').trim(),itemId=String(input?.itemId||'').trim(),variantSku=String(input?.variantSku||'').trim();
  if(!orderReference||!itemId||!variantSku)return reply({ok:false,error:'Order, line item and variant SKU are required.'},400);
+ const evidenceReference=typeof input?.evidenceReference==='string'?input.evidenceReference.trim():'';
+ if(evidenceReference.length<12||evidenceReference.length>500)return reply({ok:false,error:'A 12–500 character evidence reference is required (e.g. dated buyer confirmation, purchase document ID, or approved record location).'},400);
  if(input?.confirmOriginalEvidence!==true)return reply({ok:false,error:'Explicit confirmation of original buyer/purchase evidence is required.'},400);
  const db=env.MINGEAGLE_DB;
  try{
@@ -34,6 +36,10 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     source_description TEXT NOT NULL,source_quantity INTEGER NOT NULL,
     source_unit_price REAL NOT NULL,source_line_total REAL NOT NULL,
     confirmed_original_evidence INTEGER NOT NULL CHECK(confirmed_original_evidence=1),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
+  await db.prepare(`CREATE TABLE IF NOT EXISTS order_item_catalog_evidence(
+    audit_id TEXT PRIMARY KEY,order_item_id TEXT NOT NULL,
+    evidence_reference TEXT NOT NULL CHECK(length(evidence_reference)>=12 AND length(evidence_reference)<=500),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`).run();
   const auditId=crypto.randomUUID();
   const result=await db.batch([
@@ -58,9 +64,12 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     AND EXISTS(SELECT 1 FROM products p JOIN product_variants v ON v.product_id=p.id
       WHERE p.id=? AND v.id=? AND p.status='ACTIVE' AND v.active=1)
     AND EXISTS(SELECT 1 FROM order_item_catalog_audit a WHERE a.id=? AND a.order_item_id=order_items.id)`)
-    .bind(String(variant.product_id),String(variant.variant_id),itemId,String(source.order_id),String(variant.product_id),String(variant.variant_id),auditId)
+    .bind(String(variant.product_id),String(variant.variant_id),itemId,String(source.order_id),String(variant.product_id),String(variant.variant_id),auditId),
+   db.prepare(`INSERT INTO order_item_catalog_evidence(audit_id,order_item_id,evidence_reference)
+     SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM order_item_catalog_audit WHERE id=? AND order_item_id=?)`)
+     .bind(auditId,itemId,evidenceReference,auditId,itemId)
   ]);
-  if(Number(result?.[0]?.meta?.changes||0)!==1||Number(result?.[1]?.meta?.changes||0)!==1)
+  if(Number(result?.[0]?.meta?.changes||0)!==1||Number(result?.[1]?.meta?.changes||0)!==1||Number(result?.[2]?.meta?.changes||0)!==1)
     return reply({ok:false,error:'Association was not saved; the line may have changed. Reload the report and retry.'},409);
   return reply({ok:true,orderReference,itemId,variant:{productSku:variant.product_sku,productName:variant.product_name,variantSku:variant.variant_sku,variantName:variant.variant_name,size:variant.size,color:variant.color},financialSnapshotUnchanged:true,auditId},200);
  }catch(error){console.error('admin_order_item_catalog_match_failed',error);return reply({ok:false,error:'Unable to save catalog association safely.'},503);}
