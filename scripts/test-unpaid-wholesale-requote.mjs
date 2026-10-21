@@ -119,7 +119,20 @@ try{
   VALUES(?,?,?,?,?,10,15,150)`)
   .run('line-ORPHAN',orphanId,'product-ORPHAN','variant-ORPHAN','Flocked Silent Basketball Set | No. 7 | Orange');
  response=await call(orphanRef);
- assert.equal(response.status,201,'A reconciled legacy order without quote_id may create only a fresh draft');
+ assert.equal(response.status,409,'Orphan quote recovery must reject an undocumented catalog match');
+ assert.equal(response.body.code,'SOURCE_CATALOG_EVIDENCE_REQUIRED');
+ sqlite.exec(`CREATE TABLE IF NOT EXISTS order_item_catalog_audit(
+ id TEXT PRIMARY KEY,order_id TEXT NOT NULL,order_item_id TEXT NOT NULL,
+ new_product_id TEXT NOT NULL,new_variant_id TEXT NOT NULL)`);
+ sqlite.exec(`CREATE TABLE IF NOT EXISTS order_item_catalog_evidence(
+ audit_id TEXT PRIMARY KEY,order_item_id TEXT NOT NULL,evidence_reference TEXT NOT NULL)`);
+ sqlite.prepare("INSERT INTO order_item_catalog_audit(id,order_id,order_item_id,new_product_id,new_variant_id) VALUES('audit-orphan',?,?,?,?)")
+  .run(orphanId,'line-ORPHAN','product-ORPHAN','variant-ORPHAN');
+ response=await call(orphanRef);
+ assert.equal(response.status,409,'An audit without original buyer evidence is not enough');
+ sqlite.prepare("INSERT INTO order_item_catalog_evidence(audit_id,order_item_id,evidence_reference) VALUES('audit-orphan','line-ORPHAN','buyer-confirmation-email-2026-10-21')").run();
+ response=await call(orphanRef);
+ assert.equal(response.status,201,'An audited documented legacy order may create only a fresh draft');
  assert.equal(response.body.quote.status,'DRAFT');
  const orphanDraft=sqlite.prepare('SELECT status,tax_basis,public_token_hash FROM quotes WHERE id=?').get(response.body.quote.id);
  assert.equal(orphanDraft.status,'DRAFT');
