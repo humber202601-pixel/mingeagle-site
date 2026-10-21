@@ -6,6 +6,11 @@ const result=await build({entryPoints:['functions/api/admin/unpaid-wholesale-req
  bundle:true,platform:'node',format:'esm',write:false,logLevel:'silent'});
 const {onRequestPost}=await import('data:text/javascript;base64,'+
  Buffer.from(result.outputFiles[0].text).toString('base64'));
+const orderManagerGuard=readFileSync('src/OrderManager.tsx','utf8');
+assert.match(orderManagerGuard,/report===null \|\| Boolean\(report\.missingLines\?\.some\(line=>line\.order_reference===reference\)\)/,
+ 'replacement quote button requires a loaded reconciliation report with no unlinked line');
+assert.match(orderManagerGuard,/待补齐商品凭证 · 暂不可恢复报价/,
+ 'unlinked order displays the missing procurement evidence explanation');
 const middleware=readFileSync('functions/_middleware.ts','utf8');
 const orderManager=readFileSync('src/OrderManager.tsx','utf8');
 assert.ok(orderManager.includes("order.quote_id==null") && orderManager.includes("text(order.quote_status)==='CONVERTED'"),
