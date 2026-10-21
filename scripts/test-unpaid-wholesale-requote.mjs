@@ -7,6 +7,15 @@ const result=await build({entryPoints:['functions/api/admin/unpaid-wholesale-req
 const {onRequestPost}=await import('data:text/javascript;base64,'+
  Buffer.from(result.outputFiles[0].text).toString('base64'));
 const orderManagerGuard=readFileSync('src/OrderManager.tsx','utf8');
+assert.match(orderManagerGuard,/const freshResponse=await fetch\('\/api\/admin\/catalog-reconciliation'/,
+ 'draft click must refresh current matching report');
+assert.match(orderManagerGuard,/setReport\(fresh\)/,'fresh report replaces stale visual state');
+assert.match(orderManagerGuard,/fresh\.missingLines\?\.some\(line=>line\.order_reference===orderReference\)/,
+ 'newly unlinked lines prevent requote even if previous report was clear');
+assert.ok(orderManagerGuard.indexOf("const freshResponse=await fetch('/api/admin/catalog-reconciliation'") <
+ orderManagerGuard.indexOf("const response=await fetch('/api/admin/unpaid-wholesale-requote'"),
+ 'read-only preflight runs before draft creation POST');
+
 assert.match(orderManagerGuard,/report===null \|\| Boolean\(report\.missingLines\?\.some\(line=>line\.order_reference===reference\)\)/,
  'replacement quote button requires a loaded reconciliation report with no unlinked line');
 assert.match(orderManagerGuard,/待补齐商品凭证 · 暂不可恢复报价/,
