@@ -6,6 +6,13 @@ const result=await build({entryPoints:['functions/api/admin/unpaid-wholesale-req
  bundle:true,platform:'node',format:'esm',write:false,logLevel:'silent'});
 const {onRequestPost}=await import('data:text/javascript;base64,'+
  Buffer.from(result.outputFiles[0].text).toString('base64'));
+const readinessSource=readFileSync('functions/api/admin/unpaid-wholesale-requote-readiness.ts','utf8');
+assert.match(readinessSource,/onRequestGet/,'readiness uses GET only');
+assert.match(readinessSource,/ADMIN_ACCESS_KEY/,'readiness requires admin authorization');
+assert.match(readinessSource,/SOURCE_CATALOG_EVIDENCE_REQUIRED/,'readiness explains evidence gaps');
+assert.match(readinessSource,/SOURCE_PAYMENT_REVIEW_REQUIRED/,'readiness flags payment evidence');
+assert.doesNotMatch(readinessSource,/CREATE TABLE|INSERT INTO|UPDATE orders|UPDATE order_items|DELETE FROM/,'readiness may not mutate D1');
+assert.match(readFileSync('src/OrderManager.tsx','utf8'),/checkRecoveryReadiness/,'admin displays read-only readiness diagnostics');
 const orderManagerGuard=readFileSync('src/OrderManager.tsx','utf8');
 assert.match(orderManagerGuard,/const freshResponse=await fetch\('\/api\/admin\/catalog-reconciliation'/,
  'draft click must refresh current matching report');
