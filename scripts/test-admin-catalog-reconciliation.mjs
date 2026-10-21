@@ -87,3 +87,5 @@ assert.match(evidenceEndpoint,/result\?\.\[2\]\?\.meta\?\.changes/,'save checks 
 assert.match(evidenceUi,/evidenceReference, confirmOriginalEvidence: true/,'admin UI submits evidence to the API');
 assert.match(evidenceUi,/line\.order_status!=='PAYMENT_PENDING'\|\|line\.payment_status!=='UNPAID'/,'admin UI blocks paid and completed orders');
 console.log('PASS: manual order matching requires stored purchase evidence and hides paid order writes');
+
+await import('./test-admin-catalog-match-transaction.mjs');
