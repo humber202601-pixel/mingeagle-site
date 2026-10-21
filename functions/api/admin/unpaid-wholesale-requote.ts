@@ -72,6 +72,20 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   if(Number(productSnapshot?.invalid_lines||0)>0)
    return reply({ok:false,code:'SOURCE_PRODUCT_SNAPSHOT_REQUIRED',
     error:'One or more historical order lines lack a valid active catalog product or required variant. Restore the product/variant association and review the original SKU before creating a replacement quotation.'},409);
+  // Historical orphan orders (no surviving source quote) must not be recovered
+  // solely from a chosen SKU: require the documented manual reconciliation trail.
+  if(order.quote_id===null){
+   const audit=await db.prepare(`SELECT COUNT(*) AS missing FROM order_items i
+     WHERE i.order_id=? AND NOT EXISTS (
+       SELECT 1 FROM order_item_catalog_audit a
+       JOIN order_item_catalog_evidence e ON e.audit_id=a.id
+       WHERE a.order_item_id=i.id AND a.new_product_id=i.product_id
+       AND a.new_variant_id=i.variant_id AND length(trim(e.evidence_reference))>=12)`)
+     .bind(order.id).first<{missing:number}>().catch(()=>null);
+   if(!audit||Number(audit.missing)>0)
+    return reply({ok:false,code:'SOURCE_CATALOG_EVIDENCE_REQUIRED',
+      error:'Historical order lines require an audited SKU association and original buyer/purchase evidence before a replacement quote can be drafted.'},409);
+  }
   let calc:ReturnType<typeof quoteTotals>;
   try{
    const lines=rows.map(x=>({quantity:x.quantity,unitPrice:x.unit_price}));
@@ -111,6 +125,12 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
        AND NOT EXISTS(SELECT 1 FROM payment_provider_sessions s WHERE s.order_id=o.id)
        AND NOT EXISTS(SELECT 1 FROM order_items i WHERE i.order_id=o.id AND (UPPER(i.description) LIKE '%QA TEST%' OR UPPER(i.description) LIKE '%DO NOT SEND%' OR UPPER(i.description) LIKE '%TEST ORDER%'))
        AND NOT EXISTS(SELECT 1 FROM order_items i LEFT JOIN products p ON p.id=i.product_id LEFT JOIN product_variants v ON v.id=i.variant_id WHERE i.order_id=o.id AND (i.product_id IS NULL OR p.id IS NULL OR p.status<>'ACTIVE' OR (i.variant_id IS NOT NULL AND (v.id IS NULL OR v.product_id<>p.id OR v.active<>1)) OR (i.variant_id IS NULL AND EXISTS(SELECT 1 FROM product_variants pv WHERE pv.product_id=p.id))))
+       AND (o.quote_id IS NOT NULL OR NOT EXISTS(
+         SELECT 1 FROM order_items i WHERE i.order_id=o.id AND NOT EXISTS(
+           SELECT 1 FROM order_item_catalog_audit a
+           JOIN order_item_catalog_evidence e ON e.audit_id=a.id
+           WHERE a.order_item_id=i.id AND a.new_product_id=i.product_id
+           AND a.new_variant_id=i.variant_id AND length(trim(e.evidence_reference))>=12)))
        THEN o.id ELSE NULL END
        FROM orders o LEFT JOIN quotes q ON q.id=o.quote_id WHERE o.id=?),?)`)
       .bind(crypto.randomUUID(),order.id,quoteId),
