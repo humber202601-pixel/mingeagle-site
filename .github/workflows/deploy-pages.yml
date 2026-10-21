@@ -281,7 +281,7 @@ jobs:
               html=response.read().decode('utf-8')
           head=re.split(r'</head>',html,1,flags=re.I)[0]
           tag='<meta name="msvalidate.01" content="B90BA0E0B26B927BA506ED085EE0C32F" />'
-          if head.count(tag)!=1 or len(re.findall(r'name=["\x27]msvalidate\\.01["\x27]',head,re.I))!=1:
+          if head.count(tag)!=1 or len(re.findall(r'name=["\x27]msvalidate[.]01["\x27]',head,re.I))!=1:
               raise SystemExit('FAIL: Bing ownership proof missing, duplicated or wrong')
           print('PASS: live www homepage contains exact Bing Webmaster verification token once')
           PY
