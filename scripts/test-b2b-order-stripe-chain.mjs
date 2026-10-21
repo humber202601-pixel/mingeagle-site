@@ -240,7 +240,7 @@ try{
  const orderId=created.order.id;
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM order_items WHERE order_id=?').get(orderId).n,2,
   'Buyer acceptance preserves both different SKU lines');
- assert.deepEqual(sqlite.prepare('SELECT product_id,variant_id,description,quantity,unit_price,line_total FROM order_items WHERE order_id=? ORDER BY description').all(orderId),
+ assert.deepEqual(sqlite.prepare('SELECT product_id,variant_id,description,quantity,unit_price,line_total FROM order_items WHERE order_id=? ORDER BY description').all(orderId).map(line=>({...line})),
   [{product_id:'catalog-p2',variant_id:'variant-p2-s3-green',description:'Fabric Silent Basketball Set | No. 3 | Green',quantity:4,unit_price:15,line_total:60},
    {product_id:'catalog-p1',variant_id:'variant-p1-s7-orange',description:'Flocked Silent Basketball Set | No. 7 | Orange',quantity:6,unit_price:15,line_total:90}],
   'Neither line can disappear, duplicate or change quantity converting multi-SKU quote to order');
