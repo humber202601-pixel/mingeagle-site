@@ -5,6 +5,7 @@ on:
     branches: ["v2-cloudflare"]
     paths:
       - "scripts/verify-production-b2b-readiness.mjs"
+      - "scripts/verify-production-http-smoke.mjs"
       - ".github/workflows/verify-b2b-production-readiness.yml"
   workflow_dispatch:
 
@@ -24,3 +25,16 @@ jobs:
           node-version: 22
       - name: Read-only production payment-status check
         run: node scripts/verify-production-b2b-readiness.mjs
+
+  live-http-smoke:
+    name: Check production HTTP and admin anonymous access (GET only)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Real production HTTP smoke (read-only)
+        run: node scripts/verify-production-http-smoke.mjs
