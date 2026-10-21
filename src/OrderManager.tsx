@@ -298,11 +298,22 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
 
         {paymentStatus==='UNPAID'&&status==='PAYMENT_PENDING'&&
           (order.quote_id==null||text(order.quote_id,'')===''||text(order.quote_status)==='CONVERTED')&&Number(order.item_units||0)>=10&&
+          received===0&&payments.length===0&&!onlineStatus&&report?.missingLines?.some(line=>line.order_reference===reference)&&
+          <div className="form-status error" role="status">
+            <strong>待补齐商品凭证 · 暂不可恢复报价</strong>
+            <p>核对报告仍有此订单的商品明细缺少 SKU 或规格关联。请先核实原始采购单或客户书面确认，选择正确规格并填写可追溯的凭证编号。仅凭订单金额或参考询盘不得推断商品规格。</p>
+            <p>操作入口位于本页上方的“历史订单商品关联核对”；完成关联后重新加载报告，才能继续申请新的待审核报价。</p>
+          </div>}
+        {paymentStatus==='UNPAID'&&status==='PAYMENT_PENDING'&&
+          (order.quote_id==null||text(order.quote_id,'')===''||text(order.quote_status)==='CONVERTED')&&Number(order.item_units||0)>=10&&
           received===0&&payments.length===0&&!onlineStatus&&
           <div className="form-status" role="status">
             <strong>历史批发订单待恢复 · 必须重新报价</strong>
             <p>旧订单尚无可验证的 Stripe 会话和收款，可能缺少客户真实美国收货地址或销售税依据。此功能只为卖方创建一份新的独立 DRAFT；不会改写旧订单、自动确认旧报价、发送邮件或扣款。</p>
-            <button type="button" className="button secondary small" disabled={busy!==''}
+            {report===null && <p>尚未加载商品核对报告，请先点击本页顶部“加载核对报告”。无法核实商品关联时，暂不允许申请恢复报价。</p>}
+            {report!==null && report.missingLines?.some(line=>line.order_reference===reference) && <p>订单商品关联缺失，恢复报价将被阻止。请先在核对报告中补齐商品 SKU 与原始采购凭证。</p>}
+            <button type="button" className="button secondary small"
+              disabled={busy!=='' || report===null || Boolean(report.missingLines?.some(line=>line.order_reference===reference))}
               onClick={()=>void createUnpaidReplacementDraft(reference)}>
               {busy===`${reference}:REQUOTE`?'正在检查…':'创建新的待审核批发报价'}
             </button>
