@@ -87,6 +87,7 @@ jobs:
           node scripts/check-seo-discovery-links.cjs
           node scripts/check-ai-intent-guides.cjs
           node scripts/check-acoustics-citations.cjs
+          node scripts/check-school-procurement-evidence.cjs
           node scripts/check-localized-school-guides.cjs
           node scripts/test-localized-school-guides.cjs
           node scripts/check-coach-ai-answers.cjs

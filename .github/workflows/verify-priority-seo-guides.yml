@@ -18,6 +18,7 @@ on:
       - "public/llms.txt"
       - "scripts/check-priority-seo-guides.cjs"
       - "scripts/check-acoustics-citations.cjs"
+      - "scripts/check-school-procurement-evidence.cjs"
       - "scripts/check-public-canonicals.cjs"
       - ".github/workflows/deploy-pages.yml"
       - ".github/workflows/verify-priority-seo-guides.yml"
@@ -54,6 +55,8 @@ jobs:
           node-version: 20
       - name: Verify acoustics source citations and evidence limits
         run: node scripts/check-acoustics-citations.cjs
+      - name: Verify school procurement evidence and endorsement limits
+        run: node scripts/check-school-procurement-evidence.cjs
       - name: Verify buyer guide snippets and image schema
         run: node scripts/check-priority-seo-guides.cjs
       - name: Verify canonical and sitemap integrity
