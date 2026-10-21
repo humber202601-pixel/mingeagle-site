@@ -1,4 +1,4 @@
-// Capture first-party inquiry attribution on standalone AI buyer guides.
+// Capture first-party inquiry attribution on published buyer-facing pages.
 // Does not send network requests, add cookies, or collect visitor identity.
 (function(){
  'use strict';
