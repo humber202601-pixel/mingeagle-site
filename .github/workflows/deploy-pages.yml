@@ -223,6 +223,11 @@ jobs:
       - name: Verify priority buyer guide SEO metadata and structured data
         run: node scripts/check-priority-seo-guides.cjs
 
+      - name: Preserve Bing Webmaster Tools verification on final generated homepage
+        run: |
+          node scripts/ensure-bing-webmaster-verification.cjs
+          node scripts/ensure-bing-webmaster-verification.cjs --check
+
       - name: Stamp publicly verifiable deployment revision
         run: |
           printf '{"revision":"%s","builtAt":"%s","workflow":"github-pages"}\n' "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > public/deployment-version.json
@@ -262,6 +267,23 @@ jobs:
               if attempt == 11:
                   raise SystemExit('FAIL: public site did not serve deployed revision')
               time.sleep(10)
+          PY
+
+      - name: Verify Bing site ownership tag on live canonical homepage
+        run: |
+          python - <<'PY'
+          import re, urllib.request
+          url='https://www.mingeagle.com/'
+          request=urllib.request.Request(url,headers={'Cache-Control':'no-cache','User-Agent':'MING-EAGLE-Bing-ownership-check/1.0'})
+          with urllib.request.urlopen(request,timeout=20) as response:
+              if response.status!=200 or response.geturl()!=url:
+                  raise SystemExit('FAIL: Bing verification homepage does not return canonical HTTP 200')
+              html=response.read().decode('utf-8')
+          head=re.split(r'</head>',html,1,flags=re.I)[0]
+          tag='<meta name="msvalidate.01" content="B90BA0E0B26B927BA506ED085EE0C32F" />'
+          if head.count(tag)!=1 or len(re.findall(r'name=["\x27]msvalidate\\.01["\x27]',head,re.I))!=1:
+              raise SystemExit('FAIL: Bing ownership proof missing, duplicated or wrong')
+          print('PASS: live www homepage contains exact Bing Webmaster verification token once')
           PY
 
       - name: Verify real HTTPS school buying guides in four additional languages
