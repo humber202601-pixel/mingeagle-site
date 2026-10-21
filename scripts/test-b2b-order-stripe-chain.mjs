@@ -87,9 +87,21 @@ globalThis.fetch=async(url,init)=>{
  const params=new URLSearchParams(init.body);
  assert.equal(params.get('mode'),'payment');
  assert.equal(params.get('client_reference_id')?.startsWith('ME-'),true);
- assert.equal(params.get('line_items[0][price_data][unit_amount]'),'15000');
- assert.equal(params.get('line_items[1][price_data][unit_amount]'),'3000');
- assert.equal(params.get('line_items[2][price_data][unit_amount]'),null);
+ assert.equal(params.get('line_items[0][price_data][unit_amount]'),'1500');
+ assert.equal(params.get('line_items[0][quantity]'),'6');
+ assert.equal(params.get('line_items[0][price_data][product_data][name]'),'Flocked Silent Basketball Set | No. 7 | Orange');
+ assert.equal(params.get('line_items[1][price_data][unit_amount]'),'1500');
+ assert.equal(params.get('line_items[1][quantity]'),'4');
+ assert.equal(params.get('line_items[1][price_data][product_data][name]'),'Fabric Silent Basketball Set | No. 3 | Green');
+ assert.equal(params.get('line_items[2][price_data][unit_amount]'),'3000');
+ assert.equal(params.get('line_items[2][quantity]'),'1');
+ assert.equal(params.get('line_items[3][price_data][unit_amount]'),null);
+ assert.equal(params.get('line_items[0][price_data][currency]'),'usd');
+ assert.equal(params.get('line_items[2][price_data][product_data][name]'),'Delivery and handling');
+ const pricedCents=[0,1,2].reduce((sum,i)=>sum+
+   Number(params.get('line_items['+i+'][price_data][unit_amount]'))*
+   Number(params.get('line_items['+i+'][quantity]')),0);
+ assert.equal(pricedCents,18000,'Line-item checkout total equals the full buyer-approved wholesale amount');
  const id='cs_test_syntheticB2BChain'+String(provider.size+1);
  const session={id,status:'open',payment_status:'unpaid',currency:'usd',livemode:false,
   url:'https://checkout.stripe.com/c/pay/'+id,
