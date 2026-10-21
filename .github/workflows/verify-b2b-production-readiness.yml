@@ -6,6 +6,9 @@ on:
     paths:
       - "scripts/verify-production-b2b-readiness.mjs"
       - "scripts/verify-production-http-smoke.mjs"
+      - "scripts/verify-production-website-source.mjs"
+      - "scripts/verify-production-commerce-gates.mjs"
+      - "scripts/verify-production-cart-browser.mjs"
       - ".github/workflows/verify-b2b-production-readiness.yml"
   workflow_dispatch:
 
@@ -38,3 +41,54 @@ jobs:
           node-version: 22
       - name: Real production HTTP smoke (read-only)
         run: node scripts/verify-production-http-smoke.mjs
+
+  live-storefront-source:
+    name: Compare deployed storefront against main/public source (GET only)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout diagnostics
+        uses: actions/checkout@v4
+      - name: Checkout latest website sources
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: website-source
+          sparse-checkout: public
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Compare live storefront files with tracked source
+        run: node scripts/verify-production-website-source.mjs
+
+  live-retail-gates:
+    name: Audit public 1- and 2-unit checkout activation and cross-origin preflight
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test live WWW to app cart route (no customer writes)
+        run: node scripts/verify-production-commerce-gates.mjs
+
+  live-retail-browser:
+    name: Live one/two/mixed retail cart checkout navigation (no charge)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install browser
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Exercise live website storefront to checkout form
+        run: node scripts/verify-production-cart-browser.mjs
