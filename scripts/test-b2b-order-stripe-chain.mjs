@@ -109,9 +109,14 @@ try{
   'DDP sea freight 25–30 days, customs and duties included; Ship-to state: TX',
   'SYNTHETIC TEST ONLY: simulated tax-basis review is NOT merchant tax approval',
   bearerHash);
+ // Two different buyer-approved SKUs in one wholesale quotation:
+ // quantities 6 + 4, goods 90 + 60, freight 30, total USD 180.
  sqlite.prepare(`INSERT INTO quote_items
   (id,quote_id,description,quantity,unit_price,line_total,sort_order)
-  VALUES (?,?,?,10,15,150,0)`).run(randomUUID(),quoteId,'Flocked Silent Basketball Set | No. 7 | Orange');
+  VALUES (?,?,?,6,15,90,0)`).run(randomUUID(),quoteId,'Flocked Silent Basketball Set | No. 7 | Orange');
+ sqlite.prepare(`INSERT INTO quote_items
+  (id,quote_id,description,quantity,unit_price,line_total,sort_order)
+  VALUES (?,?,?,4,15,60,1)`).run(randomUUID(),quoteId,'Fabric Silent Basketball Set | No. 3 | Blue');
  // Public HTML and JSON quote endpoints must agree with the shared
  // quoteTermsIssues validity contract: YYYY-MM-DD is inclusive through
  // that day's end (UTC). Explicit timestamps retain precise expiry.
@@ -233,7 +238,12 @@ try{
  const created=await accepted.json();
  assert.equal(created.order.payment_status,'UNPAID');
  const orderId=created.order.id;
- assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM order_items WHERE order_id=?').get(orderId).n,1);
+ assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM order_items WHERE order_id=?').get(orderId).n,2,
+  'Buyer acceptance preserves both different SKU lines');
+ assert.deepEqual(sqlite.prepare('SELECT description,quantity,unit_price,line_total FROM order_items WHERE order_id=? ORDER BY description').all(orderId),
+  [{description:'Fabric Silent Basketball Set | No. 3 | Blue',quantity:4,unit_price:15,line_total:60},
+   {description:'Flocked Silent Basketball Set | No. 7 | Orange',quantity:6,unit_price:15,line_total:90}],
+  'Neither line can disappear, duplicate or change quantity converting multi-SKU quote to order');
  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM tasks WHERE order_id=? AND type='PAYMENT'").get(orderId).n,1);
  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM activities WHERE entity_id=? AND activity_type='QUOTE_ACCEPTED'").get(orderId).n,1);
  assert.deepEqual(JSON.parse(sqlite.prepare('SELECT shipping_address FROM orders WHERE id=?').get(orderId).shipping_address),
@@ -326,12 +336,14 @@ try{
  assert(quoteHtml.includes('Pay securely with Stripe'));
  assert(quoteHtml.includes('WHOLESALE QUOTATION'),'Ten-unit accepted quote is wholesale');
  // The accepted merchandise is not mutable merely because its amount stays the same.
- sqlite.prepare(`UPDATE order_items SET description='Another ball of identical price' WHERE order_id=?`).run(orderId);
+ sqlite.prepare(`UPDATE order_items SET description='Another ball of identical price'
+  WHERE order_id=? AND description='Flocked Silent Basketball Set | No. 7 | Orange'`).run(orderId);
  const beforeBlocked=network;
  const altered=await checkout({env,request:checkoutRequest()});
  assert.equal(altered.status,409,'Changed SKU/description is not payable against original quote');
  assert.equal(network,beforeBlocked,'Tampered order must not call Stripe');
- sqlite.prepare(`UPDATE order_items SET description='Flocked Silent Basketball Set | No. 7 | Orange' WHERE order_id=?`).run(orderId);
+ sqlite.prepare(`UPDATE order_items SET description='Flocked Silent Basketball Set | No. 7 | Orange'
+  WHERE order_id=? AND description='Another ball of identical price'`).run(orderId);
  // Unpaid order with an active manual Stripe review must never get a
  // brand-new Checkout from a direct POST, even if the buyer UI hides Pay.
  const disputeTaskId='synthetic-checkout-hold';
@@ -348,6 +360,10 @@ try{
   assert.equal(provider.size,0,'Checkout dispute guard must not create Stripe session');
  }
  sqlite.prepare("UPDATE tasks SET status='DONE' WHERE id=?").run(disputeTaskId);
+ // Stripe Checkout shows a consolidated merchandise amount, while the order
+ // retains both exact quote lines for fulfillment and buyer verification.
+ assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM quote_items WHERE quote_id=?').get(quoteId).n,2);
+ assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM order_items WHERE order_id=?').get(orderId).n,2);
  const createdCheckout=await checkout({env,request:checkoutRequest()});
  assert.equal(createdCheckout.status,200,await createdCheckout.clone().text());
  assert.equal(provider.size,1,'One simulated hosted checkout');
@@ -512,5 +528,5 @@ try{
  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM tasks WHERE order_id=? AND type='FULFILLMENT'").get(orderId).n,1,
   'Buyer polling never duplicates fulfillment');
 
- console.log('PASS: isolated B2B quote acceptance → one order → exact item validation → mocked Stripe session → signed paid webhook → PAID → fulfillment once; no live charges.');
+ console.log('PASS: isolated two-SKU (6 + 4 units) B2B quote acceptance → one order with two exact lines → mocked Stripe session → signed paid webhook → PAID → fulfillment once; no live charges.');
 }finally{globalThis.fetch=savedFetch;sqlite.close();}
