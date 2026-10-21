@@ -64,6 +64,8 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
   const [reportBusy, setReportBusy] = useState(false);
   const [report, setReport] = useState<ReconciliationReport | null>(null);
   const [reportError, setReportError] = useState('');
+  const [readiness, setReadiness] = useState<Record<string,{eligible:boolean;reasonCodes:string[];unlinkedLines:number;existingDraft:string|null}>>({});
+  const [readinessBusy, setReadinessBusy] = useState('');
   const [selectedVariants, setSelectedVariants] = useState<Record<string,string>>({});
   const [evidenceReferences, setEvidenceReferences] = useState<Record<string,string>>({});
   const [savingMatch, setSavingMatch] = useState('');
@@ -115,6 +117,24 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
     } finally {
       setBusy('');
     }
+  }
+
+  async function checkRecoveryReadiness(orderReference:string){
+    setReadinessBusy(orderReference);
+    try{
+      const response=await fetch('/api/admin/unpaid-wholesale-requote-readiness?orderReference='+encodeURIComponent(orderReference),{
+        headers:{'x-admin-key':accessKey},signal:AbortSignal.timeout(15000)
+      });
+      const body=await response.json() as {ok?:boolean;error?:string;eligible?:boolean;reasonCodes?:string[];unlinkedLines?:number;existingDraft?:string|null};
+      if(!response.ok||!body.ok)throw Error(body.error||'无法检查历史订单恢复条件');
+      setReadiness(prev=>({...prev,[orderReference]:{
+        eligible:Boolean(body.eligible),reasonCodes:body.reasonCodes||[],
+        unlinkedLines:Number(body.unlinkedLines||0),existingDraft:body.existingDraft||null
+      }}));
+    }catch(error){
+      setMessage(prev=>({...prev,[orderReference]:{type:'error',text:error instanceof Error?error.message:'恢复条件检查失败'}}));
+      setReadiness(prev=>{const next={...prev};delete next[orderReference];return next});
+    }finally{setReadinessBusy('');}
   }
 
   async function createUnpaidReplacementDraft(orderReference:string){
@@ -320,6 +340,22 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
           <div className="form-status" role="status">
             <strong>历史批发订单待恢复 · 必须重新报价</strong>
             <p>旧订单尚无可验证的 Stripe 会话和收款，可能缺少客户真实美国收货地址或销售税依据。此功能只为卖方创建一份新的独立 DRAFT；不会改写旧订单、自动确认旧报价、发送邮件或扣款。</p>
+            <div className="order-actions">
+              <button type="button" className="button secondary small" disabled={readinessBusy!==''}
+                onClick={()=>void checkRecoveryReadiness(reference)}>
+                {readinessBusy===reference?'正在检查恢复条件…':'检查恢复条件（只读）'}
+              </button>
+              {readiness[reference] && <span>{readiness[reference].eligible?'基础校验通过，仍需最终服务端核验':'尚不满足恢复条件'}{readiness[reference].existingDraft?' · 已有恢复草稿 '+readiness[reference].existingDraft:''}</span>}
+            </div>
+            {readiness[reference]?.reasonCodes.length ? <p role="status">待处理项：{readiness[reference].reasonCodes.map(code=>({
+              SOURCE_ORDER_NOT_SAFE_FOR_REQUOTE:'订单状态或原报价状态不符合恢复条件',
+              SOURCE_PAYMENT_REVIEW_REQUIRED:'存在付款记录或支付会话，需人工对账',
+              SOURCE_NOT_WHOLESALE:'数量不足10件或没有订单明细',
+              SOURCE_TEST_ORDER_BLOCKED:'测试订单不得用于客户报价',
+              SOURCE_PRODUCT_SNAPSHOT_REQUIRED:'商品或规格关联缺失、失效',
+              SOURCE_CATALOG_EVIDENCE_REQUIRED:'缺少商品关联审计及客户采购凭证',
+              SOURCE_LINE_ITEMS_INVALID:'订单行金额与原始总额无法核对'
+            } as Record<string,string>)[code]||code).join('；')}</p> : null}
             {report===null && <p>尚未加载商品核对报告，请先点击本页顶部“加载核对报告”。无法核实商品关联时，暂不允许申请恢复报价。</p>}
             {report!==null && report.missingLines?.some(line=>line.order_reference===reference) && <p>订单商品关联缺失，恢复报价将被阻止。请先在核对报告中补齐商品 SKU 与原始采购凭证。</p>}
             <button type="button" className="button secondary small"
