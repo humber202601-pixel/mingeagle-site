@@ -121,7 +121,17 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
     setBusy(`${orderReference}:REQUOTE`);
     setMessage(prev=>({...prev,[orderReference]:undefined as never}));
     try{
-      if(!window.confirm('仅创建新的独立报价草稿，原订单及付款记录保持不变。重新报价前必须取得买方真实收货地址、重新审核运费和各州销售税依据，客户重新接受后才可使用 Stripe。确认创建？'))return;
+      // Never rely on the previously rendered report: the order may have been
+      // edited, paid or linked by another admin since this panel was loaded.
+      const freshResponse=await fetch('/api/admin/catalog-reconciliation',{
+        headers:{'x-admin-key':accessKey},signal:AbortSignal.timeout(15000)
+      });
+      const fresh=await freshResponse.json() as ReconciliationReport;
+      if(!freshResponse.ok||!fresh.ok)throw new Error(fresh.error||'无法重新核查最新商品关联，请稍后重试。');
+      setReport(fresh);
+      if(fresh.missingLines?.some(line=>line.order_reference===orderReference))
+        throw new Error('最新核对显示此订单仍有商品 SKU/规格未关联。请先核实原始采购凭证，不能生成恢复报价。');
+      if(!window.confirm('已重新加载最新商品核对报告。仅创建新的独立报价草稿，原订单及付款记录保持不变。重新报价前必须取得买方真实收货地址、重新审核运费和各州销售税依据，客户重新接受后才可使用 Stripe。确认创建？'))return;
       const response=await fetch('/api/admin/unpaid-wholesale-requote',{
         method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},
         body:JSON.stringify({orderReference})
