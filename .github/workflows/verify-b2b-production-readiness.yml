@@ -8,6 +8,7 @@ on:
       - "scripts/verify-production-http-smoke.mjs"
       - "scripts/verify-production-website-source.mjs"
       - "scripts/verify-production-commerce-gates.mjs"
+      - "scripts/verify-production-cart-browser.mjs"
       - ".github/workflows/verify-b2b-production-readiness.yml"
   workflow_dispatch:
 
@@ -72,3 +73,22 @@ jobs:
           node-version: 22
       - name: Test live WWW to app cart route (no customer writes)
         run: node scripts/verify-production-commerce-gates.mjs
+
+  live-retail-browser:
+    name: Live one/two/mixed retail cart checkout navigation (no charge)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install browser
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Exercise live website storefront to checkout form
+        run: node scripts/verify-production-cart-browser.mjs
