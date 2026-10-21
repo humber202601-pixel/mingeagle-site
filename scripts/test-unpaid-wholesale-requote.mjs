@@ -48,6 +48,11 @@ const db={
    const op=concurrency;concurrency=null;
    if(op.status)sqlite.prepare('UPDATE orders SET payment_status=? WHERE id=?').run(op.status,op.id);
    if(op.description)sqlite.prepare('UPDATE order_items SET description=? WHERE order_id=?').run(op.description,op.id);
+   if(op.unitPrice!=null)sqlite.prepare('UPDATE order_items SET unit_price=? WHERE order_id=?').run(op.unitPrice,op.id);
+   if(op.shipping!=null)sqlite.prepare('UPDATE orders SET shipping=? WHERE id=?').run(op.shipping,op.id);
+   if(op.extraItem)sqlite.prepare(`INSERT INTO order_items(id,order_id,product_id,variant_id,description,quantity,unit_price,line_total)
+     SELECT ?,i.order_id,i.product_id,i.variant_id,'Added during draft race',1,1,1
+     FROM order_items i WHERE i.order_id=? LIMIT 1`).run(op.extraItem,op.id);
   }
   sqlite.exec('BEGIN');
   try{
@@ -215,6 +220,26 @@ try{
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n,before,
   'No replacement quote may survive a race with PAID');
  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM b2b_recovery_quote_links WHERE source_order_id=?").get(race.orderId).n,0);
+ const changedPrice=setup('CHANGED-PRICE');
+ concurrency={id:changedPrice.orderId,unitPrice:16};
+ const quotesBeforePrice=sqlite.prepare('SELECT COUNT(*) AS n FROM quotes').get().n;
+ response=await call(changedPrice.ref);
+ assert.equal(response.status,409,'late change to a copied item price must defeat quote draft');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM quotes').get().n,quotesBeforePrice);
+ const changedFreight=setup('CHANGED-FREIGHT');
+ concurrency={id:changedFreight.orderId,shipping:31};
+ const quotesBeforeFreight=sqlite.prepare('SELECT COUNT(*) AS n FROM quotes').get().n;
+ response=await call(changedFreight.ref);
+ assert.equal(response.status,409,'late shipping change must defeat quote draft');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM quotes').get().n,quotesBeforeFreight);
+ const appendedLine=setup('APPENDED-LINE');
+ concurrency={id:appendedLine.orderId,extraItem:'line-race-appended'};
+ const quotesBeforeAppend=sqlite.prepare('SELECT COUNT(*) AS n FROM quotes').get().n;
+ response=await call(appendedLine.ref);
+ assert.equal(response.status,409,'late order line insertion must defeat quote draft');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM quotes').get().n,quotesBeforeAppend);
+ assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM b2b_recovery_quote_links WHERE source_order_id=?").get(appendedLine.orderId).n,0,
+ 'aborted line append race must not leave recovery link');
  const lateQa=setup('LATE-QA');
  concurrency={id:lateQa.orderId,description:'QA TEST - DO NOT SEND'};
  const beforeLateQa=sqlite.prepare('SELECT COUNT(*) n FROM quotes').get().n;
