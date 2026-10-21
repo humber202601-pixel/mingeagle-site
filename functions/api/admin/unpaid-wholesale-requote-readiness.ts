@@ -52,6 +52,9 @@ export const onRequestGet:PagesFunction<Env>=async({request,env})=>{
    const snapshot=quoteTotals(rows.map(x=>({quantity:x.quantity,unitPrice:x.unit_price})),order.shipping,order.discount,order.tax);
    if(snapshot.lineCents.some((n,i)=>n!==Math.round(Number(rows[i].line_total)*100)||!rows[i].description?.trim())||
       Math.abs(snapshot.subtotal-Number(order.subtotal))>0.005||
+      Math.abs(snapshot.discount-Number(order.discount))>0.005||
+      Math.abs(snapshot.shipping-Number(order.shipping))>0.005||
+      Math.abs(snapshot.tax-Number(order.tax))>0.005||
       Math.abs(snapshot.total-Number(order.total))>0.005)throw Error('Mismatch');
   }catch{reasons.push('SOURCE_LINE_ITEMS_INVALID');}
   let existingDraft:string|null=null;
