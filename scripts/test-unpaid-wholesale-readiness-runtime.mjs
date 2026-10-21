@@ -59,7 +59,7 @@ try{
  const beforeLinkTable=sqlite.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name='b2b_recovery_quote_links'").get().n;
  await call(good.ref);await call(orphan.ref);
  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name='b2b_recovery_quote_links'").get().n,beforeLinkTable,'GET must not even create the lazy recovery links table');
- assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM quotes').get().n,before+7,'GET cannot create quotes');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM quotes').get().n,before+6,'GET cannot create quotes; six of seven fixtures have converted source quotes');
  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM payments').get().n,1,'GET cannot create payments');
  assert.equal(sqlite.prepare('SELECT product_id,variant_id FROM order_items WHERE id=?').get(unlinked.itemId).variant_id,null);
  console.log('PASS: read-only recovery readiness diagnoses paid, QA, unlinked, undocumented, payment and finance blockers without writes');
