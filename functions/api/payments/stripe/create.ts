@@ -130,6 +130,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    payment_terms:order.quote_payment_terms,shipping_terms:order.quote_shipping_terms,
    valid_until:order.valid_until
   }))return fail('Wholesale quote requires confirmed seller terms and buyer acceptance before Stripe payment.',409);
+  let validatedB2bLines:Array<{description:string;quantity:number;unit_price:number;line_total:number}>=[];
   // The accepted quote is the buyer's authorization: do not charge a later,
   // silently edited order total, shipping or tax amount under the old quote.
   if(!isRetail){
@@ -157,6 +158,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    if(!quoteLines.success||!orderLines.success||
       !acceptedB2bItemSnapshotMatches(quoteLines.results,orderLines.results,order.quote_subtotal,order.subtotal))
     return fail('Wholesale order items differ from the accepted quotation. A corrected quotation must be approved before payment.',409);
+   validatedB2bLines=(orderLines.results||[]) as typeof validatedB2bLines;
 
   }
   const received=cents(order.received);
@@ -243,26 +245,46 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    'Delivery will be made to the US shipping address on your MING EAGLE order. Each set ships as a separate one-unit parcel with import duties included. Parcels may arrive separately. Final US sales tax is shown before payment.');
   if(!taxCustomer&&typeof order.email==='string'&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(order.email))
    form.set('customer_email',order.email);
+  // Show actual approved SKU/size/quantity to a wholesale buyer at Stripe,
+  // instead of an opaque one-line products total. Itemization is only safe
+  // when each line reconciles to the fixed-price quote without an extra
+  // order-level discount; otherwise retain the existing aggregate total.
+  const itemizedLines=validatedB2bLines.map(line=>{
+   const qty=Number(line.quantity),unit=cents(line.unit_price),amount=cents(line.line_total);
+   return {name:String(line.description||'').trim().slice(0,180),qty,unit,amount};
+  });
+  const itemizeWholesale=!isRetail&&taxMode==='FIXED'&&cents(order.discount)===0&&
+   itemizedLines.length>0&&itemizedLines.length<=90&&
+   itemizedLines.every(line=>line.name.length>0&&Number.isSafeInteger(line.qty)&&line.qty>0&&
+    Number.isSafeInteger(line.unit)&&line.unit>0&&Number.isSafeInteger(line.amount)&&
+    line.unit*line.qty===line.amount)&&
+   itemizedLines.reduce((sum,line)=>sum+line.amount,0)===components[0];
+  const items:Array<{name:string;amount:number;qty:number;taxCode?:string}>=
+   itemizeWholesale?[
+    ...itemizedLines.map(line=>({name:line.name,amount:line.unit,qty:line.qty})),
+    {name:'Delivery and handling',amount:components[1],qty:1},
+    {name:'Applicable sales tax',amount:components[2],qty:1}
+   ]:[
+    {name:'MING EAGLE products (order '+String(order.reference)+')',amount:components[0],qty:1,taxCode:'txcd_99999999'},
+    {name:'Delivery and handling',amount:components[1],qty:1,taxCode:'txcd_92010001'},
+    {name:'Applicable sales tax',amount:components[2],qty:1,taxCode:'txcd_92010001'}
+   ];
   let index=0;
-  for(const [name,amount] of [
-   ['MING EAGLE products (order '+String(order.reference)+')',components[0]],
-   ['Delivery and handling',components[1]],
-   ['Applicable sales tax',components[2]]
-  ] as [string,number][]){
-   if(amount<=0)continue;
+  for(const item of items){
+   if(item.amount<=0)continue;
    form.set('line_items['+index+'][price_data][currency]','usd');
-   form.set('line_items['+index+'][price_data][unit_amount]',String(amount));
-   form.set('line_items['+index+'][price_data][product_data][name]',name);
+   form.set('line_items['+index+'][price_data][unit_amount]',String(item.amount));
+   form.set('line_items['+index+'][price_data][product_data][name]',item.name);
    if(taxMode==='STRIPE_AUTOMATIC'){
     form.set('line_items['+index+'][price_data][tax_behavior]','exclusive');
-    form.set('line_items['+index+'][price_data][product_data][tax_code]',index===0?'txcd_99999999':'txcd_92010001');
+    form.set('line_items['+index+'][price_data][product_data][tax_code]',item.taxCode||'txcd_99999999');
    }
-   form.set('line_items['+index+'][quantity]','1');
+   form.set('line_items['+index+'][quantity]',String(item.qty));
    index++;
   }
   // Stable for concurrent requests; rotated daily so expired sessions can be replaced.
   const day=Math.floor(Date.now()/86400000);
-  const requestKey='mingeagle-'+String(order.id)+'-'+String(due)+'-'+String(day)+(taxMode==='STRIPE_AUTOMATIC'?'-tax-v1':'')+
+  const requestKey='mingeagle-'+String(order.id)+'-'+String(due)+'-'+String(day)+(taxMode==='STRIPE_AUTOMATIC'?'-tax-v1':'')+(itemizeWholesale?'-b2b-lines-v1':'')+
    (confirmedExpiredSessionId?'-after-'+confirmedExpiredSessionId:'');
   const response=await stripeApi(env,'checkout/sessions',{
    method:'POST',headers:{'content-type':'application/x-www-form-urlencoded','idempotency-key':requestKey},
