@@ -55,7 +55,7 @@ type ReconciliationReport = {
   ok?: boolean;
   error?: string;
   summary?: { unlinkedLines: number; unlinkedOrders: number; activeCatalogVariants: number };
-  missingLines?: Array<{item_id:string;order_reference:string;description:string;quantity:number;unit_price:number;line_total:number;qaOrTest:boolean;reviewRequired:boolean;customer_notes:string|null;lead_product_interest:string|null;lead_source_detail:string|null;inquiry_reference:string|null;inquiry_product_interest:string|null;inquiry_quantity:string|null;size_preference:string|null;color_preference:string|null;customization:string|null;order_timing:string|null;shipping_country:string|null}>;
+  missingLines?: Array<{item_id:string;order_reference:string;order_status:string;payment_status:string;description:string;quantity:number;unit_price:number;line_total:number;qaOrTest:boolean;reviewRequired:boolean;customer_notes:string|null;lead_product_interest:string|null;lead_source_detail:string|null;inquiry_reference:string|null;inquiry_product_interest:string|null;inquiry_quantity:string|null;size_preference:string|null;color_preference:string|null;customization:string|null;order_timing:string|null;shipping_country:string|null}>;
   catalog?: Array<{product_sku:string;product_name:string;variant_sku:string;variant_name:string;size:string|null;color:string|null;retail_price:number|null}>;
 };
 
@@ -65,6 +65,7 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
   const [report, setReport] = useState<ReconciliationReport | null>(null);
   const [reportError, setReportError] = useState('');
   const [selectedVariants, setSelectedVariants] = useState<Record<string,string>>({});
+  const [evidenceReferences, setEvidenceReferences] = useState<Record<string,string>>({});
   const [savingMatch, setSavingMatch] = useState('');
   const [message, setMessage] = useState<Record<string, { type: 'success' | 'error'; text: string }>>({});
 
@@ -168,6 +169,8 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
 
   async function saveCatalogMatch(line: NonNullable<ReconciliationReport['missingLines']>[number]) {
     const variantSku = selectedVariants[line.item_id] || '';
+    const evidenceReference = (evidenceReferences[line.item_id]||'').trim();
+    if (evidenceReference.length < 12 || evidenceReference.length > 500) { setReportError('请填写 12–500 字符的原始采购凭证编号或客户书面确认记录位置。'); return; }
     if (!variantSku) { setReportError('请先选择经原始采购资料确认的商品规格 SKU。'); return; }
     const variant = report?.catalog?.find(item => item.variant_sku === variantSku);
     if (!variant) { setReportError('所选规格不在当前有效商品目录中，请重新加载报告。'); return; }
@@ -180,12 +183,13 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
       const response = await fetch('/api/admin/order-item-catalog-match', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': accessKey },
-        body: JSON.stringify({ orderReference: line.order_reference, itemId: line.item_id, variantSku, confirmOriginalEvidence: true }),
+        body: JSON.stringify({ orderReference: line.order_reference, itemId: line.item_id, variantSku, evidenceReference, confirmOriginalEvidence: true }),
         signal: AbortSignal.timeout(15000),
       });
       const body = await response.json() as {ok?:boolean;error?:string;financialSnapshotUnchanged?:boolean};
       if (!response.ok || !body.ok) throw new Error(body.error || '商品关联保存失败。');
       setSelectedVariants(prev => { const next = {...prev}; delete next[line.item_id]; return next; });
+      setEvidenceReferences(prev => { const next={...prev};delete next[line.item_id];return next; });
       await loadReconciliationReport();
       onChanged();
     } catch (error) {
@@ -208,12 +212,13 @@ export default function OrderManager({ orders, accessKey, onChanged }: Props) {
         <thead><tr><th>订单编号</th><th>原始商品描述</th><th>数量</th><th>原单行金额</th><th>询盘/规格线索</th><th>人工确认商品规格</th></tr></thead>
         <tbody>{report.missingLines.map((line,index)=><tr key={line.order_reference+'-'+index}>
           <td>{line.order_reference}</td><td>{line.description}</td><td>{line.quantity}</td>
-          <td>{money(line.line_total,'USD')}</td><td><details><summary>查看线索</summary><div>询盘编号：{text(line.inquiry_reference)}<br/>兴趣分类：{text(line.inquiry_product_interest || line.lead_product_interest)}<br/>询盘数量：{text(line.inquiry_quantity)}<br/>尺寸：{text(line.size_preference)}；颜色：{text(line.color_preference)}<br/>定制要求：{text(line.customization)}<br/>交期：{text(line.order_timing)}；国家：{text(line.shipping_country)}<br/>客户备注：{text(line.customer_notes)}</div></details></td><td>{line.qaOrTest ? <span>QA/测试订单 · 禁止关联</span> : <div className="order-actions">
+          <td>{money(line.line_total,'USD')}</td><td><details><summary>查看线索</summary><div>询盘编号：{text(line.inquiry_reference)}<br/>兴趣分类：{text(line.inquiry_product_interest || line.lead_product_interest)}<br/>询盘数量：{text(line.inquiry_quantity)}<br/>尺寸：{text(line.size_preference)}；颜色：{text(line.color_preference)}<br/>定制要求：{text(line.customization)}<br/>交期：{text(line.order_timing)}；国家：{text(line.shipping_country)}<br/>客户备注：{text(line.customer_notes)}</div></details></td><td>{line.qaOrTest ? <span>QA/测试订单 · 禁止关联</span> : (line.order_status!=='PAYMENT_PENDING'||line.payment_status!=='UNPAID') ? <span>已付款/非待付款订单 · 需单独核对付款证据</span> : <div className="order-actions">
             <select aria-label={`为订单 ${line.order_reference} 选择规格`} value={selectedVariants[line.item_id]||''} onChange={event=>setSelectedVariants(prev=>({...prev,[line.item_id]:event.target.value}))}>
               <option value="">选择已核实的规格 SKU…</option>
               {(report.catalog||[]).map(v=><option key={v.variant_sku} value={v.variant_sku}>{v.product_name} · {v.variant_sku} · {text(v.size)} · {text(v.color)}</option>)}
             </select>
-            <button type="button" className="button secondary small" disabled={savingMatch!==''||!selectedVariants[line.item_id]} onClick={()=>void saveCatalogMatch(line)}>{savingMatch===line.item_id?'保存中…':'确认并保存关联'}</button>
+            <input aria-label={`订单 ${line.order_reference} 原始采购凭证编号或确认记录`} type="text" maxLength={500} placeholder="原始采购凭证编号 / 邮件日期与位置（至少12字符）" value={evidenceReferences[line.item_id]||''} onChange={event=>setEvidenceReferences(prev=>({...prev,[line.item_id]:event.target.value}))}/>
+            <button type="button" className="button secondary small" disabled={savingMatch!==''||!selectedVariants[line.item_id]||(evidenceReferences[line.item_id]||'').trim().length<12} onClick={()=>void saveCatalogMatch(line)}>{savingMatch===line.item_id?'保存中…':'确认并保存关联'}</button>
           </div>}</td>
         </tr>)}</tbody>
       </table></div> : report && <div className="empty-row">没有发现缺少商品/规格关联的订单明细。</div>}
