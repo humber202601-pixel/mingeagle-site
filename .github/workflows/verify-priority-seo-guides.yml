@@ -16,6 +16,8 @@ on:
       - "public/silent-basketball-guide.html"
       - "public/sitemap.xml"
       - "public/llms.txt"
+      - "public/index.html"
+      - "scripts/ensure-bing-webmaster-verification.cjs"
       - "scripts/check-priority-seo-guides.cjs"
       - "scripts/build-first-touch-crawl-coverage.cjs"
       - "scripts/check-first-touch-crawl-coverage.cjs"
@@ -40,6 +42,8 @@ on:
       - "public/silent-basketball-guide.html"
       - "public/sitemap.xml"
       - "public/llms.txt"
+      - "public/index.html"
+      - "scripts/ensure-bing-webmaster-verification.cjs"
       - "scripts/check-priority-seo-guides.cjs"
       - "scripts/build-first-touch-crawl-coverage.cjs"
       - "scripts/check-first-touch-crawl-coverage.cjs"
@@ -66,6 +70,11 @@ jobs:
           node scripts/build-first-touch-crawl-coverage.cjs
           node scripts/check-first-touch-crawl-coverage.cjs
           node scripts/build-first-touch-crawl-coverage.cjs --check
+      - name: Verify Bing site-ownership tag on canonical homepage
+        run: |
+          node scripts/ensure-bing-webmaster-verification.cjs --check
+          node scripts/ensure-bing-webmaster-verification.cjs
+          node scripts/ensure-bing-webmaster-verification.cjs --check
       - name: Verify buyer guide snippets and image schema
         run: node scripts/check-priority-seo-guides.cjs
       - name: Verify canonical and sitemap integrity
