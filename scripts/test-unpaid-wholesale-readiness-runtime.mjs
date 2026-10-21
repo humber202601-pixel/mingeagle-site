@@ -56,9 +56,9 @@ try{
  sqlite.prepare(`INSERT INTO payments(id,order_id,method,amount,currency,status)
   VALUES('read-payment',?,'BANK_TRANSFER',1,'USD','PENDING')`).run(recorded.oid);
  assert.ok((await call(recorded.ref)).body.reasonCodes.includes('SOURCE_PAYMENT_REVIEW_REQUIRED'));
- const noDraft=sqlite.prepare('SELECT COUNT(*) AS n FROM b2b_recovery_quote_links').get().n;
+ const beforeLinkTable=sqlite.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name='b2b_recovery_quote_links'").get().n;
  await call(good.ref);await call(orphan.ref);
- assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM b2b_recovery_quote_links').get().n,noDraft,'GET cannot create recovery links');
+ assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name='b2b_recovery_quote_links'").get().n,beforeLinkTable,'GET must not even create the lazy recovery links table');
  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM quotes').get().n,before+7,'GET cannot create quotes');
  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM payments').get().n,1,'GET cannot create payments');
  assert.equal(sqlite.prepare('SELECT product_id,variant_id FROM order_items WHERE id=?').get(unlinked.itemId).variant_id,null);
