@@ -13,7 +13,7 @@
    try{
     if(document.referrer){
      const u=new URL(document.referrer);
-     if(u.protocol==='https:'&&u.username===''&&u.password==='')referrer=(u.origin+u.pathname).slice(0,500);
+     if(u.protocol==='https:'&&u.username===''&&u.password==='')referrer=u.origin.slice(0,500);
     }
    }catch{}
    saved={landingPage:location.origin+location.pathname,referrer,firstSeen:Date.now()};
