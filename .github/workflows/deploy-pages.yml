@@ -139,6 +139,12 @@ jobs:
           node scripts/check-brand-metadata.cjs
           node scripts/build-brand-metadata.cjs --check
 
+      - name: Capture AI / search first-visit sources on public buyer pages only
+        run: |
+          node scripts/build-first-touch-crawl-coverage.cjs
+          node scripts/check-first-touch-crawl-coverage.cjs
+          node scripts/build-first-touch-crawl-coverage.cjs --check
+
       - name: Enable privacy-focused Cloudflare Web Analytics across built HTML
         run: |
           node scripts/enable-web-analytics.cjs
