@@ -125,12 +125,12 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
        AND NOT EXISTS(SELECT 1 FROM payment_provider_sessions s WHERE s.order_id=o.id)
        AND NOT EXISTS(SELECT 1 FROM order_items i WHERE i.order_id=o.id AND (UPPER(i.description) LIKE '%QA TEST%' OR UPPER(i.description) LIKE '%DO NOT SEND%' OR UPPER(i.description) LIKE '%TEST ORDER%'))
        AND NOT EXISTS(SELECT 1 FROM order_items i LEFT JOIN products p ON p.id=i.product_id LEFT JOIN product_variants v ON v.id=i.variant_id WHERE i.order_id=o.id AND (i.product_id IS NULL OR p.id IS NULL OR p.status<>'ACTIVE' OR (i.variant_id IS NOT NULL AND (v.id IS NULL OR v.product_id<>p.id OR v.active<>1)) OR (i.variant_id IS NULL AND EXISTS(SELECT 1 FROM product_variants pv WHERE pv.product_id=p.id))))
-       AND (o.quote_id IS NOT NULL OR NOT EXISTS(
+${order.quote_id===null ? `AND NOT EXISTS(
          SELECT 1 FROM order_items i WHERE i.order_id=o.id AND NOT EXISTS(
            SELECT 1 FROM order_item_catalog_audit a
            JOIN order_item_catalog_evidence e ON e.audit_id=a.id
            WHERE a.order_item_id=i.id AND a.new_product_id=i.product_id
-           AND a.new_variant_id=i.variant_id AND length(trim(e.evidence_reference))>=12)))
+           AND a.new_variant_id=i.variant_id AND length(trim(e.evidence_reference))>=12))` : ''}
        THEN o.id ELSE NULL END
        FROM orders o LEFT JOIN quotes q ON q.id=o.quote_id WHERE o.id=?),?)`)
       .bind(crypto.randomUUID(),order.id,quoteId),
