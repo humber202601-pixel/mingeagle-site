@@ -16,7 +16,7 @@ for(const phrase of [
  'record only their subjective response',
  'not evidence of code compliance or a certified reduction',
  'Do not include student names',
- 'not a test or endorsement'
+ 'not tests of MING EAGLE products'
 ]){
  assert(method.toLowerCase().includes(phrase.toLowerCase()),'Missing responsible review limitation: '+phrase);
 }
