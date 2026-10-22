@@ -177,3 +177,15 @@ Native actions verified: signed-in MING EAGLE brand 7436627 restored; Sep–Nov 
 **Not scheduled:** the Pinterest-title fill was rejected by automatic approval review. Reason given: navigating to the site root could discard the unsaved draft. A subsequent read-only screenshot was rejected for the same root-navigation reason. No further browser recovery or alternate posting route was attempted. Browser tab marked for handoff. New IDs FB-PROCUREMENT-003 and PIN-PROCUREMENT-009 remain recoverable drafts in the repository, with proposed November 1 20:30 Asia/Shanghai times; they are not Pending or Published and must not increase scheduled totals. Check native list before restoring or submitting either.
 
 The earlier Inbox All view displayed no recent conversations under its current filters. This is not evidence that every platform has no messages. LinkedIn/TikTok/Instagram registrations and recurring exposure automation are unchanged.
+
+
+## 2026-10-23 — official Search Console actions and social account blocker
+
+See `docs/marketing/organic-visibility-checkpoint-2026-10-23.md` for the current evidence and exact limitations.
+
+- The connector and current native Metricool session both show empty brand 7430045. Attempted access to the previously verified MING EAGLE brand 7436627 redirected to that empty brand. No existing planner reconciliation, new post, schedule, new brand or network connection was submitted. Historical saved/published states remain unchanged. Restore the existing owner account before continuing the two procurement drafts; do not duplicate old posts or bind networks to the empty brand.
+- GSC Wizard reports its trial/subscription expired. No upgrade or payment was made. The free official Search Console was accessible for sc-domain:mingeagle.com.
+- Native 28-day performance view: 31 impressions, 0 clicks, 0% CTR and average position 19.5; chart data displayed October 9–20. Visible queries include school, wholesale and custom-team basketball terms. This predates the October 22 editorial dispatches and does not establish their impact or an AI recommendation.
+- Index summary (report updated October 16): 18 indexed, 17 not indexed. Two old apex school/wholesale URLs had redirect errors from October 10 crawls. Both now followed one 301 to the corresponding www page and returned 200 in an ordinary HTTP check. Submitted Validate fix once; native receipt says validation started on October 23. Validation has not passed yet.
+- Inspected https://www.mingeagle.com/procurement.html: discovered, not indexed, with no recorded crawl. Google's live test at October 23 00:03 local time said the URL can be indexed. Requested indexing once and received the explicit priority-crawl-queue confirmation. This is a request receipt, not an indexed result. Do not immediately resubmit it.
+- No website source, DNS, payment settings, paid ads or real customer records were changed. Front Pack final announcement remains unsubmitted pending real HQ information and verified logo upload.
