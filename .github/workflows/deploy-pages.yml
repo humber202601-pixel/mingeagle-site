@@ -89,6 +89,7 @@ jobs:
           node scripts/check-acoustics-citations.cjs
           node scripts/check-school-procurement-evidence.cjs
           node scripts/check-open-trial-kit.cjs
+          node scripts/check-earned-editorial-outreach.cjs
           node scripts/check-localized-school-guides.cjs
           node scripts/test-localized-school-guides.cjs
           node scripts/check-coach-ai-answers.cjs
