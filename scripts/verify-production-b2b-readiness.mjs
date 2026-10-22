@@ -21,6 +21,7 @@ const checks={
  b2bConfigReady:s.b2bConfigurationReady===true,
  b2bLiveConfigReady:s.b2bLiveConfigurationReady===true,
  noConfigBlockers:Array.isArray(s.b2bActivationBlockers)&&s.b2bActivationBlockers.length===0,
+ taxScopeWarningPresent:typeof s.b2bTaxScopeWarning==='string'&&s.b2bTaxScopeWarning.trim().length>0,
 };
 for(const [name,pass] of Object.entries(checks))
  console.log((pass?'PASS':'BLOCK')+' '+name);
