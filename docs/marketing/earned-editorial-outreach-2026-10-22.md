@@ -4,6 +4,8 @@
 
 ## Reusable verified first-party assets
 
+- Field-by-field editorial submission pack (drafts, not sent): `docs/marketing/editorial-submission-pack-2026-10-22.md`
+
 - Company fact sheet (not third-party verification): https://www.mingeagle.com/editorial-review-facts.txt
 - Four-model catalog: https://www.mingeagle.com/wholesale-product-catalog.html
 - Supplier model facts CSV: https://www.mingeagle.com/wholesale-product-facts.csv
@@ -17,8 +19,9 @@
 | Priority | Outlet | Evidence that submissions are welcome | Best factual angle | Caveat / current status |
 |---|---|---|---|---|
 | 1 | Recreation Management | https://recmanagement.com/faq explicitly says suppliers can submit product/company news for editorial consideration; https://recmanagement.com/contact-us lists editorial contacts; https://recmanagement.com/articles/156018/replace-worn-out-sports-equipment-safety-mind shows recent equipment-suitability focus | Indoor supervised ball trial checklist for parks, YMCA, school facilities and program operators | **DRAFT_NOT_SENT**; editorial coverage not guaranteed; assess feature vs new-product desk before contact |
-| 2 | Sports Feel Good Stories | https://www.sportsfeelgoodstories.com/contact-us/ explicitly welcomes media kits and review products, and says a received review sample does not guarantee a positive review | Family/home supervised mini-hoop kit and realistic small-room caveats | **DRAFT_NOT_SENT**; consumer editorial rather than institutional decision-maker; ask if category fits before shipping |
-| 3 | PE Universe | https://peuniverse.com/log-in/ advertises community lesson/activity contributions and free sign-up; site encourages sharing original PE activity ideas | A genuine, original no-floor-bounce 10-minute PE session independent of purchase | **NOT_SUBMITTED**; account, content originality/rights and anti-promotion rules must be checked; no direct product ad/disguised endorsement |
+| 2 | The Brief Review | https://thebriefreview.com/submit-product-for-review/ explicitly considers fitness/sport products, requests specifications, prices, photos and sample availability, and states that submissions do not guarantee coverage or positive reviews | Independent assessment of a soft flocked basketball set with compact mini hoop, with realistic indoor-use limitations | **DRAFT_NOT_SENT**; propose sample logistics only after editor confirms fit; no sample promised, booked or shipped |
+| 3 | Sports Feel Good Stories | https://www.sportsfeelgoodstories.com/contact-us/ explicitly welcomes media kits and review products, and says a received review sample does not guarantee a positive review | Family/home supervised mini-hoop kit and realistic small-room caveats | **DRAFT_NOT_SENT**; consumer editorial rather than institutional decision-maker; ask if category fits before shipping |
+| 4 | PE Universe | https://peuniverse.com/log-in/ advertises community lesson/activity contributions and free sign-up; site encourages sharing original PE activity ideas | A genuine, original no-floor-bounce 10-minute PE session independent of purchase | **NOT_SUBMITTED**; account, content originality/rights and anti-promotion rules must be checked; no direct product ad/disguised endorsement |
 
 **Priority rationale:** Recreation Management is the only confirmed B2B publisher in this shortlist whose stated readership directly includes facility and recreation program decision makers. Product news acceptance is an invitation for editorial consideration, NOT approval or free guaranteed inclusion. No promoted link or payment requested.
 
@@ -75,3 +78,8 @@ The existing MING EAGLE no-bounce school activity at https://www.mingeagle.com/f
 - Record a stage change only from a real external send receipt, reply, editorial decision, published URL or shipment proof.
 - Send one individualized inquiry via a platform-permitted route, never bulk unsolicited campaigns. Maintain contact preference and opt-out records. FTC CAN-SPAM covers commercial B2B mail: https://www.ftc.gov/business-guidance/resources/can-spam-act-compliance-guide-business.
 - Never call a first-party GitHub link or a draft an independent editorial mention; judge success by bona fide third-party publication, referral, real buyer RFQ and paid Stripe order separately.
+
+
+## Pitch C — The Brief Review (product-review form; draft, not sent)
+
+The field-by-field form answers, cautious product description, price wording, official image link and conditional sample logistics are maintained in `docs/marketing/editorial-submission-pack-2026-10-22.md`. Do not claim a form was submitted until the site provides a real confirmation or a message is actually sent through a verified account.
