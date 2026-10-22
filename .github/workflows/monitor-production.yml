@@ -10,6 +10,9 @@ on:
       - '.github/workflows/monitor-production.yml'
       - 'scripts/check-production-endpoints.cjs'
       - 'scripts/test-production-monitor.cjs'
+      - 'scripts/check-bing-crawl-parity.cjs'
+      - 'scripts/test-bing-crawl-parity.cjs'
+      - 'docs/BING_CRAWL_DIAGNOSTICS.md'
       - 'public/robots.txt'
       - 'public/sitemap.xml'
       - 'public/llms.txt'
@@ -30,6 +33,9 @@ jobs:
       - run: node --check scripts/check-production-endpoints.cjs
       - run: node --check scripts/test-production-monitor.cjs
       - run: node scripts/test-production-monitor.cjs
+      - run: node --check scripts/check-bing-crawl-parity.cjs
+      - run: node --check scripts/test-bing-crawl-parity.cjs
+      - run: node scripts/test-bing-crawl-parity.cjs
 
   production-smoke:
     runs-on: ubuntu-latest
@@ -39,6 +45,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Compare public homepage and buyer pages with ordinary and synthetic Bingbot User-Agents
+        run: node scripts/check-bing-crawl-parity.cjs
       - name: Verify production site, CRM binding and shared pricing (GET only)
         env:
           EXPECTED_MAIN_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.sha }}
