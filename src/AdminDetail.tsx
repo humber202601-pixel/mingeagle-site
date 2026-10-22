@@ -100,6 +100,9 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
   const [retailQuoteBusy,setRetailQuoteBusy] = useState(false);
   const [retailQuoteResult,setRetailQuoteResult] = useState('');
   const [retailQuoteCreated,setRetailQuoteCreated] = useState(false);
+  const [closeBusy,setCloseBusy]=useState(false);
+  const [closeReason,setCloseReason]=useState('');
+  const [closeResult,setCloseResult]=useState('');
   // Admin-only supplier cost baseline. Never copy purchase prices into
   // customer-visible unit-price controls; color-specific costs still need review.
   useEffect(()=>{
@@ -156,6 +159,26 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
     try {const response=await fetch('/api/admin/retail-quote-draft',{method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},body:JSON.stringify({inquiryReference:reference})});const result=await response.json() as {ok?:boolean;error?:string;quoteReference?:string;totalBeforeTaxesUSD?:number};if(!response.ok||!result.ok)throw Error(result.error||'Unable to create draft');setRetailQuoteCreated(true);setRetailQuoteResult('报价草稿 '+result.quoteReference+' 已创建，税前金额 USD '+Number(result.totalBeforeTaxesUSD).toFixed(2)+'。请到报价单审核商品、运费及交付条款后发送。');}catch(e){setRetailQuoteResult(e instanceof Error?e.message:'创建失败');}finally{setRetailQuoteBusy(false)}
   }
 
+  async function closeInquiry(){
+    const reason=closeReason.trim();
+    if(reason.length<12){setCloseResult('请填写至少 12 个字符的关闭原因。');return}
+    setCloseBusy(true);setCloseResult('');
+    try{
+      const response=await fetch('/api/admin/inquiry-action',{method:'POST',
+        headers:{'content-type':'application/json','x-admin-key':accessKey},
+        body:JSON.stringify({inquiryId:id,action:'CLOSE',reason})});
+      const result=await response.json() as {ok?:boolean;error?:string;status?:string;alreadyClosed?:boolean;cancelledTasks?:number};
+      if(!response.ok||!result.ok)throw Error(result.error||'关闭询盘失败');
+      setData(current=>current?{...current,
+        record:{...current.record,status:'CLOSED'},
+        tasks:(current.tasks||[]).map(task=>String(task.title||'')==='Review wholesale inquiry '+String(current.record.reference||'')
+          ?{...task,status:'CANCELLED'}:task)
+      }:current);
+      setCloseResult('询盘已关闭；联系人、潜客、消息和历史记录均已保留。未发送邮件。取消关联审核待办 '+Number(result.cancelledTasks||0)+' 项。');
+    }catch(e){setCloseResult(e instanceof Error?e.message:'关闭询盘失败，请刷新后核对状态。')}
+    finally{setCloseBusy(false)}
+  }
+
   useEffect(()=>{
     let active = true;
     setLoading(true); setError(''); setData(null);
@@ -201,6 +224,18 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
       <Section title="询盘需求"><div className="detail-grid">
         <div><small>联系人</small><strong>{text(r.contact_name)}</strong></div><div><small>邮箱</small><strong>{text(r.contact_email)}</strong></div><div><small>客户公司</small><strong>{text(r.company_name)}</strong></div><div><small>预计数量</small><strong>{text(r.estimated_quantity)}</strong></div><div><small>国家</small><strong>{text(r.shipping_country)}</strong></div><div><small>邮编</small><strong>{text(r.shipping_postal_code)}</strong></div>
       </div><div className="detail-message"><small>客户留言</small><p>{text(r.message,'无')}</p></div></Section>
+      <Section title="询盘处置">
+        {r.status==='CLOSED'
+          ? <p role="status" className="detail-note">该询盘已关闭。联系人、潜客、消息和销售历史均保留；关闭操作不会发送邮件或删除客户资料。</p>
+          : <>
+            <p className="detail-note">关闭只会将此询盘标记为“已关闭”，并取消与询盘编号完全匹配的审核待办。联系人、潜客、消息、报价、订单和历史记录均不会删除；如存在未结束报价或任何关联订单，服务端会拒绝关闭。</p>
+            <label className="quote-tax-basis">关闭原因（必填）
+              <textarea rows={2} maxLength={500} placeholder="例如：经核实为内部测试询盘，不是真实客户请求。" value={closeReason} onChange={e=>setCloseReason(e.target.value)} disabled={closeBusy}/>
+            </label>
+            <button className="button" type="button" disabled={closeBusy||closeReason.trim().length<12} onClick={()=>void closeInquiry()}>{closeBusy?'正在关闭…':'关闭询盘并保留客户资料'}</button>
+            {closeResult&&<p role="status" className="form-status">{closeResult}</p>}
+          </>}
+      </Section>
       {parseWholesaleRfq(r.message).length>0 && <Section title="B2B 组合采购明细"><p className="detail-note">来自客户填写的采购需求，不代表已确认报价或库存。</p><MiniTable rows={parseWholesaleRfq(r.message).map((item,i)=>({id:i+1,...item}))} columns={[{key:'product',label:'产品系列'},{key:'size',label:'球号'},{key:'color',label:'颜色'},{key:'quantity',label:'数量（件）'}]}/><p><strong>采购需求总件数：{parseWholesaleRfq(r.message).reduce((sum,r)=>sum+r.quantity,0).toLocaleString('zh-CN')}</strong></p></Section>}
       {parseWholesaleRfq(r.message).length>0&&<Section title="生成 B2B 多行报价草稿（人工核价）"><details className="detail-guidance"><summary>查看完整报价审核规则</summary><p className="detail-note">系统会在后端以已审核且有效的 SKU / 尺码采购成本检查人工售价：等于或低于参考采购成本、低于正式 MOQ、违反整箱倍数的草稿将被拒绝；资料缺失或过期时只标记待核实，不推算毛利。此成本参考不覆盖颜色、特殊包装、物流、税费和平台费用。可前往 <Link to="/app/suppliers">供应商采购价资料库</Link> 人工审核。当前产品定价仍需独立确认。</p><p className="detail-note">如需维护供应商提供的 MOQ、整箱数量和采购成本，可先前往 <Link to="/app/suppliers">供应商采购价资料库</Link> 审核；该资料不会自动覆盖客户当前报价。逐规格人工核实批发价、供应商 MOQ 和需要整箱发货时的装箱倍数。未知数据留空并标记为待确认，不能将零售价推算为批发价、MOQ 或成本。若客户数量与已填写的 MOQ/整箱条件冲突，将阻止生成草稿；未经客户同意不自动调整件数。草稿不会自动发送；仍须核实运费、库存、交期与商业条款。</p>
        {supplierSourceError&&<p role="alert" className="form-status error">供应商成本资料未能加载：{supplierSourceError}。服务器端仍会独立校验，不能凭此视为无成本风险。</p>}
