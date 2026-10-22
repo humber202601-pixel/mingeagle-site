@@ -3,6 +3,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict');
 const data=JSON.parse(fs.readFileSync('data/ai-discovery-benchmark.json','utf8'));
 const sitemap=fs.readFileSync('public/sitemap.xml','utf8')+'\n'+fs.readFileSync('public/sitemap-localized.xml','utf8'),robots=fs.readFileSync('public/robots.txt','utf8');
 const validIntent=new Set(['HOME_NOISE','INDOOR_ACTIVITY','SCHOOLS','ACADEMIES','B2B']);
+const llms=fs.readFileSync('public/llms.txt','utf8');
 assert.equal(data.property,'https://www.mingeagle.com/');
 assert(data.prompts.length>=20&&data.prompts.length<=80);
 const ids=new Set(),prompts=new Set(),groups=new Set();
@@ -29,6 +30,15 @@ assert.equal(groups.size,5);
 for(const bot of ['Googlebot','Bingbot','OAI-SearchBot','PerplexityBot','Claude-SearchBot']){
  assert(robots.includes('User-agent: '+bot),'Explicit crawler rule missing for '+bot);
 }
+for(const resource of [
+ 'https://www.mingeagle.com/editorial-review-facts.txt',
+ 'https://www.mingeagle.com/indoor-ball-sample-comparison-protocol.txt',
+ 'https://www.mingeagle.com/indoor-ball-trial-blank.csv'
+])assert(llms.includes(resource),'LLM-readable index must expose independent-review resource: '+resource);
+for(const phrase of ['supplier fact sheet, not third-party evidence','contains no prefilled sound readings','Do not infer that any reviewer has tested or recommended']){
+ assert(llms.includes(phrase),'LLM-readable resource index must preserve evidence limits: '+phrase);
+}
+
 const guide=fs.readFileSync('docs/AI_DISCOVERY_MEASUREMENT.md','utf8');
 for(const word of ['NOT MEASURED','CITED','MENTIONED_NO_LINK','NOT_MENTIONED','UNAVAILABLE','2026-10-13'])assert(guide.includes(word));
 console.log('PASS: 24 neutral queries, five buyer intents, valid sitemap URLs, crawler access and no fabricated model observations.');
