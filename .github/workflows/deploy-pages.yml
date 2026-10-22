@@ -90,6 +90,7 @@ jobs:
           node scripts/check-school-procurement-evidence.cjs
           node scripts/check-open-trial-kit.cjs
           node scripts/check-earned-editorial-outreach.cjs
+          node --check scripts/check-live-editorial-assets.cjs
           node scripts/check-localized-school-guides.cjs
           node scripts/test-localized-school-guides.cjs
           node scripts/check-coach-ai-answers.cjs
@@ -522,6 +523,9 @@ jobs:
 
       - name: Audit all 31 live public sitemap URLs after deployment
         run: python scripts/check-live-public-crawl.py
+
+      - name: Verify public editorial assets are actually served after deployment
+        run: node scripts/check-live-editorial-assets.cjs
 
       - name: Preserve 31-page HTTP crawl and synthetic UA diagnostic evidence
         if: always()
