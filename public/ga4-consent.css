@@ -1,5 +1,4 @@
 .mingeagle-ga4-panel[hidden],
-.mingeagle-ga4-settings[hidden],
 .mingeagle-ga4-button[hidden] {
   display: none !important;
 }
@@ -44,8 +43,7 @@
   align-items: center;
   gap: 8px;
 }
-.mingeagle-ga4-button,
-.mingeagle-ga4-settings {
+.mingeagle-ga4-button {
   min-height: 38px;
   border-radius: 8px;
   padding: 8px 12px;
@@ -68,12 +66,37 @@
   outline: 3px solid #93c5fd;
   outline-offset: 2px;
 }
+/* Plain-text privacy control in the existing footer, never a floating badge. */
 .mingeagle-ga4-settings {
-  position: fixed;
-  z-index: 99999;
-  left: 16px;
-  bottom: 78px;
-  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12);
+  display: inline-block;
+  margin: 7px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #075e59;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.footer .mingeagle-ga4-settings {
+  display: block;
+  min-height: 0;
+  margin: 7px 0;
+  color: #d7deea;
+  font-size: 14px;
+  font-weight: 400;
+  text-decoration: none;
+}
+.footer .mingeagle-ga4-settings:hover {
+  color: #ffffff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 @media (max-width: 600px) {
   .mingeagle-ga4-panel {
@@ -87,9 +110,5 @@
   }
   .mingeagle-ga4-button {
     flex: 1 1 100%;
-  }
-  .mingeagle-ga4-settings {
-    left: 10px;
-    bottom: 72px;
   }
 }
