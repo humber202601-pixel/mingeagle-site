@@ -169,11 +169,13 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
         body:JSON.stringify({inquiryId:id,action:'CLOSE',reason})});
       const result=await response.json() as {ok?:boolean;error?:string;status?:string;alreadyClosed?:boolean;cancelledTasks?:number};
       if(!response.ok||!result.ok)throw Error(result.error||'关闭询盘失败');
-      setData(current=>current?{...current,
-        record:{...current.record,status:'CLOSED'},
-        tasks:(current.tasks||[]).map(task=>String(task.title||'')==='Review wholesale inquiry '+String(current.record.reference||'')
-          ?{...task,status:'CANCELLED'}:task)
-      }:current);
+      setData(current=>{
+        if(!current?.record)return current;
+        const reference=String(current.record.reference||'');
+        return {...current,record:{...current.record,status:'CLOSED'},
+          tasks:(current.tasks||[]).map(task=>String(task.title||'')==='Review wholesale inquiry '+reference
+            ?{...task,status:'CANCELLED'}:task)};
+      });
       setCloseResult('询盘已关闭；联系人、潜客、消息和历史记录均已保留。未发送邮件。取消关联审核待办 '+Number(result.cancelledTasks||0)+' 项。');
     }catch(e){setCloseResult(e instanceof Error?e.message:'关闭询盘失败，请刷新后核对状态。')}
     finally{setCloseBusy(false)}
