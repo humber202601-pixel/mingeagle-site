@@ -36,7 +36,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       return json({ok:false,code:'INQUIRY_STATUS_CHANGED',error:'询盘状态已被其他操作更新，请刷新后核对。'},409);
     let cancelledTasks=0;
     if(inquiry.lead_id){
-      const tasks=await db.prepare(`UPDATE tasks SET status='CANCELLED',completed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
+      const tasks=await db.prepare(`UPDATE tasks SET status='CANCELLED',updated_at=CURRENT_TIMESTAMP
         WHERE lead_id=? AND status IN ('OPEN','IN_PROGRESS') AND title=?`)
         .bind(inquiry.lead_id,'Review wholesale inquiry '+inquiry.reference).run();
       cancelledTasks=Number(tasks.meta?.changes||0);
