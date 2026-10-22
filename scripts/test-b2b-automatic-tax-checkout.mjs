@@ -134,7 +134,7 @@ try{
  assert.equal(started.status,200,await started.clone().text());
  const result=await started.json();
  assert.equal(result.ok,true);
- assert.equal(result.orderReference,orderReference);
+ assert.equal(sql.prepare('SELECT reference FROM orders WHERE id=?').get(orderId).reference,orderReference);
  assert.equal(result.reused,undefined);
  assert.match(result.url,/^https:\/\/checkout\.stripe\.com\//);
  assert.equal(customerCalls,1);
