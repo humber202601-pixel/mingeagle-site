@@ -1,0 +1,46 @@
+name: Verify footer privacy settings
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "public/ga4-consent.js"
+      - "public/ga4-consent.css"
+      - "public/policies.html"
+      - "scripts/enable-ga4-consent.cjs"
+      - "scripts/check-ga4-consent.cjs"
+      - "scripts/check-homepage-layout.cjs"
+      - "scripts/test-ga4-consent-flow.cjs"
+      - ".github/workflows/verify-footer-privacy-settings.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "public/ga4-consent.js"
+      - "public/ga4-consent.css"
+      - "public/policies.html"
+      - "scripts/enable-ga4-consent.cjs"
+      - "scripts/check-ga4-consent.cjs"
+      - "scripts/check-homepage-layout.cjs"
+      - "scripts/test-ga4-consent-flow.cjs"
+      - ".github/workflows/verify-footer-privacy-settings.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-footer-privacy-settings:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install current consent assets on generated public pages
+        run: node scripts/enable-ga4-consent.cjs
+      - name: Check privacy consent, footer placement and disclosure
+        run: node scripts/check-ga4-consent.cjs
+      - name: Test accept, reject, reopen and update-consent flows
+        run: node scripts/test-ga4-consent-flow.cjs
+      - name: Check desktop/mobile homepage and floating-control layout
+        run: node scripts/check-homepage-layout.cjs
