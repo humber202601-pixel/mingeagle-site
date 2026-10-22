@@ -145,7 +145,7 @@ Do not put customer names, email addresses, inquiry text, order details, or othe
 The current repository has:
 - first-touch source / UTM capture on selected buyer pages;
 - CRM payload fields for source, landing page, referrer and UTM values;
-- an opt-in GA4 tracker that emits `generate_lead` only after the CRM or backup form confirms acceptance;
+- an opt-in GA4 tracker that emits `generate_lead` after a CRM or backup form confirms acceptance, plus the distinct `wholesale_rfq_10plus` event only for a primary-CRM-accepted wholesale RFQ that unequivocally declares at least 10 units; this is **not** a human-qualified lead;
 - privacy consent / revocation controls and automated static checks.
 
 Relevant implementation:
@@ -154,7 +154,7 @@ Relevant implementation:
 - https://github.com/humber202601-pixel/mingeagle-site/blob/main/public/inquiry.js
 - https://github.com/humber202601-pixel/mingeagle-site/blob/main/public/ga4-consent.js
 
-**Still not verified:** the live GA4 property records the event in a real accepted test submission; `generate_lead` is marked as a GA4 key event; and Google Ads successfully imports that key event. Code/CI success is not a substitute for a real end-to-end test.
+**Still not verified:** the live GA4 property records either event from a real accepted test submission; any GA4 key-event selection or Google Ads import is correctly configured; and the qualified-lead stage can be tied back to a real CRM-reviewed buyer. **Do not mark** `generate_lead` or `wholesale_rfq_10plus` as an actual Qualified lead. The latter is only a buyer-declared 10+ submitted RFQ and may be useful as a secondary diagnostic signal. Neither code nor CI success substitutes for a live end-to-end test. Code/CI success is not a substitute for a real end-to-end test.
 
 Before launch:
 1. Verify the GA4 property / measurement ID is the intended MING EAGLE property.
