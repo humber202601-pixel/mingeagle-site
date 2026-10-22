@@ -18,7 +18,7 @@ const count = (str, token) => str.split(token).length - 1;
 assert.equal(count(index, 'data-mingeagle-ga4-consent="script"'), 1, 'Homepage must load exactly one consent controller');
 assert.equal(count(index, 'data-mingeagle-ga4-consent="styles"'), 1, 'Homepage must load exactly one consent stylesheet');
 assert.equal(count(index, 'googletagmanager.com/gtag/js'), 0, 'Google tracking tag must not load directly from HTML before consent');
-assert(index.includes('/ga4-consent.js?v=20261022-footerprivacy1') && index.includes('/ga4-consent.css?v=20261022-footerprivacy1'), 'Homepage must reference the exact current GA4 cache-busted assets');
+assert(index.includes('/ga4-consent.js?v=20261022-b2brfq1') && index.includes('/ga4-consent.css?v=20261022-footerprivacy1'), 'Homepage must reference the exact current GA4 cache-busted assets');
 assert(js.includes('G-J0YYCB85PM'), 'Correct GA4 measurement ID must be live');
 assert(js.includes('revokeGoogleAnalytics()') && js.includes("window['ga-disable-' + MEASUREMENT_ID] = true"), 'Consent withdrawal must be live');
 assert(js.includes('url.origin + url.pathname'), 'Page locations must be sanitized');
