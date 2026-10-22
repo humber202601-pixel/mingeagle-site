@@ -588,5 +588,19 @@
   "channelVerification": "Native Metricool brand 7436627 verified 2026-10-16T16:42:22.720Z: 13 list rows, nine Pending (four Facebook, five Pinterest) and four Published. FB-CATALOG-002 and PIN-SAMPLE-007 now verified Published with native receipt URLs. FB-RESELLER-001 and PIN-RESELLER-008 scheduled for Oct 28 20:30 Asia/Shanghai with per-network content and destinations. Existing schedules retained. Connector remains on empty brand 7430045; do not retry denied reads or duplicate native posts.",
   "browserMetricoolBrandId": "7436627",
   "requiresMetricoolAccountReconciliation": true,
-  "connectorBrandId": "7430045"
+  "connectorBrandId": "7430045",
+  "latestSocialAccessAudit": {
+    "checkedAt": "2026-10-22T16:09:19Z",
+    "expectedNativeBrandId": "7436627",
+    "activeBrowserBrandId": "7430045",
+    "connectorBrandId": "7430045",
+    "result": "BLOCKED_WRONG_ACCOUNT",
+    "observedBrandName": "Empty brand",
+    "observedConnectedNetworks": 0,
+    "newPostSubmitted": false,
+    "duplicateBrandCreated": false,
+    "existingPostStatusesReconciled": false,
+    "nextAction": "Restore the existing Metricool account that owns MING EAGLE brand 7436627, then reconcile the planner before scheduling FB-PROCUREMENT-003 or PIN-PROCUREMENT-009. Do not reconnect networks to empty brand 7430045.",
+    "evidenceNote": "Native attempted access to brand 7436627 redirected to brand 7430045; its selector showed only Empty brand. Existing post records remain historical verified states, not a fresh planner audit."
+  }
 }
