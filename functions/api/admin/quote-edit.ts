@@ -113,7 +113,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const {subtotal, shipping, discount, total} = calculation;
     const paymentTerms = clean(input.paymentTerms, 500) || 'Payment terms to be confirmed before sending.';
     const shippingTerms = clean(input.shippingTerms, 500) || 'Shipping terms to be confirmed before sending.';
-    const notes = automaticTax ? STRIPE_AUTOMATIC_TAX_NOTE : clean(input.notes, 3000) || null;
+    const suppliedNotes = clean(input.notes, 3000);
+    const notes = automaticTax ? [STRIPE_AUTOMATIC_TAX_NOTE, suppliedNotes].filter(Boolean).join('\\n\\n') : suppliedNotes || null;
     const validUntil = clean(input.validUntil, 40);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(validUntil)) {
       return Response.json({ ok: false, error: 'Valid until date is required.' }, { status: 400 });
