@@ -6,13 +6,15 @@ type Props = {
   quotes: Row[];
   inquiries: Row[];
   accessKey: string;
-  onRefresh: () => void;
+  loading?: boolean;
+  dataError?: string;
+  onRefresh: () => void | Promise<void>;
 };
 
 const text = (value: unknown, fallback = '—') => value === null || value === undefined || value === '' ? fallback : String(value);
 const money = (value: unknown, currency: unknown) => `${text(currency, 'USD')} ${Number(value || 0).toFixed(2)}`;
 
-export default function QuoteManager({ quotes, inquiries, accessKey, onRefresh }: Props) {
+export default function QuoteManager({ quotes, inquiries, accessKey, loading = false, dataError = '', onRefresh }: Props) {
   const [busyId, setBusyId] = useState('');
   const [link, setLink] = useState<{ reference: string; url: string } | null>(null);
   const [error, setError] = useState('');
@@ -48,7 +50,7 @@ export default function QuoteManager({ quotes, inquiries, accessKey, onRefresh }
   }
 
   return <>
-    <QuoteBuilder inquiries={inquiries} accessKey={accessKey} onCreated={onRefresh} />
+    <QuoteBuilder inquiries={inquiries} quotes={quotes} accessKey={accessKey} loading={loading} dataError={dataError} onCreated={onRefresh} />
     {link && <section className="panel secure-link-panel">
       <div><strong>Customer quote link ready · {link.reference}</strong><p>{link.url}</p></div>
       <div className="secure-link-actions"><button className="button secondary small" onClick={copyLink}>Copy link</button><a className="button small" href={link.url} target="_blank" rel="noreferrer">Open quote</a></div>
