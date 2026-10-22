@@ -47,7 +47,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    "q.payment_terms AS quote_payment_terms,q.shipping_terms AS quote_shipping_terms,"+
    "q.valid_until,q.tax_basis,q.reference AS quote_reference,q.subtotal AS quote_subtotal,"+
    "q.discount AS quote_discount,q.shipping AS quote_shipping,q.tax AS quote_tax,"+
-   "q.total AS quote_total,q.currency AS quote_currency,o.quote_id,ct.email AS email,"+
+   "q.total AS quote_total,q.currency AS quote_currency,o.quote_id,ct.email AS email,ct.full_name AS customer_name,"+
    "(SELECT COALESCE(SUM(amount),0) FROM payments WHERE order_id=o.id AND status='RECEIVED') AS received "+
    "FROM quotes q JOIN orders o ON o.quote_id=q.id LEFT JOIN contacts ct ON ct.id=o.contact_id "+
    "WHERE "+QUOTE_PUBLIC_TOKEN_PREDICATE+" "+
@@ -130,8 +130,10 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
      return fail('Automatic-tax wholesale quotes must keep their pre-checkout tax amount at $0.',409);
     taxMode='STRIPE_AUTOMATIC';
     shippingAddress={
-     line1:String(ship.line1||ship.address1||'').trim(),
-     line2:String(ship.line2||ship.address2||'').trim(),
+     name:String(order.customer_name||order.email||order.reference),
+     email:typeof order.email==='string'?order.email:undefined,
+     street1:String(ship.line1||ship.address1||'').trim(),
+     street2:String(ship.line2||ship.address2||'').trim(),
      city:String(ship.city||'').trim(),state,
      postalCode:String(ship.postalCode||ship.postal_code||'').trim(),country:'US'
     };
