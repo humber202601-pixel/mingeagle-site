@@ -9,8 +9,8 @@ for (const name of files) {
   const html = fs.readFileSync(path.join(root, name), 'utf8');
   assert.equal((html.match(/data-mingeagle-ga4-consent="styles"/g) || []).length, 1, 'Exactly one GA4 consent stylesheet in ' + name);
   assert.equal((html.match(/data-mingeagle-ga4-consent="script"/g) || []).length, 1, 'Exactly one GA4 consent script in ' + name);
-  assert(html.includes('href="/ga4-consent.css?v=20261020-homefix1"'), 'Current cache-busted GA4 CSS URL in ' + name);
-  assert(html.includes('src="/ga4-consent.js?v=20261020-homefix1"'), 'Current cache-busted GA4 JS URL in ' + name);
+  assert(html.includes('href="/ga4-consent.css?v=20261022-footerprivacy1"'), 'Current cache-busted GA4 CSS URL in ' + name);
+  assert(html.includes('src="/ga4-consent.js?v=20261022-footerprivacy1"'), 'Current cache-busted GA4 JS URL in ' + name);
   assert(!html.includes('googletagmanager.com/gtag/js'), 'Google tag must not be embedded before visitor consent: ' + name);
 }
 const js = fs.readFileSync(path.join(root, 'ga4-consent.js'), 'utf8');
@@ -59,6 +59,13 @@ try{
 const inquiryHtml = fs.readFileSync(path.join(root, 'inquiry.html'), 'utf8');
 assert(inquiryHtml.includes('inquiry.js?v=20261020-ga4lead1'), 'Inquiry script URL must be cache-busted when conversion code changes');
 const css = fs.readFileSync(path.join(root, 'ga4-consent.css'), 'utf8');
+assert(js.includes("document.createElement('a')"), 'Privacy settings must be a normal footer link');
+assert(js.includes("settings.href = '/policies.html#privacy'"), 'Privacy settings link must have a useful policy fallback');
+assert(js.includes("document.querySelector('.footer .footgrid > div:last-child')"), 'Privacy settings link must be placed in the existing footer');
+assert(js.includes("settings.addEventListener('click'"), 'Footer link must reopen the consent panel');
+assert(css.includes('.footer .mingeagle-ga4-settings'), 'Footer link must use normal footer styling');
+assert(!/\.mingeagle-ga4-settings\\s*\\{[^}]*position:\\s*fixed/s.test(css), 'Privacy settings must not be a fixed floating control');
+
 assert(css.includes('.mingeagle-ga4-panel') && css.includes(':focus-visible'), 'Accessible consent banner styles');
 const policy = fs.readFileSync(path.join(root, 'policies.html'), 'utf8');
 assert(policy.includes('Google Analytics 4') && policy.includes('query strings') && policy.includes('Privacy settings'), 'Privacy policy must disclose opt-in GA4 and controls');
