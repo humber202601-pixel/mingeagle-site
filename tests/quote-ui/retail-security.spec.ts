@@ -93,3 +93,64 @@ test('2–9 eligible sets retain colors, group freight and continue to payment',
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth)).toBe(false);
  }
 });
+
+
+test('successful retail order opens Stripe directly; failed Stripe handoff safely opens saved order',async({page})=>{
+ const token='a'.repeat(64),cart=encodeURIComponent(JSON.stringify([{sku:'P1-S3',quantity:2,color:'Orange'}]));
+ let orderWrites=0,checkoutAttempts=0;
+ await page.route('**/api/retail/checkout-status',route=>route.fulfill({json:{
+  ok:true,retailCheckoutReady:true,supportedStates:['NY'],eligibleSkus:['P1-S3','P1-S7'],maxDirectCheckoutUnits:9
+ }}));
+ await page.route('**/api/shipping/cart',route=>route.fulfill({json:{
+  ok:true,productsUSD:19.8,shippingUSD:23,totalBeforeTaxesUSD:42.8,ddpConfirmed:true,
+  shippingPlan:'ONE_UNIT_PER_PARCEL',parcelCount:2
+ }}));
+ await page.route('**/api/turnstile-config',route=>route.fulfill({json:{
+  ok:true,enabled:true,siteKey:'synthetic-only',action:'mingeagle_inquiry'
+ }}));
+ await page.route('https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit',
+  route=>route.fulfill({contentType:'application/javascript',body:
+   `window.turnstile={render:(container,options)=>{container.textContent='Synthetic approved';options.callback('synthetic-token');return 'fixture'},reset:()=>{},remove:()=>{}};`
+  }));
+ await page.route('**/api/retail/checkout',route=>{
+  orderWrites++;
+  return route.fulfill({json:{
+   ok:true,orderReference:'ME-RO-SYNTHETIC',paymentPage:new URL('/quote/'+token,route.request().url()).href
+  }});
+ });
+ await page.route('**/api/payments/stripe/create',route=>{
+  checkoutAttempts++;
+  expect(route.request().postDataJSON().token).toBe(token);
+  return route.fulfill({json:{ok:true,url:'https://checkout.stripe.com/c/pay/cs_test_syntheticRetail'}});
+ });
+ await page.route('https://checkout.stripe.com/**',route=>route.fulfill({
+  status:200,contentType:'text/html',body:'<h1>Synthetic Stripe hosted page</h1>'
+ }));
+ const complete=async()=>{
+  await page.goto('/retail/checkout?cart='+cart);
+  await expect(page.getByText('Synthetic approved')).toBeVisible();
+  await page.getByRole('textbox',{name:'Full name',exact:true}).fill('Synthetic Checkout Buyer');
+  await page.getByRole('textbox',{name:'Email address',exact:true}).fill('buyer@example.invalid');
+  await page.getByRole('textbox',{name:'Phone number'}).fill('+1 212 555 0199');
+  await page.getByRole('textbox',{name:'Street address',exact:true}).fill('100 Test Street');
+  await page.getByRole('textbox',{name:'City',exact:true}).fill('New York');
+  await page.getByRole('combobox',{name:'State',exact:true}).selectOption('NY');
+  await page.getByRole('textbox',{name:'ZIP code',exact:true}).fill('10001');
+  await page.getByRole('checkbox').check();
+  await page.getByRole('button',{name:'Continue to secure payment →'}).click();
+ };
+ await complete();
+ await page.waitForURL('https://checkout.stripe.com/**');
+ await expect(page.getByText('Synthetic Stripe hosted page')).toBeVisible();
+ expect(orderWrites).toBe(1);
+ expect(checkoutAttempts).toBe(1);
+ await page.unroute('**/api/payments/stripe/create');
+ await page.route('**/api/payments/stripe/create',route=>{
+  checkoutAttempts++;
+  return route.fulfill({status:503,json:{ok:false,error:'Provider temporarily unavailable'}});
+ });
+ await complete();
+ await page.waitForURL('**/quote/'+token);
+ expect(orderWrites).toBe(2);
+ expect(checkoutAttempts).toBe(2);
+});
