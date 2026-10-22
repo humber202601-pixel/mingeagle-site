@@ -357,8 +357,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           ELSE datetime(valid_until)>=datetime('now') END)
       THEN 'SENT' ELSE NULL END,
       public_token_hash=?,sent_at=COALESCE(sent_at,CURRENT_TIMESTAMP),
-      notes=CASE WHEN UPPER(TRIM(COALESCE(tax_basis,''))) LIKE 'STRIPE_AUTOMATIC_AT_CHECKOUT%'
-        THEN '${STRIPE_AUTOMATIC_TAX_NOTE}' ELSE notes END,
+      notes=CASE
+        WHEN UPPER(TRIM(COALESCE(tax_basis,''))) LIKE 'STRIPE_AUTOMATIC_AT_CHECKOUT%'
+         AND UPPER(TRIM(COALESCE(notes,''))) NOT LIKE 'STRIPE_AUTOMATIC_TAX_PENDING:%'
+        THEN '${STRIPE_AUTOMATIC_TAX_NOTE}' || CASE WHEN LENGTH(TRIM(COALESCE(notes,'')))>0 THEN CHAR(10)||CHAR(10)||notes ELSE '' END
+        ELSE notes END,
       updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(tokenHash,quote.id));
     if(quote.public_token_hash) {
       releaseCommands.push(db.prepare(`INSERT OR IGNORE INTO quote_public_links (id, quote_id, token_hash)
