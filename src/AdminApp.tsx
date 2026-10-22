@@ -350,9 +350,9 @@ export default function AdminApp() {
     <Top title="主动询盘与曝光" description="分辨 B2B/B2C 已提交询盘的真实来源，并准备连接搜索曝光和网站访问统计。"/>
     <InboundGrowth accessKey={key}/>
   </>;
-  else if (page === 'leads' && detailId) content = <AdminDetail type="lead" id={detailId} accessKey={key}/>;
-  else if (page === 'inquiries' && detailId) content = <AdminDetail type="inquiry" id={detailId} accessKey={key}/>;
-  else if (page === 'companies' && detailId) content = <AdminDetail type="company" id={detailId} accessKey={key}/>;
+  else if (page === 'leads' && detailId) content = <AdminDetail key={`${page}-${detailId}`} type="lead" id={detailId} accessKey={key}/>;
+  else if (page === 'inquiries' && detailId) content = <AdminDetail key={`${page}-${detailId}`} type="inquiry" id={detailId} accessKey={key}/>;
+  else if (page === 'companies' && detailId) content = <AdminDetail key={`${page}-${detailId}`} type="company" id={detailId} accessKey={key}/>;
   else if (page === 'leads') content = <><Top title="潜在客户" description="先处理官网真实主动询盘，再核实公开来源待开发客户。所有外联邮件须人工审阅。"/><LeadSections leads={data.leads}/></>;
   else if (page === 'inquiries') content = <><Top title="询盘" description="网站提交的每条询盘都会自动进入销售流程并形成结构化记录。"/><DataTable filterKey="status" rows={data.inquiries} columns={[
     {key:'reference',label:'询盘编号'},{key:'customer',label:'客户'},{key:'request_type',label:'询盘类型',format:r=>requestTypeLabel(r.request_type)},{key:'estimated_quantity',label:'预计数量'},{key:'status',label:'状态',format:r=>statusLabel(r.status)},{key:'notification_status',label:'通知状态',format:r=>String(r.notification_status)==='FAILED'?'⚠️ 邮件通知未确认 · 请查CRM':String(r.notification_status)==='ACCEPTED'?'服务已接收（非送达确认）':'未记录（历史/导入）'},{key:'created_at',label:'创建时间',format:r=>zhDate(r.created_at)},{key:'detail',label:'操作',format:r=><Link to={`/app/inquiries/${text(r.id)}`}>查看详情</Link>}
