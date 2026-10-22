@@ -1,0 +1,186 @@
+{
+  "version": 1,
+  "preparedOn": "2026-10-22",
+  "status": "DRAFT_NOT_PUBLISHED_NO_SPEND",
+  "campaignName": "US B2B Quiet Basketball | Phase 1",
+  "goal": "Qualified written 10+ unit B2B RFQs, separately verified from Stripe-paid orders",
+  "campaignType": "Search",
+  "location": "United States",
+  "locationPresenceOnly": true,
+  "language": "English",
+  "network": {
+    "googleSearch": true,
+    "searchPartners": false,
+    "display": false
+  },
+  "adDelivery": "PAUSED_UNTIL_MANUAL_ACTIVATION",
+  "billing": "NOT_VERIFIED",
+  "accountLinked": false,
+  "budget": {
+    "targetMaxCampaignTotalUsd": 70,
+    "testDays": 14,
+    "alternateAverageDailyUsd": 2.5,
+    "scheduledEndDateRequired": true,
+    "manualSpendWatchRequired": true,
+    "approvedForSpend": false
+  },
+  "performance": {
+    "impressions": null,
+    "clicks": null,
+    "costUsd": null,
+    "cpcUsd": null,
+    "qualifiedRfqs": null,
+    "paidOrders": null
+  },
+  "primaryMeasurement": "Human-confirmed qualified wholesale RFQ with 10+ units",
+  "secondaryMeasurement": "Confirmed form submission; Google Analytics only with permission and successful CRM/backup confirmation",
+  "excludedAtLaunch": [
+    "silent basketball",
+    "quiet basketball",
+    "basketball wholesale",
+    "bulk basketballs",
+    "school sports equipment supplier",
+    "basketball with mini hoop",
+    "quiet basketball for kids"
+  ],
+  "campaignNegativeKeywords": [
+    "jobs",
+    "career",
+    "salary",
+    "basketball video game",
+    "game download",
+    "how to make",
+    "diy basketball",
+    "basketball repair",
+    "used basketball",
+    "second hand",
+    "NBA scores",
+    "NBA live",
+    "court rental",
+    "free printable"
+  ],
+  "groups": [
+    {
+      "id": "wholesale_silent",
+      "audience": "Resellers, distributors, relevant wholesale buyers",
+      "landingPage": "https://www.mingeagle.com/wholesale.html",
+      "finalUrlSuffix": "utm_source=google&utm_medium=cpc&utm_campaign=us_b2b_search_pilot&utm_content=wholesale_silent",
+      "keywords": [
+        {
+          "text": "silent basketball wholesale",
+          "matchType": "EXACT"
+        },
+        {
+          "text": "quiet basketball wholesale",
+          "matchType": "PHRASE"
+        },
+        {
+          "text": "bulk silent basketball supplier",
+          "matchType": "PHRASE"
+        },
+        {
+          "text": "quiet basketball bulk",
+          "matchType": "PHRASE"
+        },
+        {
+          "text": "silent basketball distributor",
+          "matchType": "PHRASE"
+        },
+        {
+          "text": "silent basketball supplier",
+          "matchType": "PHRASE"
+        }
+      ],
+      "headlines": [
+        "Silent Basketball Wholesale",
+        "Bulk Quiet Indoor Basketballs",
+        "Wholesale Orders 10+ Units",
+        "Request a Bulk Quote",
+        "Flocked & Fabric-Cover Balls",
+        "Supplier for Schools & Clubs",
+        "Custom Logo Options",
+        "Compare Ball Models",
+        "Request Samples First",
+        "Wholesale Indoor Ball Supply"
+      ],
+      "descriptions": [
+        "Compare quiet indoor basketball models and request a written quote for 10+ units.",
+        "For schools, clubs, coaches and resellers. Share quantity, models and delivery ZIP.",
+        "Ask about eligible samples, custom logos and sea-freight options before ordering.",
+        "Product specs, bulk pricing and delivery terms are confirmed in your written quote."
+      ]
+    },
+    {
+      "id": "school_bulk",
+      "audience": "US schools, education programs and indoor activity providers",
+      "landingPage": "https://www.mingeagle.com/for-schools.html",
+      "finalUrlSuffix": "utm_source=google&utm_medium=cpc&utm_campaign=us_b2b_search_pilot&utm_content=school_bulk",
+      "keywords": [
+        {
+          "text": "bulk quiet basketballs for schools",
+          "matchType": "EXACT"
+        },
+        {
+          "text": "quiet basketballs for pe classes",
+          "matchType": "PHRASE"
+        },
+        {
+          "text": "soft indoor basketballs for schools",
+          "matchType": "PHRASE"
+        },
+        {
+          "text": "bulk quiet basketballs for after school programs",
+          "matchType": "PHRASE"
+        },
+        {
+          "text": "quiet indoor basketballs for training centers",
+          "matchType": "PHRASE"
+        },
+        {
+          "text": "bulk silent basketballs for schools",
+          "matchType": "PHRASE"
+        }
+      ],
+      "headlines": [
+        "Bulk Basketballs for Schools",
+        "School PE Ball Supplier",
+        "Quiet Balls for Indoor PE",
+        "School Bulk Quote 10+ Units",
+        "Request School Samples",
+        "Sports Equipment for Schools",
+        "Compare Indoor Ball Models",
+        "Supply for PE & After-School",
+        "Ask About Bulk Pricing",
+        "Request a School Quote"
+      ],
+      "descriptions": [
+        "Compare soft indoor ball options for supervised PE, activity rooms and programs.",
+        "Request a quote for 10+ units. Share sizes, quantities and delivery destination.",
+        "Samples may be available; final model suitability, freight and pricing are confirmed.",
+        "Designed for quieter play; not silent or a regulation game-ball replacement."
+      ]
+    }
+  ],
+  "qualificationRule": {
+    "minUnits": 10,
+    "required": [
+      "reachableContact",
+      "organizationOrInstitution",
+      "specificQuietIndoorProductFit",
+      "confirmedUnits",
+      "destination"
+    ],
+    "noAutoApprove": true
+  },
+  "launchGates": [
+    "Billing accepted in Google Ads",
+    "Keyword Planner checks volume, competition and top-of-page bids",
+    "Final URL responds HTTP 200 and quote path works",
+    "Review account settings and negative search terms",
+    "Real CRM submission accepts inquiry and UTM survives first touch",
+    "GA4 consent-gated generate_lead confirmed in property and Ads conversion import verified",
+    "Total budget and fixed end date checked",
+    "Explicit owner decision to enable ads"
+  ],
+  "notes": "Draft only; this file contains no credentials, account ID, spend authority, campaign API endpoint, measured traffic or buyer PII. No Google Ads action is authorized by importing or reading this plan."
+}

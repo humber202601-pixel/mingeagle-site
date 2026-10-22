@@ -6,6 +6,10 @@ on:
     paths:
       - "docs/marketing/us-b2b-search-ads-pilot-2026-10-18.json"
       - "scripts/check-us-b2b-search-ads-pilot.cjs"
+      - "docs/marketing/us-b2b-search-phase1-preflight-2026-10-22.json"
+      - "docs/marketing/us-b2b-search-ads-phase1-2026-10-22.md"
+      - "docs/marketing/us-b2b-buyer-intent-research-2026-10-22.md"
+      - "scripts/check-us-b2b-search-phase1.cjs"
       - ".github/workflows/verify-us-b2b-search-pilot.yml"
   workflow_dispatch:
 
@@ -24,4 +28,6 @@ jobs:
         run: |
           node --check scripts/check-us-b2b-search-ads-pilot.cjs
           node scripts/check-us-b2b-search-ads-pilot.cjs
+          node --check scripts/check-us-b2b-search-phase1.cjs
+          node scripts/check-us-b2b-search-phase1.cjs
           test ! -f .google-ads-credentials.json
