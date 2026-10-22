@@ -1,6 +1,7 @@
 import {quoteTotals, confirmedQuantity, usdCents} from '../../../lib/quote-totals';
 import {ensureRetailApprovals} from './quote-retail-approval';
 import {verifyQuoteProcurement,quoteLineSku} from '../../../lib/quote-procurement-review';
+import {STRIPE_AUTOMATIC_TAX_NOTE,usesStripeAutomaticTaxQuote} from '../../../lib/stripe-automatic-tax-quote';
 interface Env {
   MINGEAGLE_DB: D1Database;
 }
@@ -95,8 +96,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ok:false,error:'Previously identified SKU cannot be removed from quote description without manual commercial reclassification.'},{status:409});
     const taxUSD = input.taxUSD === undefined ? Number(quote.tax ?? 0) : Number(input.taxUSD);
     const taxBasis = clean(input.taxBasis, 1000);
+    const automaticTax = usesStripeAutomaticTaxQuote(taxBasis);
     if (!Number.isFinite(taxUSD) || taxUSD < 0) throw new Error('INVALID_TAX');
     if (!taxBasis) throw new Error('TAX_BASIS_REQUIRED');
+    if (automaticTax && Math.round(taxUSD * 100) !== 0) throw new Error('AUTOMATIC_TAX_AMOUNT_MUST_BE_ZERO');
     const calculation = quoteTotals(normalized, input.shipping, input.discount ?? 0, taxUSD);
     let costReview:Awaited<ReturnType<typeof verifyQuoteProcurement>>;
     try{
@@ -110,7 +113,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const {subtotal, shipping, discount, total} = calculation;
     const paymentTerms = clean(input.paymentTerms, 500) || 'Payment terms to be confirmed before sending.';
     const shippingTerms = clean(input.shippingTerms, 500) || 'Shipping terms to be confirmed before sending.';
-    const notes = clean(input.notes, 3000) || null;
+    const notes = automaticTax ? STRIPE_AUTOMATIC_TAX_NOTE : clean(input.notes, 3000) || null;
     const validUntil = clean(input.validUntil, 40);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(validUntil)) {
       return Response.json({ ok: false, error: 'Valid until date is required.' }, { status: 400 });
@@ -135,7 +138,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         scope:'Internal purchasing SKU/size reference, not full landed margin.'} });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to update quote.';
-    const status = /must be greater than 0|mismatch|included|INVALID_|DISCOUNT_EXCEEDS_SUBTOTAL/i.test(message) ? 400 : 500;
+    const status = /must be greater than 0|mismatch|included|INVALID_|DISCOUNT_EXCEEDS_SUBTOTAL|AUTOMATIC_TAX_AMOUNT_MUST_BE_ZERO/i.test(message) ? 400 : 500;
     if(status===500)console.error('quote_edit_save_failed', error);
     return Response.json({ ok: false, error: message }, { status });
   }
