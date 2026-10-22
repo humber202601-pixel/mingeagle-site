@@ -55,7 +55,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const taxUSD = num(input.taxUSD, NaN);
     const taxBasis = clean(input.taxBasis, 1000);
     const automaticTax = usesStripeAutomaticTaxQuote(taxBasis);
-    const notes = automaticTax ? STRIPE_AUTOMATIC_TAX_NOTE : suppliedNotes;
+    const notes = automaticTax ? [STRIPE_AUTOMATIC_TAX_NOTE, suppliedNotes].filter(Boolean).join('\\n\\n') : suppliedNotes;
 
     if (!inquiryReference) {
       return Response.json({ ok: false, error: 'Inquiry reference is required.' }, { status: 400 });
