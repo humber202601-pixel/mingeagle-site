@@ -4,6 +4,7 @@ import {quoteTotals} from '../../../lib/quote-totals';
 import {checkWholesaleReleaseProof,type WholesaleReleaseProof} from '../../../lib/b2b-quote-release-cost';
 import {quoteReleaseFingerprint} from '../../../lib/b2b-quote-release-fingerprint';
 import {isUsDeliveryState} from '../../../lib/us-delivery-states';
+import {STRIPE_AUTOMATIC_TAX_NOTE,usesStripeAutomaticTaxQuote} from '../../../lib/stripe-automatic-tax-quote';
 interface Env {
   MINGEAGLE_DB: D1Database;
   GMAIL_CLIENT_ID?: string;
@@ -241,6 +242,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         return Response.json({ok:false,code:'B2B_STRIPE_QUOTE_NOT_PAYABLE',
           error:'Before sending a Stripe payment quote, document the destination as Ship-to state: XX, the US sales-tax amount and the reviewed sales-tax basis. Verify freight, import duties and the customer tax treatment.'},{status:409});
       }
+      if(usesStripeAutomaticTaxQuote(quote.tax_basis)&&Math.round(Number(quote.tax)*100)!==0){
+        return Response.json({ok:false,code:'B2B_AUTOMATIC_TAX_AMOUNT_MISMATCH',
+          error:'Stripe automatic-tax quotations must keep the pre-checkout tax amount at $0; applicable tax is added by Stripe Checkout.'},{status:409});
+      }
       const approvedDestinations=(env.STRIPE_B2B_APPROVED_US_STATES||'')
         .split(',').map(s=>s.trim().toUpperCase());
       if(!approvedDestinations.includes(shipState!))
@@ -352,6 +357,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           ELSE datetime(valid_until)>=datetime('now') END)
       THEN 'SENT' ELSE NULL END,
       public_token_hash=?,sent_at=COALESCE(sent_at,CURRENT_TIMESTAMP),
+      notes=CASE WHEN UPPER(TRIM(COALESCE(tax_basis,''))) LIKE 'STRIPE_AUTOMATIC_AT_CHECKOUT%'
+        THEN '${STRIPE_AUTOMATIC_TAX_NOTE}' ELSE notes END,
       updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(tokenHash,quote.id));
     if(quote.public_token_hash) {
       releaseCommands.push(db.prepare(`INSERT OR IGNORE INTO quote_public_links (id, quote_id, token_hash)
