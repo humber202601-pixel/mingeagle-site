@@ -64,23 +64,33 @@ const emptyData: AdminData = {
   leads: [], inquiries: [], companies: [], contacts: [], quotes: [], orders: [], tasks: [], activities: [], pipeline: [],
 };
 
-const nav = [
-  ['/app', Gauge, '仪表盘'],
-  ['/app/discovery', Radar, '客户发现'],
-  ['/app/leads', Target, '潜在客户'],
-  ['/app/funnel', BarChart3, '客户转化分析'],
-  ['/app/growth', BarChart3, '主动询盘与曝光'],
+const primaryNav = [
+  ['/app', Gauge, '工作台'],
   ['/app/inquiries', Inbox, '询盘'],
-  ['/app/companies', Building2, '客户公司'],
-  ['/app/contacts', ContactRound, '联系人'],
-  ['/app/communications', MessageSquareText, '沟通中心'],
-  ['/app/automation', Bot, '自动化中心'],
   ['/app/quotes', CircleDollarSign, '报价单'],
-  ['/app/readiness', ClipboardList, '生产与收款验收'],
-  ['/app/suppliers', Database, '供应商采购价'],
-  ['/app/shipping', ShoppingBag, '国际运费管理'],
   ['/app/orders', ShoppingBag, '订单'],
-  ['/app/tasks', ClipboardList, '跟进任务'],
+  ['/app/tasks', ClipboardList, '待办任务'],
+] as const;
+
+// Keep specialist tools available without making them compete with daily sales work.
+const navGroups = [
+  { id: 'customers', label: '客户管理', items: [
+    ['/app/leads', Target, '潜在客户'],
+    ['/app/companies', Building2, '客户公司'],
+    ['/app/contacts', ContactRound, '联系人'],
+    ['/app/communications', MessageSquareText, '沟通记录'],
+  ] },
+  { id: 'growth', label: '获客与分析', items: [
+    ['/app/discovery', Radar, '客户发现'],
+    ['/app/funnel', BarChart3, '转化分析'],
+    ['/app/growth', BarChart3, '主动询盘与曝光'],
+    ['/app/automation', Bot, '自动化'],
+  ] },
+  { id: 'operations', label: '运营设置', items: [
+    ['/app/readiness', ClipboardList, '收款与运营检查'],
+    ['/app/suppliers', Database, '供应商采购价'],
+    ['/app/shipping', ShoppingBag, '国际运费'],
+  ] },
 ] as const;
 
 const text = (value: unknown, fallback = '—') => value === null || value === undefined || value === '' ? fallback : String(value);
@@ -108,17 +118,41 @@ function Login({ onLogin, busy, error }: { onLogin: (key: string) => void; busy:
 }
 
 function Layout({ children, onRefresh, onLogout, loading }: { children: React.ReactNode; onRefresh: () => void; onLogout: () => void; loading: boolean }) {
+  const location = useLocation();
+  const activeGroupId = navGroups.find(group => group.items.some(([path]) =>
+    location.pathname === path || location.pathname.startsWith(path + '/')
+  ))?.id;
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    if (activeGroupId) setExpandedGroups(current =>
+      current[activeGroupId] === true ? current : { ...current, [activeGroupId]: true }
+    );
+  }, [activeGroupId]);
+
   return <div className="admin-shell">
     <aside className="sidebar">
-      <Link to="/" className="admin-brand"><span className="brand-mark">ME</span><div><strong>MING EAGLE</strong><small>销售增长引擎</small></div></Link>
-      <div className="side-section">业务管理</div>
-      <nav>{nav.map(([path, Icon, label]) => <NavLink end={path === '/app'} to={path} key={path}><Icon size={17}/>{label}</NavLink>)}</nav>
-      <div className="side-section">系统</div>
+      <Link to="/" className="admin-brand"><span className="brand-mark">ME</span><div><strong>MING EAGLE</strong><small>销售工作台</small></div></Link>
+      <div className="side-section">常用操作</div>
+      <nav className="primary-nav">{primaryNav.map(([path, Icon, label]) => <NavLink end={path === '/app'} to={path} key={path}><Icon size={17}/>{label}</NavLink>)}</nav>
+      <div className="side-section">其他功能</div>
+      {navGroups.map(group => <details
+        className={`side-group${activeGroupId === group.id ? ' has-active' : ''}`}
+        key={group.id}
+        open={expandedGroups[group.id] === true}
+        onToggle={event => {
+          const isOpen = event.currentTarget.open;
+          setExpandedGroups(current => current[group.id] === isOpen ? current : { ...current, [group.id]: isOpen });
+        }}
+      >
+        <summary><span className="side-group-label">{group.label}</span><span className="side-group-count">{group.items.length}</span></summary>
+        <nav className="side-group-nav">{group.items.map(([path, Icon, label]) => <NavLink to={path} key={path}><Icon size={16}/>{label}</NavLink>)}</nav>
+      </details>)}
+      <div className="side-section">账户</div>
       <nav>
         <button className="side-button" onClick={onRefresh}><RefreshCcw size={17}/>{loading ? '正在刷新…' : '刷新数据'}</button>
         <button className="side-button" onClick={onLogout}><LogOut size={17}/>退出登录</button>
       </nav>
-      <div className="sidebar-footer"><span>D1 实时数据</span><small>Cloudflare 免费架构</small></div>
+      <div className="sidebar-footer"><span>业务流程</span><small>询盘 → 报价 → 订单 → 发货</small></div>
     </aside>
     <main className="admin-main">{children}</main>
   </div>;
