@@ -89,14 +89,14 @@ globalThis.fetch=async(url,init)=>{
   assert.equal(params.get('shipping[address][state]'),'TX');
   assert.equal(params.get('tax[validate_location]'),'immediately');
   assert.equal(params.get('tax_exempt'),'none');
-  return Response.json({id:'cus_test_b2b_auto_tax',livemode:false,
+  return Response.json({id:'cus_testB2bAutoTax',livemode:false,
    tax:{location:{country:'US',state:'TX'}}});
  }
  if(endpoint==='https://api.stripe.com/v1/checkout/sessions'&&init.method==='POST'){
   checkoutCalls++;
   assert.equal(params.get('mode'),'payment');
   assert.equal(params.get('automatic_tax[enabled]'),'true');
-  assert.equal(params.get('customer'),'cus_test_b2b_auto_tax');
+  assert.equal(params.get('customer'),'cus_testB2bAutoTax');
   assert.equal(params.get('metadata[tax_mode]'),'STRIPE_AUTOMATIC');
   assert.equal(params.get('metadata[tax_state]'),'TX');
   assert.equal(params.get('line_items[0][price_data][tax_behavior]'),'exclusive');
@@ -107,7 +107,7 @@ globalThis.fetch=async(url,init)=>{
    Number(params.get('line_items[1][price_data][unit_amount]'))*Number(params.get('line_items[1][quantity]'));
   assert.equal(base,18000,'Stripe Checkout merchandise and freight equal the accepted pre-tax quote');
   session={id:'cs_test_b2bAutoTax001',status:'open',payment_status:'unpaid',livemode:false,
-   currency:'usd',amount_total:18450,customer:'cus_test_b2b_auto_tax',
+   currency:'usd',amount_total:18450,customer:'cus_testB2bAutoTax',
    automatic_tax:{enabled:true,status:'complete'},total_details:{amount_tax:450},
    url:'https://checkout.stripe.com/c/pay/cs_test_b2bAutoTax001',
    client_reference_id:orderReference,
@@ -145,7 +145,7 @@ try{
  assert.equal(stored.base_amount_cents,18000);
  assert.equal(stored.tax_amount_cents,450);
  assert.equal(stored.tax_state,'TX');
- assert.equal(stored.tax_customer_id,'cus_test_b2b_auto_tax');
+ assert.equal(stored.tax_customer_id,'cus_testB2bAutoTax');
  assert.equal(stored.amount,184.5);
 
  const wrongTax={...session,total_details:{amount_tax:449}};
