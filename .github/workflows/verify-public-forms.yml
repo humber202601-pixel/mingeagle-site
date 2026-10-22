@@ -10,6 +10,8 @@ on:
       - '.github/workflows/verify-published-wholesale-csv.yml'
       - 'scripts/build-wholesale-product-facts-csv.cjs'
       - 'scripts/check-wholesale-product-facts-csv.cjs'
+      - 'scripts/check-earned-editorial-outreach.cjs'
+      - 'docs/marketing/earned-editorial-outreach-2026-10-22.md'
       - 'scripts/check-b2b-acquisition-resource.cjs'
       - 'scripts/check-procurement-ai-buyer-answers.cjs'
       - 'scripts/build-ai-school-logo-buyer-answers.cjs'
@@ -192,6 +194,7 @@ jobs:
           node scripts/verify-live-supplier-introduction.mjs --self-test
           node scripts/check-live-asset-workflow.cjs
           node scripts/check-wholesale-product-facts-csv.cjs
+          node scripts/check-earned-editorial-outreach.cjs
           node scripts/check-geo-source-capture.cjs
           node scripts/check-native-media.cjs
           node --check public/sales-assistant.js
