@@ -30,7 +30,8 @@ test('buyer Stripe return polls read-only status and never offers a second charg
  await page.route('**/api/payments/stripe/create',async route=>{
   createAttempts++;await route.fulfill({status:409,json:{ok:false,error:'No second payment'}});
  });
- await page.goto('/');
+ // The loopback fixture serves SPA fallbacks on named routes (not the root).
+ await page.goto('/wholesale');
  await page.evaluate(path=>{
   history.pushState({},'',path);
   dispatchEvent(new PopStateEvent('popstate'));
