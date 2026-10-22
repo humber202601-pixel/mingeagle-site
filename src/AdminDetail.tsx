@@ -2,6 +2,8 @@ import {RETAIL_USD} from '../lib/retail-reference';
 import {parseWholesaleRfq} from './rfqParser';
 import {calculate} from '../lib/quote-math-core.mjs';
 import {quoteTotals} from '../lib/quote-totals';
+import {US_DELIVERY_STATES} from '../lib/us-delivery-states';
+import {buildReviewedWholesaleDeliveryTerms} from '../lib/b2b-draft-delivery';
 import {internalSkuForRfq,assessRfqPurchaseCosts,type ApprovedCostRow} from '../lib/rfq-cost-review';
 import {reviewRfqQuantityConstraints} from '../lib/rfq-commercial-check';
 import LeadOutreach from './LeadOutreach';
@@ -91,8 +93,10 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
   const [wholesaleShipping,setWholesaleShipping]=useState('');
   const [wholesaleTax,setWholesaleTax]=useState('');
   const [wholesaleTaxBasis,setWholesaleTaxBasis]=useState('');
+  const [wholesaleDestinationState,setWholesaleDestinationState]=useState('');
+  const [wholesaleDutyBasis,setWholesaleDutyBasis]=useState('');
   const [wholesalePaymentTerms,setWholesalePaymentTerms]=useState('Pay the full quoted total by card through Stripe Checkout before fulfillment begins.');
-  const [wholesaleDeliveryTerms,setWholesaleDeliveryTerms]=useState('Shipment from China; lead time and duties to be confirmed.');
+  const [wholesaleDeliveryTerms,setWholesaleDeliveryTerms]=useState('Sea freight from China; estimated delivery 25–30 days after dispatch.');
   const [retailQuoteBusy,setRetailQuoteBusy] = useState(false);
   const [retailQuoteResult,setRetailQuoteResult] = useState('');
   const [retailQuoteCreated,setRetailQuoteCreated] = useState(false);
@@ -122,16 +126,23 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
     const tax=wholesaleTax;
     const taxBasis=wholesaleTaxBasis.trim();
     const quantityConstraints=lines.map((_,i)=>({moq:wholesaleMoqs[i]||'',casePack:wholesaleCasePacks[i]||''}));
+    let shippingTerms:string;
+    try {
+      shippingTerms=buildReviewedWholesaleDeliveryTerms(wholesaleDestinationState,wholesaleDutyBasis,wholesaleDeliveryTerms);
+    } catch {
+      setWholesaleResult('请先核实美国收货州、进口关税/清关承担方及实际海运交付条款。尚未确认时请不要生成待发送报价。');
+      return;
+    }
     const review=reviewRfqQuantityConstraints(lines,quantityConstraints);
     if(!review.ok){setWholesaleResult('MOQ/整箱数量与客户要求有冲突：'+review.errors.map(x=>x.replace('LINE_','第').replaceAll('_',' ')).join('；')+'。请与供应商和客户确认，不能擅自修改数量。');return}
     if(tax.trim()===''||!taxBasis){
       setWholesaleResult('请填写已核实的美国销售税金额和税务依据。只有有书面依据时才能填 0；DDP 进口关税不等于销售税。');
       return;
     }
-    try{quoteTotals(lines.map((line,i)=>({quantity:line.quantity,unitPrice:prices[i]})),shipping,0,tax);if(!wholesalePaymentTerms.trim()||!wholesaleDeliveryTerms.trim())throw new Error('TERMS');}catch{setWholesaleResult('请逐项填写有效批发价、运费、销售税金额及商业条款。');return;}
+    try{quoteTotals(lines.map((line,i)=>({quantity:line.quantity,unitPrice:prices[i]})),shipping,0,tax);if(!wholesalePaymentTerms.trim())throw new Error('TERMS');}catch{setWholesaleResult('请逐项填写有效批发价、运费、销售税金额及商业条款。');return;}
     setWholesaleBusy(true);setWholesaleResult('');
     try{
-      const response=await fetch('/api/admin/wholesale-quote-draft',{method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},body:JSON.stringify({inquiryReference:reference,unitPrices:prices,shippingUSD:shipping,taxUSD:tax,taxBasis,paymentTerms:wholesalePaymentTerms,shippingTerms:wholesaleDeliveryTerms,quantityConstraints})});
+      const response=await fetch('/api/admin/wholesale-quote-draft',{method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},body:JSON.stringify({inquiryReference:reference,unitPrices:prices,shippingUSD:shipping,taxUSD:tax,taxBasis,paymentTerms:wholesalePaymentTerms,shippingTerms,quantityConstraints})});
       const result=await response.json() as {ok?:boolean;error?:string;quoteReference?:string;totalUSD?:number;
         purchaseCostReview?:{approvedSkuBaselines:number;unverifiedSkuBaselines:number}};
       if(!response.ok||!result.ok)throw Error(result.error||'无法生成报价草稿');
@@ -232,7 +243,19 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
        </div>
        <WholesaleTotals lines={parseWholesaleRfq(r.message)} prices={wholesalePrices} shipping={wholesaleShipping} tax={wholesaleTax}/>
        <label>付款条款 <input style={{width:'100%'}} value={wholesalePaymentTerms} onChange={e=>setWholesalePaymentTerms(e.target.value)} disabled={wholesaleCreated}/></label>
-       <label>交付条款 <input style={{width:'100%'}} value={wholesaleDeliveryTerms} onChange={e=>setWholesaleDeliveryTerms(e.target.value)} disabled={wholesaleCreated}/></label>
+       <div className="quote-tax-grid">
+         <label>收货州（美国）* <select value={wholesaleDestinationState} onChange={e=>setWholesaleDestinationState(e.target.value)} disabled={wholesaleCreated}>
+           <option value="">请选择报价目的州</option>
+           {Object.entries(US_DELIVERY_STATES).sort((a,b)=>a[0].localeCompare(b[0])).map(([state,name])=><option key={state} value={state}>{state} · {name}</option>)}
+         </select></label>
+         <label>进口关税和清关费用由谁承担 * <select value={wholesaleDutyBasis} onChange={e=>setWholesaleDutyBasis(e.target.value)} disabled={wholesaleCreated}>
+           <option value="">必须明确选择；不可默认包税</option>
+           <option value="SELLER_INCLUDED">卖方承担（已核实报价含进口关税和清关费）</option>
+           <option value="BUYER_RESPONSIBLE">买方承担（报价不含进口关税和清关费）</option>
+         </select></label>
+       </div>
+       <label>海运交付条款（按实际承诺修改） <input style={{width:'100%'}} value={wholesaleDeliveryTerms} onChange={e=>setWholesaleDeliveryTerms(e.target.value)} disabled={wholesaleCreated}/></label>
+       <small className="detail-note">收货州和清关/进口关税责任会自动写入报价条款；销售税另行核实并列明。客户确认后不得暗中更改目的州或价格。</small>
        <button type="button" className="button" disabled={wholesaleBusy||wholesaleCreated||r.status==='QUOTED'||r.status==='CLOSED'} onClick={()=>void draftWholesale(String(r.reference),parseWholesaleRfq(r.message))}>{wholesaleBusy?'生成中…':'生成待审核 B2B 报价草稿'}</button>
        {wholesaleResult&&<p role="status">{wholesaleResult} {wholesaleCreated&&<Link to="/app/quotes">查看报价管理 →</Link>}</p>}</div></Section>}
       {String(r.message||'').includes('Retail cart order request (NOT PAID)') && <Section title="零售购物车报价审核"><p className="detail-note">从客户购物车需求重新读取数据库零售价、包装和运价，生成多商品报价草稿。草稿不会自动发送或收款，请在报价管理中审核。</p><button className="button" type="button" disabled={retailQuoteBusy||retailQuoteCreated||r.status==='QUOTED'||r.status==='CLOSED'} onClick={()=>void draftRetailQuote(String(r.reference))}>{retailQuoteBusy?'正在生成…':'生成零售报价草稿'}</button>{retailQuoteResult&&<p role="status">{retailQuoteResult} {retailQuoteCreated&&<Link to="/app/quotes">前往报价管理 →</Link>}</p>}</Section>}
