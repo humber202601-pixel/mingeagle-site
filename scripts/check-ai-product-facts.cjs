@@ -23,6 +23,12 @@ assert.equal(data.products.length,4);
 assert.equal(data.publisher.wholesaleProductFactsCsv,'https://www.mingeagle.com/wholesale-product-facts.csv');
 assert(txtBefore.includes('[Download first-party wholesale product comparison (CSV)]('+data.publisher.wholesaleProductFactsCsv+')'),'Machine-readable buyer guide must expose real downloadable CSV');
 assert.equal(data.guides.length,12);
+const reviewFiles=['editorial-review-facts.txt','indoor-ball-sample-comparison-protocol.txt','indoor-ball-trial-blank.csv'];
+for(const file of reviewFiles){
+ assert.equal(txtBefore.split('](https://www.mingeagle.com/'+file+')').length-1,1,
+  'Generated AI directory must retain exactly one review-resource link: '+file);
+}
+assert(txtBefore.includes('Do not infer that any reviewer has tested or recommended MING EAGLE products.'),'Review resources must retain evidence limits');
 assert.equal(new Set(data.products.map(x=>x.id)).size,4);
 assert.equal(new Set(data.guides.map(x=>x.url)).size,12);
 assert(data.guides.some(g=>g.question==='How does a silent basketball compare with a regular basketball?'&&g.url==='https://www.mingeagle.com/silent-basketball-vs-regular.html'));
@@ -69,9 +75,19 @@ const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'ai-facts-negative-'));
 try{
  const files=['product-master.json','retail-prices.json','us-single-parcel-shipping.json','retail-fulfillment-policy.json','retail-checkout-scope.json','sitemap.xml',...data.products.map(p=>p.url.split('/').at(-1)),...data.guides.map(g=>g.url.split('/').at(-1)),'products.html','inquiry.html','wholesale-product-facts.csv'];
  for(const name of new Set(files))fs.copyFileSync(path.join(root,name),path.join(tmp,name));
+ for(const name of reviewFiles)fs.copyFileSync(path.join(root,name),path.join(tmp,name));
  fs.mkdirSync(path.join(tmp,'assets'));
  for(const x of data.products)fs.copyFileSync(path.join(root,master[x.id].hero),path.join(tmp,master[x.id].hero));
  const testFailure=()=>{assert.throws(()=>run(tmp),'Invalid source data must stop AI catalog generation')};
+ run(tmp);
+ const generated=fs.readFileSync(path.join(tmp,'llms.txt'),'utf8');
+ fs.writeFileSync(path.join(tmp,'llms.txt'),generated.replace('https://www.mingeagle.com/editorial-review-facts.txt','https://www.mingeagle.com/missing.txt'));
+ assert.throws(()=>run(tmp,'--check'),'Missing published editorial pointer must fail verification');
+ run(tmp);
+ assert.equal(fs.readFileSync(path.join(tmp,'llms.txt'),'utf8'),generated,'Rebuild must restore review resources');
+ fs.unlinkSync(path.join(tmp,reviewFiles[0]));
+ testFailure();
+ fs.copyFileSync(path.join(root,reviewFiles[0]),path.join(tmp,reviewFiles[0]));
  let p=JSON.parse(fs.readFileSync(path.join(tmp,'retail-prices.json'),'utf8'));
  delete p.products.p3['7'];fs.writeFileSync(path.join(tmp,'retail-prices.json'),JSON.stringify(p));
  testFailure();

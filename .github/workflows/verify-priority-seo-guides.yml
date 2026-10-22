@@ -16,6 +16,9 @@ on:
       - "public/silent-basketball-guide.html"
       - "public/sitemap.xml"
       - "public/llms.txt"
+      - "scripts/build-ai-product-facts.cjs"
+      - "scripts/check-ai-product-facts.cjs"
+      - "scripts/check-live-editorial-assets.cjs"
       - "public/index.html"
       - "scripts/ensure-bing-webmaster-verification.cjs"
       - "scripts/check-priority-seo-guides.cjs"
@@ -45,6 +48,9 @@ on:
       - "public/silent-basketball-guide.html"
       - "public/sitemap.xml"
       - "public/llms.txt"
+      - "scripts/build-ai-product-facts.cjs"
+      - "scripts/check-ai-product-facts.cjs"
+      - "scripts/check-live-editorial-assets.cjs"
       - "public/index.html"
       - "scripts/ensure-bing-webmaster-verification.cjs"
       - "scripts/check-priority-seo-guides.cjs"
@@ -70,6 +76,10 @@ jobs:
         run: node scripts/check-school-procurement-evidence.cjs
       - name: Verify blank open trial kit and procurement links
         run: node scripts/check-open-trial-kit.cjs
+      - name: Rebuild AI directory and retain editorial review resources
+        run: |
+          node scripts/check-ai-product-facts.cjs
+          node scripts/build-ai-product-facts.cjs --check
       - name: Verify first-touch AI referral capture covers public buyer pages
         run: |
           node scripts/build-first-touch-crawl-coverage.cjs

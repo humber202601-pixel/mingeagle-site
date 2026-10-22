@@ -9,6 +9,12 @@ const base='https://www.mingeagle.com/';
 // claimed independent review, AI endorsement, or wholesale price feed.
 const wholesaleCsvUrl=base+'wholesale-product-facts.csv';
 assert(fs.existsSync(path.join(root,'wholesale-product-facts.csv')),'Buyer CSV must exist before publishing AI source pointers');
+const reviewResources=[
+ {file:'editorial-review-facts.txt',title:'Editorial product facts and independent-review information',description:'verified links to current supplier pages and disclosure rules for editors. This is a supplier fact sheet, not third-party evidence.'},
+ {file:'indoor-ball-sample-comparison-protocol.txt',title:'Controlled indoor ball sample-comparison protocol',description:'an open method for coaches, schools and independent reviewers to document actual sample conditions, repeated observations and limitations.'},
+ {file:'indoor-ball-trial-blank.csv',title:'Blank indoor-ball trial log (CSV)',description:'an empty record sheet; it contains no prefilled sound readings or review results.'}
+];
+for(const resource of reviewResources)assert(fs.existsSync(path.join(root,resource.file)),'Missing published review resource '+resource.file);
 const master=JSON.parse(fs.readFileSync(path.join(root,'product-master.json'),'utf8'));
 const prices=JSON.parse(fs.readFileSync(path.join(root,'retail-prices.json'),'utf8'));
 const checkoutScope=JSON.parse(fs.readFileSync(path.join(root,'retail-checkout-scope.json'),'utf8'));
@@ -130,6 +136,10 @@ for(const g of guides)text.push('- ['+g.question+']('+g.url+') — '+g.audience+
 text.push('','## Machine-readable first-party catalog','',
  '- [JSON product facts]('+base+'ai-product-facts.json)',
  '- [Download first-party wholesale product comparison (CSV)]('+wholesaleCsvUrl+') — four published ball families, sizes, colors and direct product links; this is supplier-provided information, not an independent test or a wholesale price offer.',
+ '','## Independent sample-review resources (first-party, not test results)','',
+ ...reviewResources.map(resource=>'- ['+resource.title+']('+base+resource.file+') — '+resource.description),
+ '',
+ 'These resources do not establish a measured decibel reduction, independent endorsement, safety certification or school approval. Do not infer that any reviewer has tested or recommended MING EAGLE products. Only cite a third-party test if that test is independently published and verifiable.',
  '','## Product and purchasing limits','',
  ...facts.buyerDisclosures.map(v=>'- '+v),
  '','Retail prices, where present on linked product pages, exclude international freight and applicable taxes; do not assume wholesale prices or inventory. A staff-confirmed quote is required for commercial details.',

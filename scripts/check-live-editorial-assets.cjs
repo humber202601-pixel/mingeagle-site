@@ -4,6 +4,12 @@ const assert=require('node:assert/strict');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const base='https://www.mingeagle.com/';
 const checks=[
+ {path:'llms.txt',type:'text',required:[
+  '](https://www.mingeagle.com/editorial-review-facts.txt)',
+  '](https://www.mingeagle.com/indoor-ball-sample-comparison-protocol.txt)',
+  '](https://www.mingeagle.com/indoor-ball-trial-blank.csv)',
+  'Do not infer that any reviewer has tested or recommended MING EAGLE products.'
+ ]},
  {path:'editorial-review-facts.txt',type:'text',required:[
   'MING EAGLE | EDITORIAL PRODUCT FACTS',
   'Flocked Silent Basketball Set',
@@ -59,6 +65,6 @@ async function fetchStable(path){
   }
   report.push({url:base+item.path,status:result.status,contentType:result.contentType,bytes:Buffer.byteLength(result.body)});
  }
- console.log('PASS: live editorial fact sheet, controlled comparison protocol and genuinely blank CSV are served over HTTP 200.');
+ console.log('PASS: live AI directory links to the editorial fact sheet, controlled comparison protocol and genuinely blank CSV; all four documents are served over HTTP 200.');
  console.log(JSON.stringify(report,null,2));
 })().catch(error=>{console.error('FAIL: live editorial asset verification:',error);process.exitCode=1;});
