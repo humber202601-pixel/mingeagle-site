@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 const base = 'https://www.mingeagle.com/';
-const files = ['', 'ga4-consent.js?v=20261022-footerprivacy1', 'ga4-consent.css?v=20261022-footerprivacy1', 'policies.html', 'inquiry.html', 'inquiry.js?v=20261020-ga4lead1'];
+const files = ['', 'ga4-consent.js?v=20261022-b2brfq1', 'ga4-consent.css?v=20261022-footerprivacy1', 'policies.html', 'inquiry.html', 'inquiry.js?v=20261022-b2brfq1'];
 
 async function get(url) {
   const response = await fetch(url, {
@@ -29,14 +29,15 @@ assert(js.includes("document.createElement('a')") && js.includes("settings.href 
 assert(js.includes("document.querySelector('.footer .footgrid > div:last-child')"), 'Privacy settings must be appended to the existing footer');
 assert(policies.includes('Google Analytics 4') && policies.includes('Privacy settings link in the website footer'), 'GA4 privacy notice must disclose the footer settings link');
 assert(js.includes("window.gtag('event', 'generate_lead'") && js.includes('trackConfirmedLead'), 'Live GA4 must expose the confirmed-lead event');
+assert(js.includes("window.gtag('event', 'wholesale_rfq_10plus'"), 'Live GA4 must expose the 10+ submitted wholesale signal');
 assert(inquiryHtml.includes('inquiry.js?v=20261020-ga4lead1') && inquiryHtml.includes('forms-core.js?v=20261019-usstate1'), 'Inquiry HTML must reference the exact cache-busted inquiry and forms assets');
 assert(inquiry.includes('function recordAcceptedLead(data,delivery)'), 'Live inquiry must guard optional analytics independently of CRM success');
-assert(inquiry.includes('root.MingEagleGA4.trackConfirmedLead(data.requestType,delivery)'), 'Live inquiry must call the consent-gated GA4 tracker through its safe wrapper');
+assert(inquiry.includes('root.MingEagleGA4.trackConfirmedLead(data.requestType,delivery,data.quantity)'), 'Live inquiry must pass self-declared quantity only to the local consent-gated gate');
 const crmConfirmed = inquiry.indexOf('await sendCrmInquiry(c,d,context');
 const crmLead = inquiry.indexOf("recordAcceptedLead(d,'primary_crm')");
 const backupConfirmed = inquiry.indexOf('await sendPayload(c,buildPayload(d,c,context));');
 const backupLead = inquiry.indexOf("recordAcceptedLead(d,'backup_form')");
 assert(crmConfirmed >= 0 && crmLead > crmConfirmed && crmLead < inquiry.indexOf('}catch(crmError)'), 'Live primary lead event must follow confirmed CRM acceptance');
 assert(backupConfirmed >= 0 && backupLead > backupConfirmed && backupLead < inquiry.indexOf('}catch(backupError)'), 'Live backup lead event must follow accepted backup submission');
-assert(policies.includes('generic completed-lead event') && policies.includes('without sending the reference or form contents'), 'Privacy policy must disclose generic lead conversion tracking');
+assert(policies.includes('generic completed-lead event') && policies.includes('wholesale-RFQ submission event') && policies.includes('without sending the reference or form contents'), 'Privacy policy must disclose both generic and 10+ wholesale tracking');
 console.log('PASS: exact versioned GA4 and inquiry assets, consent/revocation, confirmed-lead success gates, privacy disclosure and sanitized URLs are published.');

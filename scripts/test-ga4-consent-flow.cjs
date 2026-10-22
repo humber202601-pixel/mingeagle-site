@@ -51,7 +51,33 @@ assert.equal(rejected.collected.length, 0);
 const disabled = createHarness('accepted', true);
 assert.equal(disabled.browser.MingEagleGA4.trackConfirmedLead('Wholesale quote', 'primary_crm'), false);
 assert.equal(disabled.collected.length, 0);
-console.log('PASS: accepted confirmed leads emit only sanitized enum parameters; rejected/disabled analytics emit nothing.');
+// The additional event is a submitted 10+ wholesale RFQ, NEVER a manually qualified lead.
+const submitted = createHarness('accepted');
+submitted.browser.MingEagleGA4.trackConfirmedLead('Wholesale quote', 'primary_crm', '10');
+assert.equal(submitted.collected.map(x=>x[1]).join(','), 'generate_lead,wholesale_rfq_10plus');
+assert.deepEqual(Object.keys(submitted.collected[1][2]).sort(),
+  ['page_location','send_to']);
+assert.equal(submitted.collected[1][2].page_location,'https://www.mingeagle.com/inquiry.html');
+submitted.browser.MingEagleGA4.trackConfirmedLead('Wholesale quote', 'primary_crm', '50–99 units');
+assert.equal(submitted.collected.filter(x=>x[1]==='wholesale_rfq_10plus').length,2);
+for (const [kind,service,qty] of [
+ ['Wholesale quote','primary_crm','9'],
+ ['Wholesale quote','primary_crm','3–49 units'],
+ ['Wholesale quote','primary_crm','Not sure yet'],
+ ['Wholesale quote','backup_form','100'],
+ ['Sample request','primary_crm','100'],
+ ['Retail purchase inquiry','primary_crm','100'],
+ ['Wholesale quote','primary_crm','100; private@example.test']
+]) {
+  const v=createHarness('accepted');
+  v.browser.MingEagleGA4.trackConfirmedLead(kind,service,qty);
+  assert.equal(v.collected.length,1,'Do not create 10+ event for '+kind+' / '+service+' / '+qty);
+}
+const noConsent=createHarness('rejected');
+assert.equal(noConsent.browser.MingEagleGA4.trackConfirmedLead('Wholesale quote','primary_crm','100'),false);
+assert.equal(noConsent.collected.length,0);
+assert(!JSON.stringify(submitted.collected).includes('email='));
+console.log('PASS: accepted leads emit sanitized events; only accepted 10+ primary wholesale submissions emit the separate non-qualified signal; rejected analytics emit nothing.');
 
 
 // Exercise the real consent UI with a tiny DOM harness: the settings entry is

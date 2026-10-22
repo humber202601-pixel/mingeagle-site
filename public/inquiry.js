@@ -24,7 +24,7 @@ function recordAcceptedLead(data,delivery){
  if(!ref||measuredLeadReferences.has(ref))return false;
  try{
   if(typeof root.MingEagleGA4?.trackConfirmedLead!=='function')return false;
-  const sent=root.MingEagleGA4.trackConfirmedLead(data.requestType,delivery)===true;
+  const sent=root.MingEagleGA4.trackConfirmedLead(data.requestType,delivery,data.quantity)===true;
   if(sent)measuredLeadReferences.add(ref); // Private in-memory dedupe; never sent to GA4.
   return sent;
  }catch(error){

@@ -203,7 +203,7 @@
 
   // Count only server-accepted inquiries, never an attempted form click.
   // All fields are fixed enums: no customer details or inquiry references.
-  function trackConfirmedLead(requestType, delivery) {
+  function trackConfirmedLead(requestType, delivery, quantity) {
     if (readChoice() !== 'accepted' || !window.__mingeagleGa4Loaded ||
         window['ga-disable-' + MEASUREMENT_ID] === true ||
         typeof window.gtag !== 'function') return false;
@@ -212,12 +212,27 @@
       requestType === 'Retail purchase inquiry' ? 'retail' : 'other';
     var deliveryType = delivery === 'primary_crm' ? 'primary_crm' :
       delivery === 'backup_form' ? 'backup_form' : 'other';
+    var safeLocation = safePageUrl(window.location.href);
     window.gtag('event', 'generate_lead', {
       send_to: MEASUREMENT_ID,
       lead_type: leadType,
       lead_delivery: deliveryType,
-      page_location: safePageUrl(window.location.href)
+      page_location: safeLocation
     });
+    // A separate, narrow *submitted inquiry* signal for initial paid-search evaluation.
+    // Never call this a CRM-qualified lead. Only count primary-CRM-accepted wholesale
+    // requests with an explicit 10+ unit quantity or a buyer-selected 50+ range.
+    // No quantities, identity or references are sent to Google.
+    var qty = String(quantity || '').trim();
+    var exact = /^[1-9][0-9]{0,5}$/.test(qty) ? Number(qty) : 0;
+    var declaredBulk = exact >= 10 && exact <= 999999 ||
+      /^(?:50–99 units|100–499 units|500–999 units|1,000\+ units)$/.test(qty);
+    if (leadType === 'wholesale' && deliveryType === 'primary_crm' && declaredBulk) {
+      window.gtag('event', 'wholesale_rfq_10plus', {
+        send_to: MEASUREMENT_ID,
+        page_location: safeLocation
+      });
+    }
     return true;
   }
   window.MingEagleGA4 = Object.freeze({ trackConfirmedLead: trackConfirmedLead });

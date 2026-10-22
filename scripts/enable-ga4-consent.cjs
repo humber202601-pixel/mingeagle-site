@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.join(__dirname, '../public');
 const cssTag = '<link rel="stylesheet" href="/ga4-consent.css?v=20261022-footerprivacy1" data-mingeagle-ga4-consent="styles">';
-const jsTag = '<script defer src="/ga4-consent.js?v=20261022-footerprivacy1" data-mingeagle-ga4-consent="script"></script>';
+const jsTag = '<script defer src="/ga4-consent.js?v=20261022-b2brfq1" data-mingeagle-ga4-consent="script"></script>';
 const checkOnly = process.argv.includes('--check');
 const files = fs.readdirSync(root).filter(function (name) { return /\.html$/i.test(name); });
 if (files.length < 20) throw new Error('Unexpectedly small public HTML catalog');
