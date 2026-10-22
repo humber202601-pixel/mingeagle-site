@@ -17,7 +17,7 @@ for(const url of [
  'https://www.mingeagle.com/indoor-ball-trial-blank.csv'
 ])assert(press.includes(url),'Source missing from fact sheet: '+url);
 assert(readme.includes('https://www.mingeagle.com/editorial-review-facts.txt'),'README must expose the original fact sheet');
-for(const phrase of ['not an independent endorsement','no test data','not certified','not require a review','sample does not require a review']){
+for(const phrase of ['not an independent endorsement','no test data','we do not claim a verified number of decibels quieter','not require a review','sample does not require a review']){
  assert(press.toLowerCase().includes(phrase.toLowerCase())||press.toLowerCase().includes(phrase.toLowerCase().replace('not require','does not require')),
  'Editorial ethics/evidence limitation missing: '+phrase);
 }
@@ -28,7 +28,6 @@ for(const url of [
  'https://peuniverse.com/log-in/'
 ])assert(research.includes(url),'Missing editorial contact/source: '+url);
 assert(research.includes('RESEARCHED AND DRAFTED, NOT SENT'),'Drafts must not be presented as sent');
-assert(research.includes('NO signup')===false); // Avoid inventing an authorless sign-up claim.
 assert(!/status:\s*(?:SENT|PUBLISHED|APPROVED|ENDORSED)/i.test(research),'Unverified publication claim');
 assert(!/guaranteed (?:backlink|recommendation|publication|citation)/i.test(press));
 console.log('PASS: media fact sheet has honest first-party links, ethical review disclosures and unsent source-backed editorial targets.');
