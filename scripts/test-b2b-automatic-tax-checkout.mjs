@@ -122,8 +122,8 @@ globalThis.fetch=async(url,init)=>{
 const makeCheckout=()=>new Request(origin+'/api/payments/stripe/create',{
  method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify({token:bearer})
 });
-const signedEvent=(eventId,payload)=>{
- const raw=JSON.stringify({id:eventId,type:'checkout.session.completed',data:{object:payload}});
+const signedEvent=(eventId,payload,type='checkout.session.completed')=>{
+ const raw=JSON.stringify({id:eventId,type,data:{object:payload}});
  const timestamp=Math.floor(Date.now()/1000);
  const signature=createHmac('sha256',env.STRIPE_WEBHOOK_SECRET).update(timestamp+'.'+raw).digest('hex');
  return new Request(origin+'/api/payments/stripe/webhook',{method:'POST',body:raw,
@@ -173,7 +173,21 @@ try{
  assert.equal((await duplicate.json()).duplicate,true);
  assert.equal(sql.prepare('SELECT COUNT(*) n FROM payments WHERE order_id=?').get(orderId).n,1);
  assert.equal(sql.prepare("SELECT COUNT(*) n FROM tasks WHERE order_id=? AND type='FULFILLMENT'").get(orderId).n,1);
- console.log('PASS: accepted B2B quote marked STRIPE_AUTOMATIC_AT_CHECKOUT → server-priced pre-tax amount → Stripe automatic-tax Checkout → signed tax/amount reconciliation → PAID once → one fulfillment task; no live charges.');
+ const ordersBeforeDiagnostic=sql.prepare('SELECT COUNT(*) n FROM orders').get().n;
+ const paymentsBeforeDiagnostic=sql.prepare('SELECT COUNT(*) n FROM payments').get().n;
+ const tasksBeforeDiagnostic=sql.prepare('SELECT COUNT(*) n FROM tasks').get().n;
+ env.STRIPE_MODE='live';
+ const diagnostic={id:'cs_live_b1M55AMhDNYHZLQgGbgeWhvcTjGphLUXdcub0HHzsda4OMQOMVd1Xx9dVG',
+  status:'expired',payment_status:'unpaid',amount_total:2140,currency:'usd',
+  client_reference_id:'MINGEAGLE_AUTOMATIC_TAX_DIAGNOSTIC_NO_PAYMENT',
+  metadata:{purpose:'MING_EAGLE_AUTOMATIC_TAX_DIAGNOSTIC_NO_PAYMENT',diagnostic_only:'true'}};
+ const expired=await webhook({env,request:signedEvent('evt_live_auto_tax_diagnostic_expired',diagnostic,'checkout.session.expired')});
+ assert.equal(expired.status,200,await expired.clone().text());
+ assert.equal((await expired.json()).automaticTaxDiagnosticExpiry,true);
+ assert.equal(sql.prepare('SELECT COUNT(*) n FROM orders').get().n,ordersBeforeDiagnostic);
+ assert.equal(sql.prepare('SELECT COUNT(*) n FROM payments').get().n,paymentsBeforeDiagnostic);
+ assert.equal(sql.prepare('SELECT COUNT(*) n FROM tasks').get().n,tasksBeforeDiagnostic);
+ console.log('PASS: accepted B2B quote marked STRIPE_AUTOMATIC_AT_CHECKOUT → server-priced pre-tax amount → Stripe automatic-tax Checkout → signed tax/amount reconciliation → PAID once → one fulfillment task; unpaid Live diagnostic expiry is safely ignored without CRM writes.');
 } finally {
  globalThis.fetch=savedFetch;
  sql.close();
