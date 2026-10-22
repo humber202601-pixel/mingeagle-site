@@ -15,7 +15,7 @@ const checks=[
  {path:'indoor-ball-sample-comparison-protocol.txt',type:'text',required:[
   'CONTROLLED INDOOR BALL SAMPLE COMPARISON',
   'does not contain product test results',
-  'not a test of MING EAGLE products',
+  'NOT TESTS OF MING EAGLE PRODUCTS',
   'https://www.cdc.gov/niosh/topics/noise/app.html'
  ]},
  {path:'indoor-ball-trial-blank.csv',type:'csv',required:[
