@@ -20,7 +20,7 @@ Observed public examples:
 - **Campaign name:** `US B2B Quiet Basketball — Phase 1`
 - **Type:** Search only
 - **Networks:** Google Search; turn off Display Network. Keep Search Partners off for the initial test if the UI permits.
-- **Locations:** United States; choose the presence option for people in or regularly in the targeted locations, not people who merely show interest in the US.
+- **Locations:** United States. For this narrowly defined US-buyer pilot, select people in or regularly in the targeted locations rather than people who merely show interest in the US. This intentionally reduces reach to buyers outside the US; revisit only if qualified demand data supports broader reach.
 - **Language:** English
 - **Match types:** Exact and phrase only; no broad match in Phase 1.
 - **Schedule:** 14 days, with a specific end date. Keep paused until every launch gate below passes.
@@ -46,8 +46,8 @@ Official budget guidance:
 | `silent basketball wholesale` | Phrase |
 | `quiet basketball bulk` | Phrase |
 | `bulk silent basketball supplier` | Phrase |
-| `indoor basketball wholesale` | Phrase |
-| `soft basketball wholesale` | Phrase |
+| `quiet basketball supplier` | Phrase |
+| `silent basketball distributor` | Phrase |
 
 ### Responsive search ad headlines (all ≤30 characters)
 
@@ -78,12 +78,11 @@ Official budget guidance:
 
 | Keyword | Match |
 |---|---|
-| `bulk basketballs for schools` | Exact |
-| `school PE basketball supplier` | Phrase |
-| `school basketball equipment wholesale` | Phrase |
-| `bulk sports balls for schools` | Phrase |
-| `school sports equipment supplier` | Phrase |
-| `basketball equipment for PE programs` | Phrase |
+| `bulk quiet basketballs for schools` | Exact |
+| `quiet basketballs for PE classes` | Phrase |
+| `soft indoor basketballs for schools` | Phrase |
+| `bulk basketballs for after-school programs` | Phrase |
+| `quiet indoor basketballs for training centers` | Phrase |
 
 ### Responsive search ad headlines (all ≤30 characters)
 
@@ -112,7 +111,6 @@ Official responsive-search-ad limits: headlines up to 30 characters and descript
 
 Start with the following irrelevant-intent exclusions, then review actual Search Terms reports before adding more:
 
-- free
 - used
 - second hand
 - DIY
@@ -124,10 +122,14 @@ Start with the following irrelevant-intent exclusions, then review actual Search
 - NBA live
 - NBA scores
 - game download
+- free printable
+- basketball video game
 - court rental
 - logo maker
 
-Do not automatically exclude terms such as `kids`, `school`, `foam`, `training`, or `indoor`: these can describe legitimate users or products.
+Do not blanket-exclude `free`, `kids`, `school`, `foam`, `training`, `indoor`, `mini hoop`, `cheap`, or `price` before reviewing real search terms: these can describe legitimate product features or buyer intent. Generic terms such as `school sports equipment supplier` and `PE equipment supplier` are deferred because they are too broad for this first test.
+
+For why these tiers differ and the separate public-procurement route, see [B2B Buyer-Intent Research Matrix](us-b2b-buyer-intent-research-2026-10-22.md).
 
 ## 6. Ad URL tracking
 
@@ -182,6 +184,7 @@ A click, page view, opened form, unverified submission, or personal sample reque
 
 - [ ] Google Ads payment / billing setup is accepted.
 - [ ] Search campaign, US presence targeting, English, exact/phrase match and network settings are reviewed.
+- [ ] Launch keywords are limited to explicit wholesale or quiet/soft indoor institutional intent; broad school-supply and consumer-only terms are deferred.
 - [ ] $70 campaign-total cap is applied, or the $2.50/day + 14-day fallback is set.
 - [ ] Both final URLs return HTTP 200, are HTTPS / indexable, and match their ad intent.
 - [ ] Ad copy is approved for factual accuracy and character limits.
