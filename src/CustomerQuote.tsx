@@ -14,6 +14,7 @@ export default function CustomerQuote(){
  const [data,setData]=useState<Info|null>(null);
  const [payment,setPayment]=useState<PayStatus|null>(null);
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
+ const [returnPolls,setReturnPolls]=useState(0);
  const valid=useMemo(()=>/^[0-9a-f]{64}$/i.test(token),[token]);
  const returned=query.get('payment_return')==='1';
  async function load(){
@@ -37,6 +38,29 @@ export default function CustomerQuote(){
    .catch(()=>{if(active)setError('Unable to load this secure order.')});
   return ()=>{active=false;tag.remove();ref.remove()};
  },[token,valid]);
+ // Stripe's redirect is not proof of payment. Poll only the protected
+ // read-only quote JSON after a success return; the signed webhook alone
+ // updates the server-side receipt, and no browser request can mark PAID.
+ // A bounded retry avoids repeated clicks/duplicate hosted Checkout requests.
+ useEffect(()=>{
+  const order=data?.order;
+  if(!returned||!valid||!order||returnPolls>=8||
+     order.payment_status==='PAID'||order.payment_status==='REFUNDED'||
+     order.status==='CANCELLED'||Number(order.active_payment_review_count||0)>0)return;
+  let active=true;
+  const timer=window.setTimeout(async()=>{
+   try{
+    const response=await fetch('/api/quote/'+token,{cache:'no-store'});
+    if(response.ok){
+     const updated=await response.json() as Info;
+     if(active&&updated.ok)setData(updated);
+    }
+   }catch{ /* temporary status read failure; never infer a paid order */ }
+   finally{if(active)setReturnPolls(count=>count+1)}
+  },2500);
+  return ()=>{active=false;window.clearTimeout(timer)};
+ },[returned,valid,token,returnPolls,data?.order?.reference,data?.order?.status,
+    data?.order?.payment_status,data?.order?.active_payment_review_count]);
  async function payStripe(){
   if(!valid||!checkoutReadyForOrder||paymentHeld||closedOrder||taxReviewNeeded||!data?.order||busy)return;
   setBusy(true);setError('');
@@ -120,7 +144,11 @@ export default function CustomerQuote(){
      {order?<div role="status">
       <strong>Order {order.reference}</strong>
       <p>Payment: {order.payment_status}. Status: {order.status}.</p>
-      {returned&&<p>We received your return from the payment page. We only mark the order paid after server-side confirmation. Please refresh if your payment is processing.</p>}
+      {returned&&order.payment_status!=='PAID'&&<p role="status">
+       {returnPolls<8
+        ?'Your Stripe checkout has returned. We are checking the signed payment confirmation. Do not pay again while this check is in progress.'
+        :'Payment has not yet been verified. Do not pay again. Please contact MING EAGLE or check this order later.'}
+      </p>}
      </div>:<p>No order has been created for this quotation yet.</p>}
      {error&&<p role="alert" className="form-status error">{error}</p>}
      {paymentHeld?<p role="alert" className="form-status error">
@@ -135,7 +163,9 @@ export default function CustomerQuote(){
       Wholesale payment requires a complete buyer-confirmed US shipping address, matching accepted freight and Stripe payment terms, and documented seller tax review. Please request an updated quotation; no new payment has been started.</p>:
       !order&&['SENT','VIEWED'].includes(q.status)&&!q.is_expired?
        <button className="button" disabled={busy} onClick={accept}>{busy?'Processing…':'Accept quote to create unpaid order'}</button>:
-       order&&checkoutReadyForOrder?
+       returned&&order&&order.payment_status!=='PAID'?
+       <p role="status" className="form-note">We are verifying the previous Stripe checkout. A new charge will not be started from this return page.</p>:
+      order&&checkoutReadyForOrder?
        <button className="button" disabled={busy} onClick={payStripe}>{busy?'Preparing…':'Pay securely with Stripe'}</button>:
        <p className="form-note">Stripe online payment is not yet activated for this order. Contact MING EAGLE for the approved Stripe payment link.</p>}
      <p className="form-note">Do not send credit card details by email, chat or WhatsApp.</p>
