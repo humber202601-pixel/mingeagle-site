@@ -226,7 +226,7 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
       </div><div className="detail-message"><small>客户留言</small><p>{text(r.message,'无')}</p></div></Section>
       <Section title="询盘处置">
         {r.status==='CLOSED'
-          ? <p role="status" className="detail-note">该询盘已关闭。联系人、潜客、消息和销售历史均保留；关闭操作不会发送邮件或删除客户资料。</p>
+          ? <><p role="status" className="detail-note">该询盘已关闭。联系人、潜客、消息和销售历史均保留；关闭操作不会发送邮件或删除客户资料。</p>{closeResult&&<p role="status" className="form-status">{closeResult}</p>}</>
           : <>
             <p className="detail-note">关闭只会将此询盘标记为“已关闭”，并取消与询盘编号完全匹配的审核待办。联系人、潜客、消息、报价、订单和历史记录均不会删除；如存在未结束报价或任何关联订单，服务端会拒绝关闭。</p>
             <label className="quote-tax-basis">关闭原因（必填）
