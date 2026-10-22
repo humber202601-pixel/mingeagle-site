@@ -24,4 +24,4 @@ Two individualized editorial inquiries were sent from the established business m
 - Record actual responses, publication URLs, referral visits and buyer RFQs separately. All remain unverified at dispatch.
 - Private Gmail thread identifiers and mailbox screenshots are deliberately excluded from this public repository.
 
-The earlier submission pack and researched queue are preparation records. This dispatch log supersedes their initial unsent status for these two recipients only. Sports Feel Good Stories and PE Universe remain uncontacted.
+The earlier submission pack and researched queue are preparation records. This dispatch log supersedes their initial unsent status for these two recipients only. Subsequent update: Sports Feel Good Stories was contacted in the second wave; see `docs/marketing/editorial-expansion-wave2-2026-10-22.md`. PE Universe remains uncontacted.
