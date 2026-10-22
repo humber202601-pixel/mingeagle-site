@@ -112,7 +112,7 @@ function titleAndDescription(filename,titleExpected,descriptionExpected){
  assert(page,'School RFQ WebPage schema is required');
  assert.equal(page.description,description);
  assert.equal(page.primaryImageOfPage?.url,image,'School RFQ schema image must match the visible image');
- assert.equal(page.dateModified,'2026-10-19');
+ assert.equal(page.dateModified,'2026-10-22');
 }
 {
  const filename='inquiry.html';
