@@ -10,7 +10,7 @@ for (const name of files) {
   assert.equal((html.match(/data-mingeagle-ga4-consent="styles"/g) || []).length, 1, 'Exactly one GA4 consent stylesheet in ' + name);
   assert.equal((html.match(/data-mingeagle-ga4-consent="script"/g) || []).length, 1, 'Exactly one GA4 consent script in ' + name);
   assert(html.includes('href="/ga4-consent.css?v=20261022-footerprivacy1"'), 'Current cache-busted GA4 CSS URL in ' + name);
-  assert(html.includes('src="/ga4-consent.js?v=20261022-footerprivacy1"'), 'Current cache-busted GA4 JS URL in ' + name);
+  assert(html.includes('src="/ga4-consent.js?v=20261022-b2brfq1"'), 'Current cache-busted GA4 JS URL in ' + name);
   assert(!html.includes('googletagmanager.com/gtag/js'), 'Google tag must not be embedded before visitor consent: ' + name);
 }
 const js = fs.readFileSync(path.join(root, 'ga4-consent.js'), 'utf8');
@@ -25,9 +25,12 @@ assert(js.includes('send_page_view: false'), 'Initial page view must be explicit
 assert(js.includes('url.origin + url.pathname'), 'Query strings and fragments must be removed from measured URLs');
 assert(js.includes('allow_google_signals: false') && js.includes('allow_ad_personalization_signals: false'), 'Advertising signals must be disabled');
 assert(js.includes("window.gtag('event', 'generate_lead'"), 'Only explicit confirmed lead conversion events are counted');
+assert(js.includes("window.gtag('event', 'wholesale_rfq_10plus'"), 'Separate submitted wholesale RFQ signal missing');
+assert(js.includes("deliveryType === 'primary_crm' && declaredBulk"), 'No wholesale signal for backup or unknown quantity');
 assert(js.includes("readChoice() !== 'accepted'"), 'Lead events must remain consent-gated');
 assert(js.includes("lead_type: leadType") && js.includes("lead_delivery: deliveryType"), 'Lead event only carries enum values');
 assert(!js.includes("lead_email:") && !js.includes("lead_reference:"), 'Lead events must not send customer identifiers');
+assert(js.includes('page_location: safeLocation'), 'Wholesale event must use sanitized page URL');
 const inquirySource = fs.readFileSync(path.join(root, 'inquiry.js'), 'utf8');
 const crmConfirmed = inquirySource.indexOf('await sendCrmInquiry(c,d,context');
 const crmLead = inquirySource.indexOf("recordAcceptedLead(d,'primary_crm')");
@@ -57,7 +60,7 @@ try{
  if(previous===undefined)delete global.MingEagleGA4;else global.MingEagleGA4=previous;
 }
 const inquiryHtml = fs.readFileSync(path.join(root, 'inquiry.html'), 'utf8');
-assert(inquiryHtml.includes('inquiry.js?v=20261020-ga4lead1'), 'Inquiry script URL must be cache-busted when conversion code changes');
+assert(inquiryHtml.includes('inquiry.js?v=20261022-b2brfq1'), 'Inquiry script URL must be cache-busted when conversion code changes');
 const css = fs.readFileSync(path.join(root, 'ga4-consent.css'), 'utf8');
 assert(js.includes("document.createElement('a')"), 'Privacy settings must be a normal footer link');
 assert(js.includes("settings.href = '/policies.html#privacy'"), 'Privacy settings link must have a useful policy fallback');
@@ -68,5 +71,5 @@ assert(!css.includes('.mingeagle-ga4-settings {\n  position: fixed'), 'Privacy s
 
 assert(css.includes('.mingeagle-ga4-panel') && css.includes(':focus-visible'), 'Accessible consent banner styles');
 const policy = fs.readFileSync(path.join(root, 'policies.html'), 'utf8');
-assert(policy.includes('Google Analytics 4') && policy.includes('query strings') && policy.includes('Privacy settings'), 'Privacy policy must disclose opt-in GA4 and controls');
+assert(policy.includes('Google Analytics 4') && policy.includes('wholesale-RFQ submission event') && policy.includes('query strings') && policy.includes('Privacy settings'), 'Privacy policy must disclose opt-in GA4 and controls');
 console.log('PASS: GA4 is opt-in, query strings are excluded, advertising signals are disabled, privacy disclosure is present, and all public HTML pages load exactly one consent UI.');
