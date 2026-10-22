@@ -20,6 +20,26 @@ assert.match(detailUI,/quoteTotals\([^\n]*shipping,0,tax\)/,
 const {parseWholesaleRfq}=await load('src/rfqParser.ts');
 const {reviewRfqQuantityConstraints}=await load('lib/rfq-commercial-check.ts');
 const tmp=mkdtempSync(join(tmpdir(),'me-wholesale-'));
+assert.match(detailUI,/buildReviewedWholesaleDeliveryTerms\(wholesaleDestinationState,wholesaleDutyBasis,wholesaleDeliveryTerms\)/,
+  'The quote draft must derive exact buyer-approved delivery terms from reviewed inputs');
+assert.match(detailUI,/shippingTerms,quantityConstraints/,
+  'Draft API must receive reviewed shipping terms, not unresolved UI placeholder');
+const deliveryFile=join(tmp,'delivery.mjs');
+await build({entryPoints:['lib/b2b-draft-delivery.ts'],outfile:deliveryFile,bundle:true,platform:'node',format:'esm',logLevel:'silent'});
+const {buildReviewedWholesaleDeliveryTerms}=await import(pathToFileURL(deliveryFile));
+const agreedDelivery=buildReviewedWholesaleDeliveryTerms('ca','SELLER_INCLUDED','Sea freight from China; estimated delivery 25-30 days after dispatch.');
+assert.match(agreedDelivery,/^Ship-to state: CA\./);
+assert.match(agreedDelivery,/Seller covers customs clearance and US import duties/);
+assert.match(agreedDelivery,/sales tax is separately stated/);
+const buyerDuties=buildReviewedWholesaleDeliveryTerms('NY','BUYER_RESPONSIBLE','Sea freight from China; estimated delivery 25-30 days after dispatch.');
+assert.match(buyerDuties,/Buyer is responsible for customs clearance and US import duties/);
+for(const [state,basis,notes] of [
+  ['','SELLER_INCLUDED','Sea freight from China; estimated delivery 25-30 days after dispatch.'],
+  ['XX','SELLER_INCLUDED','Sea freight from China; estimated delivery 25-30 days after dispatch.'],
+  ['CA','','Sea freight from China; estimated delivery 25-30 days after dispatch.'],
+  ['CA','SELLER_INCLUDED','Duties and shipment to be confirmed'],
+])assert.throws(()=>buildReviewedWholesaleDeliveryTerms(state,basis,notes),
+  'Missing destination, duty review or final shipping terms must not produce payable quote terms');
 const outfile=join(tmp,'draft.mjs');
 await build({entryPoints:['functions/api/admin/wholesale-quote-draft.ts'],outfile,bundle:true,platform:'node',format:'esm',logLevel:'silent'});
 const {onRequestPost}=await import(pathToFileURL(outfile));
