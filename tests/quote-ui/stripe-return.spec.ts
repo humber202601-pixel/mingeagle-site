@@ -35,6 +35,7 @@ test('buyer Stripe return polls read-only status and never offers a second charg
   history.pushState({},'',path);
   dispatchEvent(new PopStateEvent('popstate'));
  },'/quote/'+token+'?payment_return=1');
+ await expect(page.getByRole('heading',{name:'MING EAGLE Secure Order'})).toBeVisible();
  await expect(page.getByText(/We are checking the signed payment confirmation/)).toBeVisible();
  await expect(page.getByRole('button',{name:'Pay securely with Stripe'})).toHaveCount(0);
  await expect(page.getByText('Payment confirmed. Thank you for your order.')).toBeVisible({timeout:20000});
