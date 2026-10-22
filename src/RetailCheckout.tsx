@@ -70,6 +70,26 @@ export default function RetailCheckout(){
    }
    const url=new URL(result.paymentPage);
    if(url.origin!==window.location.origin||!/^\/quote\/[0-9a-f]{64}$/.test(url.pathname))throw Error('Please contact us to confirm your order.');
+   // The D1 order is already committed. Try to hand the buyer straight to
+   // Stripe-hosted payment; never retry retail order creation if this fails.
+   // A Checkout Session is not a charge, and only the signed webhook can
+   // mark the order as paid. The private order URL remains a safe recovery.
+   try{
+    const token=url.pathname.split('/')[2];
+    const pay=await fetch('/api/payments/stripe/create',{
+     method:'POST',headers:{'content-type':'application/json'},
+     body:JSON.stringify({token}),signal:AbortSignal.timeout(15000)
+    });
+    if(pay.ok){
+     const session=await pay.json() as {ok?:boolean;url?:string};
+     if(session.ok===true&&typeof session.url==='string'){
+      const stripe=new URL(session.url);
+      if(stripe.protocol==='https:'&&stripe.hostname==='checkout.stripe.com'){
+       window.location.assign(stripe.href);return;
+      }
+     }
+    }
+   }catch{ /* Provider or network unavailable; the order already exists. */ }
    window.location.assign(url.href);
   }catch(e){captcha.reset();setError(e instanceof Error?e.message:'Unable to prepare order');setBusy(false)}
  }
