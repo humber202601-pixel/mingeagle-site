@@ -11,6 +11,7 @@ on:
       - 'scripts/build-wholesale-product-facts-csv.cjs'
       - 'scripts/check-wholesale-product-facts-csv.cjs'
       - 'scripts/check-earned-editorial-outreach.cjs'
+      - 'scripts/check-live-editorial-assets.cjs'
       - 'docs/marketing/earned-editorial-outreach-2026-10-22.md'
       - 'scripts/check-b2b-acquisition-resource.cjs'
       - 'scripts/check-procurement-ai-buyer-answers.cjs'
@@ -195,6 +196,7 @@ jobs:
           node scripts/check-live-asset-workflow.cjs
           node scripts/check-wholesale-product-facts-csv.cjs
           node scripts/check-earned-editorial-outreach.cjs
+          node --check scripts/check-live-editorial-assets.cjs
           node scripts/check-geo-source-capture.cjs
           node scripts/check-native-media.cjs
           node --check public/sales-assistant.js
