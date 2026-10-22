@@ -24,7 +24,7 @@ assert(js.includes('revokeGoogleAnalytics()') && js.includes("window['ga-disable
 assert(js.includes('url.origin + url.pathname'), 'Page locations must be sanitized');
 assert(css.includes('.mingeagle-ga4-panel'), 'Consent control CSS must be available');
 assert(css.includes('.footer .mingeagle-ga4-settings'), 'Privacy settings must use normal footer styling');
-assert(!css.includes('.mingeagle-ga4-settings {\\n  position: fixed'), 'Privacy settings must not float over the cart');
+assert(!css.includes('.mingeagle-ga4-settings {\n  position: fixed'), 'Privacy settings must not float over the cart');
 assert(js.includes("document.createElement('a')") && js.includes("settings.href = '/policies.html#privacy'"), 'Privacy settings must be a footer link with a useful fallback');
 assert(js.includes("document.querySelector('.footer .footgrid > div:last-child')"), 'Privacy settings must be appended to the existing footer');
 assert(policies.includes('Google Analytics 4') && policies.includes('Privacy settings link in the website footer'), 'GA4 privacy notice must disclose the footer settings link');
