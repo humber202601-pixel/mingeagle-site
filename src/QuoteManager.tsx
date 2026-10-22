@@ -36,7 +36,7 @@ export default function QuoteManager({ quotes, inquiries, accessKey, loading = f
       if (!response.ok || !body.ok || !body.publicPath || !body.reference) throw new Error(body.error || 'Unable to create customer link.');
       const url = `${window.location.origin}${body.publicPath}`;
       setLink({ reference: body.reference, url });
-      onRefresh();
+      await onRefresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to create customer link.');
     } finally {
