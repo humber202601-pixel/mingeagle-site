@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 
 const base = 'https://www.mingeagle.com/';
-const files = ['', 'ga4-consent.js?v=20261022-b2brfq1', 'ga4-consent.css?v=20261022-footerprivacy1', 'policies.html', 'inquiry.html', 'inquiry.js?v=20261022-b2brfq1'];
+// Keep version expectations in one place; fetch and HTML assertions use the same values.
+const ga4Script = 'ga4-consent.js?v=20261022-b2brfq1';
+const inquiryScript = 'inquiry.js?v=20261022-b2brfq1';
+const ga4Style = 'ga4-consent.css?v=20261022-footerprivacy1';
+const files = ['', ga4Script, ga4Style, 'policies.html', 'inquiry.html', inquiryScript];
 
 async function get(url) {
   const response = await fetch(url, {
@@ -18,7 +22,7 @@ const count = (str, token) => str.split(token).length - 1;
 assert.equal(count(index, 'data-mingeagle-ga4-consent="script"'), 1, 'Homepage must load exactly one consent controller');
 assert.equal(count(index, 'data-mingeagle-ga4-consent="styles"'), 1, 'Homepage must load exactly one consent stylesheet');
 assert.equal(count(index, 'googletagmanager.com/gtag/js'), 0, 'Google tracking tag must not load directly from HTML before consent');
-assert(index.includes('/ga4-consent.js?v=20261022-b2brfq1') && index.includes('/ga4-consent.css?v=20261022-footerprivacy1'), 'Homepage must reference the exact current GA4 cache-busted assets');
+assert(index.includes('/' + ga4Script) && index.includes('/' + ga4Style), 'Homepage must reference the exact current GA4 cache-busted assets');
 assert(js.includes('G-J0YYCB85PM'), 'Correct GA4 measurement ID must be live');
 assert(js.includes('revokeGoogleAnalytics()') && js.includes("window['ga-disable-' + MEASUREMENT_ID] = true"), 'Consent withdrawal must be live');
 assert(js.includes('url.origin + url.pathname'), 'Page locations must be sanitized');
@@ -30,7 +34,7 @@ assert(js.includes("document.querySelector('.footer .footgrid > div:last-child')
 assert(policies.includes('Google Analytics 4') && policies.includes('Privacy settings link in the website footer'), 'GA4 privacy notice must disclose the footer settings link');
 assert(js.includes("window.gtag('event', 'generate_lead'") && js.includes('trackConfirmedLead'), 'Live GA4 must expose the confirmed-lead event');
 assert(js.includes("window.gtag('event', 'wholesale_rfq_10plus'"), 'Live GA4 must expose the 10+ submitted wholesale signal');
-assert(inquiryHtml.includes('inquiry.js?v=20261020-ga4lead1') && inquiryHtml.includes('forms-core.js?v=20261019-usstate1'), 'Inquiry HTML must reference the exact cache-busted inquiry and forms assets');
+assert(inquiryHtml.includes(inquiryScript) && inquiryHtml.includes('forms-core.js?v=20261019-usstate1'), 'Inquiry HTML must reference the exact cache-busted inquiry and forms assets');
 assert(inquiry.includes('function recordAcceptedLead(data,delivery)'), 'Live inquiry must guard optional analytics independently of CRM success');
 assert(inquiry.includes('root.MingEagleGA4.trackConfirmedLead(data.requestType,delivery,data.quantity)'), 'Live inquiry must pass self-declared quantity only to the local consent-gated gate');
 const crmConfirmed = inquiry.indexOf('await sendCrmInquiry(c,d,context');
