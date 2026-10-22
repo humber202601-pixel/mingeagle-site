@@ -154,7 +154,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
           COALESCE(t.due_at, '9999-12-31') ASC
         LIMIT 50`).all(),
       db.prepare(`SELECT activity_type, title, description, created_at
-        FROM activities ORDER BY created_at DESC LIMIT 20`).all(),
+        FROM activities
+        WHERE activity_type NOT IN ('DISCOVERY_IMPORTED','DISCOVERY_ENRICHED')
+        ORDER BY created_at DESC LIMIT 20`).all(),
       db.prepare(`SELECT status, COUNT(*) AS value FROM leads GROUP BY status ORDER BY value DESC`).all(),
     ]);
 

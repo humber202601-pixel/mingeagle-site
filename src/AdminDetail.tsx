@@ -47,8 +47,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function WholesaleSavings({retail,price,quantity}:{retail:number;price:string;quantity:number}) {
   try {const comparison=calculate({retailUnitPrice:retail,wholesaleUnitPrice:price,quantity});return <strong style={{color:'#15803d'}}>每件节省 USD {comparison.savingsPerUnit} · 本项共节省 USD {comparison.savingsTotal} · 优惠 {comparison.discountPercent}%</strong>;}catch{return null;}
 }
-function WholesaleTotals({lines,prices,shipping}:{lines:ReturnType<typeof parseWholesaleRfq>;prices:Record<number,string>;shipping:string}) {
-  try {const totals=quoteTotals(lines.map((line,i)=>({quantity:line.quantity,unitPrice:prices[i]})),shipping);return <p><strong>商品 USD {totals.subtotal.toFixed(2)} + 运费 USD {totals.shipping.toFixed(2)} = 总额 USD {totals.total.toFixed(2)}</strong>（税费和交付条款仍需确认）</p>;}catch{return <p>逐项输入批发价和运费后，自动显示商品金额与总额。</p>;}
+function WholesaleTotals({lines,prices,shipping,tax}:{lines:ReturnType<typeof parseWholesaleRfq>;prices:Record<number,string>;shipping:string;tax:string}) {
+  try {const totals=quoteTotals(lines.map((line,i)=>({quantity:line.quantity,unitPrice:prices[i]})),shipping,0,tax);return <p><strong>商品 USD {totals.subtotal.toFixed(2)} + 运费 USD {totals.shipping.toFixed(2)} + 销售税 USD {totals.tax.toFixed(2)} = 含税总额 USD {totals.total.toFixed(2)}</strong></p>;}catch{return <p>填写每行批发价、运费和已核实的销售税后，自动显示含税总额。</p>;}
 }
 
 function MiniTable({ columns, rows }: { columns: Array<{ key: string; label: string; format?: (row: Row) => React.ReactNode }>; rows: Row[] }) {
@@ -89,7 +89,9 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
   const [supplierSources,setSupplierSources]=useState<ApprovedCostRow[]>([]);
   const [supplierSourceError,setSupplierSourceError]=useState('');
   const [wholesaleShipping,setWholesaleShipping]=useState('');
-  const [wholesalePaymentTerms,setWholesalePaymentTerms]=useState('Payment terms to be agreed with the buyer.');
+  const [wholesaleTax,setWholesaleTax]=useState('');
+  const [wholesaleTaxBasis,setWholesaleTaxBasis]=useState('');
+  const [wholesalePaymentTerms,setWholesalePaymentTerms]=useState('Pay the full quoted total by card through Stripe Checkout before fulfillment begins.');
   const [wholesaleDeliveryTerms,setWholesaleDeliveryTerms]=useState('Shipment from China; lead time and duties to be confirmed.');
   const [retailQuoteBusy,setRetailQuoteBusy] = useState(false);
   const [retailQuoteResult,setRetailQuoteResult] = useState('');
@@ -117,13 +119,19 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
   async function draftWholesale(reference:string,lines:ReturnType<typeof parseWholesaleRfq>){
     const prices=lines.map((_,i)=>wholesalePrices[i]);
     const shipping=wholesaleShipping;
+    const tax=wholesaleTax;
+    const taxBasis=wholesaleTaxBasis.trim();
     const quantityConstraints=lines.map((_,i)=>({moq:wholesaleMoqs[i]||'',casePack:wholesaleCasePacks[i]||''}));
     const review=reviewRfqQuantityConstraints(lines,quantityConstraints);
     if(!review.ok){setWholesaleResult('MOQ/整箱数量与客户要求有冲突：'+review.errors.map(x=>x.replace('LINE_','第').replaceAll('_',' ')).join('；')+'。请与供应商和客户确认，不能擅自修改数量。');return}
-    try{quoteTotals(lines.map((line,i)=>({quantity:line.quantity,unitPrice:prices[i]})),shipping);if(!wholesalePaymentTerms.trim()||!wholesaleDeliveryTerms.trim())throw new Error('TERMS');}catch{setWholesaleResult('请逐项填写两位小数以内的有效批发价、明确运费及商业条款。');return;}
+    if(tax.trim()===''||!taxBasis){
+      setWholesaleResult('请填写已核实的美国销售税金额和税务依据。只有有书面依据时才能填 0；DDP 进口关税不等于销售税。');
+      return;
+    }
+    try{quoteTotals(lines.map((line,i)=>({quantity:line.quantity,unitPrice:prices[i]})),shipping,0,tax);if(!wholesalePaymentTerms.trim()||!wholesaleDeliveryTerms.trim())throw new Error('TERMS');}catch{setWholesaleResult('请逐项填写有效批发价、运费、销售税金额及商业条款。');return;}
     setWholesaleBusy(true);setWholesaleResult('');
     try{
-      const response=await fetch('/api/admin/wholesale-quote-draft',{method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},body:JSON.stringify({inquiryReference:reference,unitPrices:prices,shippingUSD:shipping,paymentTerms:wholesalePaymentTerms,shippingTerms:wholesaleDeliveryTerms,quantityConstraints})});
+      const response=await fetch('/api/admin/wholesale-quote-draft',{method:'POST',headers:{'content-type':'application/json','x-admin-key':accessKey},body:JSON.stringify({inquiryReference:reference,unitPrices:prices,shippingUSD:shipping,taxUSD:tax,taxBasis,paymentTerms:wholesalePaymentTerms,shippingTerms:wholesaleDeliveryTerms,quantityConstraints})});
       const result=await response.json() as {ok?:boolean;error?:string;quoteReference?:string;totalUSD?:number;
         purchaseCostReview?:{approvedSkuBaselines:number;unverifiedSkuBaselines:number}};
       if(!response.ok||!result.ok)throw Error(result.error||'无法生成报价草稿');
@@ -183,8 +191,10 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
         <div><small>联系人</small><strong>{text(r.contact_name)}</strong></div><div><small>邮箱</small><strong>{text(r.contact_email)}</strong></div><div><small>客户公司</small><strong>{text(r.company_name)}</strong></div><div><small>预计数量</small><strong>{text(r.estimated_quantity)}</strong></div><div><small>国家</small><strong>{text(r.shipping_country)}</strong></div><div><small>邮编</small><strong>{text(r.shipping_postal_code)}</strong></div>
       </div><div className="detail-message"><small>客户留言</small><p>{text(r.message,'无')}</p></div></Section>
       {parseWholesaleRfq(r.message).length>0 && <Section title="B2B 组合采购明细"><p className="detail-note">来自客户填写的采购需求，不代表已确认报价或库存。</p><MiniTable rows={parseWholesaleRfq(r.message).map((item,i)=>({id:i+1,...item}))} columns={[{key:'product',label:'产品系列'},{key:'size',label:'球号'},{key:'color',label:'颜色'},{key:'quantity',label:'数量（件）'}]}/><p><strong>采购需求总件数：{parseWholesaleRfq(r.message).reduce((sum,r)=>sum+r.quantity,0).toLocaleString('zh-CN')}</strong></p></Section>}
-      {parseWholesaleRfq(r.message).length>0&&<Section title="生成 B2B 多行报价草稿（人工核价）"><p className="detail-note">系统会在后端以已审核且有效的 SKU / 尺码采购成本检查人工售价：等于或低于参考采购成本、低于正式 MOQ、违反整箱倍数的草稿将被拒绝；资料缺失或过期时只标记待核实，不推算毛利。此成本参考不覆盖颜色、特殊包装、物流、税费和平台费用。可前往 <Link to="/app/suppliers">供应商采购价资料库</Link> 人工审核。当前产品定价仍需独立确认。</p><p className="detail-note">如需维护供应商提供的 MOQ、整箱数量和采购成本，可先前往 <Link to="/app/suppliers">供应商采购价资料库</Link> 审核；该资料不会自动覆盖客户当前报价。逐规格人工核实批发价、供应商 MOQ 和需要整箱发货时的装箱倍数。未知数据留空并标记为待确认，不能将零售价推算为批发价、MOQ 或成本。若客户数量与已填写的 MOQ/整箱条件冲突，将阻止生成草稿；未经客户同意不自动调整件数。草稿不会自动发送；仍须核实运费、库存、交期与商业条款。</p>
+      {parseWholesaleRfq(r.message).length>0&&<Section title="生成 B2B 多行报价草稿（人工核价）"><details className="detail-guidance"><summary>查看完整报价审核规则</summary><p className="detail-note">系统会在后端以已审核且有效的 SKU / 尺码采购成本检查人工售价：等于或低于参考采购成本、低于正式 MOQ、违反整箱倍数的草稿将被拒绝；资料缺失或过期时只标记待核实，不推算毛利。此成本参考不覆盖颜色、特殊包装、物流、税费和平台费用。可前往 <Link to="/app/suppliers">供应商采购价资料库</Link> 人工审核。当前产品定价仍需独立确认。</p><p className="detail-note">如需维护供应商提供的 MOQ、整箱数量和采购成本，可先前往 <Link to="/app/suppliers">供应商采购价资料库</Link> 审核；该资料不会自动覆盖客户当前报价。逐规格人工核实批发价、供应商 MOQ 和需要整箱发货时的装箱倍数。未知数据留空并标记为待确认，不能将零售价推算为批发价、MOQ 或成本。若客户数量与已填写的 MOQ/整箱条件冲突，将阻止生成草稿；未经客户同意不自动调整件数。草稿不会自动发送；仍须核实运费、库存、交期与商业条款。</p>
        {supplierSourceError&&<p role="alert" className="form-status error">供应商成本资料未能加载：{supplierSourceError}。服务器端仍会独立校验，不能凭此视为无成本风险。</p>}
+       </details>
+       <p className="detail-note">日常只需核实每行批发价、运费、销售税金额及税务依据。报价草稿不会自动发送或收款。</p>
        <div style={{display:'grid',gap:12}}>{parseWholesaleRfq(r.message).map((line,i)=>{
         const review=reviewRfqQuantityConstraints([line],[{moq:wholesaleMoqs[i]||'',casePack:wholesaleCasePacks[i]||''}]);
         const unitPrice=wholesalePrices[i];
@@ -198,8 +208,13 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
           <span>零售价参考 USD {RETAIL_USD[line.product]?.[line.size]?.toFixed(2) || '—'} · <WholesaleSavings retail={RETAIL_USD[line.product]?.[line.size]} price={wholesalePrices[i]||''} quantity={line.quantity}/></span>
           <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
             <label>批发单价 USD <input type="number" min="0.01" step="0.01" placeholder="人工核价" value={wholesalePrices[i]||''} disabled={wholesaleCreated} onChange={e=>setWholesalePrices(v=>({...v,[i]:e.target.value}))}/></label>
-            <label>供应商 MOQ（件） <input type="number" min="1" step="1" placeholder="待供应商确认" value={wholesaleMoqs[i]||''} disabled={wholesaleCreated} onChange={e=>setWholesaleMoqs(v=>({...v,[i]:e.target.value}))}/></label>
-            <label>整箱倍数（件，选填） <input type="number" min="1" step="1" placeholder="待确认" value={wholesaleCasePacks[i]||''} disabled={wholesaleCreated} onChange={e=>setWholesaleCasePacks(v=>({...v,[i]:e.target.value}))}/></label>
+            <details className="rfq-optional">
+              <summary>MOQ / 整箱要求（选填）</summary>
+              <div className="rfq-optional-fields">
+                <label>供应商 MOQ（件） <input type="number" min="1" step="1" placeholder="待确认" value={wholesaleMoqs[i]||''} disabled={wholesaleCreated} onChange={e=>setWholesaleMoqs(v=>({...v,[i]:e.target.value}))}/></label>
+                <label>整箱倍数（件） <input type="number" min="1" step="1" placeholder="待确认" value={wholesaleCasePacks[i]||''} disabled={wholesaleCreated} onChange={e=>setWholesaleCasePacks(v=>({...v,[i]:e.target.value}))}/></label>
+              </div>
+            </details>
           </div>
           <small role={review.ok?'status':'alert'} style={{color:review.ok?'#64748b':'#b42318'}}>{!review.ok?'数量不符合填写的 MOQ 或整箱倍数；禁止按当前条件生成草稿':review.pending.length?'供应商 MOQ 或整箱倍数尚未完整核实，只能生成待审核草稿':'根据人工输入的 MOQ/整箱数据数学检查通过；仍需核对供应商资料'}</small>
           {costLine?.state==='APPROVED_BASELINE'
@@ -210,8 +225,12 @@ export default function AdminDetail({ type, id, accessKey }: { type: DetailType;
             </small>
             :<small role="status" style={{color:'#64748b'}}>内部 SKU {sourceSku||'未匹配'}：尚无当前有效的已审核采购成本，无法计算真实利润；请核实供应商报价及颜色配置。</small>}
         </div>;
-       })}<WholesaleTotals lines={parseWholesaleRfq(r.message)} prices={wholesalePrices} shipping={wholesaleShipping}/>
-       <label>运费 USD（包邮填写 0） <input type="number" min="0" step="0.01" value={wholesaleShipping} onChange={e=>setWholesaleShipping(e.target.value)} disabled={wholesaleCreated}/></label>
+       })}<label>运费 USD（包邮填写 0） <input type="number" min="0" step="0.01" value={wholesaleShipping} onChange={e=>setWholesaleShipping(e.target.value)} disabled={wholesaleCreated}/></label>
+       <div className="quote-tax-grid">
+         <label>已核实美国销售税金额 USD * <input type="number" min="0" step="0.01" placeholder="核实后填写；0 也需要依据" value={wholesaleTax} onChange={e=>setWholesaleTax(e.target.value)} disabled={wholesaleCreated}/></label>
+         <label className="quote-tax-basis">税务依据（必填） * <textarea rows={2} maxLength={1000} placeholder="记录目的州、核实来源/日期及征收或不征收的依据；不能仅以已付进口关税为理由填 0。" value={wholesaleTaxBasis} onChange={e=>setWholesaleTaxBasis(e.target.value)} disabled={wholesaleCreated}/></label>
+       </div>
+       <WholesaleTotals lines={parseWholesaleRfq(r.message)} prices={wholesalePrices} shipping={wholesaleShipping} tax={wholesaleTax}/>
        <label>付款条款 <input style={{width:'100%'}} value={wholesalePaymentTerms} onChange={e=>setWholesalePaymentTerms(e.target.value)} disabled={wholesaleCreated}/></label>
        <label>交付条款 <input style={{width:'100%'}} value={wholesaleDeliveryTerms} onChange={e=>setWholesaleDeliveryTerms(e.target.value)} disabled={wholesaleCreated}/></label>
        <button type="button" className="button" disabled={wholesaleBusy||wholesaleCreated||r.status==='QUOTED'||r.status==='CLOSED'} onClick={()=>void draftWholesale(String(r.reference),parseWholesaleRfq(r.message))}>{wholesaleBusy?'生成中…':'生成待审核 B2B 报价草稿'}</button>

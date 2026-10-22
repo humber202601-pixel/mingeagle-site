@@ -10,6 +10,13 @@ const load=async path=>{
  const js=transformSync(src,{loader:'ts',format:'esm',target:'es2022'}).code;
  return import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
 };
+const detailUI=fs.readFileSync('src/AdminDetail.tsx','utf8');
+assert.match(detailUI,/taxUSD:tax,taxBasis/,
+  'B2B inquiry detail must send the reviewed sales-tax amount and tax basis to the quote API');
+assert.match(detailUI,/tax\.trim\(\)===''\|\|!taxBasis/,
+  'The UI must stop draft creation when the sales-tax amount or documented basis is missing');
+assert.match(detailUI,/quoteTotals\([^\n]*shipping,0,tax\)/,
+  'The displayed wholesale quote total must include the reviewed sales-tax amount');
 const {parseWholesaleRfq}=await load('src/rfqParser.ts');
 const {reviewRfqQuantityConstraints}=await load('lib/rfq-commercial-check.ts');
 const tmp=mkdtempSync(join(tmpdir(),'me-wholesale-'));
