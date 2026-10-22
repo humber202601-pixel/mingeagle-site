@@ -17,8 +17,9 @@ assert(css.includes('.heroVisual{width:100%;max-width:500px;justify-self:end}'),
 assert(css.includes('.heroVisual img{display:block;width:100%;height:clamp(420px,38vw,520px)'), 'Desktop hero image must use a substantial display height');
 assert(css.includes('@media(max-width:980px){\n  .heroGrid{grid-template-columns:1fr}'), 'Tablet layout must stack the image below the copy');
 assert(css.includes('@media(max-width:620px){\n  .hero h1{font-size:clamp(36px,9.2vw,54px)'), 'Mobile headline must scale to fit narrow screens');
-assert(consent.includes('.mingeagle-ga4-settings {\n  position: fixed;\n  z-index: 99999;\n  left: 16px;\n  bottom: 78px;'), 'Privacy settings button must sit above the fixed cart button');
-assert(consent.includes('.mingeagle-ga4-panel {\n  position: fixed;\n  z-index: 100000;\n  left: 16px;\n  bottom: 78px;'), 'First-visit privacy panel must not cover the fixed cart button');
-assert(consent.includes('bottom: 72px;'), 'Mobile privacy controls must be offset above the fixed cart button');
-assert(injector.includes('20261020-homefix1'), 'All published pages must receive the fresh GA4 asset cache key');
+assert(consent.includes('.footer .mingeagle-ga4-settings'), 'Privacy settings must appear as a normal footer text link');
+assert(!/\.mingeagle-ga4-settings\\s*\\{[^}]*position:\\s*fixed/s.test(consent), 'Privacy settings must not be fixed over the cart');
+assert(consent.includes('.mingeagle-ga4-panel {\n  position: fixed;\n  z-index: 100000;\n  left: 16px;\n  bottom: 78px;'), 'First-visit privacy panel must remain offset above the fixed cart button');
+assert(consent.includes('bottom: 72px;'), 'Mobile first-visit privacy panel must remain offset above the fixed cart button');
+assert(injector.includes('20261022-footerprivacy1'), 'All published pages must receive the fresh GA4 asset cache key');
 console.log('PASS: homepage hero balance, prominent image sizing, responsive stacking, cache busting, and privacy/cart floating-control separation.');
