@@ -1,6 +1,6 @@
 # MING EAGLE — editorial submission pack (2026-10-22)
 
-**Operational status: prepared, not sent.** These are field-ready drafts, not evidence of external submission. No reviewer has accepted a sample; no sample has been shipped; no independent review or backlink is claimed.
+**Operational update: two editorial emails sent; awaiting replies.** See `docs/marketing/editorial-dispatch-log-2026-10-22.md` for verified recipients, subjects and send times. The Brief Review form attempt has no confirmed receipt; its email is the verified dispatch route. The field-ready drafts below remain preparation copy. No reviewer has accepted a sample; no sample has been shipped; no independent review or backlink is claimed.
 
 ## 1. Recreation Management — B2B editorial/product-news inquiry
 
@@ -92,7 +92,7 @@ mingeaglecommerce@gmail.com
 
 ## 3. Submission controls
 
-- No message has been sent and no form has been submitted by this document.
+- Consult the dispatch log before sending: both named email inquiries have already been sent. Do not repeat the introduction or the unconfirmed form attempt.
 - Do not claim sample is free, shipped, accepted, or under review until those facts are confirmed.
 - Do not promise any noise-reduction number, safety certification, school approval, inventory or delivery date beyond current published terms.
 - Do not use a registered-agent address as an operating address. Supply a valid business postal address only if the recipient's process requires it and the company confirms what address is appropriate.
