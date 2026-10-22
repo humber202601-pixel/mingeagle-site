@@ -100,7 +100,7 @@ function createConsentUiHarness(initialChoice) {
       href: '',
       type: '',
       addEventListener: (name, callback) => { listeners[name] = callback; },
-      setAttribute: (name, value) => { this; },
+      setAttribute(name, value) { this.attributes[name] = String(value); },
       appendChild(child) {
         this.children.push(child);
         if (child.id) byId[child.id] = child;
