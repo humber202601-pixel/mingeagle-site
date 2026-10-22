@@ -256,18 +256,15 @@
     var accept = makeButton('mingeagle-ga4-button mingeagle-ga4-accept', function () {
       saveChoice('accepted');
       panel.hidden = true;
-      settings.hidden = false;
       loadGoogleAnalytics();
     });
     var reject = makeButton('mingeagle-ga4-button mingeagle-ga4-reject', function () {
       saveChoice('rejected');
       panel.hidden = true;
-      settings.hidden = false;
       revokeGoogleAnalytics();
     });
     var close = makeButton('mingeagle-ga4-button mingeagle-ga4-close', function () {
       panel.hidden = true;
-      settings.hidden = false;
     });
     close.hidden = true;
 
@@ -279,13 +276,18 @@
     panel.appendChild(policy);
     panel.appendChild(actions);
 
-    var settings = makeButton('mingeagle-ga4-settings', function () {
+    // Keep a normal text link in the site footer instead of a floating control.
+    // The destination remains useful if this script is unavailable.
+    var settings = document.createElement('a');
+    settings.className = 'mingeagle-ga4-settings';
+    settings.href = '/policies.html#privacy';
+    settings.setAttribute('aria-controls', panel.id);
+    settings.addEventListener('click', function (event) {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
       panel.hidden = false;
-      settings.hidden = true;
       close.hidden = false;
       accept.focus();
     });
-    settings.hidden = true;
 
     function renderText() {
       var text = STRINGS[locale()];
@@ -301,16 +303,17 @@
 
     renderText();
     document.body.appendChild(panel);
-    document.body.appendChild(settings);
+    var footerTarget = document.querySelector('.footer .footgrid > div:last-child') ||
+      document.querySelector('.footer .footgrid') ||
+      document.querySelector('footer') || document.body;
+    footerTarget.appendChild(settings);
 
     var choice = readChoice();
     if (choice) {
       panel.hidden = true;
-      settings.hidden = false;
       if (choice === 'accepted') loadGoogleAnalytics();
     } else {
       panel.hidden = false;
-      settings.hidden = true;
     }
 
     window.addEventListener('mingeagle:language', renderText);
