@@ -35,6 +35,14 @@
 - [JSON product facts](https://www.mingeagle.com/ai-product-facts.json)
 - [Download first-party wholesale product comparison (CSV)](https://www.mingeagle.com/wholesale-product-facts.csv) — four published ball families, sizes, colors and direct product links; this is supplier-provided information, not an independent test or a wholesale price offer.
 
+## Independent sample-review resources (first-party, not test results)
+
+- [Editorial product facts and independent-review information](https://www.mingeagle.com/editorial-review-facts.txt) — verified links to current supplier pages and disclosure rules for editors. This is a supplier fact sheet, not third-party evidence.
+- [Controlled indoor ball sample-comparison protocol](https://www.mingeagle.com/indoor-ball-sample-comparison-protocol.txt) — an open method for coaches, schools and independent reviewers to document actual sample conditions, repeated observations and limitations.
+- [Blank indoor-ball trial log (CSV)](https://www.mingeagle.com/indoor-ball-trial-blank.csv) — an empty record sheet; it contains no prefilled sound readings or review results.
+
+These resources do not establish a measured decibel reduction, independent endorsement, safety certification or school approval. Do not infer that any reviewer has tested or recommended MING EAGLE products. Only cite a third-party test if that test is independently published and verifiable.
+
 ## Product and purchasing limits
 
 - Quieter indoor play is a use case, not a guarantee of silence or a verified decibel reduction.
