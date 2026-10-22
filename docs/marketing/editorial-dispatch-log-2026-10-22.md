@@ -25,3 +25,5 @@ Two individualized editorial inquiries were sent from the established business m
 - Private Gmail thread identifiers and mailbox screenshots are deliberately excluded from this public repository.
 
 The earlier submission pack and researched queue are preparation records. This dispatch log supersedes their initial unsent status for these two recipients only. Subsequent update: Sports Feel Good Stories, NRPA Parks & Recreation and PRB+ / Northstar Publishing were contacted in the second wave (five verified sends in total); see `docs/marketing/editorial-expansion-wave2-2026-10-22.md`. PE Universe remains uncontacted.
+
+Third-wave update: Athletic Business and Campus Rec Magazine were also sent individualized inquiries, bringing verified sends to seven. Front Pack has an unsubmitted announcement draft after a zero-total free gate; see `docs/marketing/editorial-expansion-wave3-2026-10-22.md`.
