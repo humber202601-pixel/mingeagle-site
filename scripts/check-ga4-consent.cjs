@@ -64,7 +64,7 @@ assert(js.includes("settings.href = '/policies.html#privacy'"), 'Privacy setting
 assert(js.includes("document.querySelector('.footer .footgrid > div:last-child')"), 'Privacy settings link must be placed in the existing footer');
 assert(js.includes("settings.addEventListener('click'"), 'Footer link must reopen the consent panel');
 assert(css.includes('.footer .mingeagle-ga4-settings'), 'Footer link must use normal footer styling');
-assert(!/\.mingeagle-ga4-settings\\s*\\{[^}]*position:\\s*fixed/s.test(css), 'Privacy settings must not be a fixed floating control');
+assert(!css.includes('.mingeagle-ga4-settings {\n  position: fixed'), 'Privacy settings must not be a fixed floating control');
 
 assert(css.includes('.mingeagle-ga4-panel') && css.includes(':focus-visible'), 'Accessible consent banner styles');
 const policy = fs.readFileSync(path.join(root, 'policies.html'), 'utf8');
