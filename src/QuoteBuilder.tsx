@@ -3,6 +3,7 @@ import { statusLabel } from './adminI18n';
 import {RETAIL_USD,retailReference,RETAIL_SOURCE_URL} from '../lib/retail-reference';
 import {calculate, type Comparison} from '../lib/quote-math-core.mjs';
 import {quoteTotals} from '../lib/quote-totals';
+import {STRIPE_AUTOMATIC_TAX_BASIS} from '../lib/stripe-automatic-tax-quote';
 import {quoteInquiryDefaults} from './quoteInquiry';
 import { pendingQuoteAttention, quoteAttention } from './b2bQuoteAttention';
 import B2BCostScenario from './B2BCostScenario';
@@ -542,10 +543,10 @@ export default function QuoteBuilder({ inquiries, quotes, accessKey, loading, da
             <input name="shipping" type="number" min="0" step="0.01" placeholder="填写真实运费，包邮填 0" required />
           </label>
           <label>美国销售税（USD）
-            <input name="taxUSD" type="number" min="0" step="0.01" placeholder="按收货州/客户免税资格核实；无应税额填 0" required />
+            <input name="taxUSD" type="number" min="0" step="0.01" defaultValue="0" placeholder="自动税额模式填 0" required />
           </label>
-          <label className="span-2">销售税依据（客户订单审核记录）
-            <input name="taxBasis" placeholder="e.g. State nexus reviewed; taxable sale at destination rate, or valid resale/exemption documentation verified" required />
+          <label className="span-2">销售税处理依据（内部记录）
+            <input name="taxBasis" defaultValue={`${STRIPE_AUTOMATIC_TAX_BASIS} — Stripe Tax calculates any applicable US sales tax at secure checkout using the buyer-confirmed delivery address.`} placeholder="选择自动税额，或填写已核实的人工税额依据" required />
           </label>
           <label>客户 ZIP（内部参考）
             <input value={text(selected?.shipping_postal_code, '待确认')} readOnly />
@@ -560,7 +561,7 @@ export default function QuoteBuilder({ inquiries, quotes, accessKey, loading, da
           <label className="span-2">付款条款（客户可见）
             <input name="paymentTerms" defaultValue="Full amount payable by secure Stripe card checkout after both parties accept the quotation." placeholder="Stripe card checkout after quote approval" required />
           </label>
-          <small>使用 Stripe 批发收款时，运输条款必须明确写入英文 <code>Ship-to state: XX</code>（XX 为客户真实的两位州代码，例如 NY），且税额和税务依据已审核。否则系统会拒绝发送，防止客户收到无法付款的报价。</small>
+          <small>默认采用 Stripe 自动税额：上方税额保持 0，最终适用税额由 Stripe Checkout 根据客户确认的收货地址计算，并在付款前显示最终总价。若改用人工税额，须先核实金额及依据。运输条款仍必须明确写入英文 <code>Ship-to state: XX</code>（例如 NY），并确认真实运费与交付责任。</small>
           <label className="span-2">运输条款（客户可见）
             <input name="shippingTerms" defaultValue={defaults.shippingState ? ('DDP sea freight to confirmed US destination. Ship-to state: ' + defaults.shippingState + '. Estimated transit 25–30 days after dispatch; confirm actual freight, customs clearance and duties.') : ''} placeholder={text(selected?.shipping_postal_code) ? `e.g. DDP sea freight to ZIP ${text(selected?.shipping_postal_code)}. Ship-to state: NY. Include 25–30-day estimate, customs and duties.` : "e.g. DDP freight to confirmed customer address. Ship-to state: NY. Include estimated lead time, clearance and duties."} key={`shippingTerms-${selectedReference}`} />
           </label>

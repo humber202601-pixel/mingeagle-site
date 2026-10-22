@@ -10,7 +10,7 @@ interface Env {
 type CheckoutSession={
  id?:string;client_reference_id?:string;payment_link?:string|null;payment_status?:string;status?:string;
  amount_total?:number;currency?:string;customer?:string;automatic_tax?:{enabled?:boolean;status?:string};
- total_details?:{amount_tax?:number};metadata?:{order_id?:string;order_reference?:string;purpose?:string;charge?:string;tax_mode?:string;tax_state?:string};
+ total_details?:{amount_tax?:number};metadata?:{order_id?:string;order_reference?:string;purpose?:string;charge?:string;diagnostic_only?:string;tax_mode?:string;tax_state?:string};
 };
 type Event={id?:string;type?:string;data?:{object?:CheckoutSession}};
 const invalid=(reason:string,status=400)=>new Response(reason,{status,headers:{'cache-control':'no-store'}});
@@ -67,6 +67,19 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   if(event.type==='checkout.session.expired'&&session.client_reference_id==='ME-LAUNCH-CHECK-NOT-AN-ORDER'
     &&session.metadata?.purpose==='MING_EAGLE_LAUNCH_PROBE_NO_PAYMENT'&&!session.metadata.order_id){
    await processed();return Response.json({ok:true,ignored:true,launchProbe:true});
+  }
+  // One owner-created, no-payment Live automatic-tax diagnostic session. It is
+  // deliberately not linked to a CRM order; acknowledge only its exact ID and
+  // full unpaid-expiry shape so Stripe does not retry an expected expiry event.
+  if(event.type==='checkout.session.expired'&&env.STRIPE_MODE==='live'&&
+    session.id==='cs_live_b1M55AMhDNYHZLQgGbgeWhvcTjGphLUXdcub0HHzsda4OMQOMVd1Xx9dVG'&&
+    session.client_reference_id==='MINGEAGLE_AUTOMATIC_TAX_DIAGNOSTIC_NO_PAYMENT'&&
+    session.metadata?.purpose==='MING_EAGLE_AUTOMATIC_TAX_DIAGNOSTIC_NO_PAYMENT'&&
+    session.metadata?.diagnostic_only==='true'&&session.amount_total===2140&&
+    session.status==='expired'&&session.payment_status==='unpaid'&&
+    session.currency?.toLowerCase()==='usd'&&!session.payment_link&&
+    !session.metadata?.order_id&&!session.metadata?.order_reference){
+   await processed();return Response.json({ok:true,ignored:true,automaticTaxDiagnosticExpiry:true});
   }
   // Precisely known, unpaid owner connectivity sessions from 2026-10-16
   // were created outside the CRM. Their signed Stripe expiry notifications

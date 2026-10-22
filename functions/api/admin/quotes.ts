@@ -1,5 +1,6 @@
 import {retailReference, RETAIL_SOURCE_URL} from '../../../lib/retail-reference';
 import {quoteTotals} from '../../../lib/quote-totals';
+import {STRIPE_AUTOMATIC_TAX_NOTE,usesStripeAutomaticTaxQuote} from '../../../lib/stripe-automatic-tax-quote';
 interface Env {
   MINGEAGLE_DB: D1Database;
 }
@@ -50,9 +51,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const validDays = Math.min(90, Math.max(1, Math.round(num(input.validDays, 14))));
     const paymentTerms = clean(input.paymentTerms, 500) || 'Payment terms to be confirmed before sending.';
     const shippingTerms = clean(input.shippingTerms, 500) || 'Shipping terms to be confirmed before sending.';
-    const notes = clean(input.notes, 3000);
+    const suppliedNotes = clean(input.notes, 3000);
     const taxUSD = num(input.taxUSD, NaN);
     const taxBasis = clean(input.taxBasis, 1000);
+    const automaticTax = usesStripeAutomaticTaxQuote(taxBasis);
+    const notes = automaticTax ? [STRIPE_AUTOMATIC_TAX_NOTE, suppliedNotes].filter(Boolean).join('\n\n') : suppliedNotes;
 
     if (!inquiryReference) {
       return Response.json({ ok: false, error: 'Inquiry reference is required.' }, { status: 400 });
@@ -68,6 +71,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
     if (!taxBasis) {
       return Response.json({ ok: false, error: 'Document the sales-tax basis for this B2B quotation before creating it.' }, { status: 400 });
+    }
+    if (automaticTax && Math.round(taxUSD * 100) !== 0) {
+      return Response.json({ ok: false, error: 'Stripe automatic-tax quotations must keep the draft tax amount at $0; Stripe adds any applicable tax at secure checkout.' }, { status: 400 });
     }
     if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
       return Response.json({ ok: false, error: 'Unit price must be greater than 0 before creating a quote draft.' }, { status: 400 });

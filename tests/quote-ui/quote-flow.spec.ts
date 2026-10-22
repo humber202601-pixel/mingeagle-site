@@ -51,7 +51,7 @@ test('真实报价界面：精确数量、金额、修改审核、批准与客�
  await page.getByLabel('单价（USD）',{exact:true}).fill('8.03');
  await page.getByLabel('运费（USD）',{exact:true}).fill('19.90');
  await page.getByLabel('美国销售税（USD）',{exact:true}).fill('0');
- await page.getByLabel('销售税依据（客户订单审核记录）',{exact:true}).fill('Synthetic isolated UI test. No tax is charged; not a verified merchant nexus decision.');
+ await page.getByLabel('销售税处理依据（内部记录）',{exact:true}).fill('Synthetic isolated UI test. No tax is charged; not a verified merchant nexus decision.');
  await page.getByLabel('付款条款（客户可见）',{exact:true}).fill('Full amount payable by secure Stripe card checkout after quote acceptance.');
  await page.getByLabel('运输条款（客户可见）',{exact:true}).fill('Sea freight DDP to ZIP 75201, Ship-to state: TX; estimated 25–30 days after shipment; customs and duties included.');
  await expect(page.getByLabel('商品金额（实时预览）',{exact:true})).toHaveValue('USD 803.00');
