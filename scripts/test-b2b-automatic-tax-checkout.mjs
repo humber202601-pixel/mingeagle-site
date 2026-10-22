@@ -166,7 +166,7 @@ try{
  assert.equal(finalQuote.tax,4.5);
  assert.equal(finalQuote.total,184.5);
  assert.match(finalQuote.notes,/Stripe-confirmed sales tax/i);
- assert.equal(sql.prepare('SELECT COUNT(*) n FROM payments WHERE order_id=? AND provider='STRIPE' AND status='RECEIVED'').get(orderId).n,1);
+ assert.equal(sql.prepare(`SELECT COUNT(*) n FROM payments WHERE order_id=? AND provider='STRIPE' AND status='RECEIVED'`).get(orderId).n,1);
  assert.equal(sql.prepare("SELECT COUNT(*) n FROM tasks WHERE order_id=? AND type='FULFILLMENT'").get(orderId).n,1);
  const duplicate=await webhook({env,request:signedEvent('evt_b2b_auto_paid',paidSession)});
  assert.equal(duplicate.status,200);
