@@ -7,6 +7,7 @@ import {separateUnitUsAirParcels} from '../../../../lib/us-small-parcel';
 import {requiresClosedOrderPaymentReview} from '../../../../lib/closed-order-payment';
 import {acceptedB2bQuotePayable} from '../../../../lib/b2b-stripe-eligibility';
 import {acceptedB2bItemSnapshotMatches} from '../../../../lib/b2b-line-snapshot';
+import {usesStripeAutomaticTaxQuote} from '../../../../lib/stripe-automatic-tax-quote';
 
 interface Env extends StripeEnv,RetailTaxEnv {
   MINGEAGLE_DB: D1Database;
@@ -118,10 +119,23 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    const approved=(env.STRIPE_B2B_APPROVED_US_STATES||'')
      .split(',').map(x=>x.trim().toUpperCase()).filter(x=>/^[A-Z]{2}$/.test(x));
    if(!approved.includes(state))
-    return fail('Business-order sales tax review for this delivery state is not yet authorized.',409);
-   // Nationwide B2B is allowed only against the seller's explicit quote.
-   // The quoted tax amount may be zero only when the documented tax basis supports
-   // non-collection or a valid exemption/resale treatment. We never infer zero tax.
+    return fail('Business-order payment for this delivery state is not yet enabled.',409);
+   // A quote explicitly marked for Stripe automatic tax is priced before tax;
+   // Stripe calculates applicable tax from the buyer-confirmed delivery address.
+   // This is not a tax exemption and does not assert that the merchant has no
+   // collection obligation. Manual, documented fixed-tax quotes retain their
+   // existing exact-total behavior.
+   if(usesStripeAutomaticTaxQuote(order.tax_basis)){
+    if(cents(order.tax)!==0||cents(order.quote_tax)!==0)
+     return fail('Automatic-tax wholesale quotes must keep their pre-checkout tax amount at $0.',409);
+    taxMode='STRIPE_AUTOMATIC';
+    shippingAddress={
+     line1:String(ship.line1||ship.address1||'').trim(),
+     line2:String(ship.line2||ship.address2||'').trim(),
+     city:String(ship.city||'').trim(),state,
+     postalCode:String(ship.postalCode||ship.postal_code||'').trim(),country:'US'
+    };
+   }
   }
   if(!isRetail&&!String(order.tax_basis||'').trim())
    return fail('Wholesale quotation is missing its documented sales-tax basis.',409);
@@ -238,11 +252,12 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
    form.set('customer',taxCustomer);form.set('automatic_tax[enabled]','true');
    form.set('metadata[tax_mode]',taxMode);form.set('metadata[tax_state]',shippingAddress.state!);
   }
-  // Customer shipping address was confirmed and checked against a state tax policy
-  // when the D1 order was created. Do not let Stripe collect a second, potentially
-  // different delivery state after the fixed price and tax decision are recorded.
-  if(isRetail)form.set('custom_text[submit][message]',
-   'Delivery will be made to the US shipping address on your MING EAGLE order. Each set ships as a separate one-unit parcel with import duties included. Parcels may arrive separately. Final US sales tax is shown before payment.');
+  // Keep the buyer-facing tax explanation consistent for retail and B2B.
+  // The destination is fixed on the order; Stripe must not substitute another
+  // state after the freight terms and customer acceptance have been recorded.
+  if(taxMode==='STRIPE_AUTOMATIC')form.set('custom_text[submit][message]',isRetail?
+   'Delivery will be made to the US shipping address on your MING EAGLE order. Each set ships as a separate one-unit parcel with import duties included. Parcels may arrive separately. Final US sales tax is shown before payment.':
+   'Your accepted wholesale quotation is before US sales tax. Stripe calculates any applicable tax from the confirmed delivery address and shows the final total before payment.');
   if(!taxCustomer&&typeof order.email==='string'&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(order.email))
    form.set('customer_email',order.email);
   // Show actual approved SKU/size/quantity to a wholesale buyer at Stripe,
