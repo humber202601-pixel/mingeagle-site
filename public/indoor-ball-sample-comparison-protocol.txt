@@ -1,0 +1,47 @@
+MING EAGLE | CONTROLLED INDOOR BALL SAMPLE COMPARISON — OPEN REVIEWER PROTOCOL
+Version: 2026-10-22
+https://www.mingeagle.com/indoor-school-sports-equipment-guide.html
+
+PURPOSE AND EVIDENCE STATUS
+Free, copyable protocol for coaches, school purchasing teams, families and independent reviewers who want to compare how two ball samples behave during controlled indoor activity. A purchase or brand endorsement is NOT required. This protocol does not contain product test results, a claim of independently certified noise reduction, an accreditation or a universal noise-reduction number.
+
+Safety, privacy and facility permission come first. Get permission before using any space or recording sound. Avoid filming children, identifying residents or making recordings of people without consent. Follow school rules, age-appropriate supervision and existing equipment instructions. Do not conduct full-speed games in inappropriate rooms. End the trial if it disturbs other people.
+
+PREPARE AND DISCLOSE
+1. Identify each sample accurately, including product family, size, actual mass if weighed, condition, whether inflated/non-inflatable, date and its manufacturer. Compare only activities that both samples can actually perform; a foam ball is not a regulation game ball.
+2. Record test site, surface, mat (if any), floor/ceiling type if known, room dimensions if known and relevant furnishings. Do not infer floor construction from appearance.
+3. Choose a reproducible activity permitted in the space: a supervised low-height drop by an adult from one marked height onto one marked floor point, plus optional gentle hand dribble where both balls are suitable. Record the method. Do not use forceful/unsupervised drops or bouncing near people.
+4. Mark a fixed recorder / listener position and distance, keep doors/windows, microphone, settings and room layout unchanged between samples. If an adjacent room or downstairs listener is involved, request permission and record only their subjective response without identity details.
+5. Record background conditions and unrelated noise separately before each sample. Stop / invalidate a trial affected by a passing vehicle, voices, HVAC changes or other noise bursts.
+
+REPEATABLE SCREENING PROCEDURE
+1. Run one no-ball baseline interval; document whether the space is quiet enough for meaningful comparison.
+2. Alternate A and B in a predetermined order (such as A-B-B-A), then run at least three valid repetitions per activity and sample, using the same operator, marked height, floor and recorder position. Mark any invalid or interrupted run. Do not count an unstable comparison as a result.
+3. Record qualitative handling, rebound/roll, floor contact and audible disturbance; distinguish in-room airborne impact from vibration heard by a consenting downstairs listener.
+4. If using a sound level meter, document its make, calibration status, microphone and settings, measurement time window and chosen metric. Use the same equipment for both samples. A casual phone app reading is only preliminary screening, not evidence of code compliance or a certified reduction.
+5. If no appropriate calibrated instrument or controlled measurement is available, do not enter numerical noise-reduction results. Keep the evaluation qualitative and describe the limits.
+
+HOW TO REPORT RESPONSIBLY
+- Report instrument details, room/floor, background conditions, exact ball models, sample size, repetitions, range of readings if actually obtained, invalid trials and any major confounders.
+- Do not turn a subjective impression or a single peak number into a universal decibel reduction or performance guarantee.
+- Do not describe these comparative results as independent unless the reviewer truly made the observations independently and discloses material relationships (for example, a gifted sample).
+- These trials do not demonstrate school approval, child safety certification, compliance with a noise ordinance, regulation-basketball performance, or environmental impact reduction.
+- Purchasing teams should separately evaluate quality documentation, durability, age/use suitability, product warranty, supplier terms and an actual delivered quotation.
+
+BLANK DATA CAPTURE
+https://www.mingeagle.com/indoor-ball-trial-blank.csv
+A separate supplier-provided four-family model catalog is available at
+https://www.mingeagle.com/wholesale-product-facts.csv
+No results are prefilled. Blank logs may be copied, shared and adapted for a genuine evaluation. Do not include student names, private addresses, phone numbers or personal audio in public copies.
+
+BACKGROUND SOURCES (NOT TESTS OF MING EAGLE PRODUCTS)
+- U.S. CDC/NIOSH: Sound Level Meter App, description, device support and laboratory testing limits:
+  https://www.cdc.gov/niosh/topics/noise/app.html
+- U.S. CDC/NIOSH: Guidance that sound-measurement apps can provide preliminary area measurements but may not satisfy regulatory measurement requirements:
+  https://www.cdc.gov/niosh/noise/prevent/understand.html
+- Acoustics Today: The Acoustics of Floors in Condominiums; impact transmission depends on assemblies, not solely a product:
+  https://acousticstoday.org/wp-content/uploads/2019/10/THE-ACOUSTICS-OF-FLOORS-IN-CONDOMINIUMS-Marshall-Long.pdf
+
+MING EAGLE COMMERCE LLC | First-party informational worksheet.
+Not an independent endorsement, third-party measurement report, school-approved supplier or price quote.
+For product samples and actual approved wholesale quotations: https://www.mingeagle.com/inquiry.html
