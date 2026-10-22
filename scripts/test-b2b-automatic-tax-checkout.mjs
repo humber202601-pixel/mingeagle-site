@@ -148,7 +148,7 @@ try{
  assert.equal(stored.tax_customer_id,'cus_testB2bAutoTax');
  assert.equal(stored.amount,184.5);
 
- const wrongTax={...session,total_details:{amount_tax:449}};
+ const wrongTax={...session,status:'complete',payment_status:'paid',total_details:{amount_tax:449}};
  const bad=await webhook({env,request:signedEvent('evt_b2b_auto_wrong_tax',wrongTax)});
  assert.equal(bad.status,409,'Mismatched Stripe Tax amount must not mark the order paid');
  assert.equal(sql.prepare('SELECT COUNT(*) n FROM payments WHERE order_id=?').get(orderId).n,0);
