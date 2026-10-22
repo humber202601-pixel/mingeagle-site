@@ -374,7 +374,7 @@ export default function AdminApp() {
   </>;
   else if (page === 'quotes') content = <>
     <Top title="报价单" description="创建报价草稿、生成客户安全链接、跟踪查看状态并自动转订单。"/>
-    <QuoteBuilder inquiries={data.inquiries} accessKey={key} onCreated={() => void load(key)} />
+    <QuoteBuilder inquiries={data.inquiries} quotes={data.quotes} accessKey={key} loading={loading} dataError={error} onCreated={() => load(key)} />
   </>;
   else if (page === 'readiness') content = <>
     <Top title="生产与 B2B Stripe 收款验收" description="逐单显示卖方报价、买方同意、美国目的地、税务依据、支付凭证和 Webhook 阻塞项。所有检查只读，不会自动收款。"/>

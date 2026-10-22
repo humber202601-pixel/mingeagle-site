@@ -12,8 +12,11 @@ type Row = Record<string, unknown>;
 
 type Props = {
   inquiries: Row[];
+  quotes: Row[];
   accessKey: string;
-  onCreated: () => void;
+  loading: boolean;
+  dataError: string;
+  onCreated: () => void | Promise<void>;
 };
 
 type QuoteResult = {
@@ -92,7 +95,7 @@ function defaultDescription(item?: Row) {
   return 'MING EAGLE sports products';
 }
 
-export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props) {
+export default function QuoteBuilder({ inquiries, quotes, accessKey, loading, dataError, onCreated }: Props) {
   const available = useMemo(
     () => inquiries.filter(item => ['NEW','REVIEWING','RESPONDED','QUALIFIED'].includes(text(item.status))),
     [inquiries],
@@ -106,10 +109,10 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   const [busyQuoteId, setBusyQuoteId] = useState('');
   const [error, setError] = useState('');
   const [result, setResult] = useState<QuoteResult | null>(null);
-  const [quotes, setQuotes] = useState<Row[]>([]);
   const [followupClock,setFollowupClock] = useState(() => Date.now());
   const followupItems=useMemo(()=>pendingQuoteAttention(quotes,followupClock),[quotes,followupClock]);
-  const [quotesLoading,setQuotesLoading]=useState(true),[quotesError,setQuotesError]=useState('');
+  const quotesLoading=loading;
+  const quotesError=dataError;
   const [stripeLiveReadiness,setStripeLiveReadiness]=useState<StripeLiveReadiness|null>(null);
   const [stripeLiveReadinessError,setStripeLiveReadinessError]=useState(false);
   const [customerLink, setCustomerLink] = useState<{ reference: string; url: string; emailed?: boolean; to?: string } | null>(null);
@@ -132,6 +135,10 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
   const selected = available.find(item => text(item.reference) === selectedReference);
   const defaults = quoteInquiryDefaults(selected);
 
+  // The parent owns the shared admin dataset. Refresh its data once instead of
+  // requesting the entire /api/admin/data payload again from this page.
+  useEffect(() => { setFollowupClock(Date.now()); }, [quotes]);
+
   useEffect(() => {
     if (selectedReference && available.some(item => text(item.reference) === selectedReference)) return;
     if (requestedReference && available.some(item => text(item.reference) === requestedReference)) {
@@ -150,20 +157,6 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     setQuoteChecklist({});
   }, [selectedReference]);
 
-  async function loadQuotes() {
-    setQuotesLoading(true);setQuotesError('');
-    try {
-      const response = await fetch('/api/admin/data', { headers: { 'x-admin-key': accessKey } });
-      const body = await response.json() as { ok?: boolean; quotes?: Row[];error?:string };
-      if(!response.ok||!body.ok)throw new Error(body.error||'无法加载报价列表。');
-      setQuotes(body.quotes || []);
-      setFollowupClock(Date.now());
-    } catch(err) {
-      setQuotesError(err instanceof Error?err.message:'无法加载报价列表。');
-    }finally{setQuotesLoading(false);}
-  }
-
-  useEffect(() => { void loadQuotes(); }, [accessKey]);
   useEffect(()=>{
     let cancelled=false;
     fetch('/api/payments/status',{cache:'no-store'})
@@ -241,8 +234,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       const body = await response.json() as QuoteResult & { ok?: boolean; error?: string };
       if (!response.ok || !body.ok) throw new Error(body.error || '无法创建报价草稿。');
       setResult(body);
-      onCreated();
-      await loadQuotes();
+      await onCreated();
     } catch (err) {
       setError(err instanceof Error ? err.message : '无法创建报价草稿。');
     } finally {
@@ -330,8 +322,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       if (!response.ok || !body.ok) throw new Error(body.error || '无法保存报价草稿。');
       setEditMessage(`已保存 ${text(body.quote?.reference, text(editDetail.quote.reference))}，总金额 ${money(body.quote?.total, body.quote?.currency || editDetail.quote.currency)}。后端已重新核查可匹配的供应商采购成本；未匹配型号仍需人工核实。`);
       setEditPreviewTotal(Number(body.quote?.total || 0));
-      onCreated();
-      await loadQuotes();
+      await onCreated();
       await openEdit({ id: quoteId });
     } catch (err) {
       setError(err instanceof Error ? err.message : '无法保存报价草稿。');
@@ -356,8 +347,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
       });
       const body = await response.json() as { ok?: boolean; quote?: Row; source?: Row; error?: string };
       if (!response.ok || !body.ok || !body.quote?.id) throw new Error(body.error || '无法创建报价修订版。');
-      onCreated();
-      await loadQuotes();
+      await onCreated();
       await openEdit({ id: body.quote.id });
       setEditMessage(`已从 ${text(body.quote.sourceReference, text(quote.reference))} 创建修订版 ${text(body.quote.reference)}。原已发送报价已停止接受下单，请审核新草稿后再发送。`);
     } catch (err) {
@@ -444,8 +434,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
         : body.emailed
         ? `报价 ${body.reference} 已通过 Gmail 真实发送${body.to ? `至 ${body.to}` : ''}，并已安排 3 天后报价跟进。`
         : `报价 ${body.reference} 的安全链接已生成。当前没有自动发送邮件，你可以复制链接通过其他渠道发送。`);
-      onCreated();
-      await loadQuotes();
+      await onCreated();
     } catch (err) {
       setError(err instanceof Error ? err.message : (sendEmail ? '报价邮件发送失败。' : '无法生成客户安全链接。'));
     } finally {
@@ -684,7 +673,7 @@ export default function QuoteBuilder({ inquiries, accessKey, onCreated }: Props)
     {Object.keys(landedReviews).length>0&&<p role="status" className="form-status">已准备 {Object.keys(landedReviews).length} 份当前页面的批发成本核对资料；仅在正式发布时存入后台私人审计。如报价改变请重新试算。</p>}
     <section className="panel table-panel">
       {quotesError&&<div className="form-status error" role="alert"><p>{quotesError}</p></div>}
-      <div className="table-tools"><strong>{quotesLoading?'正在加载报价单…':`共 ${quotes.length} 张报价单`}</strong><button type="button" className="button secondary small" disabled={quotesLoading} onClick={()=>void loadQuotes()}>刷新报价列表</button><span>草稿 → 审核修改 → Gmail / 安全链接 → 客户查看 → 修订 → 接受 → 自动生成订单</span></div>
+      <div className="table-tools"><strong>{quotesLoading?'正在加载报价单…':`共 ${quotes.length} 张报价单`}</strong><button type="button" className="button secondary small" disabled={quotesLoading} onClick={()=>void onCreated()}>刷新报价列表</button><span>草稿 → 审核修改 → Gmail / 安全链接 → 客户查看 → 修订 → 接受 → 自动生成订单</span></div>
       <div className="table-wrap"><table><thead><tr><th>报价单</th><th>客户</th><th>总金额</th><th>状态</th><th>有效期至</th><th>操作</th></tr></thead><tbody>
         {quotes.length === 0 && <tr><td colSpan={6}>{quotesLoading?'正在加载报价列表…':quotesError?'报价未能加载，请刷新重试。':'暂无报价单。'}</td></tr>}
         {quotes.map((quote, i) => {
