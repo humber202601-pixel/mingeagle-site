@@ -54,3 +54,8 @@ Confirmed initial contacts remain fourteen. Edexus free basic supplier listing w
 ## Eighth-wave send recovery completed — October 23, 22:15–22:16 Asia/Shanghai
 
 Following the owner’s explicit sending instruction, Edexus (info@edexus.com) and Modern Campground (hello@moderncampground.com) were sent the two channel inquiries at 22:15 and 22:16 respectively. Live all-mail search found no matching prior correspondence or receipt before composition. Gmail confirmed both sends; a fresh recipient-scoped Sent query displayed exactly two results. Modern Campground’s email explains the earlier unconfirmed form and asks that any duplicate be treated as the same inquiry. Confirmed distinct initial contacts now total sixteen. The earlier interrupted-attempt record remains historical; no new publication or listing approval is claimed. Details: `docs/marketing/editorial-expansion-wave8-2026-10-23.md`.
+
+
+## Ninth-wave update — October 23, 22:36 Asia/Shanghai
+
+Coach & Athletic Director / Winning Hoops Managing Editor Marissa McNees (mmcnees@greatamericanpublish.com) was sent “Coach & AD editorial fit: substantially quieter indoor basketball activities” from the business mailbox after a live domain-scoped all-mail check found no prior correspondence. The current official contact iframe supplied her name, role and exact address. Gmail confirmed sending; the exact-recipient Sent query returned one result at 22:36. Initial distinct prospects now total seventeen, counting this shared editor/publisher only once. No publication or free coverage is claimed. Full copy and screening decisions: `docs/marketing/editorial-expansion-wave9-2026-10-23.md`.
