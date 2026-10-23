@@ -1,6 +1,26 @@
 # MING EAGLE — tenth channel expansion checkpoint, 2026-10-23
 
-## Outcome
+## Send recovery completed — October 23, 23:49–23:52 Asia/Shanghai
+
+**Confirmed distinct initial prospects now total nineteen.** After the owner restored business-mailbox access and requested continuation, a live all-mail search for govdirections.com and leisuremedia.com returned no matching correspondence. Each prepared inquiry below was then composed, its recipient, subject and complete body read back, and Send clicked once. Gmail confirmed each send. A fresh recipient-scoped Sent search displayed both exact subjects at 23:49 and 23:50.
+
+| Channel / action | Recipient | Sent time, Asia/Shanghai | Current stage |
+|---|---|---|---|
+| GovDirections initial eligibility inquiry | customercare@govdirections.com | 2026-10-23 23:49 | EMAIL_SENT_AWAITING_REPLY; free listing and public visibility unconfirmed |
+| Leisure Media initial editorial-fit inquiry | stepheaves@leisuremedia.com | 2026-10-23 23:50 | EMAIL_SENT_AUTO_REPLY_RECEIVED; extended leave, not an editorial decision |
+| Leisure Media same-inquiry routing | liz@leisuremedia.com and janwilliams@leisuremedia.com, one joint email | 2026-10-23 23:52 | EMAIL_SENT_AWAITING_REPLY; same publisher prospect, no additional prospect counted |
+
+The immediate incoming reconciliation found Steph's extended-leave automatic reply, supplying Liz Terry and Jan Williams as alternate contacts. Their identities were corroborated against the publisher's official contact page https://www.leisuremedia.com/indexDIGI2.cfm?subject=contact and https://www.fittechglobal.com/contact (Liz: editor / CEO; Jan: publisher). The exact Liz alias used came from the live automatic reply; official public pages also use lizterry@leisuremedia.com, so that separate alias was not guessed or additionally contacted. Jan's exact address is also published in the official https://www.leisuremedia.com/ratecard/images/HCM-Features-2024.pdf.
+
+The joint routing email used the same subject as the initial Leisure Media message and the same complete product/editorial-fit body below, replacing “Hello Steph,” with “Hello Liz and Jan,” and this introductory paragraph:
+
+> Steph's automatic reply says she is on extended leave and directs correspondence to you. I am routing the same inquiry below; please treat this as one editorial-fit request.
+
+Gmail confirmed this additional routing send. The final recipient-scoped Sent search displayed exactly three outgoing results at 23:49, 23:50 and 23:52; a screenshot was captured privately. These are two new channels and one same-channel routing message, not three prospects. No editorial acceptance, directory approval, paid service, shipment or publication is confirmed. Wait for a substantive response before further contact. The earlier seventeen prospects were not resent.
+
+The earlier interrupted-attempt status below remains a historical record and is superseded by this recovery section. The prepared bodies below are now also the exact initial-send transcripts.
+
+## Earlier interrupted outcome — historical
 
 **Confirmed initial contacts remain seventeen. No new dispatch, Gmail draft or queued send was created in this wave.** Two new researched opportunities and tailored texts are preserved below. The business Gmail tab could initially be claimed and the domain-scoped all-mail search was entered. Subsequent full and interactive page reads stalled; later tab metadata confirmed the intended search URL, but its message results were not recovered. Therefore no completed duplicate check or reply check is claimed, and no Send action was attempted. Do not mark either copy sent.
 
@@ -65,7 +85,7 @@ Ning Li
 MING EAGLE COMMERCE LLC
 mingeaglecommerce@gmail.com
 
-## Resume safely
+## Original recovery instructions — completed as recorded above
 
 Restore responsive access to the existing business mailbox, then check all mail for correspondence to/from govdirections.com and leisuremedia.com before composing. Reuse these prepared bodies only after confirming they have not already been sent. Send each eligible inquiry once, read back the recipient, subject and full body first, and verify the success notice / recipient-scoped Sent result. Do not create a new account, accept terms, select a paid service or claim directory approval based on this research. The earlier seventeen prospects were not re-contacted here. No website source, indexing request, ad setting, payment setting or customer record was changed.
 
