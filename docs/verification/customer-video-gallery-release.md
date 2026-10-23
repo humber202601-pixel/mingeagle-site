@@ -6,6 +6,6 @@ The gallery shows three equal-width poster cards initially, with two more reveal
 
 Screened out unrelated social recordings, different-ball footage, dark/poorly framed clips, mixed feedback and delivery complaints. Three remaining source rows were not selected. This is a curated collection, not a complete feed or aggregate score. Creator collaboration videos remain separately identified.
 
-The complete customer media collection is 4,783,699 raw bytes after encoding. The explicit lazy-media cap changes from 2 MB for one clip to 5 MB for five clips plus posters and 19 photos; individual video and image limits and all existing storefront resource budgets remain unchanged. Budget tests verify that 5.1 MB across individually valid videos fails.
+The complete customer media collection is 4,788,243 raw bytes after encoding. The explicit lazy-media cap changes from 2 MB for one clip to 5 MB for five clips plus posters and 19 photos; individual video and image limits and all existing storefront resource budgets remain unchanged. Budget tests verify that 5.1 MB across individually valid videos fails.
 
 Validation: source/content hashes, five-star US product mapping, retained durations, unique assets, five-card/three-visible markup, source disclosure, preserved 80-review content, filter/load-more/sort checks, JS syntax, performance budget regression tests and static build. Deployment workflow and live interaction verification are completed before delivery.

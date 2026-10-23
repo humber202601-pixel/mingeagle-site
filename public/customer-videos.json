@@ -87,7 +87,8 @@
       "category": "Indoor play",
       "src": "assets/customer-reviews/customer-orange-size3-play.mp4",
       "poster": "assets/customer-reviews/customer-orange-size3-play-poster.webp",
-      "duration": 17.333084
+      "duration": 17.333084,
+      "posterPosition": "top"
     }
   ]
 }

@@ -11,7 +11,7 @@ const videoEvidence=JSON.parse(fs.readFileSync('docs/verification/customer-video
 assert.equal(videoCatalog.videos.length,5);assert.equal(new Set(videoCatalog.videos.map(v=>v.src)).size,5);
 for(const v of videoCatalog.videos){
  const e=videoEvidence.videos.find(x=>x.id===v.id);assert(e);
- for(const key of ['id','rating','region','product','spu','sourceRow','date','text','size','color','src','poster','duration'])assert.deepEqual(v[key],e[key]);
+ for(const key of ['id','rating','region','product','spu','sourceRow','date','text','size','color','src','poster','duration','posterPosition'])assert.deepEqual(v[key],e[key]);
  assert.equal(v.rating,5);assert.equal(v.region,'US');assert.equal(v.spu,'S240106003386');assert.equal(v.product,'flocked-silent-basketball-set');
  assert(Math.abs(v.duration-e.originalDuration)<0.05,'Full clip duration must be retained');
  assert.equal(require('node:crypto').createHash('sha256').update(fs.readFileSync('public/'+v.src)).digest('hex'),e.publishedSha256);
