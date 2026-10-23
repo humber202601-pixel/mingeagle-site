@@ -22,6 +22,11 @@ const extract=(html,mobile)=>{
 };
 const home=fs.readFileSync(path.join(root,'index.html'),'utf8');
 for(const mobile of [false,true]){
+ const homeNav=extract(home,mobile);
+ assert(homeNav.includes('href="silent-basketball-guide.html"'),
+  'The setup and care guide must remain discoverable in the '+(mobile?'mobile':'desktop')+' main navigation');
+ assert(/href="silent-basketball-guide\.html"[^>]*>Guide<\/a>/.test(homeNav),
+  'The main navigation must show a clear Guide label linking to installation and care instructions');
  const canonical=extract(home,mobile);
  for(const page of pages){
   const html=fs.readFileSync(path.join(root,page),'utf8');
