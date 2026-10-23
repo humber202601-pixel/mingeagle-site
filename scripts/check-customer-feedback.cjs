@@ -26,4 +26,19 @@ for(const [name,html] of [['homepage',home],['product page',product]]){
  assert(section,name+' feedback section could not be isolated for badge audit');
  assert(!/Verified purchase|Verified buyer|independently verified rating/i.test(section),'Do not claim an unverified verification badge in '+name+' feedback');
 }
+const positiveQuoteAllowlist=new Set([
+ 'great quality super quiet barely makes any noise at all, even a chip bag louder than this. almost as heavy as a real basketball and just overall very good',
+ 'The ball is really amazing it really does not make a lot of noise and the hoop is really good and fun to use with the ball',
+ 'Its amazing! Performance: Very good. Grip &amp; Handling: The ball is very nice and i can dribble with it really well',
+ 'Really well and soft and bouncy. The hoop is nice and sturdy',
+ 'this is amazing u hear no sound when dribbling the ball it is super easy to set up the net and comes with double strings for the hoop works amazing',
+ 'Absolutely great. The silent ball is an 5 out of 5 and it bounces back up to you so well. We drilled the hoop in and it was great. You get two different color options for the net on the hoop. Overall really good 👍.'
+]);
+for(const [name,html,expectedCount] of [['homepage',home,3],['product page',product,6]]){
+ const section=html.match(/<section\b(?=[^>]*\bid="customer-feedback")[^>]*>[\s\S]*?<\/section>/i)?.[0];
+ assert(section,name+' feedback section could not be isolated for positive-only allowlist');
+ const quotes=[...section.matchAll(/<blockquote>([\s\S]*?)<\/blockquote>/g)].map(m=>m[1].replace(/\s+/g,' ').trim());
+ assert.equal(quotes.length,expectedCount,name+' must show exactly '+expectedCount+' selected positive excerpts');
+ for(const quote of quotes)assert(positiveQuoteAllowlist.has(quote),name+' contains an unapproved/non-curated customer quote: '+quote);
+}
 console.log('PASS selected customer feedback: exact source excerpts, source links, transparency disclosure, no fabricated aggregate star rating, responsive styles.');
