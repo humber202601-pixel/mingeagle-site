@@ -1,0 +1,16 @@
+/* MING EAGLE selected customer feedback — Oct 2026 */
+.reviewProof{background:linear-gradient(135deg,#fff9ef 0%,#fffdf9 54%,#eef4ff 100%)}
+.reviewHeading{display:flex;align-items:flex-end;justify-content:space-between;gap:24px}
+.reviewHeading .lead{max-width:720px}
+.reviewGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:30px}
+.reviewCard{min-width:0;display:flex;flex-direction:column;gap:16px;padding:24px;background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:0 10px 28px rgba(18,32,51,.055)}
+.reviewCard blockquote{margin:0;font-size:17px;font-weight:650;line-height:1.62;letter-spacing:-.01em;color:var(--ink)}
+.reviewCard blockquote:before{content:'“';display:block;font-size:44px;font-weight:950;line-height:.7;color:var(--orange);margin-bottom:10px}
+.reviewMeta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;margin-top:auto;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);font-weight:750}
+.reviewMeta span:first-child{color:#374151}
+.reviewDisclosure{margin:22px 0 0;padding:14px 16px;border:1px solid #eadfce;border-radius:14px;background:rgba(255,255,255,.78);font-size:13px;line-height:1.6;color:#5b6472}
+.reviewActions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+.reviewActions a{min-height:44px}
+.reviewProof .eyebrow{color:#b74b10}
+@media(max-width:900px){.reviewGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.reviewHeading{align-items:flex-start;flex-direction:column}}
+@media(max-width:600px){.reviewGrid{grid-template-columns:1fr;gap:12px}.reviewCard{padding:20px;border-radius:18px}.reviewCard blockquote{font-size:16px}.reviewDisclosure{font-size:12px}.reviewHeading .btn{width:100%}}
