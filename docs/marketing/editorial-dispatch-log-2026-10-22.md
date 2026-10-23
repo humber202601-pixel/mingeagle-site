@@ -49,3 +49,8 @@ PUPN Editor-in-Chief Ed Bauer (ed@pupnmag.com) was sent “PUPN article proposal
 ## Eighth-wave checkpoint — October 23, evening Asia/Shanghai
 
 Confirmed initial contacts remain fourteen. Edexus free basic supplier listing was verified and an inquiry prepared, not sent. Modern Campground received one contact-form submission attempt with no verified success: the page returned to an empty form with reCAPTCHA, so the outcome is unconfirmed. Gmail remained offline; reply/duplicate searches may be partial, and no Gmail Send action was taken. Do not resend either an existing introduction or the Modern Campground form without live mailbox reconciliation. Exact copy and recovery sequence: `docs/marketing/editorial-expansion-wave8-2026-10-23.md`.
+
+
+## Eighth-wave send recovery completed — October 23, 22:15–22:16 Asia/Shanghai
+
+Following the owner’s explicit sending instruction, Edexus (info@edexus.com) and Modern Campground (hello@moderncampground.com) were sent the two channel inquiries at 22:15 and 22:16 respectively. Live all-mail search found no matching prior correspondence or receipt before composition. Gmail confirmed both sends; a fresh recipient-scoped Sent query displayed exactly two results. Modern Campground’s email explains the earlier unconfirmed form and asks that any duplicate be treated as the same inquiry. Confirmed distinct initial contacts now total sixteen. The earlier interrupted-attempt record remains historical; no new publication or listing approval is claimed. Details: `docs/marketing/editorial-expansion-wave8-2026-10-23.md`.

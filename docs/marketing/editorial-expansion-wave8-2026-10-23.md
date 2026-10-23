@@ -1,6 +1,43 @@
 # MING EAGLE — eighth channel expansion checkpoint, 2026-10-23
 
-## Current outcome
+## Send recovery completed — 2026-10-23, evening Asia/Shanghai
+
+**Current confirmed initial-contact total is sixteen.** This completed recovery supersedes the historical fourteen-contact / not-sent status below for Edexus and Modern Campground only.
+
+| Channel | Verified recipient | Exact subject | Sent time displayed | Current stage |
+|---|---|---|---|---|
+| Edexus | info@edexus.com | Free basic supplier listing: MING EAGLE silent basketballs and soccer balls | October 23, 22:15 Asia/Shanghai | EMAIL_SENT_AWAITING_REPLY |
+| Modern Campground | hello@moderncampground.com | Editorial fit: substantially quieter rainy-day ball activities for campground recreation rooms | October 23, 22:16 Asia/Shanghai | EMAIL_SENT_AWAITING_REPLY |
+
+The owner reported the mailbox was ready and explicitly instructed sending. Verified the business sender mingeaglecommerce@gmail.com and ran a fresh all-mail search for both recipient domains. No matching correspondence or receipts appeared and the earlier offline warning was absent. Used one composer per recipient, read back recipient, subject and complete body, and clicked Send once per message. Gmail displayed “邮件已发送” for each. A fresh combined recipient-scoped `in:sent` search showed exactly the two new messages and the times above; captured its screenshot. No duplicate form was submitted.
+
+Edexus received the exact prepared email below. Modern Campground received the shorter recovery email below, explicitly disclosing the earlier form attempt and requesting that any duplicate be treated as the same inquiry. The earlier form outcome itself remains unconfirmed. Sixteen is a prospect count, not a message count or a delivery/coverage count. No listing approval, editorial acceptance, publication, backlink, AI citation, payment or sample shipment has been confirmed.
+
+### Modern Campground — exact sent recovery body
+
+Hello Modern Campground editorial team,
+
+I'm Ning Li with MING EAGLE COMMERCE LLC. Our silent basketballs substantially reduce dribbling and bounce noise, making indoor practice noticeably quieter.
+
+Would a supplier product note about quieter rainy-day ball activities in campground recreation rooms fit your unpaid editorial coverage? The angle is for owners and activity managers choosing equipment for indoor family recreation: compare a sample on the actual floor, check rebound and grip, and confirm cleaning, storage and room rules before ordering.
+
+Our range includes flocked basketball sets with compact hoops, fabric-covered basketballs, weighted-feel basketballs and silent soccer balls. We offer a sample/small-order route and wholesale inquiries for 10 or more units.
+
+Product background: https://www.mingeagle.com/silent-basketball.html
+Institutional purchasing: https://www.mingeagle.com/procurement.html
+
+I tried your contact form earlier today but did not receive a success confirmation. If that submission reached you, please treat this email as the same inquiry.
+
+If the topic fits, please advise the appropriate editorial format and required materials. This is an initial category inquiry, not a completed press-release package. We are seeking unpaid editorial consideration.
+
+Best regards,
+Ning Li
+MING EAGLE COMMERCE LLC
+mingeaglecommerce@gmail.com
+
+## Historical preparation and interrupted attempt
+
+## Historical outcome before send recovery
 
 **Confirmed initial contacts remain fourteen. No new confirmed dispatch is added in this wave.** Edexus is a newly verified free-directory opportunity with a complete unsent inquiry. Modern Campground is a newly verified editorial opportunity with one contact-form submission attempt whose result is unconfirmed. Do not turn that attempt into a confirmed send or submit it again without reconciliation.
 
