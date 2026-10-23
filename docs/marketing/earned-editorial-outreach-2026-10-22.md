@@ -4,6 +4,8 @@
 
 **Seventh-wave update:** PUPN Editor-in-Chief Ed Bauer was sent an information-led article proposal at 12:43 Asia/Shanghai on October 23. NRPA returned an automatic acknowledgment, not an editorial decision. Reply reconciliation and excluded stale channels are recorded in `docs/marketing/editorial-expansion-wave7-2026-10-23.md`.
 
+**Eighth-wave checkpoint:** Two new source-backed opportunities were prepared: Edexus and Modern Campground. Gmail was offline; Modern Campground had a single unconfirmed form attempt. Neither adds a confirmed send. Current evidence and duplicate-safe recovery are in `docs/marketing/editorial-expansion-wave8-2026-10-23.md`.
+
 **Messaging update, 2026-10-23:** Lead future copy with substantial noise reduction, as clarified by the owner. The preparation pitches below are revised future-use variants, not transcripts or new dispatches. See `docs/marketing/noise-reduction-messaging-2026-10-23.md`. Existing seven initial-send records are unchanged; the fourth wave adds two new prospects and a reply within The Brief Review thread.
 
 ## Reusable verified first-party assets

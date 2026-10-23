@@ -44,3 +44,8 @@ Send recovery, 2026-10-23: Team Insight's Michael Jacobsen (mjacobsen@formula4me
 ## Seventh-wave update — October 23, 12:43 Asia/Shanghai
 
 PUPN Editor-in-Chief Ed Bauer (ed@pupnmag.com) was sent “PUPN article proposal: quieter indoor ball practice in shared campus spaces” from mingeaglecommerce@gmail.com. Gmail confirmed sending; a fresh recipient-scoped Sent search returned the single new message at 12:43. Fourteen distinct prospects have now been sent initial inquiries. NRPA’s October 22 23:11 automatic acknowledgment was reconciled; no new human reply was found in the original thirteen-domain incoming search. Details and exact copy: `docs/marketing/editorial-expansion-wave7-2026-10-23.md`. No acceptance or publication is claimed.
+
+
+## Eighth-wave checkpoint — October 23, evening Asia/Shanghai
+
+Confirmed initial contacts remain fourteen. Edexus free basic supplier listing was verified and an inquiry prepared, not sent. Modern Campground received one contact-form submission attempt with no verified success: the page returned to an empty form with reCAPTCHA, so the outcome is unconfirmed. Gmail remained offline; reply/duplicate searches may be partial, and no Gmail Send action was taken. Do not resend either an existing introduction or the Modern Campground form without live mailbox reconciliation. Exact copy and recovery sequence: `docs/marketing/editorial-expansion-wave8-2026-10-23.md`.
