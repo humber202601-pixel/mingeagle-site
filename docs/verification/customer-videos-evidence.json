@@ -49,7 +49,7 @@
       "sourceSha256": "b4e4b554bc4771342e97ad85375d67291b25a2271fc19935acc0049cc78654da",
       "publishedSha256": "1cdd5403bb900a2bec3c1312fd34252bcb3aec5fb3513c7b76d3098153a3cae9",
       "originalDuration": 37.133333,
-      "posterTime": 3
+      "posterTime": 8
     },
     {
       "id": "US-video-11",
@@ -133,7 +133,8 @@
       "sourceSha256": "ba89cf0cf49beb22d9ad8c36bb02d091fb4ae48dbffc39337503ae9076bcea7a",
       "publishedSha256": "fee554d5be9644b8e15c36623ff4823f19a3bf22c6afe4dddff9517093a8b0fc",
       "originalDuration": 17.333877,
-      "posterTime": 14
+      "posterTime": 8.5,
+      "posterPosition": "top"
     }
   ]
 }
