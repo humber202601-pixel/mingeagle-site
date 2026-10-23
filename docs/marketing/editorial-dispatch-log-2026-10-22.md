@@ -59,3 +59,8 @@ Following the owner’s explicit sending instruction, Edexus (info@edexus.com) a
 ## Ninth-wave update — October 23, 22:36 Asia/Shanghai
 
 Coach & Athletic Director / Winning Hoops Managing Editor Marissa McNees (mmcnees@greatamericanpublish.com) was sent “Coach & AD editorial fit: substantially quieter indoor basketball activities” from the business mailbox after a live domain-scoped all-mail check found no prior correspondence. The current official contact iframe supplied her name, role and exact address. Gmail confirmed sending; the exact-recipient Sent query returned one result at 22:36. Initial distinct prospects now total seventeen, counting this shared editor/publisher only once. No publication or free coverage is claimed. Full copy and screening decisions: `docs/marketing/editorial-expansion-wave9-2026-10-23.md`.
+
+
+## Tenth-wave research checkpoint — October 23, late evening Asia/Shanghai
+
+GovDirections and Leisure Media are researched/prepared only. A business-mailbox domain search was entered, but page reads stalled before results could be checked; no email draft, queued send or confirmed new dispatch was created. Initial distinct contacts remain seventeen. Official recipient evidence, free/public visibility limits and exact unsent copy: `docs/marketing/editorial-expansion-wave10-2026-10-23.md`.
