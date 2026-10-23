@@ -22,7 +22,7 @@ for(const [name,html] of [['homepage',home],['product page',product]]){
 }
 for(const token of ['.reviewGrid','.reviewCard','.reviewDisclosure','@media(max-width:600px)'])assert(css.includes(token),'Missing responsive review style '+token);
 for(const [name,html] of [['homepage',home],['product page',product]]){
- const section=html.match(/<section\\b(?=[^>]*\\bid="customer-feedback")[^>]*>[\\s\\S]*?<\\/section>/i)?.[0];
+ const section=html.match(/<section\b(?=[^>]*\bid="customer-feedback")[^>]*>[\s\S]*?<\/section>/i)?.[0];
  assert(section,name+' feedback section could not be isolated for badge audit');
  assert(!/Verified purchase|Verified buyer|independently verified rating/i.test(section),'Do not claim an unverified verification badge in '+name+' feedback');
 }
