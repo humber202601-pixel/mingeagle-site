@@ -54,9 +54,9 @@ async function verifyLivePage(name, baseUrl, requiredQuotes) {
    assert(html.includes('id="customer-feedback"'), name + ' live page is missing the customer-feedback section');
    assert(html.includes('Selected positive excerpts from written feedback on our TikTok Shop listing'), name + ' live page is missing the source disclosure');
    for (const quote of requiredQuotes) assert(html.includes(quote), name + ' live page is missing approved positive excerpt: ' + quote);
-   const section = html.match(/<section\\b(?=[^>]*\\bid="customer-feedback")[^>]*>[\\s\\S]*?<\\/section>/i)?.[0];
+   const section = html.match(/<section\b(?=[^>]*\bid="customer-feedback")[^>]*>[\s\S]*?<\/section>/i)?.[0];
    assert(section, name + ' live feedback section could not be isolated');
-   const displayedQuotes = [...section.matchAll(/<blockquote>([\\s\\S]*?)<\\/blockquote>/g)].map(m => m[1].replace(/\\s+/g, ' ').trim());
+   const displayedQuotes = [...section.matchAll(/<blockquote>([\s\S]*?)<\/blockquote>/g)].map(m => m[1].replace(/\s+/g, ' ').trim());
    assert.equal(displayedQuotes.length, name === 'homepage' ? 3 : 6, name + ' live page has an unexpected number of feedback quotes');
    for (const quote of displayedQuotes) assert(positiveQuoteAllowlist.has(quote), name + ' live page contains an unapproved quote: ' + quote);
    console.log('PASS live customer feedback:', name, response.url, 'approved quotes:', displayedQuotes.length);
