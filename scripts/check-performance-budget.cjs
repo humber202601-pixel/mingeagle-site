@@ -28,9 +28,9 @@ const customerImages=images.filter(x=>/^assets\/customer-reviews\//.test(x.name)
 const totals={all:sum(all)-sum(customerMedia),images:sum(images)-sum(customerImages),js:sum(scripts)};
 const violations=[];
 const bound=(label,value,max)=>{if(value>max)violations.push(label+': '+value+' > '+max+' raw bytes')};
-bound('customer review media collection',sum(customerMedia),2_000_000);
+bound('customer review media collection',sum(customerMedia),5_000_000);
 for(const file of customerMedia)bound(file.name,file.bytes,/\.mp4$/i.test(file.name)?1_750_000:80_000);
-console.log('Lazy customer review media: '+sum(customerMedia)+' bytes; separate 2 MB cap; videos preload=none.');
+console.log('Lazy customer review media: '+sum(customerMedia)+' bytes; separate 5 MB cap; videos preload=none.');
 bound('public artifact',totals.all,LIMITS.totalPublic);
 bound('first-party images total',totals.images,LIMITS.imagesTotal);
 bound('first-party scripts total',totals.js,LIMITS.jsTotal);

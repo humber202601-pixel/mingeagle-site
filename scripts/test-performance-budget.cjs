@@ -20,7 +20,9 @@ try{
  add('custom-logo-model.js',475000);
  add('assets/customer-reviews/demo.mp4',1700000);
  result=cp.spawnSync(process.execPath,[checker,root],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);
- add('assets/customer-reviews/demo2.mp4',400000);
+ add('assets/customer-reviews/demo2.mp4',1700000);
+ result=cp.spawnSync(process.execPath,[checker,root],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);
+ add('assets/customer-reviews/demo3.mp4',1700000);
  result=cp.spawnSync(process.execPath,[checker,root],{encoding:'utf8'});assert.notEqual(result.status,0,'customer media collection cap must fail');assert.match(result.stderr,/customer review media collection/);
  console.log('PASS: offline performance source budget accepts baseline and blocks oversized hero/JS regressions.');
 }finally{fs.rmSync(root,{recursive:true,force:true})}
