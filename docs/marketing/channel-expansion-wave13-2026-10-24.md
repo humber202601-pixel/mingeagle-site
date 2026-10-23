@@ -1,6 +1,23 @@
 # MING EAGLE — thirteenth expansion checkpoint, 2026-10-24
 
-## Confirmed outcome
+## Send recovery reconciled — October 24, 01:05–01:12 Asia/Shanghai
+
+**Confirmed distinct channel prospects now total twenty-five: twenty-one editorial/vendor-directory prospects and four purchasing/reseller prospects.** The owner reported restoring the mailbox twice during recovery. Early page reads timed out, the original populated-draft tab was later closed, and a fresh business-mail page was used in the same selected browser. Current search results continued to display an offline/partial-results warning, so no complete online duplicate search or reply reconciliation is claimed.
+
+Franklin Sports was already present as an outgoing message at 01:05, with its exact subject and prepared body. The agent read that message and subsequently verified it in an exact-recipient Sent query. **The agent did not perform a Send action for Franklin during this recovery and did not recreate or resend it.** The source of that existing send action was not observed.
+
+Pro Therapy Supplies had no displayed matching prior email in the available results and the maintained record showed no previous email Send action. Under the owner's repeated instruction to send after restoration, its prepared fallback was composed once in the business mailbox, with the exact recipient, subject and full body read back. Send was clicked once. Gmail immediately displayed its sent-success notice. Re-running the exact-recipient Sent query then showed the new message at 01:12 alongside Franklin's 01:05 message. A private screenshot was captured showing both results and the page's remaining offline warning.
+
+| Recipient | Exact subject | Observed Sent time (Asia/Shanghai) | Current stage |
+|---|---|---|---|
+| cs@franklinsports.com | Please route to sourcing: MING EAGLE quieter indoor ball range | 2026-10-24 01:05 | EMAIL_SENT_AWAITING_REPLY; existing send reconciled, not resent |
+| customerservice@protherapysupplies.com | Please route to buying: quieter indoor sports-ball supplier eligibility | 2026-10-24 01:12 | EMAIL_SENT_AWAITING_REPLY; one new email Send action and success notice |
+
+This verifies the displayed outgoing/Sent records, and for Pro Therapy Supplies also the sent-success notice. The partial-results warning limits completeness of mailbox reconciliation; it does not establish recipient delivery, a buyer response, sourcing approval or an order. The earlier contact-form attempt remains unconfirmed and was not retried. The fallback explicitly asks that any matching form be treated as the same inquiry. No contract, sample, quote, paid service, medical claim, customer data, payment setting or website source changed.
+
+The earlier interrupted status and prepared-copy sections below are retained as historical. Both email bodies below are now also the observed sent copy. Do not create another introduction, retry the form or resend either email; review any actual reply before a next contact.
+
+## Earlier interrupted outcome — historical
 
 **Confirmed initial contacts remain twenty-three. No new email was sent in this wave.** Two additional sourcing routes were verified and individualized text prepared. Franklin Sports has a populated, read-back Gmail composer, but **Send was never clicked**. Pro Therapy Supplies received one contact-form submission attempt; its visible response reported that human verification failed, so no successful submission is claimed. Do not count either candidate as a confirmed contact.
 
@@ -105,7 +122,7 @@ Ning Li
 MING EAGLE COMMERCE LLC
 mingeaglecommerce@gmail.com
 
-## Recovery sequence
+## Original recovery sequence — superseded by reconciliation above
 
 1. Restore responsive online access to the established business mailbox. The existing populated Franklin composer should be reused, not duplicated. No Send click has occurred.
 2. Repeat all-mail checks for both domains, including any Pro Therapy Supplies receipt. Review any new correspondence before sending.
