@@ -7,7 +7,7 @@ for(const r of reviews){assert.equal(r.rating,5);assert.equal(r.region,'US');ass
 const digest=require('node:crypto').createHash('sha256').update(JSON.stringify(reviews.map(r=>[r.id,r.rating,r.date,r.text,r.size,r.color]))).digest('hex');
 const evidence=JSON.parse(fs.readFileSync('docs/verification/customer-reviews-80-evidence.json','utf8'));assert.equal(digest,evidence.reviewContentSha256,'Review text/metadata changed without source evidence update');
 function checkHtml(name,html){
- assert(html.includes('customer-feedback.css?v=20261023-feedback3'));assert(html.includes('customer-reviews.js?v=20261023-reviews80'));
+ assert(html.includes('customer-feedback.css?v=20261023-feedback4'));assert(html.includes('customer-reviews.js?v=20261023-reviews80'));
  const section=html.match(/<section class="section reviewProof"[^>]*>[\s\S]*?<\/section>/)?.[0];assert(section,name+' missing review section');
  assert(section.includes('data-review-collection="80"'));assert(section.includes(catalog.sourceUrl.replaceAll('&','&amp;')));assert(section.includes('Selected positive excerpts from written feedback on our TikTok Shop listing'));assert(section.includes('not a complete review feed or an overall store rating'));
  assert(!/Verified purchase|Verified buyer|aggregateRating|5\.0 out of 5/.test(section));
