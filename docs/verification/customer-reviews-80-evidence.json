@@ -1,0 +1,943 @@
+{
+  "checkedAt": "2026-10-23",
+  "region": "US",
+  "spu": "S240106003386",
+  "filters": [
+    "5",
+    "有文字"
+  ],
+  "videoFilter": [
+    "5",
+    "有视频"
+  ],
+  "reviewContentSha256": "7d555cb23ec48cd69e8db48cab5bca87ba136df2121ae719743b7c3399460bf7",
+  "reviewCount": 80,
+  "photoCount": 19,
+  "videoCount": 1,
+  "notes": [
+    "Read full visible DOM text; five filled star characters for every included row.",
+    "Excluded complaints, mixed reviews, off-product rows, duplicate text and emoji-only content.",
+    "Photo contact sheet visually checked; excluded one dark image. Re-encoded only, without retouching.",
+    "Video source: five-star video filter row 5, March 13 2026, blue size7. Original duration42.267 seconds retained. Exact full clip; no acoustic editing.",
+    "Two earlier video candidates excluded: different green ball and dark room; duplicate captured download not counted twice.",
+    "Selection is not all customer reviews and is not an aggregate rating."
+  ],
+  "reviews": [
+    {
+      "id": "US-1ca03d5f6d",
+      "rating": 5,
+      "date": "2026-10-19",
+      "size": "7",
+      "color": "Orange",
+      "text": "great quality super quiet barely makes any noise at all, even a chip bag louder than this. almost as heavy as a real basketball and just overall very good",
+      "sourcePage": 1,
+      "sourceRow": 8,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-aebe5cdd44",
+      "rating": 5,
+      "date": "2026-06-14",
+      "size": "7",
+      "color": "Orange",
+      "text": "Amazing touch and hoop is easy to attach. Ball is quiet and works perfectly.",
+      "sourcePage": 3,
+      "sourceRow": 2,
+      "photoAssetIds": [
+        "202f90b2627d47c1acc42c1d5c035776"
+      ]
+    },
+    {
+      "id": "US-c74b4af7b4",
+      "rating": 5,
+      "date": "2026-06-19",
+      "size": "7",
+      "color": "Orange",
+      "text": "basketball felt amazing and soft, the hoop is also nice",
+      "sourcePage": 2,
+      "sourceRow": 29,
+      "photoAssetIds": [
+        "f80699f045b34b68adbfc0a46093ff95"
+      ]
+    },
+    {
+      "id": "US-2739c8ee74",
+      "rating": 5,
+      "date": "2026-06-14",
+      "size": "5",
+      "color": "Orange",
+      "text": "The basketball hoop was very good and I love to play on it and it is a very fun thing to do when I’m bored it also is very sturdy and stronger than I thought the ball is the perfect size and orverall I would get another one",
+      "sourcePage": 3,
+      "sourceRow": 5,
+      "photoAssetIds": [
+        "c31a69be0edd4a0081496b7373776a66"
+      ]
+    },
+    {
+      "id": "US-55acb9ad17",
+      "rating": 5,
+      "date": "2026-03-13",
+      "size": "7",
+      "color": "Blue",
+      "text": "Grip & Handling: The ball is the perfect size and feel.",
+      "sourcePage": "five-star-video-filter",
+      "sourceRow": 5,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-bc54d5d548",
+      "rating": 5,
+      "date": "2026-10-22",
+      "size": "3",
+      "color": "Orange",
+      "text": "The ball is really amazing it really does not make a lot of noise and the hoop is really good and fun to use with the ball",
+      "sourcePage": 1,
+      "sourceRow": 2,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-2f4a009901",
+      "rating": 5,
+      "date": "2026-10-20",
+      "size": "7",
+      "color": "Orange",
+      "text": "Really well and soft and bouncy. The hoop is nice and sturdy",
+      "sourcePage": 1,
+      "sourceRow": 5,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-ffb70e4238",
+      "rating": 5,
+      "date": "2026-08-16",
+      "size": "3",
+      "color": "Orange",
+      "text": "Quiet ball! Easy to set up and entertaining for hours! Can’t recommend enough.",
+      "sourcePage": 1,
+      "sourceRow": 33,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-9b43394c24",
+      "rating": 5,
+      "date": "2026-10-11",
+      "size": "7",
+      "color": "Orange",
+      "text": "this is amazing u hear no sound when dribbling the ball it is super easy to set up the net and comes with double strings for the hoop works amazing",
+      "sourcePage": 1,
+      "sourceRow": 9,
+      "photoAssetIds": [
+        "a6e9110213084757895390e0fbc55afb"
+      ]
+    },
+    {
+      "id": "US-5b26cbe1e2",
+      "rating": 5,
+      "date": "2026-07-10",
+      "size": "3",
+      "color": "Orange",
+      "text": "Such a good product for kids like me and it’s sound proof for indoors and i got the smallest size but that didn’t matter",
+      "sourcePage": 2,
+      "sourceRow": 3,
+      "photoAssetIds": [
+        "d1adc3c9dba642cab3ec1398bb34ea9d",
+        "4a120204de624b73a9f7ac93e60452eb"
+      ]
+    },
+    {
+      "id": "US-c9df7f0a09",
+      "rating": 5,
+      "date": "2026-06-16",
+      "size": "5",
+      "color": "Orange",
+      "text": "I put this in my bedroom and when I get bored I just shoot hoops it’s a great addition to your room or where ever you put it",
+      "sourcePage": 2,
+      "sourceRow": 43,
+      "photoAssetIds": [
+        "967032328cc24106a21959985685083d",
+        "d3df135c3c5a4ba08333723f9e56cf91"
+      ]
+    },
+    {
+      "id": "US-36aef186e3",
+      "rating": 5,
+      "date": "2026-06-13",
+      "size": "3",
+      "color": "Orange",
+      "text": "Honestly a really good product",
+      "sourcePage": 3,
+      "sourceRow": 8,
+      "photoAssetIds": [
+        "a23270e727334e299326643f36f06af2"
+      ]
+    },
+    {
+      "id": "US-9b67a0ba5e",
+      "rating": 5,
+      "date": "2026-10-22",
+      "size": "3",
+      "color": "Orange",
+      "text": "great product for something like a power outage if you have nothing to do this is great",
+      "sourcePage": 1,
+      "sourceRow": 1,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-d0bab6b2be",
+      "rating": 5,
+      "date": "2026-10-21",
+      "size": "7",
+      "color": "Orange",
+      "text": "Its amazing! Performance: Very good Grip & Handling: The ball is very nice and i can dribble with it really well",
+      "sourcePage": 1,
+      "sourceRow": 3,
+      "photoAssetIds": [
+        "9e062c5a303f4b1f804947ea49d5b92e"
+      ]
+    },
+    {
+      "id": "US-97ccdc533b",
+      "rating": 5,
+      "date": "2026-10-20",
+      "size": "5",
+      "color": "Orange",
+      "text": "Absolutely great. The silent ball is an 5 out of 5 and it bounces back up to you so well. We drilled the hoop in and it was great. You get two different color options for the net on the hoop. Overall really good 👍.",
+      "sourcePage": 1,
+      "sourceRow": 6,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-be49b06494",
+      "rating": 5,
+      "date": "2026-10-19",
+      "size": "3",
+      "color": "Orange",
+      "text": "Grandsons love it!!!",
+      "sourcePage": 1,
+      "sourceRow": 7,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-f3ea5f29af",
+      "rating": 5,
+      "date": "2026-10-10",
+      "size": "7",
+      "color": "Orange",
+      "text": "Mi hijo ama este juego .",
+      "sourcePage": 1,
+      "sourceRow": 11,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-3b9a32e221",
+      "rating": 5,
+      "date": "2026-10-08",
+      "size": "5",
+      "color": "Orange",
+      "text": "Love this!",
+      "sourcePage": 1,
+      "sourceRow": 12,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-23195be90f",
+      "rating": 5,
+      "date": "2026-10-06",
+      "size": "3",
+      "color": "Orange",
+      "text": "Super quiet and bouncy",
+      "sourcePage": 1,
+      "sourceRow": 13,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-86b1a88b0d",
+      "rating": 5,
+      "date": "2026-10-03",
+      "size": "7",
+      "color": "Blue",
+      "text": "It’s amazing good height and the sticking system onto the wall is pretty neat",
+      "sourcePage": 1,
+      "sourceRow": 16,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-c37a8c9c6a",
+      "rating": 5,
+      "date": "2026-10-02",
+      "size": "3",
+      "color": "Blue",
+      "text": "Very easy to hang on the wall. My kids have played basketball everyday since we received it.",
+      "sourcePage": 1,
+      "sourceRow": 17,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-2d5d3749f9",
+      "rating": 5,
+      "date": "2026-09-21",
+      "size": "5",
+      "color": "Blue",
+      "text": "My son hasn’t been annoying me anymore he has had so much fun with it",
+      "sourcePage": 1,
+      "sourceRow": 21,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-a5030d4727",
+      "rating": 5,
+      "date": "2026-09-15",
+      "size": "5",
+      "color": "Blue",
+      "text": "AWSOME! To the kids that throws the ball in the house this hoop and ball set i have in the living room and from time to time ill shoot late and night or early morning barley a sound good product id say.",
+      "sourcePage": 1,
+      "sourceRow": 22,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-9a2ca88cdc",
+      "rating": 5,
+      "date": "2026-09-09",
+      "size": "3",
+      "color": "Blue",
+      "text": "I love it it’s so good",
+      "sourcePage": 1,
+      "sourceRow": 24,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-8eb4298b89",
+      "rating": 5,
+      "date": "2026-09-07",
+      "size": "3",
+      "color": "Orange",
+      "text": "Rea good",
+      "sourcePage": 1,
+      "sourceRow": 25,
+      "photoAssetIds": [
+        "e08a476e36fa41bfaf2294375b27e717"
+      ]
+    },
+    {
+      "id": "US-45d56b30f0",
+      "rating": 5,
+      "date": "2026-08-30",
+      "size": "5",
+      "color": "Orange",
+      "text": "Works well and steady very fun and productive. Best one I’ve owned so far",
+      "sourcePage": 1,
+      "sourceRow": 26,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-0d48a1c961",
+      "rating": 5,
+      "date": "2026-08-27",
+      "size": "7",
+      "color": "Orange",
+      "text": "Honestly pretty good product. Even the large ball is very quiet obviously not completely silent but pretty close to it.",
+      "sourcePage": 1,
+      "sourceRow": 27,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-98bb9d54b5",
+      "rating": 5,
+      "date": "2026-08-27",
+      "size": "7",
+      "color": "Orange",
+      "text": "Sticks great I love using it",
+      "sourcePage": 1,
+      "sourceRow": 28,
+      "photoAssetIds": [
+        "b6e341c0bd634cbf980a70aa8213bb7d"
+      ]
+    },
+    {
+      "id": "US-6fd1f49e7c",
+      "rating": 5,
+      "date": "2026-08-23",
+      "size": "3",
+      "color": "Blue",
+      "text": "best mini hoop i got and its big also the ball the is good to easy to put up",
+      "sourcePage": 1,
+      "sourceRow": 30,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-b61f80c614",
+      "rating": 5,
+      "date": "2026-08-22",
+      "size": "7",
+      "color": "Orange",
+      "text": "My son loves it!!",
+      "sourcePage": 1,
+      "sourceRow": 31,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-ac993702e6",
+      "rating": 5,
+      "date": "2026-08-19",
+      "size": "3",
+      "color": "Blue",
+      "text": "fun and sturdy",
+      "sourcePage": 1,
+      "sourceRow": 32,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-9184133587",
+      "rating": 5,
+      "date": "2026-08-16",
+      "size": "7",
+      "color": "Orange",
+      "text": "Purchased for my grandson who’s 14 years old and he enjoys it…. Durable",
+      "sourcePage": 1,
+      "sourceRow": 34,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-1f0c9506c2",
+      "rating": 5,
+      "date": "2026-08-07",
+      "size": "3",
+      "color": "Blue",
+      "text": "Best product I ever bought",
+      "sourcePage": 1,
+      "sourceRow": 35,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-1ae07eeba3",
+      "rating": 5,
+      "date": "2026-08-05",
+      "size": "5",
+      "color": "Orange",
+      "text": "Great for practice",
+      "sourcePage": 1,
+      "sourceRow": 37,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-9021a1f1f0",
+      "rating": 5,
+      "date": "2026-07-17",
+      "size": "3",
+      "color": "Blue",
+      "text": "We use it at work it’s awesome super quiet and the bounce of the ball is amazing if you use the sticky tape make sure you get it right",
+      "sourcePage": 1,
+      "sourceRow": 45,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-a720734982",
+      "rating": 5,
+      "date": "2026-07-16",
+      "size": "5",
+      "color": "Blue",
+      "text": "Got it for my son, and he loves it. So do I no noisy bouncy ball. The shae of it is perfectly round.",
+      "sourcePage": 1,
+      "sourceRow": 46,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-5c32de6abb",
+      "rating": 5,
+      "date": "2026-07-12",
+      "size": "3",
+      "color": "Blue",
+      "text": "i love it",
+      "sourcePage": 2,
+      "sourceRow": 2,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-f29aa2e5fa",
+      "rating": 5,
+      "date": "2026-07-08",
+      "size": "5",
+      "color": "Blue",
+      "text": "Definitely worth it! My six-year-old grandson plays With it all the time. Absolutely love it.",
+      "sourcePage": 2,
+      "sourceRow": 4,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-df6a2f5d4b",
+      "rating": 5,
+      "date": "2026-07-04",
+      "size": "5",
+      "color": "Orange",
+      "text": "This hoop is very durable and adhesive is very very very strong",
+      "sourcePage": 2,
+      "sourceRow": 6,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-6716ccbb97",
+      "rating": 5,
+      "date": "2026-07-03",
+      "size": "3",
+      "color": "Orange",
+      "text": "Perfect",
+      "sourcePage": 2,
+      "sourceRow": 7,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-2c06bbe80b",
+      "rating": 5,
+      "date": "2026-07-01",
+      "size": "7",
+      "color": "Blue",
+      "text": "It’s very amazing I love it",
+      "sourcePage": 2,
+      "sourceRow": 8,
+      "photoAssetIds": [
+        "246bb9c576d845d69f704b2e7cd64e8e"
+      ]
+    },
+    {
+      "id": "US-3779dc0ad7",
+      "rating": 5,
+      "date": "2026-07-01",
+      "size": "5",
+      "color": "Orange",
+      "text": "It is so good l love it in the silent ball",
+      "sourcePage": 2,
+      "sourceRow": 9,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-a8705bb8ce",
+      "rating": 5,
+      "date": "2026-06-29",
+      "size": "7",
+      "color": "Blue",
+      "text": "Best product ever you don’t even have to drill it to the wall you can just stick it To the wall and it’ll stay Very sturdy best product so far",
+      "sourcePage": 2,
+      "sourceRow": 11,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-3f7b39e3f4",
+      "rating": 5,
+      "date": "2026-06-29",
+      "size": "5",
+      "color": "Blue",
+      "text": "Fun to play with and can dunk on",
+      "sourcePage": 2,
+      "sourceRow": 12,
+      "photoAssetIds": [
+        "62a7d9f11fc84ed78143ba73039a11fb"
+      ]
+    },
+    {
+      "id": "US-7017fd0756",
+      "rating": 5,
+      "date": "2026-06-28",
+      "size": "3",
+      "color": "Orange",
+      "text": "Great product and easy to assemble",
+      "sourcePage": 2,
+      "sourceRow": 13,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-fc3ee58b2f",
+      "rating": 5,
+      "date": "2026-06-25",
+      "size": "7",
+      "color": "Blue",
+      "text": "Mui bien",
+      "sourcePage": 2,
+      "sourceRow": 16,
+      "photoAssetIds": [
+        "d2666b4ca0864350b1bb2bb7d04c3f2a"
+      ]
+    },
+    {
+      "id": "US-4b73acda9e",
+      "rating": 5,
+      "date": "2026-06-25",
+      "size": "5",
+      "color": "Orange",
+      "text": "I love ittttt good job on making it",
+      "sourcePage": 2,
+      "sourceRow": 17,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-359a016d48",
+      "rating": 5,
+      "date": "2026-06-25",
+      "size": "5",
+      "color": "Orange",
+      "text": "loved it been hooping all day everyday shoutout to the tt shop",
+      "sourcePage": 2,
+      "sourceRow": 18,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-ff856d768f",
+      "rating": 5,
+      "date": "2026-06-24",
+      "size": "5",
+      "color": "Orange",
+      "text": "It is a very silent hoop and if u have kids that love basketball I highly recommend",
+      "sourcePage": 2,
+      "sourceRow": 19,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-73357bafcd",
+      "rating": 5,
+      "date": "2026-06-24",
+      "size": "7",
+      "color": "Orange",
+      "text": "my nephew loves it! He plays with it all the time and you can put it anywhere!",
+      "sourcePage": 2,
+      "sourceRow": 21,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-2ef43717b5",
+      "rating": 5,
+      "date": "2026-06-22",
+      "size": "5",
+      "color": "Orange",
+      "text": "Love the silent basketball and I can play whenever I want",
+      "sourcePage": 2,
+      "sourceRow": 24,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-06cd778bdd",
+      "rating": 5,
+      "date": "2026-06-21",
+      "size": "3",
+      "color": "Orange",
+      "text": "very good quality and works very well and is quiet during the night",
+      "sourcePage": 2,
+      "sourceRow": 25,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-0bc99e3748",
+      "rating": 5,
+      "date": "2026-06-21",
+      "size": "7",
+      "color": "Orange",
+      "text": "Le encantó ami hijo gracias",
+      "sourcePage": 2,
+      "sourceRow": 26,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-9a0f2ca000",
+      "rating": 5,
+      "date": "2026-06-20",
+      "size": "5",
+      "color": "Orange",
+      "text": "Super cool in my living room we all have fun it!",
+      "sourcePage": 2,
+      "sourceRow": 28,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-aa4e5a78b4",
+      "rating": 5,
+      "date": "2026-06-19",
+      "size": "5",
+      "color": "Orange",
+      "text": "Good suler silent just really good",
+      "sourcePage": 2,
+      "sourceRow": 30,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-ccc0451c3e",
+      "rating": 5,
+      "date": "2026-06-19",
+      "size": "5",
+      "color": "Orange",
+      "text": "I love this basketball hoop so much it’s doesn’t move and durable",
+      "sourcePage": 2,
+      "sourceRow": 31,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-a09bc7052b",
+      "rating": 5,
+      "date": "2026-06-18",
+      "size": "5",
+      "color": "Orange",
+      "text": "Sticked to the wall doesn’t fall ball is really good and foamy overall is just perfect 5 stars!",
+      "sourcePage": 2,
+      "sourceRow": 32,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-6327aeaf77",
+      "rating": 5,
+      "date": "2026-06-18",
+      "size": "7",
+      "color": "Orange",
+      "text": "Product was exactly what my son expected. Great quality, fast delivery, and as described.",
+      "sourcePage": 2,
+      "sourceRow": 33,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-184457970d",
+      "rating": 5,
+      "date": "2026-06-18",
+      "size": "5",
+      "color": "Orange",
+      "text": "Amazing product ! My boyfriend loves it ! He screwed it to the wall and it’s holding up greatly !",
+      "sourcePage": 2,
+      "sourceRow": 36,
+      "photoAssetIds": [
+        "125ab558827b490193e8df9417b732d8"
+      ]
+    },
+    {
+      "id": "US-3de41a7ec8",
+      "rating": 5,
+      "date": "2026-06-17",
+      "size": "5",
+      "color": "Orange",
+      "text": "Amazing for inside the home",
+      "sourcePage": 2,
+      "sourceRow": 37,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-7563024396",
+      "rating": 5,
+      "date": "2026-06-17",
+      "size": "5",
+      "color": "Orange",
+      "text": "Son loves this goal! I love that it’s not too loud.",
+      "sourcePage": 2,
+      "sourceRow": 39,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-16224a9713",
+      "rating": 5,
+      "date": "2026-06-16",
+      "size": "7",
+      "color": "Orange",
+      "text": "MY brother LOVES true to size the ball is soft and not too loud when he’s playing he’s also able to dribble it",
+      "sourcePage": 2,
+      "sourceRow": 45,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-1cb86b0f94",
+      "rating": 5,
+      "date": "2026-06-15",
+      "size": "7",
+      "color": "Orange",
+      "text": "Good quality. No complaints here. The Ball is very bouncy I recommend The biggest size ball",
+      "sourcePage": 2,
+      "sourceRow": 48,
+      "photoAssetIds": [
+        "961a8ab85b4d4093be90e83709bfee20"
+      ]
+    },
+    {
+      "id": "US-cbd883abce",
+      "rating": 5,
+      "date": "2026-06-13",
+      "size": "3",
+      "color": "Orange",
+      "text": "It’s really good. It’s something to do if you want to pass time",
+      "sourcePage": 3,
+      "sourceRow": 7,
+      "photoAssetIds": [
+        "89d26f8fcd904968b19ac621bba23ebf"
+      ]
+    },
+    {
+      "id": "US-ebbda71430",
+      "rating": 5,
+      "date": "2026-06-13",
+      "size": "3",
+      "color": "Orange",
+      "text": "I loved this product because when it came it was bigger and more durable than I expected. The ball was very silent as well",
+      "sourcePage": 3,
+      "sourceRow": 9,
+      "photoAssetIds": [
+        "a76b34de63b6474d812f323162dc0722"
+      ]
+    },
+    {
+      "id": "US-24e614aeb3",
+      "rating": 5,
+      "date": "2026-06-12",
+      "size": "3",
+      "color": "Orange",
+      "text": "Exactly as you would expect this to perform. Perfect for an office or bedroom.",
+      "sourcePage": 3,
+      "sourceRow": 15,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-69760decbc",
+      "rating": 5,
+      "date": "2026-06-12",
+      "size": "3",
+      "color": "Orange",
+      "text": "Just as expected my son absolutely loved it now my daughter wants one for herself",
+      "sourcePage": 3,
+      "sourceRow": 16,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-a6b3ab77cb",
+      "rating": 5,
+      "date": "2026-06-12",
+      "size": "5",
+      "color": "Orange",
+      "text": "Works perfectly, and I almost can barely hear the ball I like how I can move it wherever I want and it’s so cool",
+      "sourcePage": 3,
+      "sourceRow": 17,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-c0d319d02e",
+      "rating": 5,
+      "date": "2026-06-11",
+      "size": "5",
+      "color": "Orange",
+      "text": "Can stick to the wall easy and lots of options for the net color",
+      "sourcePage": 3,
+      "sourceRow": 19,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-8ad8ad98fa",
+      "rating": 5,
+      "date": "2026-06-11",
+      "size": "3",
+      "color": "Orange",
+      "text": "I’m actually surprised how good of quality this is. Work amazing and comes with all the mounts",
+      "sourcePage": 3,
+      "sourceRow": 20,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-83f1d9c442",
+      "rating": 5,
+      "date": "2026-06-11",
+      "size": "5",
+      "color": "Orange",
+      "text": "Very good durability very fun to play with",
+      "sourcePage": 3,
+      "sourceRow": 21,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-67a6444697",
+      "rating": 5,
+      "date": "2026-06-11",
+      "size": "7",
+      "color": "Blue",
+      "text": "So amazing!!!!! No sound at all and it bounces like a real basketball and feels like a real basketball especially if you get the biggest one! It’s amazing and the goal sticks and doesn’t fall when you shoot it in!",
+      "sourcePage": 3,
+      "sourceRow": 23,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-f8595e7fb3",
+      "rating": 5,
+      "date": "2026-06-10",
+      "size": "3",
+      "color": "Orange",
+      "text": "It’s good I warm up on this before I head to practice",
+      "sourcePage": 3,
+      "sourceRow": 24,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-b529de97b6",
+      "rating": 5,
+      "date": "2026-06-10",
+      "size": "3",
+      "color": "Orange",
+      "text": "Great quality for price and is very fun. I use it every day and it is still in good shape.",
+      "sourcePage": 3,
+      "sourceRow": 25,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-9a4fe4c275",
+      "rating": 5,
+      "date": "2026-06-09",
+      "size": "7",
+      "color": "Orange",
+      "text": "Great product! Great quality. As advertised I can play ball inside the house while the baby is sleeping!",
+      "sourcePage": 3,
+      "sourceRow": 27,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-23696d0a51",
+      "rating": 5,
+      "date": "2026-06-08",
+      "size": "7",
+      "color": "Orange",
+      "text": "It’s perfect! it works perfectly and sticks on walls with no problem",
+      "sourcePage": 3,
+      "sourceRow": 28,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-b06baa5dc8",
+      "rating": 5,
+      "date": "2026-06-08",
+      "size": "5",
+      "color": "Orange",
+      "text": "Honestly was a great purchase I would definitely recommend to other people",
+      "sourcePage": 3,
+      "sourceRow": 29,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-9e886a5fda",
+      "rating": 5,
+      "date": "2026-06-03",
+      "size": "3",
+      "color": "Orange",
+      "text": "Very sturdy rim easy to set up and very fun",
+      "sourcePage": 3,
+      "sourceRow": 39,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-7daab9ceb3",
+      "rating": 5,
+      "date": "2026-06-03",
+      "size": "5",
+      "color": "Orange",
+      "text": "Easy to set up and really fun too play with!",
+      "sourcePage": 3,
+      "sourceRow": 40,
+      "photoAssetIds": []
+    },
+    {
+      "id": "US-ad855156c4",
+      "rating": 5,
+      "date": "2026-06-01",
+      "size": "7",
+      "color": "Orange",
+      "text": "My kids love this, thank you so much for this product",
+      "sourcePage": 3,
+      "sourceRow": 42,
+      "photoAssetIds": []
+    }
+  ]
+}

@@ -26,6 +26,11 @@ jobs:
         with:
           fetch-depth: 2  # Compare the current main push to its previous revision
 
+      - name: Build and validate selected real customer reviews
+        run: |
+          node scripts/build-customer-reviews.cjs
+          node scripts/check-customer-feedback.cjs --local
+
       - name: Apply product images specifications and 2x2 layout
         run: python scripts/deploy-finalize.py
 

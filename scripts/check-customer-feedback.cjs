@@ -1,89 +1,27 @@
-const assert=require('node:assert/strict');
-const fs=require('node:fs');
-const home=fs.readFileSync('public/index.html','utf8');
-const product=fs.readFileSync('public/silent-basketball.html','utf8');
-const css=fs.readFileSync('public/customer-feedback.css','utf8');
-const excerpts=[
- 'great quality super quiet barely makes any noise at all',
- 'The ball is really amazing it really does not make a lot of noise',
- 'Really well and soft and bouncy',
- 'Its amazing! Performance: Very good',
- 'this is amazing u hear no sound when dribbling the ball'
-];
-for(const [name,html] of [['homepage',home],['product page',product]]){
- assert(html.includes('id="customer-feedback"'),name+' missing customer feedback section');
- assert(html.includes('customer-feedback.css?v=20261023-feedback2'),name+' missing feedback styles');
- assert(html.includes('Selected positive excerpts from written feedback on our TikTok Shop listing'),name+' missing transparent review-source disclosure');
- assert(html.includes('shop.tiktok.com/view/product/1729440144327807079'),name+' missing source listing link');
- for(const excerpt of excerpts.filter(x=>name==='homepage'?x.startsWith('great quality')||x.startsWith('The ball')||x.startsWith('Really well'):true)){
-  assert(html.includes(excerpt),name+' missing review excerpt: '+excerpt);
- }
- assert(!html.includes('5.0 out of 5'),name+' must not imply an unverified aggregate rating');
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const catalog=JSON.parse(fs.readFileSync('public/customer-reviews.json','utf8')),reviews=catalog.reviews;
+const esc=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+assert.equal(reviews.length,80);assert.equal(new Set(reviews.map(r=>r.id)).size,80);assert.equal(new Set(reviews.map(r=>r.text.toLowerCase().trim())).size,80);
+assert.equal(reviews.flatMap(r=>r.photos).length,19);assert.equal(reviews.flatMap(r=>r.videos).length,1);
+for(const r of reviews){assert.equal(r.rating,5);assert.equal(r.region,'US');assert.equal(r.product,'flocked-silent-basketball-set');assert(/^[357]$/.test(r.size));assert(/^\d{4}-\d{2}-\d{2}$/.test(r.date));assert(r.text.trim());for(const item of [...r.photos,...r.videos]){assert(/^assets\/customer-reviews\/[A-Za-z0-9._-]+\.(webp|mp4)$/.test(item.src));assert(fs.statSync('public/'+item.src).size>100);if(item.poster)assert(fs.existsSync('public/'+item.poster));}}
+const digest=require('node:crypto').createHash('sha256').update(JSON.stringify(reviews.map(r=>[r.id,r.rating,r.date,r.text,r.size,r.color]))).digest('hex');
+const evidence=JSON.parse(fs.readFileSync('docs/verification/customer-reviews-80-evidence.json','utf8'));assert.equal(digest,evidence.reviewContentSha256,'Review text/metadata changed without source evidence update');
+function checkHtml(name,html){
+ assert(html.includes('customer-feedback.css?v=20261023-feedback3'));assert(html.includes('customer-reviews.js?v=20261023-reviews80'));
+ const section=html.match(/<section class="section reviewProof"[^>]*>[\s\S]*?<\/section>/)?.[0];assert(section,name+' missing review section');
+ assert(section.includes('data-review-collection="80"'));assert(section.includes(catalog.sourceUrl.replaceAll('&','&amp;')));assert(section.includes('Selected positive excerpts from written feedback on our TikTok Shop listing'));assert(section.includes('not a complete review feed or an overall store rating'));
+ assert(!/Verified purchase|Verified buyer|aggregateRating|5\.0 out of 5/.test(section));
+ const ids=[...section.matchAll(/data-review-id="([^"]+)"/g)].map(m=>m[1]);assert.equal(ids.length,name==='homepage'?3:80);assert.equal(new Set(ids).size,ids.length);
+ for(const id of ids){const r=reviews.find(x=>x.id===id);assert(r);assert(section.includes('<blockquote>'+esc(r.text)+'</blockquote>'));}
+ assert(section.includes('preload="none"'));assert(section.includes('loading="lazy"'));assert(section.includes('<dialog'));
+ if(name!=='homepage'){assert(section.includes('data-review-filter="photos"'));assert(section.includes('data-review-filter="videos"'));assert(section.includes('data-review-more'));assert.equal((section.match(/ hidden/g)||[]).length>=68,true);}
 }
-for(const token of ['.reviewGrid','.reviewCard','.reviewDisclosure','@media(max-width:600px)'])assert(css.includes(token),'Missing responsive review style '+token);
-for(const [name,html] of [['homepage',home],['product page',product]]){
- const section=html.match(/<section\b(?=[^>]*\bid="customer-feedback")[^>]*>[\s\S]*?<\/section>/i)?.[0];
- assert(section,name+' feedback section could not be isolated for badge audit');
- assert(!/Verified purchase|Verified buyer|independently verified rating/i.test(section),'Do not claim an unverified verification badge in '+name+' feedback');
-}
-const positiveQuoteAllowlist=new Set([
- 'great quality super quiet barely makes any noise at all, even a chip bag louder than this. almost as heavy as a real basketball and just overall very good',
- 'The ball is really amazing it really does not make a lot of noise and the hoop is really good and fun to use with the ball',
- 'Its amazing! Performance: Very good. Grip &amp; Handling: The ball is very nice and i can dribble with it really well',
- 'Really well and soft and bouncy. The hoop is nice and sturdy',
- 'this is amazing u hear no sound when dribbling the ball it is super easy to set up the net and comes with double strings for the hoop works amazing',
- 'Absolutely great. The silent ball is an 5 out of 5 and it bounces back up to you so well. We drilled the hoop in and it was great. You get two different color options for the net on the hoop. Overall really good 👍.'
-]);
-for(const [name,html,expectedCount] of [['homepage',home,3],['product page',product,6]]){
- const section=html.match(/<section\b(?=[^>]*\bid="customer-feedback")[^>]*>[\s\S]*?<\/section>/i)?.[0];
- assert(section,name+' feedback section could not be isolated for positive-only allowlist');
- const quotes=[...section.matchAll(/<blockquote>([\s\S]*?)<\/blockquote>/g)].map(m=>m[1].replace(/\s+/g,' ').trim());
- assert.equal(quotes.length,expectedCount,name+' must show exactly '+expectedCount+' selected positive excerpts');
- for(const quote of quotes)assert(positiveQuoteAllowlist.has(quote),name+' contains an unapproved/non-curated customer quote: '+quote);
-}
-console.log('PASS selected customer feedback: exact source excerpts, source links, transparency disclosure, no fabricated aggregate star rating, responsive styles.');
-
-async function verifyLivePage(name, baseUrl, requiredQuotes) {
- let lastError;
- for (let attempt = 1; attempt <= 5; attempt++) {
-  try {
-   const url = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'feedback_release_check=' + Date.now() + '_' + attempt;
-   const response = await fetch(url, { cache: 'no-store', redirect: 'follow' });
-   assert(response.ok, name + ' live page HTTP ' + response.status);
-   const html = await response.text();
-   assert(html.includes('id="customer-feedback"'), name + ' live page is missing the customer-feedback section');
-   assert(html.includes('Selected positive excerpts from written feedback on our TikTok Shop listing'), name + ' live page is missing the source disclosure');
-   for (const quote of requiredQuotes) assert(html.includes(quote), name + ' live page is missing approved positive excerpt: ' + quote);
-   const section = html.match(/<section\b(?=[^>]*\bid="customer-feedback")[^>]*>[\s\S]*?<\/section>/i)?.[0];
-   assert(section, name + ' live feedback section could not be isolated');
-   const displayedQuotes = [...section.matchAll(/<blockquote>([\s\S]*?)<\/blockquote>/g)].map(m => m[1].replace(/\s+/g, ' ').trim());
-   assert.equal(displayedQuotes.length, name === 'homepage' ? 3 : 6, name + ' live page has an unexpected number of feedback quotes');
-   for (const quote of displayedQuotes) assert(positiveQuoteAllowlist.has(quote), name + ' live page contains an unapproved quote: ' + quote);
-   console.log('PASS live customer feedback:', name, response.url, 'approved quotes:', displayedQuotes.length);
-   return;
-  } catch (error) {
-   lastError = error;
-   if (attempt < 5) await new Promise(resolve => setTimeout(resolve, 1500));
-  }
- }
- throw lastError;
-}
-
-(async () => {
- await verifyLivePage('homepage', 'https://www.mingeagle.com/', [
-  'great quality super quiet barely makes any noise at all',
-  'The ball is really amazing it really does not make a lot of noise',
-  'Really well and soft and bouncy'
- ]);
- await verifyLivePage('product page', 'https://www.mingeagle.com/silent-basketball.html', [
-  'great quality super quiet barely makes any noise at all',
-  'The ball is really amazing it really does not make a lot of noise',
-  'Its amazing! Performance: Very good',
-  'Really well and soft and bouncy',
-  'this is amazing u hear no sound when dribbling the ball',
-  'Absolutely great. The silent ball is an 5 out of 5'
- ]);
-})().catch(error => {
- console.error('FAIL live customer feedback verification:', error);
- process.exitCode = 1;
-});
+for(const [n,f] of [['homepage','index.html'],['product','silent-basketball.html']])checkHtml(n,fs.readFileSync('public/'+f,'utf8'));
+const code=fs.readFileSync('public/customer-reviews.js','utf8');new vm.Script(code);
+const {selectReviews}=require('../public/customer-reviews.js');
+const data=reviews.map((r,order)=>({id:r.id,date:r.date,photos:r.photos.length,videos:r.videos.length,order}));
+for(const filter of ['all','photos','videos','text']){const expected=data.filter(r=>filter==='photos'?r.photos:filter==='videos'?r.videos:filter==='text'?!r.photos&&!r.videos:true);const first=selectReviews(data,{filter});assert.equal(first.total,expected.length);assert.equal(first.visible.length,Math.min(12,expected.length));assert.equal(first.more,expected.length>12);const all=selectReviews(data,{filter,limit:100});assert.deepEqual(new Set(all.visible.map(r=>r.id)),new Set(expected.map(r=>r.id)));assert.equal(all.more,false);}
+assert.equal(selectReviews(data,{limit:24}).visible.length,24);assert.equal(selectReviews(data,{limit:100}).visible.length,80);
+const newest=selectReviews(data,{sort:'newest',limit:80}).visible;assert(newest.every((r,i)=>!i||newest[i-1].date>=r.date));assert.deepEqual(selectReviews(data).visible,selectReviews(data).visible);
+console.log('PASS 80 unique original five-star US reviews; 19 mapped photos; one mapped customer video; filters/load-more/sort; source disclosure; media files.');
+if(!process.argv.includes('--local'))(async()=>{for(const [name,path] of [['homepage',''],['product','silent-basketball.html']]){const response=await fetch('https://www.mingeagle.com/'+path+'?customer_proof_check='+Date.now(),{cache:'no-store'});assert(response.ok);checkHtml(name,await response.text());console.log('PASS live expanded customer reviews:',name);}const response=await fetch('https://www.mingeagle.com/customer-reviews.json?review_check='+Date.now());assert(response.ok);assert.deepEqual(await response.json(),catalog);console.log('PASS live review source data matches approved collection.');})().catch(e=>{console.error(e);process.exitCode=1;});
