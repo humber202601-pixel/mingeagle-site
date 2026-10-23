@@ -39,3 +39,8 @@ Sixth checkpoint, 2026-10-23: Playground Professionals received a free Spotlight
 
 
 Send recovery, 2026-10-23: Team Insight's Michael Jacobsen (mjacobsen@formula4media.com) received the previously unsent inquiry, “Team Insight product-news fit: substantially quieter indoor basketball”, at 12:04 Asia/Shanghai. The original empty composer was reused; only one Send action was performed. Recipient-scoped results displayed the new message, its exact subject and 12:04 time, with a screenshot captured. Playground Professionals' existing message was separately visible at 11:48 and was not resent. Distinct initial prospects now total thirteen. This confirms sending, not delivery or editorial acceptance. See `docs/marketing/editorial-send-recovery-2026-10-23.md` for exact evidence limits.
+
+
+## Seventh-wave update — October 23, 12:43 Asia/Shanghai
+
+PUPN Editor-in-Chief Ed Bauer (ed@pupnmag.com) was sent “PUPN article proposal: quieter indoor ball practice in shared campus spaces” from mingeaglecommerce@gmail.com. Gmail confirmed sending; a fresh recipient-scoped Sent search returned the single new message at 12:43. Fourteen distinct prospects have now been sent initial inquiries. NRPA’s October 22 23:11 automatic acknowledgment was reconciled; no new human reply was found in the original thirteen-domain incoming search. Details and exact copy: `docs/marketing/editorial-expansion-wave7-2026-10-23.md`. No acceptance or publication is claimed.
