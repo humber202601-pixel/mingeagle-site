@@ -8,6 +8,8 @@
 
 **Ninth-wave update:** Coach & Athletic Director / Winning Hoops Managing Editor Marissa McNees was contacted once at 22:36 Asia/Shanghai after verifying her current identity and exact email in the official live contact iframe. This resolves the earlier stale-contact hold for the initial inquiry only; no rights agreement was accepted. One publisher/editor prospect is counted. See `docs/marketing/editorial-expansion-wave9-2026-10-23.md`.
 
+**Tenth-wave research checkpoint:** GovDirections and Leisure Media were researched and tailored inquiries prepared. Gmail page reads stalled before duplicate-search results could be verified; no composer or Send action was used. Confirmed initial contacts remain seventeen. GovDirections free-directory visibility conflicts with public login/upgrade/coming-soon wording and needs clarification. Details and unsent copy: `docs/marketing/editorial-expansion-wave10-2026-10-23.md`.
+
 **Messaging update, 2026-10-23:** Lead future copy with substantial noise reduction, as clarified by the owner. The preparation pitches below are revised future-use variants, not transcripts or new dispatches. See `docs/marketing/noise-reduction-messaging-2026-10-23.md`. Existing seven initial-send records are unchanged; the fourth wave adds two new prospects and a reply within The Brief Review thread.
 
 ## Reusable verified first-party assets
