@@ -14,6 +14,8 @@
 
 **Twelfth-wave purchasing expansion, 2026-10-24:** Sports Vista USA and S&S Worldwide purchasing each received one initial supplier-fit/document inquiry at 00:22 Asia/Shanghai after a live duplicate check. Gmail confirmed both sends and an exact-recipient Sent search returned two messages. These are two purchasing/reseller prospects, not two editorial placements, and bring total distinct channel prospects to twenty-three. No partnership, supplier approval or order is confirmed. Official routes and exact copy: `docs/marketing/channel-expansion-wave12-2026-10-24.md`.
 
+**Thirteenth-wave preparation checkpoint, 2026-10-24:** Franklin Sports and Pro Therapy Supplies sourcing routes were verified, but neither is a confirmed new contact. The Franklin email is populated in a composer with no Send click. One Pro Therapy Supplies contact-form attempt failed human verification; an official-email fallback is prepared, not sent. Gmail explicitly became offline, making duplicate results partial. Confirmed contacts remain twenty-three. Recovery must recheck all mail and reuse the existing composer before any dispatch. Details and exact copy: `docs/marketing/channel-expansion-wave13-2026-10-24.md`.
+
 **Messaging update, 2026-10-23:** Lead future copy with substantial noise reduction, as clarified by the owner. The preparation pitches below are revised future-use variants, not transcripts or new dispatches. See `docs/marketing/noise-reduction-messaging-2026-10-23.md`. Existing seven initial-send records are unchanged; the fourth wave adds two new prospects and a reply within The Brief Review thread.
 
 ## Reusable verified first-party assets
