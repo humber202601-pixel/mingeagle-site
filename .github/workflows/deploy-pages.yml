@@ -500,6 +500,9 @@ jobs:
               print('PASS real served buyer pathways',page)
           PY
 
+      - name: Verify customer feedback content and disclosure after all site builders
+        run: node scripts/check-customer-feedback.cjs
+
       - name: Verify live pricing JSON and calculator HTTP responses
         run: |
           python - <<'PY'
