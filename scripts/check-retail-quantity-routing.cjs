@@ -9,6 +9,20 @@ assert.deepEqual(policy.wholesale.estimatedSeaDeliveryDays,{min:25,max:30});
 for(const file of ['public/retail-cart.js','public/retail-shipping.js']){
  cp.execFileSync(process.execPath,['--check',file],{stdio:'pipe'});
 }
+cp.execFileSync(process.execPath,['--check','public/retail-buy.js'],{stdio:'pipe'});
+const picker=fs.readFileSync('public/retail-buy.js','utf8');
+assert(picker.includes('const projectedTotal=validQuantity?qtyOf()+n:NaN;'),
+ 'Product picker must account for the existing cart plus the proposed quantity');
+assert(picker.includes("wholesaleQty?'WHOLESALE · 10+ UNITS'"),
+ '10+ projected cart units must be labeled wholesale at the product selector');
+assert(picker.includes("add.textContent=wholesaleQty?'Add to quote cart':retailEligible?'Add to cart':'Add to quote cart'"),
+ '10+ or quote-only SKUs must use a quote-cart CTA, not a retail-cart CTA');
+assert(picker.includes("quantity.addEventListener('input',update)"),
+ 'Quantity routing copy must update while the buyer edits the quantity');
+assert(picker.includes('Your cart would contain '+ ' +projectedTotal+ ' +' units. 10+ items require a sea-freight wholesale quote'),
+ '10+ selection must explain the sea-freight quote route');
+assert(picker.includes('retailEligible=directSku&&validQuantity&&projectedTotal<=9'),
+ 'Direct retail CTA must only appear for eligible SKUs when projected total stays below 10');
 const cart=fs.readFileSync('public/retail-cart.js','utf8');
 assert.equal((cart.match(/function redraw\(/g)||[]).length,0,'No stale duplicated cart implementation');
 assert.equal((cart.match(/function render\(/g)||[]).length,1,'One current cart implementation');
