@@ -11,6 +11,10 @@ for(const file of ['public/retail-cart.js','public/retail-shipping.js']){
 }
 cp.execFileSync(process.execPath,['--check','public/retail-buy.js'],{stdio:'pipe'});
 const picker=fs.readFileSync('public/retail-buy.js','utf8');
+for(const file of ['public/index.html','public/products.html','public/silent-basketball.html','public/fabric-silent-basketball.html','public/weighted-flocked-basketball.html','public/silent-soccer.html']){
+ assert(fs.readFileSync(file,'utf8').includes('retail-buy.js?v=20261023-quantity-boundary1'),
+  file+' must reference the cache-busted quantity routing script');
+}
 assert(picker.includes('const projectedTotal=validQuantity?qtyOf()+n:NaN;'),
  'Product picker must account for the existing cart plus the proposed quantity');
 assert(picker.includes("wholesaleQty?'WHOLESALE · 10+ UNITS'"),
