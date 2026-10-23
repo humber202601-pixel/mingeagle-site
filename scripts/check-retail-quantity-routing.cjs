@@ -19,7 +19,7 @@ assert(picker.includes("add.textContent=wholesaleQty?'Add to quote cart':retailE
  '10+ or quote-only SKUs must use a quote-cart CTA, not a retail-cart CTA');
 assert(picker.includes("quantity.addEventListener('input',update)"),
  'Quantity routing copy must update while the buyer edits the quantity');
-assert(picker.includes('Your cart would contain '+ ' +projectedTotal+ ' +' units. 10+ items require a sea-freight wholesale quote'),
+assert(picker.includes("Your cart would contain '+projectedTotal+' units. 10+ items require a sea-freight wholesale quote"),
  '10+ selection must explain the sea-freight quote route');
 assert(picker.includes('retailEligible=directSku&&validQuantity&&projectedTotal<=9'),
  'Direct retail CTA must only appear for eligible SKUs when projected total stays below 10');
