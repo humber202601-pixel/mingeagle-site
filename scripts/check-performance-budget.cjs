@@ -22,9 +22,15 @@ function gather(folder,prefix=''){
 const all=gather(root),images=all.filter(x=>/^assets\/.*\.(?:webp|jpe?g|png)$/i.test(x.name));
 const scripts=all.filter(x=>/\.js$/i.test(x.name));
 const sum=arr=>arr.reduce((total,f)=>total+f.bytes,0);
-const totals={all:sum(all),images:sum(images),js:sum(scripts)};
+// Customer proof is opt-in/lazy media, separately capped; existing storefront budgets remain unchanged.
+const customerMedia=all.filter(x=>/^assets\/customer-reviews\//.test(x.name));
+const customerImages=images.filter(x=>/^assets\/customer-reviews\//.test(x.name));
+const totals={all:sum(all)-sum(customerMedia),images:sum(images)-sum(customerImages),js:sum(scripts)};
 const violations=[];
 const bound=(label,value,max)=>{if(value>max)violations.push(label+': '+value+' > '+max+' raw bytes')};
+bound('customer review media collection',sum(customerMedia),2_000_000);
+for(const file of customerMedia)bound(file.name,file.bytes,/\.mp4$/i.test(file.name)?1_750_000:80_000);
+console.log('Lazy customer review media: '+sum(customerMedia)+' bytes; separate 2 MB cap; videos preload=none.');
 bound('public artifact',totals.all,LIMITS.totalPublic);
 bound('first-party images total',totals.images,LIMITS.imagesTotal);
 bound('first-party scripts total',totals.js,LIMITS.jsTotal);

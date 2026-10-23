@@ -1,6 +1,8 @@
 const { cpSync, existsSync, mkdirSync, rmSync } = require("node:fs");
 const { resolve } = require("node:path");
 
+require("node:child_process").execFileSync(process.execPath, ["scripts/build-customer-reviews.cjs"], {stdio:"inherit"});
+
 const source = resolve("public");
 const output = resolve("dist");
 
