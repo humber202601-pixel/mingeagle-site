@@ -65,18 +65,26 @@ function picker(id,variant){
  function update(){
   const selected=size.field.value.replace('No. ','');
   const sku=id.toUpperCase()+'-S'+selected,unit=store.unitPrice(sku);
-  const directCheckout=DIRECT_CHECKOUT_SKUS.has(sku);
-  eyebrow.textContent=directCheckout?'SHOP RETAIL · 1–9 ELIGIBLE UNITS':'QUOTE PATH · DELIVERY CONFIRMATION';
-  add.textContent=directCheckout?'Add to cart':'Add to quote cart';
-  price.textContent='Product price: '+(unit===null?'Unavailable':format(unit))+' USD / item';
+  const directSku=DIRECT_CHECKOUT_SKUS.has(sku);
   const n=Number(quantity.value);
-  note.textContent=!directCheckout?
-   'This size is not eligible for direct card checkout. Add it to the cart to request a confirmed delivered-price quote.':
-   n===1?'US one-item air parcel price is confirmed in the cart; final sales tax is shown before payment.':
-   n>=10?'10+ total units: sea-freight wholesale quote required; discounts are confirmed by sales.':
-   'For 2–9 eligible units, each set ships separately and the confirmed per-unit freight is added in the cart.';
+  const validQuantity=Number.isSafeInteger(n)&&n>=1&&n<=10000;
+  const projectedTotal=validQuantity?qtyOf()+n:NaN;
+  const wholesaleQty=validQuantity&&projectedTotal>=10;
+  const retailEligible=directSku&&validQuantity&&projectedTotal<=9;
+  eyebrow.textContent=!validQuantity?'CHOOSE A VALID QUANTITY':
+   wholesaleQty?'WHOLESALE · 10+ UNITS':
+   retailEligible?'SHOP RETAIL · 1–9 ELIGIBLE UNITS':'QUOTE PATH · DELIVERY CONFIRMATION';
+  add.textContent=wholesaleQty?'Add to quote cart':retailEligible?'Add to cart':'Add to quote cart';
+  price.textContent='Product price: '+(unit===null?'Unavailable':format(unit))+' USD / item';
+  note.textContent=!validQuantity?'Enter a whole number of items between 1 and 10,000.':
+   wholesaleQty?'Your cart would contain '+projectedTotal+' units. 10+ items require a sea-freight wholesale quote; estimated delivery is 25–30 days after dispatch.':
+   !directSku?'This size is not eligible for direct card checkout. Add it to the cart to request a confirmed delivered-price quote.':
+   projectedTotal===1?'US one-item air parcel price is confirmed in the cart; final sales tax is shown before payment.':
+   'Your cart would contain '+projectedTotal+' eligible units. Each set ships separately and confirmed per-unit freight is added in the cart.';
  }
- for(const el of [size.field,color.field,quantity])el.addEventListener('change',update);
+ for(const el of [size.field,color.field])el.addEventListener('change',update);
+ quantity.addEventListener('input',update);
+ quantity.addEventListener('change',update);
  const requestedSize=new URL(window.location.href).searchParams.get('size');
  if(variant==='detail'&&product.sizes.includes(requestedSize)){
   size.field.value='No. '+requestedSize;
