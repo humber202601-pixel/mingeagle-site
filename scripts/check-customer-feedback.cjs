@@ -42,3 +42,48 @@ for(const [name,html,expectedCount] of [['homepage',home,3],['product page',prod
  for(const quote of quotes)assert(positiveQuoteAllowlist.has(quote),name+' contains an unapproved/non-curated customer quote: '+quote);
 }
 console.log('PASS selected customer feedback: exact source excerpts, source links, transparency disclosure, no fabricated aggregate star rating, responsive styles.');
+
+async function verifyLivePage(name, baseUrl, requiredQuotes) {
+ let lastError;
+ for (let attempt = 1; attempt <= 5; attempt++) {
+  try {
+   const url = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'feedback_release_check=' + Date.now() + '_' + attempt;
+   const response = await fetch(url, { cache: 'no-store', redirect: 'follow' });
+   assert(response.ok, name + ' live page HTTP ' + response.status);
+   const html = await response.text();
+   assert(html.includes('id="customer-feedback"'), name + ' live page is missing the customer-feedback section');
+   assert(html.includes('Selected positive excerpts from written feedback on our TikTok Shop listing'), name + ' live page is missing the source disclosure');
+   for (const quote of requiredQuotes) assert(html.includes(quote), name + ' live page is missing approved positive excerpt: ' + quote);
+   const section = html.match(/<section\b(?=[^>]*\bid="customer-feedback")[^>]*>[\s\S]*?<\/section>/i)?.[0];
+   assert(section, name + ' live feedback section could not be isolated');
+   const displayedQuotes = [...section.matchAll(/<blockquote>([\s\S]*?)<\/blockquote>/g)].map(m => m[1].replace(/\s+/g, ' ').trim());
+   assert.equal(displayedQuotes.length, name === 'homepage' ? 3 : 6, name + ' live page has an unexpected number of feedback quotes');
+   for (const quote of displayedQuotes) assert(positiveQuoteAllowlist.has(quote), name + ' live page contains an unapproved quote: ' + quote);
+   console.log('PASS live customer feedback:', name, response.url, 'approved quotes:', displayedQuotes.length);
+   return;
+  } catch (error) {
+   lastError = error;
+   if (attempt < 5) await new Promise(resolve => setTimeout(resolve, 1500));
+  }
+ }
+ throw lastError;
+}
+
+(async () => {
+ await verifyLivePage('homepage', 'https://www.mingeagle.com/', [
+  'great quality super quiet barely makes any noise at all',
+  'The ball is really amazing it really does not make a lot of noise',
+  'Really well and soft and bouncy'
+ ]);
+ await verifyLivePage('product page', 'https://www.mingeagle.com/silent-basketball.html', [
+  'great quality super quiet barely makes any noise at all',
+  'The ball is really amazing it really does not make a lot of noise',
+  'Its amazing! Performance: Very good',
+  'Really well and soft and bouncy',
+  'this is amazing u hear no sound when dribbling the ball',
+  'Absolutely great. The silent ball is an 5 out of 5'
+ ]);
+})().catch(error => {
+ console.error('FAIL live customer feedback verification:', error);
+ process.exitCode = 1;
+});
