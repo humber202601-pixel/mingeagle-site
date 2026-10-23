@@ -19,6 +19,14 @@ for(const root of document.querySelectorAll('[data-review-browser]')){
  root.querySelector('[data-review-sort]').addEventListener('change',e=>{sort=e.target.value;limit=PAGE_SIZE;render();});
  more.addEventListener('click',()=>{limit+=PAGE_SIZE;render();});render();
 }
+// Posters only until a visitor opens a video; the gallery never preloads MP4s.
+for(const root of document.querySelectorAll('[data-buyer-videos]')){
+ const cards=[...root.querySelectorAll('[data-buyer-video-card]')];
+ const more=root.querySelector('[data-buyer-video-more]'),status=root.querySelector('[data-buyer-video-status]');
+ let limit=3;
+ const render=()=>{cards.forEach((card,i)=>card.hidden=i>=limit);more.hidden=limit>=cards.length;status.textContent='Showing '+Math.min(limit,cards.length)+' of '+cards.length+' selected customer videos';more.innerHTML='View more videos ('+Math.min(3,cards.length-limit)+') <span aria-hidden="true">↓</span>';};
+ more.addEventListener('click',()=>{const firstNew=cards[limit];limit+=3;render();firstNew?.querySelector('button')?.focus({preventScroll:true});});render();
+}
 for(const root of document.querySelectorAll('.reviewProof')){
  const dialog=root.querySelector('dialog'),host=dialog?.querySelector('[data-review-media]'),caption=dialog?.querySelector('[data-review-caption]');let opener;
  if(!dialog||!host)continue;
