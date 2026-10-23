@@ -189,3 +189,10 @@ See `docs/marketing/organic-visibility-checkpoint-2026-10-23.md` for the current
 - Index summary (report updated October 16): 18 indexed, 17 not indexed. Two old apex school/wholesale URLs had redirect errors from October 10 crawls. Both now followed one 301 to the corresponding www page and returned 200 in an ordinary HTTP check. Submitted Validate fix once; native receipt says validation started on October 23. Validation has not passed yet.
 - Inspected https://www.mingeagle.com/procurement.html: discovered, not indexed, with no recorded crawl. Google's live test at October 23 00:03 local time said the URL can be indexed. Requested indexing once and received the explicit priority-crawl-queue confirmation. This is a request receipt, not an indexed result. Do not immediately resubmit it.
 - No website source, DNS, payment settings, paid ads or real customer records were changed. Front Pack final announcement remains unsubmitted pending real HQ information and verified logo upload.
+
+
+## 2026-10-23 morning — product indexing requests and stronger product messaging
+
+- Weighted flocked basketball, fabric-cover basketball and silent soccer each passed Google's live URL test, then received an explicit indexing-request confirmation once. Test times were 08:55, 08:57 and 08:59 Asia/Shanghai respectively. Stored results were unknown to Google for weighted, discovered/not indexed for fabric and soccer. Actual indexing remains pending; do not repeat these requests merely to move the queue.
+- All three exact www product URLs returned HTTP 200, self-canonical and index/follow in a separate ordinary HTTP check. The inspection details are appended to `organic-visibility-checkpoint-2026-10-23.md`.
+- Owner correction: the silent balls achieve substantial noise reduction. Future outreach now leads with that qualitative benefit. Updated reusable preparation copy, the unsent Front Pack announcement and the public editorial fact sheet. The current wording is in `noise-reduction-messaging-2026-10-23.md`. Sent email transcripts, send counts and publication status remain unchanged. No new email or Front Pack submission was made during this checkpoint.

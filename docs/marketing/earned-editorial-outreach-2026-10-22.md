@@ -2,6 +2,8 @@
 
 **Current status: seven editorial/vendor eligibility emails sent; awaiting substantive replies.** Verified dispatch details are in `docs/marketing/editorial-dispatch-log-2026-10-22.md`, `docs/marketing/editorial-expansion-wave2-2026-10-22.md` and `docs/marketing/editorial-expansion-wave3-2026-10-22.md`. The initial preparation status was **RESEARCHED AND DRAFTED, NOT SENT**; it is superseded for Recreation Management, The Brief Review, Sports Feel Good Stories, NRPA Parks & Recreation, PRB+ / Northstar Publishing, Athletic Business and Campus Rec Magazine. Campus Rec returned an automated out-of-office response, not an editorial decision. Front Pack's zero-total free gate is completed, but its final announcement remains a draft, not submitted. No third party accepted coverage, no backlink, publication, endorsement, shipment, payment or earned AI citation has been obtained from these leads. The owner has asked to pursue organic B2B credibility without repeating website SEO builds. This is a small editorial test—not bulk email outreach.
 
+**Messaging update, 2026-10-23:** Lead future copy with substantial noise reduction, as clarified by the owner. The preparation pitches below are revised future-use variants, not transcripts or new dispatches. See `docs/marketing/noise-reduction-messaging-2026-10-23.md`. Existing seven send records are unchanged.
+
 ## Reusable verified first-party assets
 
 - Field-by-field editorial submission pack (drafts, not sent): `docs/marketing/editorial-submission-pack-2026-10-22.md`
@@ -33,7 +35,7 @@ Hello Recreation Management editorial team,
 
 I'm contacting you as a representative of MING EAGLE COMMERCE LLC, a supplier of soft non-inflatable indoor basketball and soccer options. Your coverage of selecting and replacing recreation equipment made me think a sample-first perspective could be useful for staff planning indoor activity spaces.
 
-We offer four product families, including light foam basketball sets with compact hoops, a fabric-covered option, a weighted-feel handling model, and indoor soccer. These aren't regulation competition balls or a promise of silence. Indoor suitability depends on the actual age group, supervision, floor and activity.
+MING EAGLE silent balls substantially reduce play noise, making indoor practice and recreation noticeably quieter. Our four product families include flocked basketball sets with compact hoops, a fabric-covered option, a weighted-feel handling model, and indoor soccer. A small model-specific trial lets recreation staff assess sound, handling and suitability in their intended space.
 
 For editorial fact-checking we publish a first-party catalog and an open, blank repeat-trial comparison method that reviewers can adapt independently:
 https://www.mingeagle.com/editorial-review-facts.txt
@@ -53,9 +55,9 @@ Business correspondence: mingeaglecommerce@gmail.com
 
 Hello Sports Feel Good Stories team,
 
-I represent MING EAGLE COMMERCE LLC. We're considering whether our non-inflatable flocked silent-style basketball set with a compact hoop might be useful for an independently evaluated family indoor-play article.
+I represent MING EAGLE COMMERCE LLC. Our flocked silent basketball substantially reduces dribbling and bounce noise, making indoor practice noticeably quieter. We would welcome an independent family indoor-play review of the non-inflatable ball and compact hoop, covering noise reduction, handling and play experience.
 
-The material can reduce some sharp contact impact relative to conventional inflated-ball play, but it does not remove floor vibration or make play perfectly silent. It is not a regulation practice ball and needs suitable, supervised use.
+Reviewers can compare it with a conventional inflated basketball under consistent conditions and assess room, floor and activity suitability.
 
 Our facts and a blank repeat-trial log are available here:
 https://www.mingeagle.com/editorial-review-facts.txt
@@ -82,4 +84,4 @@ The existing MING EAGLE no-bounce school activity at https://www.mingeagle.com/f
 
 ## Pitch C — The Brief Review (product-review form; draft, not sent)
 
-The field-by-field form answers, cautious product description, price wording, official image link and conditional sample logistics are maintained in `docs/marketing/editorial-submission-pack-2026-10-22.md`. Do not claim a form was submitted until the site provides a real confirmation or a message is actually sent through a verified account.
+The field-by-field form answers, noise-reduction-led product description, price wording, official image link and conditional sample logistics are maintained in `docs/marketing/editorial-submission-pack-2026-10-22.md`. Do not claim a form was submitted until the site provides a real confirmation or a message is actually sent through a verified account.

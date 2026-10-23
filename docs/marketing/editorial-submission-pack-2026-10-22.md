@@ -1,6 +1,8 @@
 # MING EAGLE — editorial submission pack (2026-10-22)
 
-**Operational update: two editorial emails sent; awaiting replies.** See `docs/marketing/editorial-dispatch-log-2026-10-22.md` for verified recipients, subjects and send times. The Brief Review form attempt has no confirmed receipt; its email is the verified dispatch route. The field-ready drafts below remain preparation copy. No reviewer has accepted a sample; no sample has been shipped; no independent review or backlink is claimed.
+**Messaging revision: 2026-10-23.** The owner confirmed substantial noise reduction as the central product benefit. The preparation copy below is revised for future use; it is not a transcript of previously sent messages. See `docs/marketing/noise-reduction-messaging-2026-10-23.md` for the current wording. Do not resend an introduction merely because this copy changed.
+
+**Historical operational update: two editorial emails sent in the first wave; awaiting replies.** See `docs/marketing/editorial-dispatch-log-2026-10-22.md` for verified recipients, subjects and send times. The Brief Review form attempt has no confirmed receipt; its email is the verified dispatch route. The field-ready drafts below remain preparation copy. No reviewer has accepted a sample; no sample has been shipped; no independent review or backlink is claimed.
 
 ## 1. Recreation Management — B2B editorial/product-news inquiry
 
@@ -16,7 +18,7 @@ Hello Recreation Management editorial team,
 
 I represent MING EAGLE COMMERCE LLC, a supplier of soft, non-inflatable indoor basketball and soccer options. I am checking whether a concise supplier product-news note or an equipment-selection resource would fit your coverage for recreation facilities, school programs, camps, and indoor activity operators.
 
-Our range includes a flocked basketball set with a compact mini hoop, a fabric-covered basketball set, a weighted-feel handling model, and a soft indoor soccer ball. These products are not regulation competition-ball substitutes and we do not claim that they make play silent or provide a measured decibel reduction. Actual suitability depends on the activity, users, floor and room.
+MING EAGLE silent balls substantially reduce dribbling and bounce noise, making indoor practice noticeably quieter. Our range includes a flocked basketball set with a compact mini hoop, a fabric-covered basketball set, a weighted-feel handling model, and a soft indoor soccer ball. Buyers can evaluate the exact model in their intended room and on their floor before ordering in bulk. These products serve indoor recreation and handling activities rather than regulation competition.
 
 For factual review, our site provides product specifications plus an open sample-comparison protocol and blank trial log. The method does not contain pre-filled test results or claim an independent endorsement:
 - Product facts: https://www.mingeagle.com/editorial-review-facts.txt
@@ -51,7 +53,7 @@ mingeaglecommerce@gmail.com
 
 **What makes it different?**
 
-MING EAGLE's flocked indoor basketball set combines a soft, non-inflatable basketball with a compact mini hoop for controlled family indoor activity. Published sizes are No. 3, No. 5 and No. 7; listed colors are orange, blue, green and yellow. It is designed for a different use case from a conventional inflated regulation basketball, not as a replacement for competitive play. We make no guarantee of silence or quantified noise reduction: floor vibration and impact noise can remain, depending on the room, floor and how the ball is used.
+MING EAGLE's flocked silent basketball substantially reduces dribbling and bounce noise, making indoor practice noticeably quieter. The set combines a soft, non-inflatable basketball with a compact mini hoop for family indoor activity. Published sizes are No. 3, No. 5 and No. 7; listed colors are orange, blue, green and yellow. Reviewers can compare its sound, handling and rebound with a conventional inflated basketball under consistent conditions. Actual sound and floor vibration depend on the room, floor and activity; the set is intended for indoor recreation rather than regulation competition.
 
 **Specifications / media assets:**
 
@@ -79,7 +81,7 @@ For the size No. 3 set, the website currently shows a US one-item delivered benc
 
 Hello The Brief Review team,
 
-I represent MING EAGLE COMMERCE LLC. Would your editors consider a flocked, non-inflatable indoor basketball set with a compact mini hoop for independent product review? It is intended for controlled indoor family activity, not regulation competition. We do not claim that it makes play silent or provide an independently measured noise-reduction figure.
+I represent MING EAGLE COMMERCE LLC. Our flocked silent basketball substantially reduces dribbling and bounce noise, making indoor practice noticeably quieter. Would your editors consider the non-inflatable ball and compact mini-hoop set for an independent review of its noise reduction, handling and indoor-play experience?
 
 Product details and photos are here:
 https://www.mingeagle.com/silent-basketball.html

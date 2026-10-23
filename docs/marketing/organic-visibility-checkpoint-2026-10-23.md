@@ -94,3 +94,18 @@ GSC Wizard's paid connector reports an expired trial/subscription; it was not up
 ## Next evidence needed
 
 Wait for the redirect validation outcome and a new procurement-page index result before claiming success. Do not repeatedly request the same URL. Restore access to Metricool's original MING EAGLE brand to reconcile saved social publications and finish the existing procurement drafts. Keep publication, impressions, clicks, qualified RFQs and paid orders as separate outcomes. Private session tokens, inspection IDs, account identifiers and screenshots are excluded from this public repository.
+
+
+## Core product follow-through — October 23 morning
+
+Official URL inspections and live tests were completed for the three product pages below. Times are the Google UI's Asia/Shanghai display on October 23, 2026. Each page received one explicit **已请求编入索引** priority-crawl-queue confirmation after its live eligibility test; no repeat request was made for procurement or these products.
+
+| Product URL path | Stored index result before request | Live-test time and eligibility | Live structured-data findings | Request result |
+|---|---|---|---|---|
+| /weighted-flocked-basketball.html | Not indexed; URL unknown to Google; no recorded crawl, detected sitemap or referring page in this inspection | 08:55; can be indexed | 1 valid product-snippet item; 4 valid merchant-listing items; non-critical issues indicated | Request accepted; actual indexing pending |
+| /fabric-silent-basketball.html | Discovered, not indexed; sitemap.xml detected; no recorded crawl or referring page | 08:57; can be indexed | 1 valid product-snippet item; 3 valid merchant-listing items; non-critical issues indicated | Request accepted; actual indexing pending |
+| /silent-soccer.html | Discovered, not indexed; sitemap.xml detected; no recorded crawl or referring page | 08:59; can be indexed | 1 valid product-snippet item; 1 valid merchant-listing item; non-critical issues indicated | Request accepted; actual indexing pending |
+
+All URLs use https://www.mingeagle.com/. Separate ordinary HTTP GET checks returned 200 directly, each with one matching self-canonical URL, an index/follow robots meta directive and no X-Robots-Tag header. No product-page source or redirect rule was changed. A missing sitemap/referrer in a stored inspection does not prove the link is absent today. Valid rich-result items are eligibility findings, not proof of Merchant Center activation, search impressions or orders. Private inspection identifiers and screenshots are excluded from this repository.
+
+Separately, the owner clarified that substantial noise reduction is a core product benefit. Updated future editorial copy and the public supplier fact sheet accordingly; see `noise-reduction-messaging-2026-10-23.md`. Previously sent messages were not changed or resent, and no numeric acoustic result or independent endorsement was invented.
