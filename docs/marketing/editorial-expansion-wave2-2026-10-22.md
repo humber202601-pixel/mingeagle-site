@@ -1,5 +1,7 @@
 # MING EAGLE — second editorial expansion wave, 2026-10-22
 
+**Historical dispatch record:** Sent copy below remains as originally recorded. For future outreach, use the owner-confirmed substantial-noise-reduction wording in `noise-reduction-messaging-2026-10-23.md`; do not treat the older conservative phrasing as the current product positioning.
+
 | Organization | Official route | Actual stage | Evidence / next action |
 |---|---|---|---|
 | Sports Feel Good Stories | editor@sportsfeelgoodstories.com; https://www.sportsfeelgoodstories.com/contact-us/ | Email sent, awaiting reply | Gmail displayed "邮件已发送" and the recipient-scoped results showed the exact subject at 2026-10-22 14:29 Asia/Shanghai: "Review-category fit? Soft indoor basketball and mini-hoop set". No delivery confirmation, review, publication, shipment or backlink is claimed. |
