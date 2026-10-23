@@ -1,6 +1,8 @@
 # MING EAGLE — sixth expansion checkpoint, 2026-10-23
 
-## Actual outcomes
+**Recovery update, 2026-10-23 12:04 Asia/Shanghai:** Team Insight was sent successfully after confirming the previous composer was empty and no previous matching message appeared. The original unsent state below is historical. The recipient-scoped message result and screenshot show the new subject at 12:04. Distinct initial prospects now total thirteen. Playground Professionals was not resent. Details: `editorial-send-recovery-2026-10-23.md`.
+
+## Actual outcomes (initial checkpoint)
 
 Sender for the verified outgoing request: mingeaglecommerce@gmail.com.
 
