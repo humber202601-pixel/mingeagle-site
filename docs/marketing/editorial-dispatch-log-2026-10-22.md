@@ -99,3 +99,8 @@ The Toy Book Editor-in-Chief James Zahn (james@toybook.com) received “Unpaid e
 ## Wave 15 — October 24, 11:02–11:06 Asia/Shanghai
 
 Eight new individually verified prospects contacted once: aNb Media/TFE, Toy World, Toys n Playthings/Lema, Sports Insight, School Health, Discount School Supply, Pacifier Kids Boutique and Gopher Sport. Each Gmail send confirmed; exact-recipient Sent query returned eight conversations. School Health automated acknowledgment at 11:05 asks for 5+ business days, not a buying decision. Total 34 distinct initial attempts (26 editorial/directory, 8 purchasing/reseller). Evidence and exact bodies: `docs/marketing/channel-expansion-wave15-2026-10-24.md`. No delivery, coverage, listing, approval or partnership inferred.
+
+
+## Wave 16 — October 24, 11:37–11:42 Asia/Shanghai
+
+Ten new purchasing/reseller prospects contacted once: School Specialty (including Nasco/FlagHouse counted once), Lakeshore Learning, Athletic Stuff, Sports Facilities Group, Gear Up Sports, Anthem Sports, Sports Unlimited, School Outfitters, Morley Athletic and Mid-America Sports Advantage. Exact public addresses and complete outgoing copy were read back before sending. Each Gmail success observed; combined exact-recipient Sent query returned ten conversations. Immediate focused Google bounce-notice query returned no matches, not delivery proof. Cumulative 44 distinct initial attempts (26 editorial/directory, 18 purchasing/reseller). All are sourcing-routing questions through general public contacts; no supplier approval, buying interest, order, fee, sample shipment or partnership. Exact copy and source limits: `docs/marketing/channel-expansion-wave16-2026-10-24.md`.
