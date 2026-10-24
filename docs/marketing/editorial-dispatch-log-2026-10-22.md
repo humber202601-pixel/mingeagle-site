@@ -109,3 +109,8 @@ Ten new purchasing/reseller prospects contacted once: School Specialty (includin
 ## Wave 17 — October 24, 11:48–11:53 Asia/Shanghai
 
 Ten new purchasing/reseller organizations contacted once: Toledo PE Supply, Team Sports Dallas, Legends Athletic Supply, Pro Athletic Supply, ST1 Sports, Muddy Locker Sports, HoopsKing, Epic Sports, Net World Sports and BSN SPORTS/US Games counted once. All ten Gmail sends confirmed; exact-recipient Sent query showed ten conversations. HoopsKing automatic receipt at 11:52 is not buying interest. Total: 54 distinct initial attempts (26 editorial/directory, 28 purchasing/reseller). Source and duplicate checks, exact bodies and limitations: `docs/marketing/channel-expansion-wave17-2026-10-24.md`. No purchase, supplier approval, listing, shipment, fee or commercial commitment.
+
+
+## Wave 18 — October 24, 12:03–12:06 Asia/Shanghai
+
+Nine new purchasing/reseller prospects contacted once: Baker’s Sports/Alli Sports, Valley Athletics, Burghardt Sporting Goods, 323 Sports, Prime Time Sporting Goods, Geist Sporting Goods, Sports Spectrum (Tennessee), Tyler Athletics and Sports World Inc. Baker’s David Delegal (Director of Purchasing) and Valley’s Kiel Bollenbaugh (Purchaser, Products & Inventory) were verified on official pages. Related Alli dealers count once. All nine Gmail success notices observed; exact-recipient Sent search showed nine conversations. Immediate matching Google bounce search returned no matches, not delivery proof. Cumulative scope 63 distinct initial attempts (26 editorial/directory, 37 purchasing/reseller). Exact copy and evidence limits: `docs/marketing/channel-expansion-wave18-2026-10-24.md`. No supplier approval, order, shipment or partnership inferred.
