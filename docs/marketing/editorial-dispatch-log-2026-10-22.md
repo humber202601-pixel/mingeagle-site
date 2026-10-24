@@ -104,3 +104,8 @@ Eight new individually verified prospects contacted once: aNb Media/TFE, Toy Wor
 ## Wave 16 — October 24, 11:37–11:42 Asia/Shanghai
 
 Ten new purchasing/reseller prospects contacted once: School Specialty (including Nasco/FlagHouse counted once), Lakeshore Learning, Athletic Stuff, Sports Facilities Group, Gear Up Sports, Anthem Sports, Sports Unlimited, School Outfitters, Morley Athletic and Mid-America Sports Advantage. Exact public addresses and complete outgoing copy were read back before sending. Each Gmail success observed; combined exact-recipient Sent query returned ten conversations. Immediate focused Google bounce-notice query returned no matches, not delivery proof. Cumulative 44 distinct initial attempts (26 editorial/directory, 18 purchasing/reseller). All are sourcing-routing questions through general public contacts; no supplier approval, buying interest, order, fee, sample shipment or partnership. Exact copy and source limits: `docs/marketing/channel-expansion-wave16-2026-10-24.md`.
+
+
+## Wave 17 — October 24, 11:48–11:53 Asia/Shanghai
+
+Ten new purchasing/reseller organizations contacted once: Toledo PE Supply, Team Sports Dallas, Legends Athletic Supply, Pro Athletic Supply, ST1 Sports, Muddy Locker Sports, HoopsKing, Epic Sports, Net World Sports and BSN SPORTS/US Games counted once. All ten Gmail sends confirmed; exact-recipient Sent query showed ten conversations. HoopsKing automatic receipt at 11:52 is not buying interest. Total: 54 distinct initial attempts (26 editorial/directory, 28 purchasing/reseller). Source and duplicate checks, exact bodies and limitations: `docs/marketing/channel-expansion-wave17-2026-10-24.md`. No purchase, supplier approval, listing, shipment, fee or commercial commitment.
