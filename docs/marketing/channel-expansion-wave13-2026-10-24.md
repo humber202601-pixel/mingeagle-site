@@ -1,5 +1,7 @@
 # MING EAGLE — thirteenth expansion checkpoint, 2026-10-24
 
+**Subsequent delivery correction, October 24 morning:** The Pro Therapy Supplies message to customerservice@protherapysupplies.com hard-bounced at 01:12 (address not found). Its Sent record proves an outgoing attempt only. Stop using that address. The same inquiry was routed once to the independently verified official support@protherapysupplies.com address at 10:00. It remains one prospect, with alternate delivery unconfirmed. See `docs/marketing/channel-expansion-wave14-2026-10-24.md`.
+
 ## Send recovery reconciled — October 24, 01:05–01:12 Asia/Shanghai
 
 **Confirmed distinct channel prospects now total twenty-five: twenty-one editorial/vendor-directory prospects and four purchasing/reseller prospects.** The owner reported restoring the mailbox twice during recovery. Early page reads timed out, the original populated-draft tab was later closed, and a fresh business-mail page was used in the same selected browser. Current search results continued to display an offline/partial-results warning, so no complete online duplicate search or reply reconciliation is claimed.
@@ -11,7 +13,7 @@ Pro Therapy Supplies had no displayed matching prior email in the available resu
 | Recipient | Exact subject | Observed Sent time (Asia/Shanghai) | Current stage |
 |---|---|---|---|
 | cs@franklinsports.com | Please route to sourcing: MING EAGLE quieter indoor ball range | 2026-10-24 01:05 | EMAIL_SENT_AWAITING_REPLY; existing send reconciled, not resent |
-| customerservice@protherapysupplies.com | Please route to buying: quieter indoor sports-ball supplier eligibility | 2026-10-24 01:12 | EMAIL_SENT_AWAITING_REPLY; one new email Send action and success notice |
+| customerservice@protherapysupplies.com | Please route to buying: quieter indoor sports-ball supplier eligibility | 2026-10-24 01:12 | EMAIL_SENT_THEN_HARD_BOUNCED; see subsequent delivery correction |
 
 This verifies the displayed outgoing/Sent records, and for Pro Therapy Supplies also the sent-success notice. The partial-results warning limits completeness of mailbox reconciliation; it does not establish recipient delivery, a buyer response, sourcing approval or an order. The earlier contact-form attempt remains unconfirmed and was not retried. The fallback explicitly asks that any matching form be treated as the same inquiry. No contract, sample, quote, paid service, medical claim, customer data, payment setting or website source changed.
 
