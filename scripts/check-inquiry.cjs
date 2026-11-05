@@ -8,6 +8,8 @@ const {rules,summary,buildPayload,sendPayload}=require('../public/inquiry.js');
  assert.equal(config.portalId,'247596371');
  if(config.enabled)assert.match(config.formId,/^[a-f0-9-]{36}$/);
  assert.equal(rules('General product question').purchase,false);
+ assert.equal(rules('Custom sourcing / procurement RFQ').purchase,false);
+ assert.equal(rules('Custom sourcing / procurement RFQ').message,true);
  assert.equal(rules('Order support').order,true);
  assert.equal(rules('Sample request').purchase,true);
  const data={reference:'ME-TEST',firstname:'QA TEST',email:'test@example.com',requestType:'Sample request',products:'Weighted Flocked Silent Basketball — No. 6 / Aqua Blue',quantity:'1–2 samples',country:'United States',state:'CA',company:'',customization:'Not specified',timing:'Not specified'};

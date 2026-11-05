@@ -43,7 +43,7 @@ assert.throws(()=>manifestFromStrings([xml([source[0]]),xml([source[0]])]),/dupl
 assert.throws(()=>sourceFiles('invalid-sha'),/preceding commit/);
 // Verify the real deployment sitemap inventory is unique and stays within safe IndexNow bounds.
 const deployed=manifestFromStrings(['public/sitemap.xml','public/sitemap-localized.xml'].map(p=>fs.readFileSync(p,'utf8')));
-assert.equal(deployed.size,31,'Exactly 27 canonical buyer pages + 4 native-language school guides');
+assert.equal(deployed.size,32,'Exactly 28 canonical buyer pages + 4 native-language school guides');
 for(const uri of deployed.keys()){
  const p=new URL(uri).pathname;
  assert(fs.existsSync(path.join('public',p==='/'?'index.html':p.slice(1))));
@@ -58,4 +58,4 @@ try{
  const evidence=JSON.parse(fs.readFileSync(path.join(folder,'indexnow-deployment-evidence.json'),'utf8'));
  assert.equal(evidence.status,'SKIPPED');assert.deepEqual(evidence.urls,[]);
 }finally{fs.rmSync(folder,{recursive:true,force:true})}
-console.log('PASS: IndexNow notices only changed real pages, never private URLs; 29 sitemap assets, safe preview skip, no test network calls or false indexing claims.');
+console.log('PASS: IndexNow notices only changed real pages, never private URLs; 30 sitemap assets, safe preview skip, no test network calls or false indexing claims.');

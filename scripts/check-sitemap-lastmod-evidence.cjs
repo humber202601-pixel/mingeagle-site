@@ -6,7 +6,7 @@ const xml=fs.readFileSync(path.join(dir,'sitemap.xml'),'utf8');
 const entries=[...xml.matchAll(/<url>\s*<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>\s*<\/url>/g)].map(m=>({url:m[1],date:m[2]}));
 const all=[...xml.matchAll(/<url>/g)].length;
 assert.equal(entries.length,all,'Every sitemap URL needs one explicit verified lastmod');
-assert.equal(entries.length,27,'Main sitemap must list the 27 live canonical buyer-facing pages');
+assert.equal(entries.length,28,'Main sitemap must list the 28 live canonical buyer-facing pages');
 const seen=new Set(),dates=new Map(),today=new Date().toISOString().slice(0,10);
 for(const entry of entries){
  assert(!seen.has(entry.url),'Duplicate sitemap URL: '+entry.url);seen.add(entry.url);
